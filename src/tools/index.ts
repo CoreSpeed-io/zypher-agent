@@ -1,129 +1,73 @@
-import { readFile, writeFile, readdir, stat } from 'fs/promises';
-import { join } from 'path';
-import type {
-  Tool,
-  ReadFileParams,
-  ListDirParams,
-  EditFileParams,
-} from '../types';
+import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+import type { Tool as AnthropicTool } from '@anthropic-ai/sdk/resources/messages';
 
-export class ReadFileTool implements Tool<ReadFileParams> {
-  readonly name = 'read_file';
-  readonly description = 'Read the contents of a file.';
-
-  readonly parameters = {
-    type: 'object' as const,
-    properties: {
-      filePath: {
-        type: 'string',
-        description: 'The path to the file to read.',
-      },
-      startLine: {
-        type: 'number',
-        description: 'The line number to start reading from (1-indexed).',
-        default: 1,
-      },
-      endLine: {
-        type: 'number',
-        description: 'The line number to end reading at (1-indexed, inclusive).',
-        optional: true,
-      },
-    },
-    required: ['filePath'],
-  };
-
-  async execute(params: ReadFileParams): Promise<string> {
-    try {
-      const content = await readFile(params.filePath, 'utf-8');
-      const lines = content.split('\n');
-
-      const startIdx = Math.max(0, params.startLine - 1);
-      const endIdx = params.endLine ? Math.min(lines.length, params.endLine) : lines.length;
-
-      const selectedLines = lines.slice(startIdx, endIdx);
-      return selectedLines.join('\n');
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error reading file: ${error.message}`;
-      }
-      return 'Error reading file: Unknown error';
-    }
-  }
+/**
+ * Base interface for tool parameters
+ */
+export interface BaseParams {
+  [key: string]: unknown;
 }
 
-export class ListDirTool implements Tool<ListDirParams> {
-  readonly name = 'list_dir';
-  readonly description = 'List the contents of a directory.';
+/**
+ * Base interface for all tools
+ */
+export interface Tool<P extends BaseParams = BaseParams> {
+  /**
+   * The name of the tool
+   */
+  readonly name: string;
 
-  readonly parameters = {
-    type: 'object' as const,
-    properties: {
-      dirPath: {
-        type: 'string',
-        description: 'The path to the directory to list.',
-      },
-    },
-    required: ['dirPath'],
-  };
+  /**
+   * A description of what the tool does
+   */
+  readonly description: string;
 
-  async execute(params: ListDirParams): Promise<string> {
-    try {
-      const entries = await readdir(params.dirPath);
-      const results = await Promise.all(
-        entries.map(async (entry) => {
-          const fullPath = join(params.dirPath, entry);
-          const stats = await stat(fullPath);
-          const type = stats.isDirectory() ? 'directory' : 'file';
-          const size = stats.size;
-          return `[${type}] ${entry} (${size} bytes)`;
-        })
-      );
-      return results.join('\n');
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error listing directory: ${error.message}`;
-      }
-      return 'Error listing directory: Unknown error';
-    }
-  }
+  /**
+   * The JSON schema for the tool's parameters
+   */
+  readonly parameters: AnthropicTool.InputSchema;
+
+  /**
+   * Execute the tool with the given parameters
+   */
+  execute(params: P): Promise<string>;
 }
 
-export class EditFileTool implements Tool<EditFileParams> {
-  readonly name = 'edit_file';
-  readonly description = 'Edit or create a file with the given content.';
+type InferParams<T extends z.ZodType> = z.infer<T>;
 
-  readonly parameters = {
-    type: 'object' as const,
-    properties: {
-      filePath: {
-        type: 'string',
-        description: 'The path to the file to edit.',
-      },
-      content: {
-        type: 'string',
-        description: 'The new content to write to the file.',
-      },
-      append: {
-        type: 'boolean',
-        description: 'Whether to append to the file instead of overwriting it.',
-        default: false,
-      },
+export function createTool<T extends z.ZodObject<z.ZodRawShape>>(
+  name: string,
+  description: string,
+  schema: T,
+  execute: (params: InferParams<T>) => Promise<string>,
+): Tool<InferParams<T>> {
+  // Convert Zod schema to JSON Schema
+  const jsonSchema = zodToJsonSchema(schema, { target: 'jsonSchema7' });
+
+  return {
+    name,
+    description,
+    parameters: jsonSchema as AnthropicTool.InputSchema,
+    execute: async (params: InferParams<T>) => {
+      // Validate params using Zod schema
+      const validatedParams = await schema.parseAsync(params);
+      return execute(validatedParams);
     },
-    required: ['filePath', 'content'],
   };
+}
 
-  async execute(params: EditFileParams): Promise<string> {
-    try {
-      const { filePath, content, append } = params;
-      const flag = append ? 'a' : 'w';
+// Helper function to create a tool with a simpler API
+export function defineTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
+  name: string;
+  description: string;
+  parameters: T;
+  execute: (params: InferParams<T>) => Promise<string>;
+}): Tool<InferParams<T>> {
+  return createTool(options.name, options.description, options.parameters, options.execute);
+}
 
-      await writeFile(filePath, content, { flag });
-      return `Successfully ${append ? 'appended to' : 'wrote'} file: ${filePath}`;
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error editing file: ${error.message}`;
-      }
-      return 'Error editing file: Unknown error';
-    }
-  }
-} 
+// Tool exports
+export { ReadFileTool } from './ReadFileTool';
+export { ListDirTool } from './ListDirTool';
+export { EditFileTool } from './EditFileTool';

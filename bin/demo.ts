@@ -10,9 +10,9 @@ async function main() {
     const agent = new ZypherAgent();
 
     // Register the default tools
-    agent.registerTool(new ReadFileTool());
-    agent.registerTool(new ListDirTool());
-    agent.registerTool(new EditFileTool());
+    agent.registerTool(ReadFileTool);
+    agent.registerTool(ListDirTool);
+    agent.registerTool(EditFileTool);
 
     // Example task that uses multiple tools
     const task = `
@@ -24,13 +24,11 @@ async function main() {
     `;
 
     console.log('Starting task execution...\n');
-    console.log('Task:', task, '\n');
 
     // Run the task loop
-    const messages = await agent.runTaskLoop(task);
+    await agent.runTaskLoop(task);
 
-    console.log('Task completed. Results:');
-    console.log('Messages:', messages);
+    console.log('Task completed.');
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : error);
     process.exit(1);
@@ -38,4 +36,4 @@ async function main() {
 }
 
 // Run the demo
-main(); 
+main();

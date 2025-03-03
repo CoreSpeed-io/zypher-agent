@@ -8,23 +8,29 @@ import type {
 } from '@anthropic-ai/sdk/resources/messages';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import type { Tool, ZypherAgent as IZypherAgent, ZypherAgentConfig } from './types';
+import type { Tool } from './tools';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 const DEFAULT_MAX_TOKENS = 4096;
 
-export class ZypherAgent implements IZypherAgent {
+export interface ZypherAgentConfig {
+  anthropicApiKey?: string;
+  model?: string;
+  maxTokens?: number;
+}
+
+export class ZypherAgent {
   private readonly client: Anthropic;
   private readonly _tools: Map<string, Tool>;
-  private _messages: MessageParam[];
   private readonly _system: string;
   private readonly maxTokens: number;
+  private _messages: MessageParam[]; 
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       throw new Error(
-        'API key is required. Provide it in config or set ANTHROPIC_API_KEY environment variable.'
+        'API key is required. Provide it in config or set ANTHROPIC_API_KEY environment variable.',
       );
     }
 
@@ -79,18 +85,39 @@ export class ZypherAgent implements IZypherAgent {
     }
   }
 
-  async runTaskLoop(
-    taskDescription: string,
-    maxIterations: number = 5
-  ): Promise<Message[]> {
+  public printMessage(message: MessageParam): void {
+    console.log(`\n🗣️ Role: ${message.role}`);
+    console.log('════════════════════');
+    
+    const content = Array.isArray(message.content) ? message.content : [{ type: 'text', text: message.content, citations: [] }];
+    
+    for (const block of content) {
+      if (block.type === 'text') {
+        console.log(block.text);
+      } else if (block.type === 'tool_use' && 'name' in block && 'input' in block) {
+        console.log(`🔧 Using tool: ${block.name}`);
+        console.log('Parameters:', JSON.stringify(block.input, null, 2));
+      } else if (block.type === 'tool_result' && 'content' in block) {
+        console.log('📋 Tool result:');
+        console.log(block.content);
+      } else {
+        console.log('Unknown block type:', block);
+      }
+      console.log('---');
+    }
+  }
+
+  async runTaskLoop(taskDescription: string, maxIterations: number = 5): Promise<MessageParam[]> {
     let iterations = 0;
     const messages: MessageParam[] = [...this._messages];
 
     // Add user message
-    messages.push({
+    const userMessage: MessageParam = {
       role: 'user',
       content: taskDescription,
-    });
+    };
+    messages.push(userMessage);
+    this.printMessage(userMessage);
 
     while (iterations < maxIterations) {
       const response = await this.client.messages.create({
@@ -98,26 +125,32 @@ export class ZypherAgent implements IZypherAgent {
         max_tokens: this.maxTokens,
         system: this._system,
         messages,
-        tools: Array.from(this._tools.values()).map((tool): ToolUnion => ({
-          name: tool.name,
-          description: tool.description,
-          input_schema: {
-            type: 'object',
-            properties: tool.parameters.properties,
-            required: tool.parameters.required,
-          },
-        })),
+        tools: Array.from(this._tools.values()).map(
+          (tool): ToolUnion => ({
+            name: tool.name,
+            description: tool.description,
+            input_schema: {
+              type: 'object',
+              properties: tool.parameters.properties,
+              required: tool.parameters.required,
+            },
+          }),
+        ),
       });
 
       // Add assistant response
-      messages.push({
+      const assistantMessage: MessageParam = {
         role: 'assistant',
         content: response.content,
-      } as MessageParam);
+      };
+      messages.push(assistantMessage);
+
+      // Print the response
+      this.printMessage(assistantMessage);
 
       // Check if we need to continue the loop
       const shouldContinue = response.content.some(
-        (block): block is ToolUseBlock => block.type === 'tool_use'
+        (block): block is ToolUseBlock => block.type === 'tool_use',
       );
 
       if (!shouldContinue) {
@@ -133,7 +166,7 @@ export class ZypherAgent implements IZypherAgent {
           });
 
           // Add tool response
-          messages.push({
+          const toolMessage: MessageParam = {
             role: 'user',
             content: [
               {
@@ -142,7 +175,9 @@ export class ZypherAgent implements IZypherAgent {
                 content: result,
               } as ToolResultBlockParam,
             ],
-          });
+          };
+          messages.push(toolMessage);
+          this.printMessage(toolMessage);
         }
       }
 
@@ -152,4 +187,4 @@ export class ZypherAgent implements IZypherAgent {
     this._messages = messages as Message[];
     return this.messages;
   }
-} 
+}
