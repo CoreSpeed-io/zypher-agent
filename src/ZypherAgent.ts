@@ -6,9 +6,9 @@ import type {
   ToolResultBlockParam,
   ToolUnion,
 } from '@anthropic-ai/sdk/resources/messages';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import type { Tool } from './tools';
+import { printMessage, getCurrentUserInfo } from './utils';
+import { getSystemPrompt } from './prompt';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 const DEFAULT_MAX_TOKENS = 4096;
@@ -22,7 +22,7 @@ export interface ZypherAgentConfig {
 export class ZypherAgent {
   private readonly client: Anthropic;
   private readonly _tools: Map<string, Tool>;
-  private readonly _system: string;
+  private readonly system: string;
   private readonly maxTokens: number;
   private _messages: MessageParam[]; 
 
@@ -37,21 +37,8 @@ export class ZypherAgent {
     this.client = new Anthropic({ apiKey });
     this._tools = new Map();
     this._messages = [];
-    this._system = this.loadSystemPrompt();
+    this.system = getSystemPrompt(getCurrentUserInfo());
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
-  }
-
-  private loadSystemPrompt(): string {
-    try {
-      const promptPath = join(__dirname, 'system_prompt.txt');
-      return readFileSync(promptPath, 'utf-8');
-    } catch (error) {
-      return 'You are a helpful AI assistant with access to tools.';
-    }
-  }
-
-  get system(): string {
-    return this._system;
   }
 
   get messages(): MessageParam[] {
@@ -85,28 +72,6 @@ export class ZypherAgent {
     }
   }
 
-  public printMessage(message: MessageParam): void {
-    console.log(`\n🗣️ Role: ${message.role}`);
-    console.log('════════════════════');
-    
-    const content = Array.isArray(message.content) ? message.content : [{ type: 'text', text: message.content, citations: [] }];
-    
-    for (const block of content) {
-      if (block.type === 'text') {
-        console.log(block.text);
-      } else if (block.type === 'tool_use' && 'name' in block && 'input' in block) {
-        console.log(`🔧 Using tool: ${block.name}`);
-        console.log('Parameters:', JSON.stringify(block.input, null, 2));
-      } else if (block.type === 'tool_result' && 'content' in block) {
-        console.log('📋 Tool result:');
-        console.log(block.content);
-      } else {
-        console.log('Unknown block type:', block);
-      }
-      console.log('---');
-    }
-  }
-
   async runTaskLoop(taskDescription: string, maxIterations: number = 5): Promise<MessageParam[]> {
     let iterations = 0;
     const messages: MessageParam[] = [...this._messages];
@@ -117,13 +82,13 @@ export class ZypherAgent {
       content: taskDescription,
     };
     messages.push(userMessage);
-    this.printMessage(userMessage);
+    printMessage(userMessage);
 
     while (iterations < maxIterations) {
       const response = await this.client.messages.create({
         model: DEFAULT_MODEL,
         max_tokens: this.maxTokens,
-        system: this._system,
+        system: this.system,
         messages,
         tools: Array.from(this._tools.values()).map(
           (tool): ToolUnion => ({
@@ -146,7 +111,7 @@ export class ZypherAgent {
       messages.push(assistantMessage);
 
       // Print the response
-      this.printMessage(assistantMessage);
+      printMessage(assistantMessage);
 
       // Check if we need to continue the loop
       const shouldContinue = response.content.some(
@@ -177,7 +142,7 @@ export class ZypherAgent {
             ],
           };
           messages.push(toolMessage);
-          this.printMessage(toolMessage);
+          printMessage(toolMessage);
         }
       }
 
