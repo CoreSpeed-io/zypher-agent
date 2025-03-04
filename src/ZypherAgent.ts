@@ -11,7 +11,7 @@ import { printMessage, getCurrentUserInfo } from './utils';
 import { getSystemPrompt } from './prompt';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
-const DEFAULT_MAX_TOKENS = 4096;
+const DEFAULT_MAX_TOKENS = 8192;
 
 export interface ZypherAgentConfig {
   anthropicApiKey?: string;
@@ -24,7 +24,7 @@ export class ZypherAgent {
   private readonly _tools: Map<string, Tool>;
   private readonly system: string;
   private readonly maxTokens: number;
-  private _messages: MessageParam[]; 
+  private _messages: MessageParam[];
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
@@ -113,37 +113,40 @@ export class ZypherAgent {
       // Print the response
       printMessage(assistantMessage);
 
-      // Check if we need to continue the loop
-      const shouldContinue = response.content.some(
-        (block): block is ToolUseBlock => block.type === 'tool_use',
-      );
+      if (response.stop_reason === 'tool_use') {
+        // Execute tool calls
+        for (const block of response.content) {
+          if (block.type === 'tool_use') {
+            const result = await this.executeToolCall({
+              name: block.name,
+              parameters: block.input as Record<string, unknown>,
+            });
 
-      if (!shouldContinue) {
-        break;
-      }
-
-      // Execute tool calls
-      for (const block of response.content) {
-        if (block.type === 'tool_use') {
-          const result = await this.executeToolCall({
-            name: block.name,
-            parameters: block.input as Record<string, unknown>,
-          });
-
-          // Add tool response
-          const toolMessage: MessageParam = {
-            role: 'user',
-            content: [
-              {
-                type: 'tool_result',
-                tool_use_id: block.id,
-                content: result,
-              } as ToolResultBlockParam,
-            ],
-          };
-          messages.push(toolMessage);
-          printMessage(toolMessage);
+            // Add tool response
+            const toolMessage: MessageParam = {
+              role: 'user',
+              content: [
+                {
+                  type: 'tool_result',
+                  tool_use_id: block.id,
+                  content: result,
+                } as ToolResultBlockParam,
+              ],
+            };
+            messages.push(toolMessage);
+            printMessage(toolMessage);
+          }
         }
+      }
+      else if (response.stop_reason === 'max_tokens') {
+        // auto continue
+        messages.push({
+          role: 'user',
+          content: 'Continue',
+        });
+      }
+      else {
+        break;
       }
 
       iterations++;

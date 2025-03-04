@@ -19,7 +19,7 @@ async function main() {
       I need help with the following tasks:
       1. List the contents of the src directory
       2. Read the package.json file
-      3. Create a new file called 'hello.txt' in the root directory with the content "Hello, World!"
+      3. Create a new file called 'hello.py' in the root directory and print the contents of the file you read in step 2
       Please execute these tasks in order.
     `;
 
