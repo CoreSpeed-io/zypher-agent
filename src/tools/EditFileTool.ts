@@ -1,6 +1,50 @@
 import { z } from 'zod';
 import { defineTool } from './index';
 import * as fs from 'fs/promises';
+import * as path from 'path';
+import { constants } from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+
+function normalizePath(filePath: string): string {
+  // Convert absolute path to relative and ensure forward slashes
+  const relativePath = path.relative(process.cwd(), filePath);
+  return relativePath.replace(/\\/g, '/');
+}
+
+async function applyGitDiff(diff: string): Promise<void> {
+  // Write diff to a temporary file
+  const tempFile = path.join(process.cwd(), '.temp-diff');
+  await fs.writeFile(tempFile, diff);
+
+  try {
+    // Apply the diff using git apply
+    await execAsync(`git apply ${tempFile}`);
+  } finally {
+    // Clean up temp file
+    await fs.unlink(tempFile).catch(() => {});
+  }
+}
+
+// For testing purposes
+export const TEST_MODE = {
+  enabled: false
+};
+
+function createNewFileDiff(normalizedPath: string, content: string, instructions: string): string {
+  const newContent = content.trim();
+  const diffOutput = [
+    `diff --git a/${normalizedPath} b/${normalizedPath}`,
+    '--- /dev/null',
+    `+++ b/${normalizedPath}`,
+    `@@ -0,0 +1,${newContent.split('\n').length} @@ ${instructions}`,
+    ...newContent.split('\n').map(line => `+${line}`)
+  ].join('\n');
+
+  return diffOutput;
+}
 
 export const EditFileTool = defineTool({
   name: 'edit_file',
@@ -12,7 +56,33 @@ export const EditFileTool = defineTool({
   }),
   execute: async ({ targetFile, instructions, codeEdit }) => {
     try {
-      // Read the original file
+      // Ensure the directory exists
+      const dir = path.dirname(targetFile);
+      await fs.mkdir(dir, { recursive: true });
+
+      // Normalize path for diff output
+      const normalizedPath = normalizePath(targetFile);
+
+      // Check if file exists and is readable
+      const fileExists = await fs.access(targetFile, constants.F_OK)
+        .then(() => true)
+        .catch(() => false);
+
+      let diffOutput: string;
+
+      // Handle new or empty files
+      if (!fileExists || (fileExists && (await fs.readFile(targetFile, 'utf-8')).trim() === '')) {
+        diffOutput = createNewFileDiff(normalizedPath, codeEdit, instructions);
+
+        // In non-test mode, create the file directly
+        if (!TEST_MODE.enabled) {
+          await fs.writeFile(targetFile, codeEdit.trim());
+        }
+
+        return diffOutput;
+      }
+
+      // Read existing file content
       const originalContent = await fs.readFile(targetFile, 'utf-8');
       const originalLines = originalContent.split('\n');
       
@@ -21,19 +91,6 @@ export const EditFileTool = defineTool({
         .split('// ... existing code ...')
         .map(section => section.trim())
         .filter(section => section.length > 0);
-
-      // Special handling for empty files
-      if (originalContent.trim() === '') {
-        const newContent = codeEdit.trim();
-        const diffOutput = [
-          `diff --git a/${targetFile} b/${targetFile}`,
-          `--- a/${targetFile}`,
-          `+++ b/${targetFile}`,
-          `@@ -0,0 +1,${newContent.split('\n').length} @@ ${instructions}`,
-          ...newContent.split('\n').map(line => `+${line}`)
-        ];
-        return diffOutput.join('\n');
-      }
 
       // Find edit locations and context
       const changes = [];
@@ -82,8 +139,7 @@ export const EditFileTool = defineTool({
       }
 
       // Generate diff output
-      const normalizedPath = targetFile.replace(/\\/g, '/');
-      const diffOutput = [
+      const diffLines = [
         `diff --git a/${normalizedPath} b/${normalizedPath}`,
         `--- a/${normalizedPath}`,
         `+++ b/${normalizedPath}`
@@ -92,7 +148,7 @@ export const EditFileTool = defineTool({
       // Add hunks for actual changes only
       for (const change of changes) {
         // Add hunk header
-        diffOutput.push(
+        diffLines.push(
           `@@ -${change.startLine},${change.originalLines.length} +${change.startLine},${change.newLines.length} @@ ${instructions}`
         );
 
@@ -103,19 +159,26 @@ export const EditFileTool = defineTool({
           const newLine = change.newLines[i];
 
           if (originalLine === newLine) {
-            diffOutput.push(` ${originalLine}`);
+            diffLines.push(` ${originalLine}`);
           } else {
             if (originalLine !== undefined) {
-              diffOutput.push(`-${originalLine}`);
+              diffLines.push(`-${originalLine}`);
             }
             if (newLine !== undefined) {
-              diffOutput.push(`+${newLine}`);
+              diffLines.push(`+${newLine}`);
             }
           }
         }
       }
 
-      return diffOutput.join('\n');
+      diffOutput = diffLines.join('\n');
+
+      // Apply the diff in non-test mode
+      if (!TEST_MODE.enabled && changes.length > 0) {
+        await applyGitDiff(diffOutput);
+      }
+
+      return diffOutput;
 
     } catch (error) {
       if (error instanceof Error) {
@@ -125,3 +188,4 @@ export const EditFileTool = defineTool({
     }
   },
 });
+

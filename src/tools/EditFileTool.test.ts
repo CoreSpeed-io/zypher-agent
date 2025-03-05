@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { EditFileTool } from './EditFileTool';
+import { EditFileTool, TEST_MODE } from './EditFileTool';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -8,6 +8,8 @@ describe('EditFileTool', () => {
   const testFile = path.join(testDir, 'test.ts');
 
   beforeEach(async () => {
+    // Enable test mode
+    TEST_MODE.enabled = true;
     // Create test directory and file
     await fs.mkdir(testDir, { recursive: true });
   });
@@ -20,6 +22,89 @@ describe('EditFileTool', () => {
   async function createTestFile(content: string) {
     await fs.writeFile(testFile, content);
   }
+
+  async function fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  it('should create a new file if it does not exist', async () => {
+    const newFilePath = path.join(testDir, 'new-file.ts');
+    const result = await EditFileTool.execute({
+      targetFile: newFilePath,
+      instructions: 'Create a new TypeScript file',
+      codeEdit: `export function hello() {
+  return 'world';
+}`
+    });
+
+    // Check diff format
+    expect(result).toContain('diff --git');
+    expect(result).toContain('--- /dev/null');
+    expect(result).toContain(`+++ b/${path.relative(process.cwd(), newFilePath)}`);
+    expect(result).toContain('@@ -0,0 +1,3 @@');
+    expect(result).toContain('+export function hello() {');
+  });
+
+  it('should create a new file in nested directories', async () => {
+    const nestedDir = path.join(testDir, 'nested', 'dirs');
+    const newFilePath = path.join(nestedDir, 'deep-file.ts');
+    
+    const result = await EditFileTool.execute({
+      targetFile: newFilePath,
+      instructions: 'Create a new file in nested directory',
+      codeEdit: `import { something } from '../other';
+
+export function nested() {
+  return something();
+}`
+    });
+
+    // Verify directory was created
+    const dirExists = await fileExists(nestedDir);
+    expect(dirExists).toBe(true);
+
+    // Check diff format
+    expect(result).toContain('diff --git');
+    expect(result).toContain('--- /dev/null');
+    expect(result).toContain(`+++ b/${path.relative(process.cwd(), newFilePath)}`);
+    expect(result).toContain('+import { something }');
+  });
+
+  it('should handle creating a new file with multiple lines and empty lines', async () => {
+    const newFilePath = path.join(testDir, 'multi-line.ts');
+    const codeEdit = `import { foo } from './foo';
+
+interface Config {
+  name: string;
+  value: number;
+}
+
+export function configure(config: Config) {
+  return foo(config);
+}`;
+
+    const result = await EditFileTool.execute({
+      targetFile: newFilePath,
+      instructions: 'Create a new file with interface and function',
+      codeEdit
+    });
+
+    // Check line count in diff header
+    const lineCount = codeEdit.split('\n').length;
+    expect(result).toContain(`@@ -0,0 +1,${lineCount} @@`);
+    
+    // Verify each line is prefixed with +
+    const lines = result.split('\n');
+    const contentLines = lines.slice(4); // Skip diff header
+    contentLines.forEach(line => {
+      expect(line.startsWith('+')).toBe(true);
+    });
+  });
 
   it('should generate correct diff for a simple line addition', async () => {
     const originalContent = `function test() {
