@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "demo": "tsx bin/demo.ts",
-    "test": "jest",
+    "test": "vitest",
     "type-check": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,json,md}\"",
@@ -18,17 +18,15 @@
   "devDependencies": {
     "@eslint/js": "^9.21.0",
     "@types/dotenv": "^8.2.3",
-    "@types/jest": "^29.5.14",
     "@types/node": "^22.13.8",
     "eslint": "^9.21.0",
     "eslint-config-prettier": "^10.0.2",
     "eslint-plugin-prettier": "^5.2.3",
-    "jest": "^29.7.0",
     "prettier": "^3.5.3",
-    "ts-jest": "^29.2.6",
     "tsx": "^4.19.3",
     "typescript": "5.7.2",
-    "typescript-eslint": "^8.25.0"
+    "typescript-eslint": "^8.25.0",
+    "vitest": "^3.0.7"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

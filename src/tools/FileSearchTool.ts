@@ -5,17 +5,21 @@ import { defineTool } from './index';
 
 const execAsync = promisify(exec);
 
+function escapeShellArg(arg: string): string {
+  return `'${arg.replace(/'/g, "'\\''")}'`;
+}
+
 export const FileSearchTool = defineTool({
   name: 'file_search',
-  description: 'Fast file search based on fuzzy matching against file path.',
+  description: 'Fast file search based on fuzzy matching against file path. Use if you know part of the file path but don\'t know where it\'s located exactly. Response will be capped to 10 results. Make your query more specific if need to filter results further.',
   parameters: z.object({
     query: z.string().describe('Fuzzy filename to search for'),
-    explanation: z.string().describe('One sentence explanation for tool usage'),
+    explanation: z.string().describe('One sentence explanation as to why this tool is being used, and how it contributes to the goal.'),
   }),
   execute: async ({ query }) => {
     try {
       // Using fd (modern alternative to find) with fuzzy matching
-      const command = `fd -t f -d 10 -l '${query}'`;
+      const command = `fd -t f -d 10 -l ${escapeShellArg(query)}`;
       
       const { stdout, stderr } = await execAsync(command);
       if (!stdout && !stderr) {
