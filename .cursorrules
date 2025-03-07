@@ -1,1 +1,43 @@
-Package Manager: pnpm
+# Zypher Agent Project Rules & Learnings
+
+## Code Organization
+- Keep related functionality together
+- Use helper functions to reduce code duplication
+- Normalize paths consistently across the codebase
+
+## Git Practices
+- Use conventional commits (feat:, fix:, refactor:, etc.)
+- Write descriptive commit messages explaining the why, not just the what
+- Keep commits focused and atomic
+
+## File Management
+- Handle file existence checks using fs.access
+- Create parent directories when needed for new files
+- Normalize paths for consistent diff generation
+
+## Environment Variables
+- Use .env for local development
+- Document all required and optional variables in .env.example
+- Keep sensitive information out of version control
+
+## Dependencies
+- Use pnpm as package manager
+- Lock dependency versions for consistency
+- Document major dependencies in README.md
+
+## Code Style
+- Use TypeScript for type safety
+- Implement proper error handling
+- Add descriptive comments for complex logic
+- Use Zod for runtime type validation
+
+## Testing Framework
+- Vitest is the preferred testing framework
+- Run tests in watch mode during development
+- Ensure tests are deterministic and isolated
+
+## Testing
+- Co-locate test files with source files for better organization
+- Use `.test.ts` suffix for test files
+- Enable test mode when applying git diffs to prevent actual file changes during tests
+- Ensure test coverage for edge cases (empty files, new files, etc.)

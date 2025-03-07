@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zypher-agent
+    volumes:
+      # Mount source code for development
+      - .:/app
+      # Use named volume for node_modules to:
+      # 1. Ensure modules are built for container's OS/architecture
+      # 2. Prevent host's node_modules from interfering
+      # 3. Maintain container-specific dependencies
+      - node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: pnpm start
+    stdin_open: true  # Keep STDIN open (-i in docker run)
+    tty: true        # Allocate pseudo-TTY (-t in docker run)
+    # Only run in default profile (not in test)
+    profiles: ["dev"]
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zypher-agent-test
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=test
+    command: pnpm test
+    # Don't start with the main services
+    profiles:
+      - test
+
+  # Add more services here as needed (e.g., database, cache)
+
+volumes:
+  # Named volume for container-specific node_modules
+  # This keeps dependencies isolated from host system
+  node_modules: 
