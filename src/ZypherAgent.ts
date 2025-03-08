@@ -2,7 +2,6 @@ import { Anthropic } from '@anthropic-ai/sdk';
 import type {
   Message,
   MessageParam,
-  ToolUseBlock,
   ToolResultBlockParam,
   ToolUnion,
 } from '@anthropic-ai/sdk/resources/messages';

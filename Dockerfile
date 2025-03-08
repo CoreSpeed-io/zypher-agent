@@ -10,7 +10,12 @@ RUN apt-get update && apt-get install -y \
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Set working directory
+# Set up test workspace
+WORKDIR /workspace
+RUN git clone https://github.com/CoreSpeed-io/deckspeed-template.git . && \
+    pnpm install
+
+# Set up app
 WORKDIR /app
 
 # Copy package files
@@ -25,4 +30,5 @@ COPY . .
 # Set environment variables
 ENV NODE_ENV=development
 
-CMD ["pnpm", "start"] 
+# Start the agent in workspace
+CMD ["pnpm", "start", "--workspace", "/workspace"] 

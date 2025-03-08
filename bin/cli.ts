@@ -1,8 +1,20 @@
 import { ZypherAgent } from '../src/ZypherAgent';
 import { ReadFileTool, ListDirTool, EditFileTool } from '../src/tools';
+import { Command } from 'commander';
 import dotenv from 'dotenv';
 import readline from 'readline';
 import { stdin as input, stdout as output } from 'process';
+
+const program = new Command();
+
+program
+  .name('zypher')
+  .description('AI-powered coding assistant')
+  .version('0.1.0')
+  .option('-w, --workspace <path>', 'Set working directory for the agent')
+  .parse(process.argv);
+
+const options = program.opts();
 
 const rl = readline.createInterface({ input, output });
 
@@ -18,6 +30,16 @@ async function main() {
   dotenv.config();
 
   try {
+    // Handle workspace option
+    if (options.workspace) {
+      try {
+        process.chdir(options.workspace);
+        console.log(`🚀 Changed working directory to: ${process.cwd()}`);
+      } catch (error) {
+        throw new Error(`Failed to change to workspace directory: ${error instanceof Error ? error.message : error}`);
+      }
+    }
+
     // Initialize the agent
     const agent = new ZypherAgent();
 

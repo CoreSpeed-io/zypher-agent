@@ -32,13 +32,13 @@ Start the CLI:
 pnpm start
 ```
 
-Example commands:
+The agent operates on files in the current working directory. For example:
 ```
-🔧 Enter your task: Create a new file called utils.ts with a date formatting function
+🔧 Enter your task: Create a new file called utils.ts in the current directory
 
-🔧 Enter your task: Add error handling to the main function in src/index.ts
+🔧 Enter your task: Add error handling to ./src/index.ts
 
-🔧 Enter your task: Search for all API endpoint implementations
+🔧 Enter your task: Search for API endpoints in this codebase
 ```
 
 ## Development
@@ -59,28 +59,50 @@ pnpm format
 ```
 
 ### Docker Development (Recommended)
+
+Basic usage:
 ```bash
-# Build the container
-docker compose build
+# Build the image
+docker build -t zypher-agent .
 
-# Start development environment
-docker compose --profile dev up
-
-# Get an interactive shell in the dev container
-docker compose --profile dev run app sh
-
-# Run tests
-docker compose --profile test up
-
-# Run tests with a specific file
-docker compose run test pnpm test path/to/test
+# Start the agent
+docker run -it --rm zypher-agent
 ```
 
-This project provides a Docker development environment that includes all necessary dependencies and tools (ripgrep, git, etc.) in an isolated environment. Using Docker is recommended for:
-- Consistent development environment across team members
-- Safe execution of system commands
-- Isolated testing environment
-- Preventing accidental file system modifications on the host
+For development/debugging:
+```bash
+# Run with source code mounting (for development)
+docker run -it --rm \
+  -v "$(pwd):/app" \
+  -v zypher_modules:/app/node_modules \
+  --name zypher-agent \
+  zypher-agent
+
+# Run unit tests
+docker run -it --rm \
+  -v "$(pwd):/app" \
+  -v zypher_modules:/app/node_modules \
+  zypher-agent pnpm test
+```
+
+#### Test Workspace
+
+The Docker container includes a dedicated workspace at `/workspace` containing a real Next.js project from CoreSpeed's template. This workspace serves as a safe testing ground where the AI agent can:
+
+- Make and test code changes
+- Search and analyze code
+- Refactor and experiment
+- Create new features
+
+The workspace is built into the Docker image and resets on each container start, providing a clean, isolated environment for testing the agent's capabilities.
+
+When you start the agent, it automatically operates in the `/workspace` directory. Example tasks:
+```
+🔧 "Create a new utility function for date formatting"
+🔧 "Refactor the authentication logic"
+🔧 "Add error handling to the API routes"
+🔧 "Create a new component for user profiles"
+```
 
 ## Project Structure
 
@@ -105,8 +127,6 @@ bin/
 3. Commit your changes (`git commit -m 'feat: add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-
 
 ## Environment Variables
 
