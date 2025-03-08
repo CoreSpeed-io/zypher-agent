@@ -10,11 +10,6 @@
 - Write descriptive commit messages explaining the why, not just the what
 - Keep commits focused and atomic
 
-## File Management
-- Handle file existence checks using fs.access
-- Create parent directories when needed for new files
-- Normalize paths for consistent diff generation
-
 ## Environment Variables
 - Use .env for local development
 - Document all required and optional variables in .env.example
