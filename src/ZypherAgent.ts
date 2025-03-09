@@ -21,7 +21,7 @@ export interface ZypherAgentConfig {
 export class ZypherAgent {
   private readonly client: Anthropic;
   private readonly _tools: Map<string, Tool>;
-  private readonly system: string;
+  private system: string;
   private readonly maxTokens: number;
   private _messages: MessageParam[];
 
@@ -36,8 +36,12 @@ export class ZypherAgent {
     this.client = new Anthropic({ apiKey });
     this._tools = new Map();
     this._messages = [];
-    this.system = getSystemPrompt(getCurrentUserInfo());
+    this.system = ''; // Will be initialized in init()
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
+  }
+
+  async init(): Promise<void> {
+    this.system = await getSystemPrompt(getCurrentUserInfo());
   }
 
   get messages(): MessageParam[] {
@@ -71,14 +75,19 @@ export class ZypherAgent {
     }
   }
 
-  async runTaskLoop(taskDescription: string, maxIterations: number = 5): Promise<MessageParam[]> {
+  async runTaskLoop(taskDescription: string, maxIterations: number = 25): Promise<MessageParam[]> {
+    // Ensure system prompt is initialized
+    if (!this.system) {
+      await this.init();
+    }
+
     let iterations = 0;
     const messages: MessageParam[] = [...this._messages];
 
     // Add user message
     const userMessage: MessageParam = {
       role: 'user',
-      content: taskDescription,
+      content: `<user_query>\n${taskDescription}\n</user_query>`,
     };
     messages.push(userMessage);
     printMessage(userMessage);

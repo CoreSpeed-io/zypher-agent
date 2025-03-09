@@ -1,7 +1,51 @@
+import { access, constants, readFile } from 'fs/promises';
 import type { UserInfo } from './utils';
 
-export function getSystemPrompt(userInfo: UserInfo): string {
-  return `You are Zypher, a powerful agentic AI coding assistant by CoreSpeed, powered by Claude 3.5 Sonnet.
+/**
+ * Attempts to read a file with proper error handling.
+ * 
+ * @param {string} path - Path to the file to read
+ * @returns {Promise<string | null>} File contents if successful, null if file doesn't exist or isn't readable
+ * @private
+ */
+async function tryReadFile(path: string): Promise<string | null> {
+  try {
+    await access(path, constants.R_OK);
+    return await readFile(path, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads custom rules from either .zypherrules or .cursorrules file.
+ * Tries .zypherrules first, then falls back to .cursorrules if not found.
+ * 
+ * @returns {Promise<string | null>} Contents of the rules file if found, null otherwise
+ * 
+ * @example
+ * const rules = await getCustomRules();
+ * if (rules) {
+ *   console.log('Found custom rules:', rules);
+ * }
+ */
+export async function getCustomRules(): Promise<string | null> {
+  try {
+    const zypherRules = await tryReadFile('.zypherrules');
+    if (zypherRules) return zypherRules;
+
+    const cursorRules = await tryReadFile('.cursorrules');
+    if (cursorRules) return cursorRules;
+
+    return null;
+  } catch (error) {
+    console.warn('Failed to read custom rules:', error);
+    return null;
+  }
+}
+
+export async function getSystemPrompt(userInfo: UserInfo): Promise<string> {
+  const systemPrompt = `You are Zypher, a powerful agentic AI coding assistant by CoreSpeed, powered by Claude 3.5 Sonnet.
 
 You are pair programming with a USER to solve their coding task.
 The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.
@@ -70,5 +114,17 @@ Otherwise, follow debugging best practices:
 The user's OS version is ${userInfo.osVersion}. The absolute path of the user's workspace is ${userInfo.workspacePath}. The user's shell is ${userInfo.shell}. 
 </user_info>
 
-Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.`;
+Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
+`;
+
+  const customRules = await getCustomRules();
+  const customRulesBlock = customRules ? `
+<custom_instructions>
+${customRules}
+</custom_instructions>
+`
+    : '';
+
+  return `${systemPrompt}
+${customRulesBlock}`;
 } 
