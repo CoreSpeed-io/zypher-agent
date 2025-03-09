@@ -1,7 +1,7 @@
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import os from 'os';
 import process from 'process';
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, access, constants } from 'fs/promises';
 import { join } from 'path';
 
 /**
@@ -34,6 +34,21 @@ export function getCurrentUserInfo(): UserInfo {
 }
 
 /**
+ * Checks if a file exists and is readable.
+ * 
+ * @param {string} path - Path to the file to check
+ * @returns {Promise<boolean>} True if file exists and is readable, false otherwise
+ */
+export async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Gets the path to the Zypher data directory.
  * Creates the directory if it doesn't exist.
  * 
@@ -43,13 +58,13 @@ export function getCurrentUserInfo(): UserInfo {
 async function getDataDir(): Promise<string> {
   const homeDir = os.homedir();
   const dataDir = join(homeDir, '.zypher');
-
+  
   try {
     await mkdir(dataDir, { recursive: true });
   } catch (error) {
     console.warn('Failed to create data directory:', error);
   }
-
+  
   return dataDir;
 }
 
@@ -64,11 +79,16 @@ export async function loadMessageHistory(): Promise<MessageParam[]> {
     const dataDir = await getDataDir();
     const workspaceHash = Buffer.from(process.cwd()).toString('base64url');
     const historyPath = join(dataDir, `history_${workspaceHash}.json`);
-
+    
+    // Check if file exists before trying to read it
+    if (!await fileExists(historyPath)) {
+      return [];
+    }
+    
     const content = await readFile(historyPath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    console.warn('Failed to load message history:', error);
+    console.warn(`Failed to load message history: ${error instanceof Error ? error.message : String(error)}`);
     return [];
   }
 }
@@ -85,10 +105,10 @@ export async function saveMessageHistory(messages: MessageParam[]): Promise<void
     const dataDir = await getDataDir();
     const workspaceHash = Buffer.from(process.cwd()).toString('base64url');
     const historyPath = join(dataDir, `history_${workspaceHash}.json`);
-
+    
     await writeFile(historyPath, JSON.stringify(messages, null, 2), 'utf-8');
   } catch (error) {
-    console.warn('Failed to save message history:', error);
+    console.warn(`Failed to save message history: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -116,9 +136,9 @@ export async function saveMessageHistory(messages: MessageParam[]): Promise<void
 export function printMessage(message: MessageParam): void {
   console.log(`\n🗣️ Role: ${message.role}`);
   console.log('════════════════════');
-
+  
   const content = Array.isArray(message.content) ? message.content : [{ type: 'text', text: message.content, citations: [] }];
-
+  
   for (const block of content) {
     if (block.type === 'text') {
       console.log(block.text);

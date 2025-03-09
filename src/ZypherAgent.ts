@@ -6,7 +6,13 @@ import type {
   ToolUnion,
 } from '@anthropic-ai/sdk/resources/messages';
 import type { Tool } from './tools';
-import { printMessage, getCurrentUserInfo, loadMessageHistory, saveMessageHistory } from './utils';
+import { 
+  printMessage, 
+  getCurrentUserInfo, 
+  loadMessageHistory, 
+  saveMessageHistory
+} from './utils';
+import { detectErrors } from './errorDetection';
 import { getSystemPrompt } from './prompt';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
@@ -18,6 +24,8 @@ export interface ZypherAgentConfig {
   maxTokens?: number;
   /** Whether to load and save message history. Defaults to true. */
   persistHistory?: boolean;
+  /** Whether to automatically check for code errors. Defaults to true. */
+  autoErrorCheck?: boolean;
 }
 
 export class ZypherAgent {
@@ -27,6 +35,7 @@ export class ZypherAgent {
   private readonly maxTokens: number;
   private _messages: MessageParam[];
   private readonly persistHistory: boolean;
+  private readonly autoErrorCheck: boolean;
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
@@ -42,6 +51,7 @@ export class ZypherAgent {
     this.system = ''; // Will be initialized in init()
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.persistHistory = config.persistHistory ?? true;
+    this.autoErrorCheck = config.autoErrorCheck ?? true;
   }
 
   async init(): Promise<void> {
@@ -163,6 +173,27 @@ export class ZypherAgent {
         });
       }
       else {
+        // Check for code errors if enabled and this is the end of the conversation
+        if (this.autoErrorCheck) {
+          const errors = await detectErrors();
+          if (errors) {
+            console.log('\n🔍 Detected code errors. Asking the agent to fix them...');
+            
+            // Add errors as a user message
+            const errorMessage: MessageParam = {
+              role: 'user',
+              content: `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
+            };
+            messages.push(errorMessage);
+            printMessage(errorMessage);
+            
+            // Continue the loop to let the agent fix the errors
+            iterations++;
+            continue;
+          }
+        }
+        
+        // No errors or error check disabled, exit the loop
         break;
       }
 
