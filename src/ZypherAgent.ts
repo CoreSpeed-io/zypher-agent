@@ -6,7 +6,7 @@ import type {
   ToolUnion,
 } from '@anthropic-ai/sdk/resources/messages';
 import type { Tool } from './tools';
-import { printMessage, getCurrentUserInfo } from './utils';
+import { printMessage, getCurrentUserInfo, loadMessageHistory, saveMessageHistory } from './utils';
 import { getSystemPrompt } from './prompt';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
@@ -16,6 +16,8 @@ export interface ZypherAgentConfig {
   anthropicApiKey?: string;
   model?: string;
   maxTokens?: number;
+  /** Whether to load and save message history. Defaults to true. */
+  persistHistory?: boolean;
 }
 
 export class ZypherAgent {
@@ -24,6 +26,7 @@ export class ZypherAgent {
   private system: string;
   private readonly maxTokens: number;
   private _messages: MessageParam[];
+  private readonly persistHistory: boolean;
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
@@ -38,10 +41,16 @@ export class ZypherAgent {
     this._messages = [];
     this.system = ''; // Will be initialized in init()
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
+    this.persistHistory = config.persistHistory ?? true;
   }
 
   async init(): Promise<void> {
     this.system = await getSystemPrompt(getCurrentUserInfo());
+    
+    // Load message history if enabled
+    if (this.persistHistory) {
+      this._messages = await loadMessageHistory();
+    }
   }
 
   get messages(): MessageParam[] {
@@ -161,6 +170,12 @@ export class ZypherAgent {
     }
 
     this._messages = messages as Message[];
+    
+    // Save updated message history if enabled
+    if (this.persistHistory) {
+      await saveMessageHistory(this._messages);
+    }
+    
     return this.messages;
   }
 }
