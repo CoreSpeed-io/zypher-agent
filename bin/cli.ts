@@ -36,7 +36,9 @@ async function main() {
         process.chdir(options.workspace);
         console.log(`🚀 Changed working directory to: ${process.cwd()}`);
       } catch (error) {
-        throw new Error(`Failed to change to workspace directory: ${error instanceof Error ? error.message : error}`);
+        throw new Error(
+          `Failed to change to workspace directory: ${error instanceof Error ? error.message : error}`,
+        );
       }
     }
 
@@ -53,7 +55,7 @@ async function main() {
 
     while (true) {
       const task = await prompt('🔧 Enter your task: ');
-      
+
       if (task.toLowerCase() === 'exit') {
         console.log('\nGoodbye! 👋\n');
         break;

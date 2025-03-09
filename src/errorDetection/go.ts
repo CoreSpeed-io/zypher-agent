@@ -8,7 +8,7 @@ import { fileExists } from '../utils';
 export class GoLintErrorDetector implements ErrorDetector {
   name = 'golint';
   description = 'Detects Go code style and quality issues';
-  
+
   async isApplicable(): Promise<boolean> {
     try {
       // Check if go.mod exists
@@ -17,7 +17,7 @@ export class GoLintErrorDetector implements ErrorDetector {
       return false;
     }
   }
-  
+
   async detect(): Promise<string | null> {
     try {
       // Check if golint is installed
@@ -30,7 +30,7 @@ export class GoLintErrorDetector implements ErrorDetector {
           return null; // golint not available
         }
       }
-      
+
       // Run golint
       try {
         const { stdout } = await execAsync('golint ./...');
@@ -56,7 +56,7 @@ export class GoLintErrorDetector implements ErrorDetector {
 export class GoVetErrorDetector implements ErrorDetector {
   name = 'go vet';
   description = 'Detects suspicious constructs in Go code';
-  
+
   async isApplicable(): Promise<boolean> {
     try {
       // Check if go.mod exists
@@ -65,7 +65,7 @@ export class GoVetErrorDetector implements ErrorDetector {
       return false;
     }
   }
-  
+
   async detect(): Promise<string | null> {
     try {
       // Run go vet
@@ -88,4 +88,4 @@ export class GoVetErrorDetector implements ErrorDetector {
       return null;
     }
   }
-} 
+}

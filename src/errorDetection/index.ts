@@ -13,7 +13,7 @@ export {
   PythonFlake8ErrorDetector,
   PythonMypyErrorDetector,
   GoLintErrorDetector,
-  GoVetErrorDetector
+  GoVetErrorDetector,
 };
 
 /**
@@ -30,13 +30,13 @@ const errorDetectors: ErrorDetector[] = [
 
 /**
  * Detects errors in the current workspace using all applicable detectors.
- * 
+ *
  * @returns {Promise<string | null>} Combined error messages if errors are found, null otherwise
  */
 export async function detectErrors(): Promise<string | null> {
   try {
     const applicableDetectors = [];
-    
+
     // Find applicable detectors
     for (const detector of errorDetectors) {
       try {
@@ -47,14 +47,14 @@ export async function detectErrors(): Promise<string | null> {
         console.warn(`Error checking if detector ${detector.name} is applicable:`, error);
       }
     }
-    
+
     if (applicableDetectors.length === 0) {
       return null;
     }
-    
+
     // Run applicable detectors
     const errorMessages = [];
-    
+
     for (const detector of applicableDetectors) {
       try {
         const result = await detector.detect();
@@ -65,14 +65,14 @@ export async function detectErrors(): Promise<string | null> {
         console.warn(`Error running detector ${detector.name}:`, error);
       }
     }
-    
+
     if (errorMessages.length === 0) {
       return null;
     }
-    
+
     return errorMessages.join('\n\n');
   } catch (error) {
     console.warn('Failed to run error detection:', error);
     return null;
   }
-} 
+}

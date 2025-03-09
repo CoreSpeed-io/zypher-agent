@@ -6,12 +6,7 @@ import type {
   ToolUnion,
 } from '@anthropic-ai/sdk/resources/messages';
 import type { Tool } from './tools';
-import { 
-  printMessage, 
-  getCurrentUserInfo, 
-  loadMessageHistory, 
-  saveMessageHistory
-} from './utils';
+import { printMessage, getCurrentUserInfo, loadMessageHistory, saveMessageHistory } from './utils';
 import { detectErrors } from './errorDetection';
 import { getSystemPrompt } from './prompt';
 
@@ -56,7 +51,7 @@ export class ZypherAgent {
 
   async init(): Promise<void> {
     this.system = await getSystemPrompt(getCurrentUserInfo());
-    
+
     // Load message history if enabled
     if (this.persistHistory) {
       this._messages = await loadMessageHistory();
@@ -164,21 +159,19 @@ export class ZypherAgent {
             printMessage(toolMessage);
           }
         }
-      }
-      else if (response.stop_reason === 'max_tokens') {
+      } else if (response.stop_reason === 'max_tokens') {
         // auto continue
         messages.push({
           role: 'user',
           content: 'Continue',
         });
-      }
-      else {
+      } else {
         // Check for code errors if enabled and this is the end of the conversation
         if (this.autoErrorCheck) {
           const errors = await detectErrors();
           if (errors) {
             console.log('\n🔍 Detected code errors. Asking the agent to fix them...');
-            
+
             // Add errors as a user message
             const errorMessage: MessageParam = {
               role: 'user',
@@ -186,13 +179,13 @@ export class ZypherAgent {
             };
             messages.push(errorMessage);
             printMessage(errorMessage);
-            
+
             // Continue the loop to let the agent fix the errors
             iterations++;
             continue;
           }
         }
-        
+
         // No errors or error check disabled, exit the loop
         break;
       }
@@ -201,12 +194,12 @@ export class ZypherAgent {
     }
 
     this._messages = messages as Message[];
-    
+
     // Save updated message history if enabled
     if (this.persistHistory) {
       await saveMessageHistory(this._messages);
     }
-    
+
     return this.messages;
   }
 }

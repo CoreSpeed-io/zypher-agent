@@ -3,7 +3,7 @@ import type { UserInfo } from './utils';
 
 /**
  * Attempts to read a file with proper error handling.
- * 
+ *
  * @param {string} path - Path to the file to read
  * @returns {Promise<string | null>} File contents if successful, null if file doesn't exist or isn't readable
  * @private
@@ -20,9 +20,9 @@ async function tryReadFile(path: string): Promise<string | null> {
 /**
  * Reads custom rules from either .zypherrules or .cursorrules file.
  * Tries .zypherrules first, then falls back to .cursorrules if not found.
- * 
+ *
  * @returns {Promise<string | null>} Contents of the rules file if found, null otherwise
- * 
+ *
  * @example
  * const rules = await getCustomRules();
  * if (rules) {
@@ -118,7 +118,8 @@ Answer the user's request using the relevant tool(s), if they are available. Che
 `;
 
   const customRules = await getCustomRules();
-  const customRulesBlock = customRules ? `
+  const customRulesBlock = customRules
+    ? `
 <custom_instructions>
 ${customRules}
 </custom_instructions>
@@ -127,4 +128,4 @@ ${customRules}
 
   return `${systemPrompt}
 ${customRulesBlock}`;
-} 
+}

@@ -8,29 +8,29 @@ import { fileExists } from '../utils';
 export class PythonFlake8ErrorDetector implements ErrorDetector {
   name = 'Flake8';
   description = 'Detects Python code style and quality issues using flake8';
-  
+
   async isApplicable(): Promise<boolean> {
     try {
       // Check if requirements.txt or pyproject.toml exists
       if (await fileExists('requirements.txt')) {
         return true;
       }
-      
+
       if (await fileExists('pyproject.toml')) {
         return true;
       }
-      
+
       if (await fileExists('setup.py')) {
         return true;
       }
-      
+
       // No Python project files found
       return false;
     } catch {
       return false;
     }
   }
-  
+
   async detect(): Promise<string | null> {
     try {
       // Check if flake8 is installed
@@ -44,7 +44,7 @@ export class PythonFlake8ErrorDetector implements ErrorDetector {
           return null; // flake8 not available
         }
       }
-      
+
       // Run flake8
       try {
         const { stdout, stderr } = await execAsync('flake8 .');
@@ -70,13 +70,13 @@ export class PythonFlake8ErrorDetector implements ErrorDetector {
 export class PythonMypyErrorDetector implements ErrorDetector {
   name = 'Mypy';
   description = 'Detects Python type errors using mypy';
-  
+
   async isApplicable(): Promise<boolean> {
     try {
       // Check if it's a Python project
       const isPythonProject = await new PythonFlake8ErrorDetector().isApplicable();
       if (!isPythonProject) return false;
-      
+
       // Check if mypy is available
       try {
         await execAsync('which mypy');
@@ -93,7 +93,7 @@ export class PythonMypyErrorDetector implements ErrorDetector {
       return false;
     }
   }
-  
+
   async detect(): Promise<string | null> {
     try {
       // Run mypy
@@ -116,4 +116,4 @@ export class PythonMypyErrorDetector implements ErrorDetector {
       return null;
     }
   }
-} 
+}
