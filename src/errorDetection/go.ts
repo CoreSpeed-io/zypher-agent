@@ -1,5 +1,5 @@
 import type { ErrorDetector } from './interface';
-import { execAsync } from './utils';
+import { execAsync, extractErrorOutput } from './utils';
 import { fileExists } from '../utils';
 
 /**
@@ -33,15 +33,18 @@ export class GoLintErrorDetector implements ErrorDetector {
 
       // Run golint
       try {
-        const { stdout } = await execAsync('golint ./...');
-        if (stdout) {
-          return `Go lint errors detected:\n${stdout}`;
+        const result = await execAsync('golint ./...');
+        if (result.stdout) {
+          return `Go lint errors detected:\n${result.stdout}`;
         }
         return null;
-      } catch (error: any) {
-        if (error.stdout) {
-          return `Go lint errors detected:\n${error.stdout}`;
+      } catch (error) {
+        const errorOutput = extractErrorOutput(error, (output) => output);
+
+        if (errorOutput) {
+          return `Go lint errors detected:\n${errorOutput}`;
         }
+
         return null;
       }
     } catch {
@@ -70,18 +73,19 @@ export class GoVetErrorDetector implements ErrorDetector {
     try {
       // Run go vet
       try {
-        const { stdout, stderr } = await execAsync('go vet ./...');
-        if (stderr) {
-          return `Go vet errors detected:\n${stderr}`;
+        const result = await execAsync('go vet ./...');
+        // If stderr is empty, there are no errors
+        if (!result.stderr) {
+          return null;
         }
-        return null;
-      } catch (error: any) {
-        if (error.stderr) {
-          return `Go vet errors detected:\n${error.stderr}`;
+        return `Go vet errors detected:\n${result.stderr}`;
+      } catch (error) {
+        const errorOutput = extractErrorOutput(error, (output) => output);
+
+        if (errorOutput) {
+          return `Go vet errors detected:\n${errorOutput}`;
         }
-        if (error.stdout) {
-          return `Go vet errors detected:\n${error.stdout}`;
-        }
+
         return null;
       }
     } catch {

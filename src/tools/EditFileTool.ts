@@ -22,7 +22,7 @@ export const EditFileTool = defineTool({
         'The complete new content for the file. This will replace the entire existing content or create a new file.',
       ),
   }),
-  execute: async ({ targetFile, instructions, codeEdit }) => {
+  execute: async ({ targetFile, codeEdit }) => {
     try {
       // Ensure the directory exists
       const dir = path.dirname(targetFile);

@@ -1,5 +1,5 @@
 import type { ErrorDetector } from './interface';
-import { execAsync } from './utils';
+import { execAsync, extractErrorOutput } from './utils';
 import { fileExists } from '../utils';
 
 /**
@@ -47,15 +47,19 @@ export class PythonFlake8ErrorDetector implements ErrorDetector {
 
       // Run flake8
       try {
-        const { stdout, stderr } = await execAsync('flake8 .');
-        if (stdout) {
-          return `Python flake8 errors detected:\n${stdout}`;
+        const result = await execAsync('flake8 .');
+        // If we get here with no stdout, there are no errors
+        if (!result.stdout) {
+          return null;
         }
-        return null;
-      } catch (error: any) {
-        if (error.stdout) {
-          return `Python flake8 errors detected:\n${error.stdout}`;
+        return `Python flake8 errors detected:\n${result.stdout}`;
+      } catch (error) {
+        const errorOutput = extractErrorOutput(error, (output) => output);
+
+        if (errorOutput) {
+          return `Python flake8 errors detected:\n${errorOutput}`;
         }
+
         return null;
       }
     } catch {
@@ -98,18 +102,19 @@ export class PythonMypyErrorDetector implements ErrorDetector {
     try {
       // Run mypy
       try {
-        const { stdout, stderr } = await execAsync('mypy .');
-        if (stdout) {
-          return `Python mypy errors detected:\n${stdout}`;
+        const result = await execAsync('mypy .');
+        // If we get here with no stdout, there are no errors
+        if (!result.stdout) {
+          return null;
         }
-        return null;
-      } catch (error: any) {
-        if (error.stdout) {
-          return `Python mypy errors detected:\n${error.stdout}`;
+        return `Python mypy errors detected:\n${result.stdout}`;
+      } catch (error) {
+        const errorOutput = extractErrorOutput(error, (output) => output);
+
+        if (errorOutput) {
+          return `Python mypy errors detected:\n${errorOutput}`;
         }
-        if (error.stderr) {
-          return `Python mypy errors detected:\n${error.stderr}`;
-        }
+
         return null;
       }
     } catch {

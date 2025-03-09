@@ -1,5 +1,13 @@
 import type { ErrorDetector } from './interface';
-import { execAsync, readPackageJson, getRunCommand } from './utils';
+import {
+  execAsync,
+  readPackageJson,
+  getRunCommand,
+  hasDependency,
+  hasScript,
+  findScriptByPattern,
+  extractErrorOutput,
+} from './utils';
 import { fileExists } from '../utils';
 
 /**
@@ -12,21 +20,15 @@ export class ESLintErrorDetector implements ErrorDetector {
   async isApplicable(): Promise<boolean> {
     try {
       const packageJson = await readPackageJson();
-      if (!packageJson) return false;
 
       // Check if eslint is in dependencies or devDependencies
-      const hasEslint = !!(
-        (packageJson.devDependencies && packageJson.devDependencies.eslint) ||
-        (packageJson.dependencies && packageJson.dependencies.eslint)
-      );
+      const hasEslint = hasDependency(packageJson, 'eslint');
 
       // Also check if there are lint scripts
-      const hasLintScript = !!(
-        packageJson.scripts &&
-        (packageJson.scripts.lint ||
-          packageJson.scripts.eslint ||
-          Object.keys(packageJson.scripts).some((script) => script.includes('lint')))
-      );
+      const hasLintScript =
+        hasScript(packageJson, 'lint') ||
+        hasScript(packageJson, 'eslint') ||
+        !!findScriptByPattern(packageJson, 'lint');
 
       return hasEslint || hasLintScript;
     } catch {
@@ -41,29 +43,12 @@ export class ESLintErrorDetector implements ErrorDetector {
 
       // Execute the command
       try {
-        const { stdout, stderr } = await execAsync(command);
         // If we get here, the command succeeded (no errors)
+        await execAsync(command);
         return null;
-      } catch (error: any) {
+      } catch (error) {
         // Command failed, which likely means it found errors
-        let errorOutput = '';
-
-        if (error.stdout) {
-          const filteredStdout = this.filterNonErrors(error.stdout);
-          if (filteredStdout) errorOutput += filteredStdout;
-        }
-
-        if (error.stderr) {
-          const filteredStderr = this.filterNonErrors(error.stderr);
-          if (filteredStderr) {
-            errorOutput += (errorOutput ? '\n' : '') + filteredStderr;
-          }
-        }
-
-        if (!errorOutput && error.message) {
-          const filteredMessage = this.filterNonErrors(error.message);
-          if (filteredMessage) errorOutput = filteredMessage;
-        }
+        const errorOutput = extractErrorOutput(error, this.filterNonErrors);
 
         if (errorOutput) {
           return `ESLint errors detected:\n${errorOutput}`;
@@ -91,12 +76,12 @@ export class ESLintErrorDetector implements ErrorDetector {
       // Find the appropriate script name
       let scriptName: string | undefined;
 
-      if (packageJson.scripts.lint) {
+      if (hasScript(packageJson, 'lint')) {
         scriptName = 'lint';
-      } else if (packageJson.scripts.eslint) {
+      } else if (hasScript(packageJson, 'eslint')) {
         scriptName = 'eslint';
       } else {
-        scriptName = Object.keys(packageJson.scripts).find((script) => script.includes('lint'));
+        scriptName = findScriptByPattern(packageJson, 'lint');
       }
 
       if (scriptName) {
@@ -147,21 +132,15 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       const packageJson = await readPackageJson();
       if (packageJson) {
         // Check if typescript is in dependencies
-        const hasTypeScript = !!(
-          (packageJson.devDependencies && packageJson.devDependencies.typescript) ||
-          (packageJson.dependencies && packageJson.dependencies.typescript)
-        );
+        const hasTypeScript = hasDependency(packageJson, 'typescript');
 
         // Check if there are type-check scripts
-        const hasTypeCheckScript = !!(
-          packageJson.scripts &&
-          (packageJson.scripts['type-check'] ||
-            packageJson.scripts.typecheck ||
-            packageJson.scripts.tsc ||
-            Object.keys(packageJson.scripts).some(
-              (script) => script.includes('type') || script.includes('tsc'),
-            ))
-        );
+        const hasTypeCheckScript =
+          hasScript(packageJson, 'type-check') ||
+          hasScript(packageJson, 'typecheck') ||
+          hasScript(packageJson, 'tsc') ||
+          !!findScriptByPattern(packageJson, 'type') ||
+          !!findScriptByPattern(packageJson, 'tsc');
 
         if (hasTypeScript || hasTypeCheckScript) {
           return true;
@@ -182,29 +161,12 @@ export class TypeScriptErrorDetector implements ErrorDetector {
 
       // Execute the command
       try {
-        await execAsync(command);
         // If we get here, the command succeeded (no errors)
+        await execAsync(command);
         return null;
-      } catch (error: any) {
+      } catch (error) {
         // Command failed, which likely means it found errors
-        let errorOutput = '';
-
-        if (error.stdout) {
-          const filteredStdout = this.filterNonErrors(error.stdout);
-          if (filteredStdout) errorOutput += filteredStdout;
-        }
-
-        if (error.stderr) {
-          const filteredStderr = this.filterNonErrors(error.stderr);
-          if (filteredStderr) {
-            errorOutput += (errorOutput ? '\n' : '') + filteredStderr;
-          }
-        }
-
-        if (!errorOutput && error.message) {
-          const filteredMessage = this.filterNonErrors(error.message);
-          if (filteredMessage) errorOutput = filteredMessage;
-        }
+        const errorOutput = extractErrorOutput(error, this.filterNonErrors);
 
         if (errorOutput) {
           return `TypeScript errors detected:\n${errorOutput}`;
@@ -232,16 +194,15 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       // Find the appropriate script name
       let scriptName: string | undefined;
 
-      if (packageJson.scripts['type-check']) {
+      if (hasScript(packageJson, 'type-check')) {
         scriptName = 'type-check';
-      } else if (packageJson.scripts.typecheck) {
+      } else if (hasScript(packageJson, 'typecheck')) {
         scriptName = 'typecheck';
-      } else if (packageJson.scripts.tsc) {
+      } else if (hasScript(packageJson, 'tsc')) {
         scriptName = 'tsc';
       } else {
-        scriptName = Object.keys(packageJson.scripts).find(
-          (script) => script.includes('type') || script.includes('tsc'),
-        );
+        scriptName =
+          findScriptByPattern(packageJson, 'type') || findScriptByPattern(packageJson, 'tsc');
       }
 
       if (scriptName) {
