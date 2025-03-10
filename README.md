@@ -40,7 +40,7 @@ pnpm start
 Or specify a workspace directory:
 
 ```bash
-pnpm start -- -w /path/to/your/project
+pnpm start -w /path/to/your/project
 ```
 
 ### API Server
@@ -55,10 +55,10 @@ Configuration options:
 
 ```bash
 # Set the port (default: 3000)
-pnpm start:api -- -p 8080
+pnpm start:api -p 8080
 
 # Set the workspace directory
-pnpm start:api -- -w /path/to/your/project
+pnpm start:api -w /path/to/your/project
 ```
 
 ## API Documentation
