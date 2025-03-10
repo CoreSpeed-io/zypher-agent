@@ -1,7 +1,6 @@
 import { Anthropic } from '@anthropic-ai/sdk';
 import type {
-  Message,
-  MessageParam,
+  MessageParam as AnthropicMessageParam,
   ToolResultBlockParam,
   ToolUnion,
 } from '@anthropic-ai/sdk/resources/messages';
@@ -9,9 +8,41 @@ import type { Tool } from './tools';
 import { printMessage, getCurrentUserInfo, loadMessageHistory, saveMessageHistory } from './utils';
 import { detectErrors } from './errorDetection';
 import { getSystemPrompt } from './prompt';
+import { createCheckpoint, getCheckpointDetails } from './checkpoints';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 const DEFAULT_MAX_TOKENS = 8192;
+
+/**
+ * Extended message parameter type that includes checkpoint information
+ */
+export interface MessageParam extends AnthropicMessageParam {
+  /**
+   * Optional reference to a checkpoint created before this message
+   */
+  checkpointId?: string;
+
+  /**
+   * Optional metadata about the checkpoint
+   */
+  checkpoint?: {
+    id: string;
+    name: string;
+    timestamp: string;
+  };
+}
+
+/**
+ * Strips custom fields from MessageParam to make it compatible with Anthropic API
+ *
+ * @param message - The extended message parameter
+ * @returns A clean message parameter for the Anthropic API
+ */
+function stripCustomFields(message: MessageParam): AnthropicMessageParam {
+  // Destructure to get only the standard fields
+  const { role, content } = message;
+  return { role, content };
+}
 
 export interface ZypherAgentConfig {
   anthropicApiKey?: string;
@@ -98,10 +129,17 @@ export class ZypherAgent {
     let iterations = 0;
     const messages: MessageParam[] = [...this._messages];
 
-    // Add user message
+    // Create a checkpoint before executing the task
+    const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${taskDescription.length > 50 ? '...' : ''}`;
+    const checkpointId = await createCheckpoint(checkpointName);
+    const checkpoint = checkpointId ? await getCheckpointDetails(checkpointId) : undefined;
+
+    // Add user message with checkpoint reference
     const userMessage: MessageParam = {
       role: 'user',
       content: `<user_query>\n${taskDescription}\n</user_query>`,
+      checkpointId,
+      checkpoint,
     };
     messages.push(userMessage);
     printMessage(userMessage);
@@ -111,7 +149,7 @@ export class ZypherAgent {
         model: DEFAULT_MODEL,
         max_tokens: this.maxTokens,
         system: this.system,
-        messages,
+        messages: messages.map(stripCustomFields), // Strip custom fields before sending to Claude API
         tools: Array.from(this._tools.values()).map(
           (tool): ToolUnion => ({
             name: tool.name,
@@ -193,7 +231,7 @@ export class ZypherAgent {
       iterations++;
     }
 
-    this._messages = messages as Message[];
+    this._messages = messages as MessageParam[];
 
     // Save updated message history if enabled
     if (this.persistHistory) {

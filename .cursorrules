@@ -25,6 +25,7 @@
 - Implement proper error handling
 - Add descriptive comments for complex logic
 - Use Zod for runtime type validation
+- Always use asynchronous filesystem operations (fs/promises) to avoid blocking the event loop
 
 ## Testing Framework
 - Vitest is the preferred testing framework
@@ -36,3 +37,18 @@
 - Use `.test.ts` suffix for test files
 - Enable test mode when applying git diffs to prevent actual file changes during tests
 - Ensure test coverage for edge cases (empty files, new files, etc.)
+
+## Checkpoint System
+- Store checkpoints in `$HOME/.zypher/workspace_hash/checkpoints` as a separate Git repository
+- Use `--git-dir` and `--work-tree` flags to interact with the repository while keeping the working directory in the project root
+- Always use the getGitCommand() helper function for all Git operations to ensure consistent flags
+- Store checkpoint metadata in commit messages with a consistent prefix (CHECKPOINT:)
+- Create checkpoints automatically before each task execution
+- Include checkpoint references in user task messages to enable easy rollback
+- Use server-sent events to stream checkpoint creation and task execution events to clients
+- Provide a single API endpoint for applying checkpoints, as message history already contains checkpoint references
+- Always create a backup before applying a checkpoint to allow for recovery if needed
+- Mark advice-only checkpoints with an "(advice-only)" suffix in the commit message
+- Use the `--allow-empty` flag with Git to create commits even when there are no file changes
+- Use the files array to determine if a checkpoint contains changes (empty array = advice-only)
+- Use `git status` to check if a repository exists and is valid, rather than checking for the .git directory and then validating with a separate command

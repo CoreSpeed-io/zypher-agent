@@ -53,9 +53,8 @@ export async function fileExists(path: string): Promise<boolean> {
  * Creates the directory if it doesn't exist.
  *
  * @returns {Promise<string>} Path to the Zypher data directory
- * @private
  */
-async function getDataDir(): Promise<string> {
+export async function getDataDir(): Promise<string> {
   const homeDir = os.homedir();
   const dataDir = join(homeDir, '.zypher');
 
@@ -69,6 +68,28 @@ async function getDataDir(): Promise<string> {
 }
 
 /**
+ * Gets the path to the workspace-specific directory within the Zypher data directory.
+ * Creates the directory if it doesn't exist.
+ *
+ * @returns {Promise<string>} Path to the workspace-specific directory
+ */
+export async function getWorkspaceDir(): Promise<string> {
+  const dataDir = await getDataDir();
+
+  // Create workspace-specific directory
+  const workspaceHash = Buffer.from(process.cwd()).toString('base64url');
+  const workspaceDir = join(dataDir, workspaceHash);
+
+  try {
+    await mkdir(workspaceDir, { recursive: true });
+  } catch (error) {
+    console.warn('Failed to create workspace directory:', error);
+  }
+
+  return workspaceDir;
+}
+
+/**
  * Loads the message history for the current workspace.
  * Each workspace has its own message history file based on its path.
  *
@@ -76,9 +97,8 @@ async function getDataDir(): Promise<string> {
  */
 export async function loadMessageHistory(): Promise<MessageParam[]> {
   try {
-    const dataDir = await getDataDir();
-    const workspaceHash = Buffer.from(process.cwd()).toString('base64url');
-    const historyPath = join(dataDir, `history_${workspaceHash}.json`);
+    const workspaceDir = await getWorkspaceDir();
+    const historyPath = join(workspaceDir, 'history.json');
 
     // Check if file exists before trying to read it
     if (!(await fileExists(historyPath))) {
@@ -104,11 +124,10 @@ export async function loadMessageHistory(): Promise<MessageParam[]> {
  */
 export async function saveMessageHistory(messages: MessageParam[]): Promise<void> {
   try {
-    const dataDir = await getDataDir();
-    const workspaceHash = Buffer.from(process.cwd()).toString('base64url');
-    const historyPath = join(dataDir, `history_${workspaceHash}.json`);
+    const workspaceDir = await getWorkspaceDir();
+    const historyPath = join(workspaceDir, 'history.json');
 
-    await writeFile(historyPath, JSON.stringify(messages, null, 2), 'utf-8');
+    await writeFile(historyPath, JSON.stringify(messages, null, 2));
   } catch (error) {
     console.warn(
       `Failed to save message history: ${error instanceof Error ? error.message : String(error)}`,
