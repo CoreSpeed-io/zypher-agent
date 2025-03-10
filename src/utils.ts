@@ -73,7 +73,7 @@ export async function getDataDir(): Promise<string> {
  *
  * @returns {Promise<string>} Path to the workspace-specific directory
  */
-export async function getWorkspaceDir(): Promise<string> {
+export async function getWorkspaceDataDir(): Promise<string> {
   const dataDir = await getDataDir();
 
   // Create workspace-specific directory
@@ -97,7 +97,7 @@ export async function getWorkspaceDir(): Promise<string> {
  */
 export async function loadMessageHistory(): Promise<MessageParam[]> {
   try {
-    const workspaceDir = await getWorkspaceDir();
+    const workspaceDir = await getWorkspaceDataDir();
     const historyPath = join(workspaceDir, 'history.json');
 
     // Check if file exists before trying to read it
@@ -124,7 +124,7 @@ export async function loadMessageHistory(): Promise<MessageParam[]> {
  */
 export async function saveMessageHistory(messages: MessageParam[]): Promise<void> {
   try {
-    const workspaceDir = await getWorkspaceDir();
+    const workspaceDir = await getWorkspaceDataDir();
     const historyPath = join(workspaceDir, 'history.json');
 
     await writeFile(historyPath, JSON.stringify(messages, null, 2));

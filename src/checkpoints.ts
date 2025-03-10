@@ -2,7 +2,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { access, constants, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { getWorkspaceDir } from './utils';
+import { getWorkspaceDataDir } from './utils';
 
 const execAsync = promisify(exec);
 
@@ -52,7 +52,7 @@ async function pathExists(path: string): Promise<boolean> {
  * @returns Promise resolving to the path to the checkpoints directory
  */
 async function getWorkspaceCheckpointsDir(): Promise<string> {
-  const workspaceDir = await getWorkspaceDir();
+  const workspaceDir = await getWorkspaceDataDir();
   const checkpointsDir = join(workspaceDir, 'checkpoints');
 
   // Create checkpoints directory if it doesn't exist

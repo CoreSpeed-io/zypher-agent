@@ -4,6 +4,7 @@
 - Keep related functionality together
 - Use helper functions to reduce code duplication
 - Normalize paths consistently across the codebase
+- Use clear naming: `getWorkspaceDataDir()` for the data directory specific to a workspace, not the workspace itself
 
 ## Git Practices
 - Use conventional commits (feat:, fix:, refactor:, etc.)
