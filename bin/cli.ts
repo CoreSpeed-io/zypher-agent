@@ -1,5 +1,13 @@
 import { ZypherAgent } from '../src/ZypherAgent';
-import { ReadFileTool, ListDirTool, EditFileTool } from '../src/tools';
+import {
+  ReadFileTool,
+  ListDirTool,
+  EditFileTool,
+  RunTerminalCmdTool,
+  GrepSearchTool,
+  FileSearchTool,
+  DeleteFileTool,
+} from '../src/tools';
 import { Command } from 'commander';
 import dotenv from 'dotenv';
 import readline from 'readline';
@@ -45,10 +53,19 @@ async function main() {
     // Initialize the agent
     const agent = new ZypherAgent();
 
-    // Register the default tools
+    // Register all available tools
     agent.registerTool(ReadFileTool);
     agent.registerTool(ListDirTool);
     agent.registerTool(EditFileTool);
+    agent.registerTool(RunTerminalCmdTool);
+    agent.registerTool(GrepSearchTool);
+    agent.registerTool(FileSearchTool);
+    agent.registerTool(DeleteFileTool);
+
+    console.log('🔧 Registered tools:', Array.from(agent.tools.keys()).join(', '));
+
+    // Initialize the agent
+    await agent.init();
 
     console.log('\n🤖 Welcome to Zypher Agent CLI!\n');
     console.log('Type your task or command below. Use "exit" or Ctrl+C to quit.\n');

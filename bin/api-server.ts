@@ -3,7 +3,15 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { Command } from 'commander';
 import { ZypherAgent, MessageParam, MessageHandler } from '../src/ZypherAgent';
-import { ReadFileTool, ListDirTool, EditFileTool } from '../src/tools';
+import {
+  ReadFileTool,
+  ListDirTool,
+  EditFileTool,
+  RunTerminalCmdTool,
+  GrepSearchTool,
+  FileSearchTool,
+  DeleteFileTool,
+} from '../src/tools';
 import { listCheckpoints } from '../src/checkpoints';
 
 // Load environment variables
@@ -47,10 +55,16 @@ async function initializeAgent() {
     // Initialize the agent
     agent = new ZypherAgent();
 
-    // Register the default tools
+    // Register all available tools
     agent.registerTool(ReadFileTool);
     agent.registerTool(ListDirTool);
     agent.registerTool(EditFileTool);
+    agent.registerTool(RunTerminalCmdTool);
+    agent.registerTool(GrepSearchTool);
+    agent.registerTool(FileSearchTool);
+    agent.registerTool(DeleteFileTool);
+
+    console.log('🔧 Registered tools:', Array.from(agent.tools.keys()).join(', '));
 
     // Initialize the agent (load message history, generate system prompt)
     await agent.init();
