@@ -1,0 +1,302 @@
+openapi: 3.0.3
+info:
+  title: ZypherAgent API
+  description: |
+    API for controlling the ZypherAgent to perform code editing tasks.
+    This API allows frontend applications to interact with the ZypherAgent,
+    send tasks, and receive responses.
+    
+    The API server creates a single ZypherAgent instance at startup with
+    pre-specified working directory and configuration.
+  version: 1.0.0
+  contact:
+    name: ZypherAgent Team
+servers:
+  - url: 'http://localhost:3000'
+    description: Local development server
+
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: Error code
+        message:
+          type: string
+          description: Error message
+
+    ContentBlock:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [text, tool_use, tool_result]
+          description: The type of content block
+        text:
+          type: string
+          description: Text content (when type is 'text')
+        name:
+          type: string
+          description: Tool name (when type is 'tool_use')
+        input:
+          type: object
+          description: Tool parameters (when type is 'tool_use')
+        tool_use_id:
+          type: string
+          description: ID of the tool use (when type is 'tool_result')
+        content:
+          type: string
+          description: Tool result content (when type is 'tool_result')
+
+    Checkpoint:
+      type: object
+      required:
+        - id
+        - name
+        - timestamp
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the checkpoint (Git commit hash)
+        name:
+          type: string
+          description: User-friendly name for the checkpoint
+        timestamp:
+          type: string
+          format: date-time
+          description: When the checkpoint was created
+        files:
+          type: array
+          items:
+            type: string
+          description: Files changed in this checkpoint
+
+    Message:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+          description: The role of the message sender
+        content:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                $ref: '#/components/schemas/ContentBlock'
+          description: The content of the message
+        checkpointId:
+          type: string
+          description: Reference to a checkpoint created before this message (for user task messages)
+        checkpoint:
+          $ref: '#/components/schemas/Checkpoint'
+          description: Metadata about the checkpoint
+
+    TaskRequest:
+      type: object
+      required:
+        - task
+      properties:
+        task:
+          type: string
+          description: The task description to send to the agent
+
+    TaskEvent:
+      type: object
+      required:
+        - event
+        - data
+      properties:
+        event:
+          type: string
+          enum: [message, complete, error]
+          description: The type of event
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/Message'
+            - type: object
+              properties:
+                error:
+                  type: string
+                  description: Error message
+              required:
+                - error
+          description: The event data
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+paths:
+  /agent/messages:
+    get:
+      summary: Get agent messages
+      description: Returns all messages in the agent's history
+      operationId: getAgentMessages
+      responses:
+        '200':
+          description: Agent messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Clear agent messages
+      description: Clears all messages in the agent's history
+      operationId: clearAgentMessages
+      responses:
+        '204':
+          description: Messages cleared
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agent/tasks:
+    post:
+      summary: Run a task
+      description: |
+        Runs a task using the agent. This endpoint uses server-sent events (SSE) to stream
+        the agent's responses back to the client in real-time.
+      operationId: runTask
+      requestBody:
+        description: Task request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskRequest'
+      responses:
+        '200':
+          description: Task started
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Stream of server-sent events containing task progress
+              example: |
+                event: message
+                data: {"role":"user","content":"<user_query>\nHow can I create a React component?\n</user_query>","checkpointId":"abc123","checkpoint":{"id":"abc123","name":"Before task: How can I create a React component?","timestamp":"2024-03-10T12:30:45Z"}}
+
+                event: message
+                data: {"role":"assistant","content":[{"type":"text","text":"I'll help you create a React component."}]}
+
+                event: complete
+                data: {}
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agent/checkpoints:
+    get:
+      summary: List checkpoints
+      description: Returns all available checkpoints for the current workspace
+      operationId: listCheckpoints
+      responses:
+        '200':
+          description: List of checkpoints
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Checkpoint'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /agent/checkpoints/{checkpointId}/apply:
+    parameters:
+      - name: checkpointId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ID of the checkpoint (Git commit hash)
+    post:
+      summary: Apply checkpoint
+      description: Applies the changes from the specified checkpoint and updates message history
+      operationId: applyCheckpoint
+      responses:
+        '200':
+          description: Checkpoint applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: string
+                required:
+                  - success
+                  - id
+        '404':
+          description: Checkpoint not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      summary: Health check
+      description: Returns the health status of the API
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  version:
+                    type: string
+                  uptime:
+                    type: number
+                    format: float 

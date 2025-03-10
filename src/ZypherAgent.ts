@@ -8,7 +8,7 @@ import type { Tool } from './tools';
 import { printMessage, getCurrentUserInfo, loadMessageHistory, saveMessageHistory } from './utils';
 import { detectErrors } from './errorDetection';
 import { getSystemPrompt } from './prompt';
-import { createCheckpoint, getCheckpointDetails } from './checkpoints';
+import { createCheckpoint, getCheckpointDetails, applyCheckpoint } from './checkpoints';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 const DEFAULT_MAX_TOKENS = 8192;
@@ -31,6 +31,11 @@ export interface MessageParam extends AnthropicMessageParam {
     timestamp: string;
   };
 }
+
+/**
+ * Message handler function type for streaming messages
+ */
+export type MessageHandler = (message: MessageParam) => void;
 
 /**
  * Strips custom fields from MessageParam to make it compatible with Anthropic API
@@ -81,7 +86,8 @@ export class ZypherAgent {
   }
 
   async init(): Promise<void> {
-    this.system = await getSystemPrompt(getCurrentUserInfo());
+    const userInfo = await getCurrentUserInfo();
+    this.system = await getSystemPrompt(userInfo);
 
     // Load message history if enabled
     if (this.persistHistory) {
@@ -95,6 +101,84 @@ export class ZypherAgent {
 
   get tools(): Map<string, Tool> {
     return new Map(this._tools);
+  }
+
+  /**
+   * Clear all messages from the agent's history
+   */
+  clearMessages(): void {
+    this._messages = [];
+
+    // Save updated message history if enabled
+    if (this.persistHistory) {
+      void saveMessageHistory(this._messages);
+    }
+  }
+
+  /**
+   * Get all messages from the agent's history
+   * @returns Array of messages
+   */
+  getMessages(): MessageParam[] {
+    return [...this._messages];
+  }
+
+  /**
+   * Apply a checkpoint and update the message history
+   * This will discard messages beyond the checkpoint
+   *
+   * @param checkpointId The ID of the checkpoint to apply
+   * @returns True if the checkpoint was applied successfully, false otherwise
+   */
+  async applyCheckpoint(checkpointId: string): Promise<boolean> {
+    try {
+      // Apply the checkpoint to the filesystem
+      const success = await applyCheckpoint(checkpointId);
+
+      if (!success) {
+        return false;
+      }
+
+      // Update message history to discard messages beyond the checkpoint
+      const checkpointIndex = this._messages.findIndex((msg) => msg.checkpointId === checkpointId);
+
+      if (checkpointIndex !== -1) {
+        // Keep messages up to and including the checkpoint message
+        this._messages = this._messages.slice(0, checkpointIndex + 1);
+
+        // Save updated message history if enabled
+        if (this.persistHistory) {
+          await saveMessageHistory(this._messages);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`Error applying checkpoint: ${error instanceof Error ? error.message : error}`);
+      return false;
+    }
+  }
+
+  /**
+   * Process a message by adding it to the messages array and notifying handlers
+   * @param message The message to process
+   * @param messages The messages array to add to
+   * @param messageHandler Optional message handler to notify
+   */
+  private processMessage(
+    message: MessageParam,
+    messages: MessageParam[],
+    messageHandler?: MessageHandler,
+  ): void {
+    // Add message to the array
+    messages.push(message);
+
+    // Notify message handler or print to console
+    if (messageHandler) {
+      messageHandler(message);
+    } else {
+      printMessage(message);
+    }
   }
 
   registerTool(tool: Tool): void {
@@ -120,7 +204,11 @@ export class ZypherAgent {
     }
   }
 
-  async runTaskLoop(taskDescription: string, maxIterations: number = 25): Promise<MessageParam[]> {
+  async runTaskLoop(
+    taskDescription: string,
+    messageHandler?: MessageHandler,
+    maxIterations: number = 25,
+  ): Promise<MessageParam[]> {
     // Ensure system prompt is initialized
     if (!this.system) {
       await this.init();
@@ -129,7 +217,7 @@ export class ZypherAgent {
     let iterations = 0;
     const messages: MessageParam[] = [...this._messages];
 
-    // Create a checkpoint before executing the task
+    // Always create a checkpoint before executing the task
     const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${taskDescription.length > 50 ? '...' : ''}`;
     const checkpointId = await createCheckpoint(checkpointName);
     const checkpoint = checkpointId ? await getCheckpointDetails(checkpointId) : undefined;
@@ -141,8 +229,7 @@ export class ZypherAgent {
       checkpointId,
       checkpoint,
     };
-    messages.push(userMessage);
-    printMessage(userMessage);
+    this.processMessage(userMessage, messages, messageHandler);
 
     while (iterations < maxIterations) {
       const response = await this.client.messages.create({
@@ -163,16 +250,14 @@ export class ZypherAgent {
         ),
       });
 
-      // Add assistant response
+      // Process the response
       const assistantMessage: MessageParam = {
         role: 'assistant',
         content: response.content,
       };
-      messages.push(assistantMessage);
+      this.processMessage(assistantMessage, messages, messageHandler);
 
-      // Print the response
-      printMessage(assistantMessage);
-
+      // Process tool calls if any
       if (response.stop_reason === 'tool_use') {
         // Execute tool calls
         for (const block of response.content) {
@@ -193,16 +278,16 @@ export class ZypherAgent {
                 } as ToolResultBlockParam,
               ],
             };
-            messages.push(toolMessage);
-            printMessage(toolMessage);
+            this.processMessage(toolMessage, messages, messageHandler);
           }
         }
       } else if (response.stop_reason === 'max_tokens') {
         // auto continue
-        messages.push({
+        const continueMessage: MessageParam = {
           role: 'user',
           content: 'Continue',
-        });
+        };
+        this.processMessage(continueMessage, messages, messageHandler);
       } else {
         // Check for code errors if enabled and this is the end of the conversation
         if (this.autoErrorCheck) {
@@ -215,8 +300,7 @@ export class ZypherAgent {
               role: 'user',
               content: `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
             };
-            messages.push(errorMessage);
-            printMessage(errorMessage);
+            this.processMessage(errorMessage, messages, messageHandler);
 
             // Continue the loop to let the agent fix the errors
             iterations++;

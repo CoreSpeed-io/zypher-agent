@@ -26,6 +26,8 @@
 - Add descriptive comments for complex logic
 - Use Zod for runtime type validation
 - Always use asynchronous filesystem operations (fs/promises) to avoid blocking the event loop
+- Refactor repetitive code patterns into helper methods to improve maintainability
+- Use private helper methods for internal functionality that's used in multiple places
 
 ## Testing Framework
 - Vitest is the preferred testing framework
@@ -52,3 +54,17 @@
 - Use the `--allow-empty` flag with Git to create commits even when there are no file changes
 - Use the files array to determine if a checkpoint contains changes (empty array = advice-only)
 - Use `git status` to check if a repository exists and is valid, rather than checking for the .git directory and then validating with a separate command
+- Checkpoint creation should always be handled by the ZypherAgent class, not by the API server or CLI
+- ZypherAgent is responsible for applying checkpoints and updating message history to discard messages beyond the applied checkpoint
+
+## API Server
+- The API server should be implemented in bin/api-server.ts
+- The API server should rely on the ZypherAgent class for core functionality
+- The API server should use server-sent events (SSE) to stream responses back to the client
+- The API server should provide endpoints for managing messages, running tasks, and working with checkpoints
+- Authentication is currently disabled for development simplicity
+
+## Anthropic API Integration
+- Always use `response.stop_reason === 'tool_use'` to detect when Claude wants to use a tool, not by filtering content blocks
+- Process all tool use blocks in the response content when stop_reason is 'tool_use'
+- Handle different stop reasons appropriately ('tool_use', 'max_tokens', etc.)

@@ -5,10 +5,12 @@ An AI-powered coding assistant that helps you with code editing, file management
 ## Features
 
 - 🤖 Interactive CLI interface for natural language coding tasks
+- 🌐 RESTful API server for integration with other applications
 - ✨ Smart code editing
 - 📁 File and directory management
 - 🔍 Semantic code search
 - 🛠️ Multiple tool integrations
+- 📝 Checkpoint system for tracking and reverting changes
 
 ## Installation
 
@@ -27,19 +29,50 @@ cp .env.example .env
 
 ## Usage
 
+### CLI
+
 Start the CLI:
+
 ```bash
 pnpm start
 ```
 
-The agent operates on files in the current working directory. For example:
-```
-🔧 Enter your task: Create a new file called utils.ts in the current directory
+Or specify a workspace directory:
 
-🔧 Enter your task: Add error handling to ./src/index.ts
-
-🔧 Enter your task: Search for API endpoints in this codebase
+```bash
+pnpm start -- -w /path/to/your/project
 ```
+
+### API Server
+
+Start the API server:
+
+```bash
+pnpm start:api
+```
+
+Configuration options:
+
+```bash
+# Set the port (default: 3000)
+pnpm start:api -- -p 8080
+
+# Set the workspace directory
+pnpm start:api -- -w /path/to/your/project
+```
+
+## API Documentation
+
+The API server provides the following endpoints:
+
+- `GET /health` - Health check
+- `GET /agent/messages` - Get all messages in the agent's history
+- `DELETE /agent/messages` - Clear all messages in the agent's history
+- `POST /agent/tasks` - Run a task using the agent (SSE endpoint)
+- `GET /agent/checkpoints` - List all available checkpoints
+- `POST /agent/checkpoints/{checkpointId}/apply` - Apply a checkpoint
+
+See the [API Specification](./api-spec.yaml) for detailed documentation.
 
 ## Development
 

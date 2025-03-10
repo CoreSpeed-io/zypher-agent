@@ -213,30 +213,37 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
       return []; // Not a valid Git repository or doesn't exist
     }
 
-    // Get all checkpoint commits with full message
-    const { stdout: commits } = await execAsync(`${git} log --pretty=format:"%H%n%B%n%aI"`);
+    // Get all checkpoint commits with a custom delimiter between commits
+    // Using a unique delimiter "###COMMIT###" that won't appear in commit messages
+    const { stdout } = await execAsync(`${git} log --pretty=format:"###COMMIT###%n%H%n%aI%n%s"`);
 
-    if (!commits.trim()) {
+    if (!stdout.trim()) {
       return [];
     }
 
     // Parse commits into checkpoints
     const checkpoints: Checkpoint[] = [];
-    const commitGroups = commits.trim().split('\n\n\n');
 
-    for (const group of commitGroups) {
-      const lines = group.split('\n');
+    // Split by the delimiter, remove the first empty entry if it exists
+    const commitEntries = stdout.split('###COMMIT###').filter(Boolean);
+
+    for (const entry of commitEntries) {
+      const lines = entry.trim().split('\n');
+
+      // Each commit should have at least 3 lines (hash, date, subject)
+      if (lines.length < 3) continue;
+
       const id = lines[0];
-      const timestamp = lines[lines.length - 1];
+      const timestamp = lines[1];
+      const subject = lines[2];
+
+      // Skip non-checkpoint commits (except for the initial repository commit)
+      if (!subject.startsWith('CHECKPOINT:') && !subject.includes('Initial checkpoint')) continue;
 
       // Extract name from commit message
-      let name = '';
-
-      // Find the checkpoint prefix
-      const checkpointLine = lines.find((line) => line.startsWith('CHECKPOINT: '));
-      if (!checkpointLine) continue; // Skip non-checkpoint commits
-
-      name = checkpointLine.substring('CHECKPOINT: '.length);
+      const name = subject.startsWith('CHECKPOINT:')
+        ? subject.substring('CHECKPOINT: '.length)
+        : subject;
 
       // Get files for this checkpoint
       const { stdout: filesChanged } = await execAsync(
