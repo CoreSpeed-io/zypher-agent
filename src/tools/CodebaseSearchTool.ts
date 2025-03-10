@@ -53,7 +53,7 @@ export const WorkspaceSearchTool = defineTool({
       } else if (data.data.results.length === 0) {
         return "No relevant content found."
       } else {
-        return ["Found following revele" ,...data.data.results.map(formatSearchResult)].join("")
+        return ["Found following revelant content" ,...data.data.results.map(formatSearchResult)].join("\n")
       }
     } catch (error) {
       return "Tool call failed."
