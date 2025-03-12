@@ -2,7 +2,6 @@ import fs from "fs"
 import path from "path"
 import { GitignoreParser, type Checker } from "./domain/parse_gitignore"
 import { getWorkspaceDataDir } from "./utils"
-import { json } from "stream/consumers"
 
 const IGNORE_FILES = [
   ".gitignore",
@@ -46,11 +45,36 @@ type WorkspaceIndexStatus = {
   }>
 }
 
+function* DirectoryIterator(dirPath: string, should_ignore_file: (path: string) => boolean) {
+  const queue = [dirPath]
+  while (queue.length > 0) {
+    const currentLevel = [...queue]
+    queue.length = 0
+    for (const dir of currentLevel) {
+      try {
+        const items = fs.readdirSync(dir)
+        const stats = items.map(item => fs.statSync(path.join(dir, item)))
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const fullPath = path.join(dir, item)
+          if (should_ignore_file(fullPath)) continue
+          if (stats[i].isDirectory()) {
+            queue.push(fullPath);
+          } else {
+            yield fullPath
+          }
+        }
+      } catch (err) {
+        console.error(`Error reading directory ${dir}:`, err);
+      }
+    }
+  }
+}
 
 export class WorkspaceIndexingManager {
   workspace_path: string
   file_ignore: FileIgnorejudicator
-  status_file_path: string
+  status_file_path: string = ""
   status: WorkspaceIndexStatus = {
     project_id: '',
     status: 'stopped',
@@ -58,42 +82,52 @@ export class WorkspaceIndexingManager {
   }
   indexing_client: IndexingClient
 
-  constructor(workspace_path: string, indexing_client: IndexingClient) {
+  private constructor(workspace_path: string, indexing_client: IndexingClient, status_file_path: string) {
     this.workspace_path = workspace_path
     this.file_ignore = new FileIgnorejudicator(workspace_path)
-    this.status_file_path = path.join(this.workspace_path, "indexing_status.json")
     this.indexing_client = indexing_client
-    if (!fs.existsSync(this.status_file_path)) {
-      fs.writeFileSync(this.status_file_path, JSON.stringify(this.status))
+    if (!fs.existsSync(status_file_path)) {
+      fs.writeFileSync(status_file_path, JSON.stringify(this.status))
     } else {
       this.status = JSON.parse(fs.readFileSync(this.status_file_path).toString())
     }
   }
 
-  save_status() {
+  static async init(workspace_path: string, indexing_client: IndexingClient) {
+    const status_file_path = path.join(await getWorkspaceDataDir(), "indexing_status.json")
+    return new WorkspaceIndexingManager(workspace_path, indexing_client, status_file_path)
+  }
+
+  private save_status() {
     fs.writeFileSync(this.status_file_path, JSON.stringify(this.status))
   }
 
-  async init_indexing() {
+  async traverse_indexing() {
     if (this.status.project_id === '') {
       this.status.project_id = await this.indexing_client.create_project()
       this.save_status()
+    }
+    const dir_iter = DirectoryIterator(this.workspace_path, (path: string) => this.file_ignore.should_ignore_file(path))
+    while(true) {
+      const file_path = dir_iter.next()
+      if (file_path.value) await this.embed_file(file_path.value)
+      if(file_path.done) break
     }
   }
 
   async embed_file(file_path: string) {
     const stat = fs.statSync(file_path)
+    const version = stat.mtimeMs
     this.update_file_indexing_status({
       path: file_path,
       status: "running"
     })
-    const version = stat.mtimeMs
     const result = await this.indexing_client.create_file_embedding(file_path, this.status.project_id)
     if (result.code === 0) {
       this.update_file_indexing_status({
         path: file_path,
         status: "done",
-        
+        indexed_version: version
       })
     }
   }
@@ -122,7 +156,7 @@ interface ProjectCreateReponse {
   id: string
 }
 
-class IndexingClient {
+export class IndexingClient {
   private indexing_service_endpoint: string
   constructor(indexing_service_endpoint: string) {
     this.indexing_service_endpoint = indexing_service_endpoint
@@ -154,7 +188,7 @@ class IndexingClient {
         "file_path": file_path,
         "file_content": fs.readFileSync(file_path).toString(),
         "coding_language": ""
-      })      
+      })
     });
     const data: Response<any> = await response.json()
     return data

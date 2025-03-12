@@ -5,10 +5,11 @@ import type {
   ToolUnion,
 } from '@anthropic-ai/sdk/resources/messages';
 import type { Tool } from './tools';
-import { printMessage, getCurrentUserInfo, loadMessageHistory, saveMessageHistory } from './utils';
+import { printMessage, getCurrentUserInfo, loadMessageHistory, saveMessageHistory, getWorkspaceDataDir } from './utils';
 import { detectErrors } from './errorDetection';
 import { getSystemPrompt } from './prompt';
 import { createCheckpoint, getCheckpointDetails, applyCheckpoint } from './checkpoints';
+import { IndexingClient, WorkspaceIndexingManager } from './WorkspaceIndexingManager';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 const DEFAULT_MAX_TOKENS = 8192;
@@ -57,6 +58,7 @@ export interface ZypherAgentConfig {
   persistHistory?: boolean;
   /** Whether to automatically check for code errors. Defaults to true. */
   autoErrorCheck?: boolean;
+  workspaceIndexingEnabled?: boolean
 }
 
 export class ZypherAgent {
@@ -67,6 +69,7 @@ export class ZypherAgent {
   private _messages: MessageParam[];
   private readonly persistHistory: boolean;
   private readonly autoErrorCheck: boolean;
+  private readonly workspaceIndexingEnabled: boolean;
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
@@ -83,6 +86,7 @@ export class ZypherAgent {
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.persistHistory = config.persistHistory ?? true;
     this.autoErrorCheck = config.autoErrorCheck ?? true;
+    this.workspaceIndexingEnabled = config.workspaceIndexingEnabled ?? false;
   }
 
   async init(): Promise<void> {
@@ -92,6 +96,15 @@ export class ZypherAgent {
     // Load message history if enabled
     if (this.persistHistory) {
       this._messages = await loadMessageHistory();
+    }
+
+    if(this.workspaceIndexingEnabled) {
+      const indexing_client = new IndexingClient(process.env.CODEBASE_INDEXING_SERVICE_ENDPOINT);
+      const indexingManager =  await WorkspaceIndexingManager.init(
+        await getWorkspaceDataDir(),
+        indexing_client
+      )
+      indexingManager.traverse_indexing()
     }
   }
 

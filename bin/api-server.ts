@@ -16,7 +16,7 @@ import { listCheckpoints } from '../src/checkpoints';
 
 // Load environment variables
 dotenv.config();
-
+console.log("process.argv", process.argv)
 const program = new Command();
 
 program
@@ -25,11 +25,12 @@ program
   .version('1.0.0')
   .option('-p, --port <number>', 'Port to run the server on', '3000')
   .option('-w, --workspace <path>', 'Set working directory for the agent')
+  .option('-i, --indexing', 'Set working directory for the agent', false)
   .parse(process.argv);
 
 const options = program.opts();
 const PORT = parseInt(options.port, 10);
-
+console.log(options.indexing)
 // Initialize Express app
 const app = express();
 app.use(express.json());
@@ -53,7 +54,9 @@ async function initializeAgent() {
     }
 
     // Initialize the agent
-    agent = new ZypherAgent();
+    agent = new ZypherAgent({
+      workspaceIndexingEnabled: options.indexing as boolean
+    });
 
     // Register all available tools
     agent.registerTool(ReadFileTool);
