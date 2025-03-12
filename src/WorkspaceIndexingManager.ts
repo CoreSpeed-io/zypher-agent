@@ -59,7 +59,6 @@ function* DirectoryIterator(dirPath: string, should_ignore_file: (path: string) 
           const item = items[i];
           const fullPath = path.join(dir, item)
           if (should_ignore_file(fullPath)) {
-            console.log('skip ', fullPath)
             continue
           }
           if (stats[i].isDirectory()) {
@@ -117,10 +116,8 @@ export class WorkspaceIndexingManager {
     const dir_iter = DirectoryIterator(this.workspace_path, (path: string) => this.file_ignore.should_ignore_file(path))
     while (true) {
       const file_path = dir_iter.next()
-      console.log(`process: ${file_path.value}`)
       if (file_path.value) await this.embed_file(file_path.value)
       if (file_path.done) break
-      console.log(`done: ${file_path.value}`)
     }
   }
 
