@@ -20,6 +20,7 @@ program
   .description('AI-powered coding assistant')
   .version('0.1.0')
   .option('-w, --workspace <path>', 'Set working directory for the agent')
+  .option('-i, --indexing', 'Set working directory for the agent', false)
   .parse(process.argv);
 
 const options = program.opts();
@@ -51,7 +52,9 @@ async function main() {
     }
 
     // Initialize the agent
-    const agent = new ZypherAgent();
+    const agent = new ZypherAgent({
+      workspaceIndexingEnabled: options.indexing as boolean
+    });
 
     // Register all available tools
     agent.registerTool(ReadFileTool);

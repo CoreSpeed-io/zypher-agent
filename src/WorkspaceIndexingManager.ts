@@ -13,7 +13,7 @@ class FileIgnorejudicator {
   private checker_list: Checker[] = []
   constructor(workspace_path: string) {
     this.workspace_path = workspace_path
-    IGNORE_FILES.flatMap((file_name) => {
+    this.checker_list = IGNORE_FILES.flatMap((file_name) => {
       const filepath = path.join(workspace_path, file_name)
       return fs.existsSync(filepath) ? [
         GitignoreParser.compile(fs.readFileSync(filepath).toString())
@@ -22,10 +22,11 @@ class FileIgnorejudicator {
   }
 
   should_ignore_file(file_path: string) {
+    if(path.parse(file_path).base == '.git') return true
     for (const c of this.checker_list) {
-      if (!c.accepts(file_path)) return false
+      if (!c.accepts(file_path)) return true
     }
-    return true
+    return false
   }
 }
 
@@ -38,8 +39,8 @@ type WorkspaceIndexStatus = {
     path: string,
     status: Status,
     /**
-     *  1. If conducting forced search while indexing is running, this value can assist in determining whether the search results come from the latest file content.
-     *  2  skip up-to-dated file when restoring from exsiting project.
+     * 1. If conducting forced search while indexing is running, this value can assist in determining whether the search results come from the latest file content.
+     * 2. Skip up-to-dated file when restoring from exsiting project.
      * */
     indexed_version: number
   }>
@@ -57,7 +58,10 @@ function* DirectoryIterator(dirPath: string, should_ignore_file: (path: string) 
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
           const fullPath = path.join(dir, item)
-          if (should_ignore_file(fullPath)) continue
+          if (should_ignore_file(fullPath)) {
+            console.log('skip ', fullPath)
+            continue
+          }
           if (stats[i].isDirectory()) {
             queue.push(fullPath);
           } else {
@@ -86,20 +90,23 @@ export class WorkspaceIndexingManager {
     this.workspace_path = workspace_path
     this.file_ignore = new FileIgnorejudicator(workspace_path)
     this.indexing_client = indexing_client
+    this.status_file_path = status_file_path
     if (!fs.existsSync(status_file_path)) {
-      fs.writeFileSync(status_file_path, JSON.stringify(this.status))
+      fs.writeFileSync(status_file_path, JSON.stringify(this.status), { flag: 'w' })
     } else {
-      this.status = JSON.parse(fs.readFileSync(this.status_file_path).toString())
+      this.status = JSON.parse(fs.readFileSync(status_file_path).toString())
     }
+    
   }
 
   static async init(workspace_path: string, indexing_client: IndexingClient) {
     const status_file_path = path.join(await getWorkspaceDataDir(), "indexing_status.json")
+    console.log("status_file_path", status_file_path)
     return new WorkspaceIndexingManager(workspace_path, indexing_client, status_file_path)
   }
 
   private save_status() {
-    fs.writeFileSync(this.status_file_path, JSON.stringify(this.status))
+    fs.writeFileSync(this.status_file_path, JSON.stringify(this.status), { flag: 'w' })
   }
 
   async traverse_indexing() {
@@ -108,10 +115,12 @@ export class WorkspaceIndexingManager {
       this.save_status()
     }
     const dir_iter = DirectoryIterator(this.workspace_path, (path: string) => this.file_ignore.should_ignore_file(path))
-    while(true) {
+    while (true) {
       const file_path = dir_iter.next()
+      console.log(`process: ${file_path.value}`)
       if (file_path.value) await this.embed_file(file_path.value)
-      if(file_path.done) break
+      if (file_path.done) break
+      console.log(`done: ${file_path.value}`)
     }
   }
 
@@ -132,7 +141,7 @@ export class WorkspaceIndexingManager {
     }
   }
 
-  update_file_indexing_status(new_status: {path: string, status?: Status, indexed_version?: number}) {
+  update_file_indexing_status(new_status: { path: string, status?: Status, indexed_version?: number }) {
     const old = this.status.files[new_status.path]
     this.status.files[new_status.path] = {
       ...old,
@@ -194,3 +203,6 @@ export class IndexingClient {
     return data
   }
 }
+
+// const ju = new FileIgnorejudicator(getCurrentUserInfo().workspacePath)
+// console.log(ju.should_ignore_file('/home/rexjz/Workspace/deckspeed-template/pnpm-lock.yaml'))
