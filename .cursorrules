@@ -57,6 +57,7 @@
 - Use `git status` to check if a repository exists and is valid, rather than checking for the .git directory and then validating with a separate command
 - Checkpoint creation should always be handled by the ZypherAgent class, not by the API server or CLI
 - ZypherAgent is responsible for applying checkpoints and updating message history to discard messages beyond the applied checkpoint
+- When applying a checkpoint, exclude the checkpoint message itself and all subsequent messages from history, as the checkpoint message represents the state after which we want to roll back
 
 ## API Server
 - The API server should be implemented in bin/api-server.ts

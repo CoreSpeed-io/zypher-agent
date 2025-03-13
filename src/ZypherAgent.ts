@@ -143,8 +143,8 @@ export class ZypherAgent {
       const checkpointIndex = this._messages.findIndex((msg) => msg.checkpointId === checkpointId);
 
       if (checkpointIndex !== -1) {
-        // Keep messages up to and including the checkpoint message
-        this._messages = this._messages.slice(0, checkpointIndex + 1);
+        // Keep messages up to but excluding the checkpoint message
+        this._messages = this._messages.slice(0, checkpointIndex);
 
         // Save updated message history if enabled
         if (this.persistHistory) {
