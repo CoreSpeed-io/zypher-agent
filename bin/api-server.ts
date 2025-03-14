@@ -2,7 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { Command } from 'commander';
-import { ZypherAgent, MessageParam, MessageHandler } from '../src/ZypherAgent';
+import { ZypherAgent, MessageHandler } from '../src/ZypherAgent';
+import type { Message } from '../src/message';
 import {
   ReadFileTool,
   ListDirTool,
@@ -140,7 +141,7 @@ app.post('/agent/tasks', [
 
       try {
         // Set up event listeners for agent responses
-        const messageHandler: MessageHandler = (message: MessageParam) => {
+        const messageHandler: MessageHandler = (message: Message) => {
           // Send message event - the user message already contains checkpoint info
           res.write(`event: message\n`);
           res.write(`data: ${JSON.stringify(message)}\n\n`);

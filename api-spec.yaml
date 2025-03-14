@@ -84,6 +84,7 @@ components:
       required:
         - role
         - content
+        - timestamp
       properties:
         role:
           type: string
@@ -96,6 +97,10 @@ components:
               items:
                 $ref: '#/components/schemas/ContentBlock'
           description: The content of the message
+        timestamp:
+          type: string
+          format: date-time
+          description: When the message was created
         checkpointId:
           type: string
           description: Reference to a checkpoint created before this message (for user task messages)

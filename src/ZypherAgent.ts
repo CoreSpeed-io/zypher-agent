@@ -9,33 +9,15 @@ import { printMessage, getCurrentUserInfo, loadMessageHistory, saveMessageHistor
 import { detectErrors } from './errorDetection';
 import { getSystemPrompt } from './prompt';
 import { createCheckpoint, getCheckpointDetails, applyCheckpoint } from './checkpoints';
+import type { Message } from './message';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 const DEFAULT_MAX_TOKENS = 8192;
 
 /**
- * Extended message parameter type that includes checkpoint information
- */
-export interface MessageParam extends AnthropicMessageParam {
-  /**
-   * Optional reference to a checkpoint created before this message
-   */
-  checkpointId?: string;
-
-  /**
-   * Optional metadata about the checkpoint
-   */
-  checkpoint?: {
-    id: string;
-    name: string;
-    timestamp: string;
-  };
-}
-
-/**
  * Message handler function type for streaming messages
  */
-export type MessageHandler = (message: MessageParam) => void;
+export type MessageHandler = (message: Message) => void;
 
 /**
  * Strips custom fields from MessageParam to make it compatible with Anthropic API
@@ -43,7 +25,7 @@ export type MessageHandler = (message: MessageParam) => void;
  * @param message - The extended message parameter
  * @returns A clean message parameter for the Anthropic API
  */
-function stripCustomFields(message: MessageParam): AnthropicMessageParam {
+function stripCustomFields(message: Message): AnthropicMessageParam {
   // Destructure to get only the standard fields
   const { role, content } = message;
   return { role, content };
@@ -64,7 +46,7 @@ export class ZypherAgent {
   private readonly _tools: Map<string, Tool>;
   private system: string;
   private readonly maxTokens: number;
-  private _messages: MessageParam[];
+  private _messages: Message[];
   private readonly persistHistory: boolean;
   private readonly autoErrorCheck: boolean;
 
@@ -95,7 +77,7 @@ export class ZypherAgent {
     }
   }
 
-  get messages(): MessageParam[] {
+  get messages(): Message[] {
     return [...this._messages];
   }
 
@@ -119,7 +101,7 @@ export class ZypherAgent {
    * Get all messages from the agent's history
    * @returns Array of messages
    */
-  getMessages(): MessageParam[] {
+  getMessages(): Message[] {
     return [...this._messages];
   }
 
@@ -166,8 +148,8 @@ export class ZypherAgent {
    * @param messageHandler Optional message handler to notify
    */
   private processMessage(
-    message: MessageParam,
-    messages: MessageParam[],
+    message: Message,
+    messages: Message[],
     messageHandler?: MessageHandler,
   ): void {
     // Add message to the array
@@ -208,14 +190,14 @@ export class ZypherAgent {
     taskDescription: string,
     messageHandler?: MessageHandler,
     maxIterations: number = 25,
-  ): Promise<MessageParam[]> {
+  ): Promise<Message[]> {
     // Ensure system prompt is initialized
     if (!this.system) {
       await this.init();
     }
 
     let iterations = 0;
-    const messages: MessageParam[] = [...this._messages];
+    const messages: Message[] = [...this._messages];
 
     // Always create a checkpoint before executing the task
     const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${taskDescription.length > 50 ? '...' : ''}`;
@@ -223,11 +205,12 @@ export class ZypherAgent {
     const checkpoint = checkpointId ? await getCheckpointDetails(checkpointId) : undefined;
 
     // Add user message with checkpoint reference
-    const userMessage: MessageParam = {
+    const userMessage: Message = {
       role: 'user',
       content: `<user_query>\n${taskDescription}\n</user_query>`,
       checkpointId,
       checkpoint,
+      timestamp: new Date(), // current timestamp
     };
     this.processMessage(userMessage, messages, messageHandler);
 
@@ -251,9 +234,10 @@ export class ZypherAgent {
       });
 
       // Process the response
-      const assistantMessage: MessageParam = {
+      const assistantMessage: Message = {
         role: 'assistant',
         content: response.content,
+        timestamp: new Date(),
       };
       this.processMessage(assistantMessage, messages, messageHandler);
 
@@ -268,7 +252,7 @@ export class ZypherAgent {
             });
 
             // Add tool response
-            const toolMessage: MessageParam = {
+            const toolMessage: Message = {
               role: 'user',
               content: [
                 {
@@ -277,15 +261,17 @@ export class ZypherAgent {
                   content: result,
                 } as ToolResultBlockParam,
               ],
+              timestamp: new Date(),
             };
             this.processMessage(toolMessage, messages, messageHandler);
           }
         }
       } else if (response.stop_reason === 'max_tokens') {
         // auto continue
-        const continueMessage: MessageParam = {
+        const continueMessage: Message = {
           role: 'user',
           content: 'Continue',
+          timestamp: new Date(),
         };
         this.processMessage(continueMessage, messages, messageHandler);
       } else {
@@ -296,9 +282,10 @@ export class ZypherAgent {
             console.log('\n🔍 Detected code errors. Asking the agent to fix them...');
 
             // Add errors as a user message
-            const errorMessage: MessageParam = {
+            const errorMessage: Message = {
               role: 'user',
               content: `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
+              timestamp: new Date(),
             };
             this.processMessage(errorMessage, messages, messageHandler);
 
@@ -315,7 +302,7 @@ export class ZypherAgent {
       iterations++;
     }
 
-    this._messages = messages as MessageParam[];
+    this._messages = messages as Message[];
 
     // Save updated message history if enabled
     if (this.persistHistory) {
