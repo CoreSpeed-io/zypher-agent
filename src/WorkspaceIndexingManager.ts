@@ -2,6 +2,8 @@ import fs from "fs"
 import path from "path"
 import { GitignoreParser, type Checker } from "./domain/parse_gitignore"
 import { getWorkspaceDataDir } from "./utils"
+import chokidar from "chokidar"
+import Bottleneck from "bottleneck";
 
 const IGNORE_FILES = [
   ".gitignore",
@@ -75,18 +77,22 @@ function* DirectoryIterator(dirPath: string, should_ignore_file: (path: string) 
 }
 
 export class WorkspaceIndexingManager {
-  workspace_path: string
-  file_ignore: FileIgnorejudicator
+  private _workspace_path: string
+  private file_ignore: FileIgnorejudicator
   status_file_path: string = ""
-  status: WorkspaceIndexStatus = {
+  private status: WorkspaceIndexStatus = {
     project_id: '',
     status: 'stopped',
     files: {}
   }
   indexing_client: IndexingClient
+  private batcher = new Bottleneck.Batcher({
+    maxTime: 1000,
+    maxSize: 5
+  });
 
   private constructor(workspace_path: string, indexing_client: IndexingClient, status_file_path: string) {
-    this.workspace_path = workspace_path
+    this._workspace_path = workspace_path
     this.file_ignore = new FileIgnorejudicator(workspace_path)
     this.indexing_client = indexing_client
     this.status_file_path = status_file_path
@@ -97,15 +103,54 @@ export class WorkspaceIndexingManager {
     }
   }
 
+  get project_id() {
+    return this.status.project_id
+  }
+
+  get workspace_path() {
+    return this._workspace_path
+  }
+
+  get runningStatus() {
+    return this.status.status
+  }
+
   static async create(workspace_path: string, indexing_client: IndexingClient) {
     const status_file_path = path.join(await getWorkspaceDataDir(), "indexing_status.json")
     console.log("status_file_path", status_file_path)
     return new WorkspaceIndexingManager(workspace_path, indexing_client, status_file_path)
   }
 
+  private startFileWatching(): void {
+    const watcher = chokidar.watch(this._workspace_path, {
+      ignored: (path, stats) => this.file_ignore.should_ignore_file(path),
+    })
+    watcher.on('add', 
+      (path, stats) => {
+        console.log('added', path);
+        if(stats?.size !== 0) {
+          return // empty new file
+        }
+        this.batcher.add(path)
+      }
+    );
+    watcher.on('change',(path, stats) => {
+      console.log('changed', path);
+        if(stats?.size !== 0) {
+          // TODO: When the file content is changed to empty, delete the index document in backend
+        }
+        this.batcher.add(path)
+    })
+  }
+
   async init(onFinsh: () => void) {
     await this._traverse_indexing()
-    // TODO: start file watching here
+    this.batcher.on('batch', (batch: string[]) => {
+      for (const file_path of batch)  {
+        this.embed_file(file_path)
+      }
+    })
+    this.startFileWatching()
     onFinsh()
   }
 

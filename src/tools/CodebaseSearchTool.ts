@@ -1,6 +1,8 @@
 
 import { z } from 'zod';
 import { defineTool } from './index';
+import { IndexingClient, WorkspaceIndexingManager } from '../WorkspaceIndexingManager';
+import { getCurrentUserInfo } from '../utils';
 
 type SearchResult = {
   file_path: string,
@@ -34,6 +36,11 @@ export const WorkspaceSearchTool = defineTool({
   }),
   execute: async ({ query }) => {
     try {
+      const clinet = new IndexingClient(process.env.CODEBASE_INDEXING_SERVICE_ENDPOINT);
+      const manager = await WorkspaceIndexingManager.create(getCurrentUserInfo().workspacePath, clinet)
+      if (manager.runningStatus === 'running') {
+        return "workspace_search tool is still under initialization, please try again later."
+      }
       const url = `${process.env.CODEBASE_INDEXING_ENDPOINT}/v1/search`
       const response = await fetch(url, {
         method: 'POST',
@@ -44,7 +51,7 @@ export const WorkspaceSearchTool = defineTool({
         body: JSON.stringify({
           query,
           top_k: 5,
-          project_id: '' // TODO: get project id of current workspace
+          project_id: manager.project_id // TODO: get project id of current workspace
         }),
       });
       const data: SearchResponse = await response.json();

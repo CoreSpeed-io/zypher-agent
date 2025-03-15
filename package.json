@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "bottleneck": "^2.19.5",
     "chokidar": "^4.0.3",
     "commander": "^13.1.0",
     "cors": "^2.8.5",
