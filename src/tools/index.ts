@@ -75,3 +75,4 @@ export { RunTerminalCmdTool } from './RunTerminalCmdTool';
 export { GrepSearchTool } from './GrepSearchTool';
 export { FileSearchTool } from './FileSearchTool';
 export { DeleteFileTool } from './DeleteFileTool';
+export { WorkspaceSearchTool } from './WorkspaceSearchTool'

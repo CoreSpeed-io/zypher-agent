@@ -12,6 +12,7 @@ import {
   GrepSearchTool,
   FileSearchTool,
   DeleteFileTool,
+  WorkspaceSearchTool
 } from '../src/tools';
 import { listCheckpoints } from '../src/checkpoints';
 
@@ -67,6 +68,7 @@ async function initializeAgent() {
     agent.registerTool(GrepSearchTool);
     agent.registerTool(FileSearchTool);
     agent.registerTool(DeleteFileTool);
+    agent.registerTool(WorkspaceSearchTool);
 
     console.log('🔧 Registered tools:', Array.from(agent.tools.keys()).join(', '));
 
