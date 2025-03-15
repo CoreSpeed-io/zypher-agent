@@ -7,6 +7,7 @@ import {
   GrepSearchTool,
   FileSearchTool,
   DeleteFileTool,
+  WorkspaceSearchTool,
 } from '../src/tools';
 import { Command } from 'commander';
 import dotenv from 'dotenv';
@@ -64,7 +65,8 @@ async function main() {
     agent.registerTool(GrepSearchTool);
     agent.registerTool(FileSearchTool);
     agent.registerTool(DeleteFileTool);
-
+    if (options.indexing) agent.registerTool(WorkspaceSearchTool);
+    
     console.log('🔧 Registered tools:', Array.from(agent.tools.keys()).join(', '));
 
     // Initialize the agent
