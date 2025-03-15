@@ -1,8 +1,8 @@
-import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import os from 'os';
 import process from 'process';
 import { readFile, writeFile, mkdir, access, constants } from 'fs/promises';
 import { join } from 'path';
+import type { Message } from './message';
 
 /**
  * Information about the user's system environment.
@@ -93,9 +93,9 @@ export async function getWorkspaceDataDir(): Promise<string> {
  * Loads the message history for the current workspace.
  * Each workspace has its own message history file based on its path.
  *
- * @returns {Promise<MessageParam[]>} Array of messages from history, empty array if no history exists
+ * @returns {Promise<Message[]>} Array of messages from history, empty array if no history exists
  */
-export async function loadMessageHistory(): Promise<MessageParam[]> {
+export async function loadMessageHistory(): Promise<Message[]> {
   try {
     const workspaceDir = await getWorkspaceDataDir();
     const historyPath = join(workspaceDir, 'history.json');
@@ -119,10 +119,10 @@ export async function loadMessageHistory(): Promise<MessageParam[]> {
  * Saves the message history for the current workspace.
  * Creates a new history file if it doesn't exist, or updates the existing one.
  *
- * @param {MessageParam[]} messages - Array of messages to save
+ * @param {Message[]} messages - Array of messages to save
  * @returns {Promise<void>}
  */
-export async function saveMessageHistory(messages: MessageParam[]): Promise<void> {
+export async function saveMessageHistory(messages: Message[]): Promise<void> {
   try {
     const workspaceDir = await getWorkspaceDataDir();
     const historyPath = join(workspaceDir, 'history.json');
@@ -156,7 +156,7 @@ export async function saveMessageHistory(messages: MessageParam[]): Promise<void
  *   }]
  * });
  */
-export function printMessage(message: MessageParam): void {
+export function printMessage(message: Message): void {
   console.log(`\n🗣️ Role: ${message.role}`);
   console.log('════════════════════');
 

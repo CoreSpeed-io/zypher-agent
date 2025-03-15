@@ -5,11 +5,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Demo",
+      "name": "CLI",
       "type": "node",
       "request": "launch",
       // Debug current file in VSCode
-      "program": "${workspaceFolder}/bin/demo.ts",
+      "program": "${workspaceFolder}/bin/cli.ts",
       /*
        * Path to tsx binary
        * Assuming locally installed

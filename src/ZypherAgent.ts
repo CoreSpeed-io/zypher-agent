@@ -3,6 +3,8 @@ import type {
   MessageParam as AnthropicMessageParam,
   ToolResultBlockParam,
   ToolUnion,
+  TextBlockParam,
+  ContentBlockParam,
 } from '@anthropic-ai/sdk/resources/messages';
 import type { Tool } from './tools';
 import { printMessage, getCurrentUserInfo, loadMessageHistory, saveMessageHistory, getWorkspaceDataDir } from './utils';
@@ -10,45 +12,15 @@ import { detectErrors } from './errorDetection';
 import { getSystemPrompt } from './prompt';
 import { createCheckpoint, getCheckpointDetails, applyCheckpoint } from './checkpoints';
 import { IndexingClient, WorkspaceIndexingManager } from './WorkspaceIndexingManager';
+import type { Message } from './message';
 
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 const DEFAULT_MAX_TOKENS = 8192;
 
 /**
- * Extended message parameter type that includes checkpoint information
- */
-export interface MessageParam extends AnthropicMessageParam {
-  /**
-   * Optional reference to a checkpoint created before this message
-   */
-  checkpointId?: string;
-
-  /**
-   * Optional metadata about the checkpoint
-   */
-  checkpoint?: {
-    id: string;
-    name: string;
-    timestamp: string;
-  };
-}
-
-/**
  * Message handler function type for streaming messages
  */
-export type MessageHandler = (message: MessageParam) => void;
-
-/**
- * Strips custom fields from MessageParam to make it compatible with Anthropic API
- *
- * @param message - The extended message parameter
- * @returns A clean message parameter for the Anthropic API
- */
-function stripCustomFields(message: MessageParam): AnthropicMessageParam {
-  // Destructure to get only the standard fields
-  const { role, content } = message;
-  return { role, content };
-}
+export type MessageHandler = (message: Message) => void;
 
 export interface ZypherAgentConfig {
   anthropicApiKey?: string;
@@ -59,17 +31,20 @@ export interface ZypherAgentConfig {
   /** Whether to automatically check for code errors. Defaults to true. */
   autoErrorCheck?: boolean;
   workspaceIndexingEnabled?: boolean
+  /** Whether to enable prompt caching. Defaults to true. */
+  enablePromptCaching?: boolean;
 }
 
 export class ZypherAgent {
   private readonly client: Anthropic;
   private readonly _tools: Map<string, Tool>;
-  private system: string;
+  private system: TextBlockParam[];
   private readonly maxTokens: number;
-  private _messages: MessageParam[];
+  private _messages: Message[];
   private readonly persistHistory: boolean;
   private readonly autoErrorCheck: boolean;
   private readonly workspaceIndexingEnabled: boolean;
+  private readonly enablePromptCaching: boolean;
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
@@ -82,16 +57,27 @@ export class ZypherAgent {
     this.client = new Anthropic({ apiKey });
     this._tools = new Map();
     this._messages = [];
-    this.system = ''; // Will be initialized in init()
+    this.system = []; // Will be initialized in init()
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.persistHistory = config.persistHistory ?? true;
     this.autoErrorCheck = config.autoErrorCheck ?? true;
     this.workspaceIndexingEnabled = config.workspaceIndexingEnabled ?? false;
+    this.enablePromptCaching = config.enablePromptCaching ?? true;
   }
 
   async init(): Promise<void> {
     const userInfo = await getCurrentUserInfo();
-    this.system = await getSystemPrompt(userInfo);
+    const systemPromptText = await getSystemPrompt(userInfo);
+
+    // Convert system prompt to content blocks
+    // cache the main system prompt as it's large and reusable
+    this.system = [
+      {
+        type: 'text',
+        text: systemPromptText,
+        ...(this.enablePromptCaching && { cache_control: { type: 'ephemeral' } }),
+      },
+    ];
 
     // Load message history if enabled
     if (this.persistHistory) {
@@ -109,7 +95,7 @@ export class ZypherAgent {
     }
   }
 
-  get messages(): MessageParam[] {
+  get messages(): Message[] {
     return [...this._messages];
   }
 
@@ -133,7 +119,7 @@ export class ZypherAgent {
    * Get all messages from the agent's history
    * @returns Array of messages
    */
-  getMessages(): MessageParam[] {
+  getMessages(): Message[] {
     return [...this._messages];
   }
 
@@ -157,8 +143,8 @@ export class ZypherAgent {
       const checkpointIndex = this._messages.findIndex((msg) => msg.checkpointId === checkpointId);
 
       if (checkpointIndex !== -1) {
-        // Keep messages up to and including the checkpoint message
-        this._messages = this._messages.slice(0, checkpointIndex + 1);
+        // Keep messages up to but excluding the checkpoint message
+        this._messages = this._messages.slice(0, checkpointIndex);
 
         // Save updated message history if enabled
         if (this.persistHistory) {
@@ -180,8 +166,8 @@ export class ZypherAgent {
    * @param messageHandler Optional message handler to notify
    */
   private processMessage(
-    message: MessageParam,
-    messages: MessageParam[],
+    message: Message,
+    messages: Message[],
     messageHandler?: MessageHandler,
   ): void {
     // Add message to the array
@@ -218,18 +204,52 @@ export class ZypherAgent {
     }
   }
 
+  /**
+   * Formats a message for the Anthropic API, converting content to blocks and adding cache control
+   * for incremental caching of conversation history.
+   *
+   * @param message - The extended message parameter
+   * @param isLastMessage - Whether this is the last message in the turn
+   * @returns A clean message parameter for the Anthropic API
+   */
+  private formatMessageForApi = (message: Message, isLastMessage: boolean): AnthropicMessageParam => {
+    // Destructure to get only the standard fields
+    const { role, content } = message;
+
+    // For string content, convert to array format
+    let contentArray = typeof content === 'string'
+      ? [{ type: 'text' as const, text: content } as TextBlockParam]
+      : content as ContentBlockParam[]; // Use original array for non-last messages
+
+    // Add cache control to the last block of the last message
+    if (isLastMessage && this.enablePromptCaching && contentArray.length > 0) {
+      // Only create new array for the last message to avoid mutating the original array
+      contentArray = [
+        ...contentArray.slice(0, -1), // Keep all but the last block
+        // inject cache control to the last block
+        // refer to https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#continuing-a-multi-turn-conversation
+        {
+          ...contentArray[contentArray.length - 1],
+          cache_control: { type: 'ephemeral' },
+        } as ContentBlockParam,
+      ];
+    }
+
+    return { role, content: contentArray };
+  };
+
   async runTaskLoop(
     taskDescription: string,
     messageHandler?: MessageHandler,
     maxIterations: number = 25,
-  ): Promise<MessageParam[]> {
+  ): Promise<Message[]> {
     // Ensure system prompt is initialized
-    if (!this.system) {
+    if (!this.system.length) {
       await this.init();
     }
 
     let iterations = 0;
-    const messages: MessageParam[] = [...this._messages];
+    const messages: Message[] = [...this._messages];
 
     // Always create a checkpoint before executing the task
     const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${taskDescription.length > 50 ? '...' : ''}`;
@@ -237,37 +257,39 @@ export class ZypherAgent {
     const checkpoint = checkpointId ? await getCheckpointDetails(checkpointId) : undefined;
 
     // Add user message with checkpoint reference
-    const userMessage: MessageParam = {
+    const userMessage: Message = {
       role: 'user',
       content: `<user_query>\n${taskDescription}\n</user_query>`,
       checkpointId,
       checkpoint,
+      timestamp: new Date(), // current timestamp
     };
     this.processMessage(userMessage, messages, messageHandler);
+
+    const toolCalls = Array.from(this._tools.values()).map(
+      (tool, index, tools): ToolUnion => ({
+        name: tool.name,
+        description: tool.description,
+        input_schema: tool.parameters,
+        // Only add cache control to the last tool as it acts as a breakpoint
+        ...(this.enablePromptCaching && index === tools.length - 1 && { cache_control: { type: 'ephemeral' } }),
+      }),
+    );
 
     while (iterations < maxIterations) {
       const response = await this.client.messages.create({
         model: DEFAULT_MODEL,
         max_tokens: this.maxTokens,
         system: this.system,
-        messages: messages.map(stripCustomFields), // Strip custom fields before sending to Claude API
-        tools: Array.from(this._tools.values()).map(
-          (tool): ToolUnion => ({
-            name: tool.name,
-            description: tool.description,
-            input_schema: {
-              type: 'object',
-              properties: tool.parameters.properties,
-              required: tool.parameters.required,
-            },
-          }),
-        ),
+        messages: messages.map((msg, index) => this.formatMessageForApi(msg, index === messages.length - 1)),
+        tools: toolCalls,
       });
 
       // Process the response
-      const assistantMessage: MessageParam = {
+      const assistantMessage: Message = {
         role: 'assistant',
         content: response.content,
+        timestamp: new Date(),
       };
       this.processMessage(assistantMessage, messages, messageHandler);
 
@@ -282,7 +304,7 @@ export class ZypherAgent {
             });
 
             // Add tool response
-            const toolMessage: MessageParam = {
+            const toolMessage: Message = {
               role: 'user',
               content: [
                 {
@@ -291,15 +313,17 @@ export class ZypherAgent {
                   content: result,
                 } as ToolResultBlockParam,
               ],
+              timestamp: new Date(),
             };
             this.processMessage(toolMessage, messages, messageHandler);
           }
         }
       } else if (response.stop_reason === 'max_tokens') {
         // auto continue
-        const continueMessage: MessageParam = {
+        const continueMessage: Message = {
           role: 'user',
           content: 'Continue',
+          timestamp: new Date(),
         };
         this.processMessage(continueMessage, messages, messageHandler);
       } else {
@@ -310,9 +334,10 @@ export class ZypherAgent {
             console.log('\n🔍 Detected code errors. Asking the agent to fix them...');
 
             // Add errors as a user message
-            const errorMessage: MessageParam = {
+            const errorMessage: Message = {
               role: 'user',
               content: `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
+              timestamp: new Date(),
             };
             this.processMessage(errorMessage, messages, messageHandler);
 
@@ -329,7 +354,7 @@ export class ZypherAgent {
       iterations++;
     }
 
-    this._messages = messages as MessageParam[];
+    this._messages = messages as Message[];
 
     // Save updated message history if enabled
     if (this.persistHistory) {
