@@ -3,6 +3,8 @@ import type {
   MessageParam as AnthropicMessageParam,
   ToolResultBlockParam,
   ToolUnion,
+  TextBlockParam,
+  ContentBlockParam,
 } from '@anthropic-ai/sdk/resources/messages';
 import type { Tool } from './tools';
 import { printMessage, getCurrentUserInfo, loadMessageHistory, saveMessageHistory } from './utils';
@@ -19,18 +21,6 @@ const DEFAULT_MAX_TOKENS = 8192;
  */
 export type MessageHandler = (message: Message) => void;
 
-/**
- * Strips custom fields from MessageParam to make it compatible with Anthropic API
- *
- * @param message - The extended message parameter
- * @returns A clean message parameter for the Anthropic API
- */
-function stripCustomFields(message: Message): AnthropicMessageParam {
-  // Destructure to get only the standard fields
-  const { role, content } = message;
-  return { role, content };
-}
-
 export interface ZypherAgentConfig {
   anthropicApiKey?: string;
   model?: string;
@@ -39,16 +29,19 @@ export interface ZypherAgentConfig {
   persistHistory?: boolean;
   /** Whether to automatically check for code errors. Defaults to true. */
   autoErrorCheck?: boolean;
+  /** Whether to enable prompt caching. Defaults to true. */
+  enablePromptCaching?: boolean;
 }
 
 export class ZypherAgent {
   private readonly client: Anthropic;
   private readonly _tools: Map<string, Tool>;
-  private system: string;
+  private system: TextBlockParam[];
   private readonly maxTokens: number;
   private _messages: Message[];
   private readonly persistHistory: boolean;
   private readonly autoErrorCheck: boolean;
+  private readonly enablePromptCaching: boolean;
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
@@ -61,15 +54,26 @@ export class ZypherAgent {
     this.client = new Anthropic({ apiKey });
     this._tools = new Map();
     this._messages = [];
-    this.system = ''; // Will be initialized in init()
+    this.system = []; // Will be initialized in init()
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.persistHistory = config.persistHistory ?? true;
     this.autoErrorCheck = config.autoErrorCheck ?? true;
+    this.enablePromptCaching = config.enablePromptCaching ?? true;
   }
 
   async init(): Promise<void> {
     const userInfo = await getCurrentUserInfo();
-    this.system = await getSystemPrompt(userInfo);
+    const systemPromptText = await getSystemPrompt(userInfo);
+
+    // Convert system prompt to content blocks
+    // cache the main system prompt as it's large and reusable
+    this.system = [
+      {
+        type: 'text',
+        text: systemPromptText,
+        ...(this.enablePromptCaching && { cache_control: { type: 'ephemeral' } }),
+      },
+    ];
 
     // Load message history if enabled
     if (this.persistHistory) {
@@ -186,13 +190,47 @@ export class ZypherAgent {
     }
   }
 
+  /**
+   * Formats a message for the Anthropic API, converting content to blocks and adding cache control
+   * for incremental caching of conversation history.
+   *
+   * @param message - The extended message parameter
+   * @param isLastMessage - Whether this is the last message in the turn
+   * @returns A clean message parameter for the Anthropic API
+   */
+  private formatMessageForApi = (message: Message, isLastMessage: boolean): AnthropicMessageParam => {
+    // Destructure to get only the standard fields
+    const { role, content } = message;
+
+    // For string content, convert to array format
+    let contentArray = typeof content === 'string'
+      ? [{ type: 'text' as const, text: content } as TextBlockParam]
+      : content as ContentBlockParam[]; // Use original array for non-last messages
+
+    // Add cache control to the last block of the last message
+    if (isLastMessage && this.enablePromptCaching && contentArray.length > 0) {
+      // Only create new array for the last message to avoid mutating the original array
+      contentArray = [
+        ...contentArray.slice(0, -1), // Keep all but the last block
+        // inject cache control to the last block
+        // refer to https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#continuing-a-multi-turn-conversation
+        {
+          ...contentArray[contentArray.length - 1],
+          cache_control: { type: 'ephemeral' },
+        } as ContentBlockParam,
+      ];
+    }
+
+    return { role, content: contentArray };
+  };
+
   async runTaskLoop(
     taskDescription: string,
     messageHandler?: MessageHandler,
     maxIterations: number = 25,
   ): Promise<Message[]> {
     // Ensure system prompt is initialized
-    if (!this.system) {
+    if (!this.system.length) {
       await this.init();
     }
 
@@ -214,23 +252,23 @@ export class ZypherAgent {
     };
     this.processMessage(userMessage, messages, messageHandler);
 
+    const toolCalls = Array.from(this._tools.values()).map(
+      (tool, index, tools): ToolUnion => ({
+        name: tool.name,
+        description: tool.description,
+        input_schema: tool.parameters,
+        // Only add cache control to the last tool as it acts as a breakpoint
+        ...(this.enablePromptCaching && index === tools.length - 1 && { cache_control: { type: 'ephemeral' } }),
+      }),
+    );
+
     while (iterations < maxIterations) {
       const response = await this.client.messages.create({
         model: DEFAULT_MODEL,
         max_tokens: this.maxTokens,
         system: this.system,
-        messages: messages.map(stripCustomFields), // Strip custom fields before sending to Claude API
-        tools: Array.from(this._tools.values()).map(
-          (tool): ToolUnion => ({
-            name: tool.name,
-            description: tool.description,
-            input_schema: {
-              type: 'object',
-              properties: tool.parameters.properties,
-              required: tool.parameters.required,
-            },
-          }),
-        ),
+        messages: messages.map((msg, index) => this.formatMessageForApi(msg, index === messages.length - 1)),
+        tools: toolCalls,
       });
 
       // Process the response
