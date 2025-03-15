@@ -95,20 +95,25 @@ export class WorkspaceIndexingManager {
     } else {
       this.status = JSON.parse(fs.readFileSync(status_file_path).toString())
     }
-    
   }
 
-  static async init(workspace_path: string, indexing_client: IndexingClient) {
+  static async create(workspace_path: string, indexing_client: IndexingClient) {
     const status_file_path = path.join(await getWorkspaceDataDir(), "indexing_status.json")
     console.log("status_file_path", status_file_path)
     return new WorkspaceIndexingManager(workspace_path, indexing_client, status_file_path)
+  }
+
+  async init(onFinsh: () => void) {
+    await this._traverse_indexing()
+    // TODO: start file watching here
+    onFinsh()
   }
 
   private save_status() {
     fs.writeFileSync(this.status_file_path, JSON.stringify(this.status), { flag: 'w' })
   }
 
-  async traverse_indexing() {
+  async _traverse_indexing() {
     if (this.status.project_id === '') {
       this.status.project_id = await this.indexing_client.create_project()
       this.save_status()
@@ -117,6 +122,7 @@ export class WorkspaceIndexingManager {
     while (true) {
       const file_path = dir_iter.next()
       if (file_path.value) await this.embed_file(file_path.value)
+      // multiprocessing here
       if (file_path.done) break
     }
   }
@@ -124,6 +130,13 @@ export class WorkspaceIndexingManager {
   async embed_file(file_path: string) {
     const stat = fs.statSync(file_path)
     const version = stat.mtimeMs
+    console.log(`${file_path}, version ${version}, indexed version ${(this.status.files[file_path])?.indexed_version}`)
+
+    if (file_path in this.status.files && this.status.files[file_path].indexed_version === version) {
+      console.log(`indexed file ${file_path}, skipped`)
+      return
+    }
+
     this.update_file_indexing_status({
       path: file_path,
       status: "running"
@@ -144,6 +157,7 @@ export class WorkspaceIndexingManager {
       ...old,
       ...new_status
     }
+    this.save_status()
   }
 
   update_overall_runing_status(status: Status) {
@@ -200,6 +214,3 @@ export class IndexingClient {
     return data
   }
 }
-
-// const ju = new FileIgnorejudicator(getCurrentUserInfo().workspacePath)
-// console.log(ju.should_ignore_file('/home/rexjz/Workspace/deckspeed-template/pnpm-lock.yaml'))

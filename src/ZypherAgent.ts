@@ -85,13 +85,15 @@ export class ZypherAgent {
     }
 
     if(this.workspaceIndexingEnabled) {
-      console.log('workspaceIndexingEnabled start indexing...')
+      console.log('workspaceIndexing is enabled, start indexing...')
       const indexing_client = new IndexingClient(process.env.CODEBASE_INDEXING_SERVICE_ENDPOINT);
-      const indexingManager =  await WorkspaceIndexingManager.init(
+      const indexingManager =  await WorkspaceIndexingManager.create(
         getCurrentUserInfo().workspacePath,
         indexing_client
       )
-      indexingManager.traverse_indexing()
+      indexingManager.init(() => {
+        // indexingManager init finish
+      })
     }
   }
 
