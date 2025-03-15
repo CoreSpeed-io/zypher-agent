@@ -18,7 +18,6 @@ import { listCheckpoints } from '../src/checkpoints';
 
 // Load environment variables
 dotenv.config();
-console.log("process.argv", process.argv)
 const program = new Command();
 
 program
@@ -32,7 +31,6 @@ program
 
 const options = program.opts();
 const PORT = parseInt(options.port, 10);
-console.log(options.indexing)
 // Initialize Express app
 const app = express();
 app.use(express.json());
