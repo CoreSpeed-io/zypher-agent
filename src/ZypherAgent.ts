@@ -33,6 +33,8 @@ export interface ZypherAgentConfig {
   workspaceIndexingEnabled?: boolean
   /** Whether to enable prompt caching. Defaults to true. */
   enablePromptCaching?: boolean;
+  /** Unique identifier for the user. Used for tracking and managing user-specific data. */
+  userId?: string;
 }
 
 export class ZypherAgent {
@@ -45,6 +47,7 @@ export class ZypherAgent {
   private readonly autoErrorCheck: boolean;
   private readonly workspaceIndexingEnabled: boolean;
   private readonly enablePromptCaching: boolean;
+  private readonly userId?: string;
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
@@ -63,6 +66,7 @@ export class ZypherAgent {
     this.autoErrorCheck = config.autoErrorCheck ?? true;
     this.workspaceIndexingEnabled = config.workspaceIndexingEnabled ?? false;
     this.enablePromptCaching = config.enablePromptCaching ?? true;
+    this.userId = config.userId;
   }
 
   async init(): Promise<void> {
@@ -285,6 +289,7 @@ export class ZypherAgent {
         system: this.system,
         messages: messages.map((msg, index) => this.formatMessageForApi(msg, index === messages.length - 1)),
         tools: toolCalls,
+        ...(this.userId && { metadata: { user_id: this.userId } }),
       });
 
       // Process the response

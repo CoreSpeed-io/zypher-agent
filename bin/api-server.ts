@@ -26,7 +26,8 @@ program
   .version('1.0.0')
   .option('-p, --port <number>', 'Port to run the server on', '3000')
   .option('-w, --workspace <path>', 'Set working directory for the agent')
-  .option('-i, --indexing', 'Set working directory for the agent', false)
+  .option('-i, --indexing', 'Specify Whether enable workspace indexing feature', false)
+  .option('-u, --user-id <string>', 'Set an optional user identifier for tracking user-specific usage history')
   .parse(process.argv);
 
 const options = program.opts();
@@ -55,6 +56,7 @@ async function initializeAgent() {
 
     // Initialize the agent
     agent = new ZypherAgent({
+      ...(options.userId && { userId: options.userId }),
       workspaceIndexingEnabled: options.indexing as boolean
     });
 
@@ -66,7 +68,7 @@ async function initializeAgent() {
     agent.registerTool(GrepSearchTool);
     agent.registerTool(FileSearchTool);
     agent.registerTool(DeleteFileTool);
-    agent.registerTool(WorkspaceSearchTool);
+    if (options.indexing) agent.registerTool(WorkspaceSearchTool);
 
     console.log('🔧 Registered tools:', Array.from(agent.tools.keys()).join(', '));
 
