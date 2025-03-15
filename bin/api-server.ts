@@ -26,6 +26,7 @@ program
   .version('1.0.0')
   .option('-p, --port <number>', 'Port to run the server on', '3000')
   .option('-w, --workspace <path>', 'Set working directory for the agent')
+  .option('-u, --user-id <string>', 'Set an optional user identifier for tracking user-specific usage history')
   .parse(process.argv);
 
 const options = program.opts();
@@ -53,8 +54,10 @@ async function initializeAgent() {
       }
     }
 
-    // Initialize the agent
-    agent = new ZypherAgent();
+    // Initialize the agent with user ID if provided
+    agent = new ZypherAgent({
+      ...(options.userId && { userId: options.userId }),
+    });
 
     // Register all available tools
     agent.registerTool(ReadFileTool);
