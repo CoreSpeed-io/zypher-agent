@@ -26,8 +26,8 @@ program
   .version('1.0.0')
   .option('-p, --port <number>', 'Port to run the server on', '3000')
   .option('-w, --workspace <path>', 'Set working directory for the agent')
-  .option('-u, --user-id <string>', 'Set an optional user identifier for tracking user-specific usage history')
-  .option('-b, --base-url <string>', 'Set an alternative base URL for the Anthropic API')
+  .option('-u, --user-id <string>', 'Set the user identifier (overrides ZYPHER_USER_ID env variable)')
+  .option('-b, --base-url <string>', 'Set the Anthropic API base URL (overrides ANTHROPIC_BASE_URL env variable)')
   .option('-k, --api-key <string>', 'Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)')
   .parse(process.argv);
 

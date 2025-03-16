@@ -56,9 +56,12 @@ export class ZypherAgent {
       );
     }
 
+    const baseUrl = config.baseUrl || process.env.ANTHROPIC_BASE_URL;
+    const userId = config.userId || process.env.ZYPHER_USER_ID;
+
     this.client = new Anthropic({ 
       apiKey,
-      ...(config.baseUrl && { baseURL: config.baseUrl }),
+      ...(baseUrl && { baseURL: baseUrl }),
     });
     this._tools = new Map();
     this._messages = [];
@@ -67,7 +70,7 @@ export class ZypherAgent {
     this.persistHistory = config.persistHistory ?? true;
     this.autoErrorCheck = config.autoErrorCheck ?? true;
     this.enablePromptCaching = config.enablePromptCaching ?? true;
-    this.userId = config.userId;
+    this.userId = userId;
   }
 
   async init(): Promise<void> {
