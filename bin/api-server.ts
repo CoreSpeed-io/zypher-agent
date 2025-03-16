@@ -27,6 +27,8 @@ program
   .option('-p, --port <number>', 'Port to run the server on', '3000')
   .option('-w, --workspace <path>', 'Set working directory for the agent')
   .option('-u, --user-id <string>', 'Set an optional user identifier for tracking user-specific usage history')
+  .option('-b, --base-url <string>', 'Set an alternative base URL for the Anthropic API')
+  .option('-k, --api-key <string>', 'Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)')
   .parse(process.argv);
 
 const options = program.opts();
@@ -54,9 +56,11 @@ async function initializeAgent() {
       }
     }
 
-    // Initialize the agent with user ID if provided
+    // Initialize the agent with provided options
     agent = new ZypherAgent({
       ...(options.userId && { userId: options.userId }),
+      ...(options.baseUrl && { baseUrl: options.baseUrl }),
+      ...(options.apiKey && { anthropicApiKey: options.apiKey }),
     });
 
     // Register all available tools

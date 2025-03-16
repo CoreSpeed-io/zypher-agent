@@ -23,6 +23,8 @@ export type MessageHandler = (message: Message) => void;
 
 export interface ZypherAgentConfig {
   anthropicApiKey?: string;
+  /** Base URL for the Anthropic API. Defaults to Anthropic's production API. */
+  baseUrl?: string;
   model?: string;
   maxTokens?: number;
   /** Whether to load and save message history. Defaults to true. */
@@ -31,7 +33,7 @@ export interface ZypherAgentConfig {
   autoErrorCheck?: boolean;
   /** Whether to enable prompt caching. Defaults to true. */
   enablePromptCaching?: boolean;
-  /** Unique identifier for the user. Used for tracking and managing user-specific data. */
+  /** Unique identifier for tracking user-specific usage history */
   userId?: string;
 }
 
@@ -54,7 +56,10 @@ export class ZypherAgent {
       );
     }
 
-    this.client = new Anthropic({ apiKey });
+    this.client = new Anthropic({ 
+      apiKey,
+      ...(config.baseUrl && { baseURL: config.baseUrl }),
+    });
     this._tools = new Map();
     this._messages = [];
     this.system = []; // Will be initialized in init()
