@@ -1,8 +1,8 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { access, constants, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { getWorkspaceDataDir } from './utils';
+import { exec } from "child_process";
+import { promisify } from "util";
+import { access, constants, mkdir } from "fs/promises";
+import { join } from "path";
+import { getWorkspaceDataDir } from "./utils";
 
 const execAsync = promisify(exec);
 
@@ -53,7 +53,7 @@ async function pathExists(path: string): Promise<boolean> {
  */
 async function getWorkspaceCheckpointsDir(): Promise<string> {
   const workspaceDir = await getWorkspaceDataDir();
-  const checkpointsDir = join(workspaceDir, 'checkpoints');
+  const checkpointsDir = join(workspaceDir, "checkpoints");
 
   // Create checkpoints directory if it doesn't exist
   if (!(await pathExists(checkpointsDir))) {
@@ -100,9 +100,11 @@ async function initCheckpointRepo(): Promise<void> {
 
   // Create an initial empty commit
   try {
-    await execAsync(`${git} commit --allow-empty -m "Initial checkpoint repository"`);
+    await execAsync(
+      `${git} commit --allow-empty -m "Initial checkpoint repository"`,
+    );
   } catch (error) {
-    console.error('Failed to initialize checkpoint repository:', error);
+    console.error("Failed to initialize checkpoint repository:", error);
   }
 }
 
@@ -112,7 +114,9 @@ async function initCheckpointRepo(): Promise<void> {
  * @param name - User-friendly name for the checkpoint
  * @returns Promise resolving to the checkpoint ID (Git commit hash) or undefined if creation failed
  */
-export async function createCheckpoint(name: string): Promise<string | undefined> {
+export async function createCheckpoint(
+  name: string,
+): Promise<string | undefined> {
   try {
     // Initialize the checkpoint repository if needed
     await initCheckpointRepo();
@@ -140,7 +144,7 @@ export async function createCheckpoint(name: string): Promise<string | undefined
 
     return commitHash.trim();
   } catch (error) {
-    console.error('Failed to create checkpoint:', error);
+    console.error("Failed to create checkpoint:", error);
     return undefined;
   }
 }
@@ -151,7 +155,9 @@ export async function createCheckpoint(name: string): Promise<string | undefined
  * @param checkpointId - The ID of the checkpoint (Git commit hash)
  * @returns Promise resolving to checkpoint details or undefined if not found
  */
-export async function getCheckpointDetails(checkpointId: string): Promise<Checkpoint | undefined> {
+export async function getCheckpointDetails(
+  checkpointId: string,
+): Promise<Checkpoint | undefined> {
   try {
     const git = await getGitCommand();
 
@@ -160,20 +166,22 @@ export async function getCheckpointDetails(checkpointId: string): Promise<Checkp
       `${git} show --no-patch --format="%H%n%B%n%aI" ${checkpointId}`,
     );
 
-    const lines = commitInfo.trim().split('\n');
+    const lines = commitInfo.trim().split("\n");
     const id = lines[0];
     const timestamp = lines[lines.length - 1];
 
     // Extract name from commit message
-    let name = '';
+    let name = "";
 
     // Find the checkpoint prefix
-    const checkpointLine = lines.find((line) => line.startsWith('CHECKPOINT: '));
+    const checkpointLine = lines.find((line) =>
+      line.startsWith("CHECKPOINT: "),
+    );
     if (checkpointLine) {
-      name = checkpointLine.substring('CHECKPOINT: '.length);
+      name = checkpointLine.substring("CHECKPOINT: ".length);
       // Remove advice-only suffix if present
-      if (name.endsWith(' (advice-only)')) {
-        name = name.substring(0, name.length - ' (advice-only)'.length);
+      if (name.endsWith(" (advice-only)")) {
+        name = name.substring(0, name.length - " (advice-only)".length);
       }
     }
 
@@ -182,7 +190,7 @@ export async function getCheckpointDetails(checkpointId: string): Promise<Checkp
       `${git} diff-tree --no-commit-id --name-only -r ${checkpointId}`,
     );
 
-    const files = filesChanged.trim().split('\n').filter(Boolean);
+    const files = filesChanged.trim().split("\n").filter(Boolean);
 
     return {
       id,
@@ -191,7 +199,7 @@ export async function getCheckpointDetails(checkpointId: string): Promise<Checkp
       files,
     };
   } catch (error) {
-    console.error('Failed to get checkpoint details:', error);
+    console.error("Failed to get checkpoint details:", error);
     return undefined;
   }
 }
@@ -215,7 +223,9 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
 
     // Get all checkpoint commits with a custom delimiter between commits
     // Using a unique delimiter "###COMMIT###" that won't appear in commit messages
-    const { stdout } = await execAsync(`${git} log --pretty=format:"###COMMIT###%n%H%n%aI%n%s"`);
+    const { stdout } = await execAsync(
+      `${git} log --pretty=format:"###COMMIT###%n%H%n%aI%n%s"`,
+    );
 
     if (!stdout.trim()) {
       return [];
@@ -225,10 +235,10 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
     const checkpoints: Checkpoint[] = [];
 
     // Split by the delimiter, remove the first empty entry if it exists
-    const commitEntries = stdout.split('###COMMIT###').filter(Boolean);
+    const commitEntries = stdout.split("###COMMIT###").filter(Boolean);
 
     for (const entry of commitEntries) {
-      const lines = entry.trim().split('\n');
+      const lines = entry.trim().split("\n");
 
       // Each commit should have at least 3 lines (hash, date, subject)
       if (lines.length < 3) continue;
@@ -238,11 +248,15 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
       const subject = lines[2];
 
       // Skip non-checkpoint commits (except for the initial repository commit)
-      if (!subject.startsWith('CHECKPOINT:') && !subject.includes('Initial checkpoint')) continue;
+      if (
+        !subject.startsWith("CHECKPOINT:") &&
+        !subject.includes("Initial checkpoint")
+      )
+        continue;
 
       // Extract name from commit message
-      const name = subject.startsWith('CHECKPOINT:')
-        ? subject.substring('CHECKPOINT: '.length)
+      const name = subject.startsWith("CHECKPOINT:")
+        ? subject.substring("CHECKPOINT: ".length)
         : subject;
 
       // Get files for this checkpoint
@@ -250,7 +264,7 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
         `${git} diff-tree --no-commit-id --name-only -r ${id}`,
       );
 
-      const files = filesChanged.trim().split('\n').filter(Boolean);
+      const files = filesChanged.trim().split("\n").filter(Boolean);
 
       checkpoints.push({
         id,
@@ -262,7 +276,7 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
 
     return checkpoints;
   } catch (error) {
-    console.error('Failed to list checkpoints:', error);
+    console.error("Failed to list checkpoints:", error);
     return [];
   }
 }
@@ -299,7 +313,7 @@ export async function applyCheckpoint(checkpointId: string): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error('Failed to apply checkpoint:', error);
+    console.error("Failed to apply checkpoint:", error);
     return false;
   }
 }

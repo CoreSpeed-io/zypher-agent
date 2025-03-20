@@ -1,9 +1,10 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { Command } from 'commander';
-import { ZypherAgent, MessageHandler } from '../src/ZypherAgent';
-import type { Message } from '../src/message';
+import express from "express";
+import type { Request, Response } from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { Command } from "commander";
+import { ZypherAgent, type MessageHandler } from "../src/ZypherAgent";
+import type { Message } from "../src/message";
 import {
   ReadFileTool,
   ListDirTool,
@@ -12,8 +13,8 @@ import {
   GrepSearchTool,
   FileSearchTool,
   DeleteFileTool,
-} from '../src/tools';
-import { listCheckpoints } from '../src/checkpoints';
+} from "../src/tools";
+import { listCheckpoints } from "../src/checkpoints";
 
 // Load environment variables
 dotenv.config();
@@ -21,14 +22,23 @@ dotenv.config();
 const program = new Command();
 
 program
-  .name('zypher-api')
-  .description('API server for ZypherAgent')
-  .version('1.0.0')
-  .option('-p, --port <number>', 'Port to run the server on', '3000')
-  .option('-w, --workspace <path>', 'Set working directory for the agent')
-  .option('-u, --user-id <string>', 'Set the user identifier (overrides ZYPHER_USER_ID env variable)')
-  .option('-b, --base-url <string>', 'Set the Anthropic API base URL (overrides ANTHROPIC_BASE_URL env variable)')
-  .option('-k, --api-key <string>', 'Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)')
+  .name("zypher-api")
+  .description("API server for ZypherAgent")
+  .version("1.0.0")
+  .option("-p, --port <number>", "Port to run the server on", "3000")
+  .option("-w, --workspace <path>", "Set working directory for the agent")
+  .option(
+    "-u, --user-id <string>",
+    "Set the user identifier (overrides ZYPHER_USER_ID env variable)",
+  )
+  .option(
+    "-b, --base-url <string>",
+    "Set the Anthropic API base URL (overrides ANTHROPIC_BASE_URL env variable)",
+  )
+  .option(
+    "-k, --api-key <string>",
+    "Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)",
+  )
   .parse(process.argv);
 
 const options = program.opts();
@@ -72,14 +82,20 @@ async function initializeAgent() {
     agent.registerTool(FileSearchTool);
     agent.registerTool(DeleteFileTool);
 
-    console.log('🔧 Registered tools:', Array.from(agent.tools.keys()).join(', '));
+    console.log(
+      "🔧 Registered tools:",
+      Array.from(agent.tools.keys()).join(", "),
+    );
 
     // Initialize the agent (load message history, generate system prompt)
     await agent.init();
 
-    console.log('🤖 ZypherAgent initialized successfully');
+    console.log("🤖 ZypherAgent initialized successfully");
   } catch (error) {
-    console.error('Error initializing agent:', error instanceof Error ? error.message : error);
+    console.error(
+      "Error initializing agent:",
+      error instanceof Error ? error.message : error,
+    );
     process.exit(1);
   }
 }
@@ -87,20 +103,20 @@ async function initializeAgent() {
 // API Routes
 
 // Health check endpoint
-app.get('/health', [
-  (req, res) => {
+app.get("/health", [
+  (req: Request, res: Response) => {
     const uptime = process.uptime();
     res.json({
-      status: 'ok',
-      version: '1.0.0',
+      status: "ok",
+      version: "1.0.0",
       uptime,
     });
   },
 ]);
 
 // Get agent messages
-app.get('/agent/messages', [
-  (req, res) => {
+app.get("/agent/messages", [
+  (req: Request, res: Response) => {
     try {
       const messages = agent.getMessages();
       res.json(messages);
@@ -114,8 +130,8 @@ app.get('/agent/messages', [
 ]);
 
 // Clear agent messages
-app.delete('/agent/messages', [
-  (req, res) => {
+app.delete("/agent/messages", [
+  (req: Request, res: Response) => {
     try {
       agent.clearMessages();
       res.status(204).send();
@@ -129,22 +145,23 @@ app.delete('/agent/messages', [
 ]);
 
 // Run a task
-app.post('/agent/tasks', [
-  async (req, res) => {
+app.post("/agent/tasks", [
+  async (req: Request, res: Response) => {
     try {
       const { task } = req.body;
 
       if (!task) {
-        return res.status(400).json({
+        res.status(400).json({
           code: 400,
-          message: 'Task is required',
+          message: "Task is required",
         });
+        return;
       }
 
       // Set up SSE
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
 
       try {
         // Set up event listeners for agent responses
@@ -165,7 +182,9 @@ app.post('/agent/tasks', [
       } catch (error) {
         // Send error event
         res.write(`event: error\n`);
-        res.write(`data: {"error": "${error instanceof Error ? error.message : error}"}\n\n`);
+        res.write(
+          `data: {"error": "${error instanceof Error ? error.message : error}"}\n\n`,
+        );
         res.end();
       }
     } catch (error) {
@@ -178,8 +197,8 @@ app.post('/agent/tasks', [
 ]);
 
 // List checkpoints
-app.get('/agent/checkpoints', [
-  async (req, res) => {
+app.get("/agent/checkpoints", [
+  async (req: Request, res: Response) => {
     try {
       const checkpoints = await listCheckpoints();
       res.json(checkpoints);
@@ -193,26 +212,28 @@ app.get('/agent/checkpoints', [
 ]);
 
 // Apply checkpoint
-app.post('/agent/checkpoints/:checkpointId/apply', [
-  async (req, res) => {
+app.post("/agent/checkpoints/:checkpointId/apply", [
+  async (req: Request, res: Response) => {
     try {
       const { checkpointId } = req.params;
 
       if (!checkpointId) {
-        return res.status(400).json({
+        res.status(400).json({
           code: 400,
-          message: 'Checkpoint ID is required',
+          message: "Checkpoint ID is required",
         });
+        return;
       }
 
       // Use the agent's applyCheckpoint method to update both filesystem and message history
       const success = await agent.applyCheckpoint(checkpointId);
 
       if (!success) {
-        return res.status(404).json({
+        res.status(404).json({
           code: 404,
           message: `Checkpoint with ID ${checkpointId} not found or could not be applied`,
         });
+        return;
       }
 
       res.json({ success: true, id: checkpointId });
@@ -235,8 +256,8 @@ async function startServer() {
 }
 
 // Handle Ctrl+C
-process.on('SIGINT', () => {
-  console.log('\n\nShutting down API server... 👋\n');
+process.on("SIGINT", () => {
+  console.log("\n\nShutting down API server... 👋\n");
   process.exit(0);
 });
 

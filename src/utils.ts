@@ -1,8 +1,8 @@
-import os from 'os';
-import process from 'process';
-import { readFile, writeFile, mkdir, access, constants } from 'fs/promises';
-import { join } from 'path';
-import type { Message } from './message';
+import os from "os";
+import process from "process";
+import { readFile, writeFile, mkdir, access, constants } from "fs/promises";
+import { join } from "path";
+import type { Message } from "./message";
 
 /**
  * Information about the user's system environment.
@@ -29,7 +29,7 @@ export function getCurrentUserInfo(): UserInfo {
   return {
     osVersion: `${os.platform()} ${os.release()}`,
     workspacePath: process.cwd(),
-    shell: process.env.SHELL || '/bin/bash',
+    shell: process.env.SHELL || "/bin/bash",
   };
 }
 
@@ -56,12 +56,12 @@ export async function fileExists(path: string): Promise<boolean> {
  */
 export async function getDataDir(): Promise<string> {
   const homeDir = os.homedir();
-  const dataDir = join(homeDir, '.zypher');
+  const dataDir = join(homeDir, ".zypher");
 
   try {
     await mkdir(dataDir, { recursive: true });
   } catch (error) {
-    console.warn('Failed to create data directory:', error);
+    console.warn("Failed to create data directory:", error);
   }
 
   return dataDir;
@@ -77,13 +77,13 @@ export async function getWorkspaceDataDir(): Promise<string> {
   const dataDir = await getDataDir();
 
   // Create workspace-specific directory
-  const workspaceHash = Buffer.from(process.cwd()).toString('base64url');
+  const workspaceHash = Buffer.from(process.cwd()).toString("base64url");
   const workspaceDir = join(dataDir, workspaceHash);
 
   try {
     await mkdir(workspaceDir, { recursive: true });
   } catch (error) {
-    console.warn('Failed to create workspace directory:', error);
+    console.warn("Failed to create workspace directory:", error);
   }
 
   return workspaceDir;
@@ -98,14 +98,14 @@ export async function getWorkspaceDataDir(): Promise<string> {
 export async function loadMessageHistory(): Promise<Message[]> {
   try {
     const workspaceDir = await getWorkspaceDataDir();
-    const historyPath = join(workspaceDir, 'history.json');
+    const historyPath = join(workspaceDir, "history.json");
 
     // Check if file exists before trying to read it
     if (!(await fileExists(historyPath))) {
       return [];
     }
 
-    const content = await readFile(historyPath, 'utf-8');
+    const content = await readFile(historyPath, "utf-8");
     return JSON.parse(content);
   } catch (error) {
     console.warn(
@@ -125,7 +125,7 @@ export async function loadMessageHistory(): Promise<Message[]> {
 export async function saveMessageHistory(messages: Message[]): Promise<void> {
   try {
     const workspaceDir = await getWorkspaceDataDir();
-    const historyPath = join(workspaceDir, 'history.json');
+    const historyPath = join(workspaceDir, "history.json");
 
     await writeFile(historyPath, JSON.stringify(messages, null, 2));
   } catch (error) {
@@ -158,24 +158,28 @@ export async function saveMessageHistory(messages: Message[]): Promise<void> {
  */
 export function printMessage(message: Message): void {
   console.log(`\n🗣️ Role: ${message.role}`);
-  console.log('════════════════════');
+  console.log("════════════════════");
 
   const content = Array.isArray(message.content)
     ? message.content
-    : [{ type: 'text', text: message.content, citations: [] }];
+    : [{ type: "text", text: message.content, citations: [] }];
 
   for (const block of content) {
-    if (block.type === 'text') {
+    if (block.type === "text") {
       console.log(block.text);
-    } else if (block.type === 'tool_use' && 'name' in block && 'input' in block) {
+    } else if (
+      block.type === "tool_use" &&
+      "name" in block &&
+      "input" in block
+    ) {
       console.log(`🔧 Using tool: ${block.name}`);
-      console.log('Parameters:', JSON.stringify(block.input, null, 2));
-    } else if (block.type === 'tool_result' && 'content' in block) {
-      console.log('📋 Tool result:');
+      console.log("Parameters:", JSON.stringify(block.input, null, 2));
+    } else if (block.type === "tool_result" && "content" in block) {
+      console.log("📋 Tool result:");
       console.log(block.content);
     } else {
-      console.log('Unknown block type:', block);
+      console.log("Unknown block type:", block);
     }
-    console.log('---');
+    console.log("---");
   }
 }

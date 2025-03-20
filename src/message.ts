@@ -1,4 +1,4 @@
-import type { MessageParam as AnthropicMessageParam } from '@anthropic-ai/sdk/resources/messages';
+import type { MessageParam as AnthropicMessageParam } from "@anthropic-ai/sdk/resources/messages";
 
 /**
  * Extended message parameter type that includes checkpoint information

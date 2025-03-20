@@ -1,34 +1,29 @@
 {
   "name": "zypher-agent",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "start": "tsx bin/cli.ts",
-    "start:api": "tsx bin/api-server.ts",
-    "test": "vitest",
-    "type-check": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,json,md}\"",
-    "lint": "eslint . --ext .ts,.tsx",
-    "lint:fix": "eslint . --ext .ts,.tsx --fix"
-  },
-  "keywords": [],
-  "author": "",
+  "description": "Your AI coding assistant",
   "license": "proprietary",
+  "author": "Hao Su (CoreSpeed Inc.)",
+  "module": "src/cli.ts",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "start:api": "bun run src/api-server.ts",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix"
+  },
   "devDependencies": {
-    "@eslint/js": "^9.21.0",
+    "@eslint/js": "^9.22.0",
+    "@types/bun": "latest",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
-    "@types/node": "^22.13.8",
-    "eslint": "^9.21.0",
-    "eslint-config-prettier": "^10.0.2",
+    "eslint": "^9.22.0",
+    "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.3",
-    "prettier": "^3.5.3",
-    "tsx": "^4.19.3",
-    "typescript": "5.7.2",
-    "typescript-eslint": "^8.25.0",
-    "vitest": "^3.0.7"
+    "globals": "^16.0.0",
+    "prettier": "3.5.3",
+    "typescript-eslint": "^8.27.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -39,5 +34,7 @@
     "zod": "^3.24.2",
     "zod-to-json-schema": "^3.24.3"
   },
-  "packageManager": "pnpm@10.6.1+sha512.40ee09af407fa9fbb5fbfb8e1cb40fbb74c0af0c3e10e9224d7b53c7658528615b2c92450e74cfad91e3a2dcafe3ce4050d80bda71d757756d2ce2b66213e9a3"
+  "peerDependencies": {
+    "typescript": "^5.8.2"
+  }
 }

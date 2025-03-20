@@ -1,4 +1,4 @@
-import { ZypherAgent } from '../src/ZypherAgent';
+import { ZypherAgent } from "../src/ZypherAgent";
 import {
   ReadFileTool,
   ListDirTool,
@@ -7,19 +7,31 @@ import {
   GrepSearchTool,
   FileSearchTool,
   DeleteFileTool,
-} from '../src/tools';
-import { Command } from 'commander';
-import dotenv from 'dotenv';
-import readline from 'readline';
-import { stdin as input, stdout as output } from 'process';
+} from "../src/tools";
+import { Command } from "commander";
+import dotenv from "dotenv";
+import readline from "readline";
+import { stdin as input, stdout as output } from "process";
 
 const program = new Command();
 
 program
-  .name('zypher')
-  .description('AI-powered coding assistant')
-  .version('0.1.0')
-  .option('-w, --workspace <path>', 'Set working directory for the agent')
+  .name("zypher")
+  .description("AI-powered coding assistant")
+  .version("0.1.0")
+  .option("-w, --workspace <path>", "Set working directory for the agent")
+  .option(
+    "-u, --user-id <string>",
+    "Set the user identifier (overrides ZYPHER_USER_ID env variable)",
+  )
+  .option(
+    "-b, --base-url <string>",
+    "Set the Anthropic API base URL (overrides ANTHROPIC_BASE_URL env variable)",
+  )
+  .option(
+    "-k, --api-key <string>",
+    "Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)",
+  )
   .parse(process.argv);
 
 const options = program.opts();
@@ -50,8 +62,12 @@ async function main() {
       }
     }
 
-    // Initialize the agent
-    const agent = new ZypherAgent();
+    // Initialize the agent with provided options
+    const agent = new ZypherAgent({
+      ...(options.userId && { userId: options.userId }),
+      ...(options.baseUrl && { baseUrl: options.baseUrl }),
+      ...(options.apiKey && { anthropicApiKey: options.apiKey }),
+    });
 
     // Register all available tools
     agent.registerTool(ReadFileTool);
@@ -62,35 +78,46 @@ async function main() {
     agent.registerTool(FileSearchTool);
     agent.registerTool(DeleteFileTool);
 
-    console.log('🔧 Registered tools:', Array.from(agent.tools.keys()).join(', '));
+    console.log(
+      "🔧 Registered tools:",
+      Array.from(agent.tools.keys()).join(", "),
+    );
 
     // Initialize the agent
     await agent.init();
 
-    console.log('\n🤖 Welcome to Zypher Agent CLI!\n');
-    console.log('Type your task or command below. Use "exit" or Ctrl+C to quit.\n');
+    console.log("\n🤖 Welcome to Zypher Agent CLI!\n");
+    console.log(
+      'Type your task or command below. Use "exit" or Ctrl+C to quit.\n',
+    );
 
     while (true) {
-      const task = await prompt('🔧 Enter your task: ');
+      const task = await prompt("🔧 Enter your task: ");
 
-      if (task.toLowerCase() === 'exit') {
-        console.log('\nGoodbye! 👋\n');
+      if (task.toLowerCase() === "exit") {
+        console.log("\nGoodbye! 👋\n");
         break;
       }
 
       if (task.trim()) {
-        console.log('\n🚀 Starting task execution...\n');
+        console.log("\n🚀 Starting task execution...\n");
         try {
           await agent.runTaskLoop(task);
-          console.log('\n✅ Task completed.\n');
+          console.log("\n✅ Task completed.\n");
         } catch (error) {
-          console.error('\n❌ Error:', error instanceof Error ? error.message : error);
-          console.log('\nReady for next task.\n');
+          console.error(
+            "\n❌ Error:",
+            error instanceof Error ? error.message : error,
+          );
+          console.log("\nReady for next task.\n");
         }
       }
     }
   } catch (error) {
-    console.error('Fatal Error:', error instanceof Error ? error.message : error);
+    console.error(
+      "Fatal Error:",
+      error instanceof Error ? error.message : error,
+    );
     process.exit(1);
   } finally {
     rl.close();
@@ -98,8 +125,8 @@ async function main() {
 }
 
 // Handle Ctrl+C
-process.on('SIGINT', () => {
-  console.log('\n\nGoodbye! 👋\n');
+process.on("SIGINT", () => {
+  console.log("\n\nGoodbye! 👋\n");
   process.exit(0);
 });
 

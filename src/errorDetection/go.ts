@@ -1,18 +1,18 @@
-import type { ErrorDetector } from './interface';
-import { execAsync, extractErrorOutput } from './utils';
-import { fileExists } from '../utils';
+import type { ErrorDetector } from "./interface";
+import { execAsync, extractErrorOutput } from "./utils";
+import { fileExists } from "../utils";
 
 /**
  * Detector for Go linting errors
  */
 export class GoLintErrorDetector implements ErrorDetector {
-  name = 'golint';
-  description = 'Detects Go code style and quality issues';
+  name = "golint";
+  description = "Detects Go code style and quality issues";
 
   async isApplicable(): Promise<boolean> {
     try {
       // Check if go.mod exists
-      return await fileExists('go.mod');
+      return await fileExists("go.mod");
     } catch {
       return false;
     }
@@ -22,10 +22,10 @@ export class GoLintErrorDetector implements ErrorDetector {
     try {
       // Check if golint is installed
       try {
-        await execAsync('which golint');
+        await execAsync("which golint");
       } catch {
         try {
-          await execAsync('go list -f {{.Target}} golang.org/x/lint/golint');
+          await execAsync("go list -f {{.Target}} golang.org/x/lint/golint");
         } catch {
           return null; // golint not available
         }
@@ -33,7 +33,7 @@ export class GoLintErrorDetector implements ErrorDetector {
 
       // Run golint
       try {
-        const result = await execAsync('golint ./...');
+        const result = await execAsync("golint ./...");
         if (result.stdout) {
           return `Go lint errors detected:\n${result.stdout}`;
         }
@@ -57,13 +57,13 @@ export class GoLintErrorDetector implements ErrorDetector {
  * Detector for Go vet errors
  */
 export class GoVetErrorDetector implements ErrorDetector {
-  name = 'go vet';
-  description = 'Detects suspicious constructs in Go code';
+  name = "go vet";
+  description = "Detects suspicious constructs in Go code";
 
   async isApplicable(): Promise<boolean> {
     try {
       // Check if go.mod exists
-      return await fileExists('go.mod');
+      return await fileExists("go.mod");
     } catch {
       return false;
     }
@@ -73,7 +73,7 @@ export class GoVetErrorDetector implements ErrorDetector {
     try {
       // Run go vet
       try {
-        const result = await execAsync('go vet ./...');
+        const result = await execAsync("go vet ./...");
         // If stderr is empty, there are no errors
         if (!result.stderr) {
           return null;

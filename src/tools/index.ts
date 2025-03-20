@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import type { Tool as AnthropicTool } from '@anthropic-ai/sdk/resources/messages';
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import type { Tool as AnthropicTool } from "@anthropic-ai/sdk/resources/messages";
 
 /**
  * Base interface for tool parameters
@@ -43,7 +43,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(
   execute: (params: InferParams<T>) => Promise<string>,
 ): Tool<InferParams<T>> {
   // Convert Zod schema to JSON Schema
-  const jsonSchema = zodToJsonSchema(schema, { target: 'jsonSchema7' });
+  const jsonSchema = zodToJsonSchema(schema, { target: "jsonSchema7" });
 
   return {
     name,
@@ -64,14 +64,19 @@ export function defineTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
   parameters: T;
   execute: (params: InferParams<T>) => Promise<string>;
 }): Tool<InferParams<T>> {
-  return createTool(options.name, options.description, options.parameters, options.execute);
+  return createTool(
+    options.name,
+    options.description,
+    options.parameters,
+    options.execute,
+  );
 }
 
 // Tool exports
-export { ReadFileTool } from './ReadFileTool';
-export { ListDirTool } from './ListDirTool';
-export { EditFileTool } from './EditFileTool';
-export { RunTerminalCmdTool } from './RunTerminalCmdTool';
-export { GrepSearchTool } from './GrepSearchTool';
-export { FileSearchTool } from './FileSearchTool';
-export { DeleteFileTool } from './DeleteFileTool';
+export { ReadFileTool } from "./ReadFileTool";
+export { ListDirTool } from "./ListDirTool";
+export { EditFileTool } from "./EditFileTool";
+export { RunTerminalCmdTool } from "./RunTerminalCmdTool";
+export { GrepSearchTool } from "./GrepSearchTool";
+export { FileSearchTool } from "./FileSearchTool";
+export { DeleteFileTool } from "./DeleteFileTool";
