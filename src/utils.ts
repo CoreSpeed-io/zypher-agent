@@ -3,6 +3,7 @@ import process from "process";
 import { readFile, writeFile, mkdir, access, constants } from "fs/promises";
 import { join } from "path";
 import type { Message } from "./message";
+import { isMessage } from "./message";
 
 /**
  * Information about the user's system environment.
@@ -106,7 +107,27 @@ export async function loadMessageHistory(): Promise<Message[]> {
     }
 
     const content = await readFile(historyPath, "utf-8");
-    return JSON.parse(content);
+    const parsedData: unknown = JSON.parse(content);
+
+    // Validate that parsedData is an array
+    if (!Array.isArray(parsedData)) {
+      console.warn("Message history is not an array, returning empty array");
+      return [];
+    }
+
+    // Filter out invalid messages using the isMessage type guard
+    const messages: Message[] = parsedData.filter((item): item is Message => {
+      const valid = isMessage(item);
+      if (!valid) {
+        console.warn(
+          "Found invalid message in history, filtering it out:",
+          item,
+        );
+      }
+      return valid;
+    });
+
+    return messages;
   } catch (error) {
     console.warn(
       `Failed to load message history: ${error instanceof Error ? error.message : String(error)}`,
