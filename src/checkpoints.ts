@@ -153,11 +153,12 @@ export async function createCheckpoint(
  * Gets details about a specific checkpoint
  *
  * @param checkpointId - The ID of the checkpoint (Git commit hash)
- * @returns Promise resolving to checkpoint details or undefined if not found
+ * @returns Promise resolving to checkpoint details
+ * @throws Error if checkpoint cannot be found or is invalid
  */
 export async function getCheckpointDetails(
   checkpointId: string,
-): Promise<Checkpoint | undefined> {
+): Promise<Checkpoint> {
   try {
     const git = await getGitCommand();
 
@@ -167,8 +168,21 @@ export async function getCheckpointDetails(
     );
 
     const lines = commitInfo.trim().split("\n");
+    if (lines.length < 2) {
+      throw new Error(
+        `Invalid commit info format for checkpoint ${checkpointId}`,
+      );
+    }
+
     const id = lines[0];
     const timestamp = lines[lines.length - 1];
+
+    // Validate required fields
+    if (!id || !timestamp) {
+      throw new Error(
+        `Missing required commit information for checkpoint ${checkpointId}`,
+      );
+    }
 
     // Extract name from commit message
     let name = "";
@@ -177,12 +191,16 @@ export async function getCheckpointDetails(
     const checkpointLine = lines.find((line) =>
       line.startsWith("CHECKPOINT: "),
     );
+
     if (checkpointLine) {
       name = checkpointLine.substring("CHECKPOINT: ".length);
       // Remove advice-only suffix if present
       if (name.endsWith(" (advice-only)")) {
         name = name.substring(0, name.length - " (advice-only)".length);
       }
+    } else {
+      // If no checkpoint line found, use a default name
+      name = "Unknown checkpoint";
     }
 
     // Get files changed in this commit
@@ -199,8 +217,11 @@ export async function getCheckpointDetails(
       files,
     };
   } catch (error) {
-    console.error("Failed to get checkpoint details:", error);
-    return undefined;
+    // Convert any error to a consistent error format
+    if (error instanceof Error) {
+      throw error; // Re-throw if it's already an Error
+    }
+    throw new Error(`Failed to get checkpoint details: ${String(error)}`);
   }
 }
 
@@ -243,20 +264,29 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
       // Each commit should have at least 3 lines (hash, date, subject)
       if (lines.length < 3) continue;
 
-      const id = lines[0];
-      const timestamp = lines[1];
-      const subject = lines[2];
+      const [id, timestamp, ...subjectLines] = lines;
+
+      // Skip if we don't have valid id or timestamp
+      if (!id || !timestamp) {
+        console.warn("Invalid commit entry, missing id or timestamp");
+        continue;
+      }
+
+      const subject = subjectLines.join("\n");
 
       // Skip non-checkpoint commits (except for the initial repository commit)
       if (
         !subject.startsWith("CHECKPOINT:") &&
         !subject.includes("Initial checkpoint")
-      )
+      ) {
         continue;
+      }
 
       // Extract name from commit message
       const name = subject.startsWith("CHECKPOINT:")
-        ? subject.substring("CHECKPOINT: ".length)
+        ? subject
+            .substring("CHECKPOINT: ".length)
+            .replace(/ \(advice-only\)$/, "")
         : subject;
 
       // Get files for this checkpoint
@@ -285,9 +315,10 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
  * Applies a checkpoint to restore the workspace to that state
  *
  * @param checkpointId - The ID of the checkpoint to apply
- * @returns Promise resolving to true if successful, false otherwise
+ * @returns Promise resolving to true if successful
+ * @throws Error if checkpoint cannot be found or applied
  */
-export async function applyCheckpoint(checkpointId: string): Promise<boolean> {
+export async function applyCheckpoint(checkpointId: string): Promise<void> {
   try {
     const git = await getGitCommand();
 
@@ -298,9 +329,9 @@ export async function applyCheckpoint(checkpointId: string): Promise<boolean> {
     const checkpoint = await getCheckpointDetails(checkpointId);
 
     // If this is an advice-only checkpoint (no files), warn that there are no changes to apply
-    if (checkpoint && (!checkpoint.files || checkpoint.files.length === 0)) {
+    if (!checkpoint.files || checkpoint.files.length === 0) {
       console.warn(`Checkpoint "${checkpoint.name}" contains no file changes.`);
-      return true; // Return success but no changes were made
+      return;
     }
 
     // Create a backup of the current state (optional)
@@ -310,10 +341,11 @@ export async function applyCheckpoint(checkpointId: string): Promise<boolean> {
     // Reset the working directory to the checkpoint state
     // Use checkout to avoid changing the HEAD
     await execAsync(`${git} checkout ${checkpointId} -- .`);
-
-    return true;
   } catch (error) {
-    console.error("Failed to apply checkpoint:", error);
-    return false;
+    // Convert any error to a consistent error format
+    if (error instanceof Error) {
+      throw error; // Re-throw if it's already an Error
+    }
+    throw new Error(`Failed to apply checkpoint: ${String(error)}`);
   }
 }

@@ -4,11 +4,11 @@
   "description": "Your AI coding assistant",
   "license": "proprietary",
   "author": "Hao Su (CoreSpeed Inc.)",
-  "module": "src/cli.ts",
+  "module": "bin/cli.ts",
   "type": "module",
   "scripts": {
-    "start": "bun run src/cli.ts",
-    "start:api": "bun run src/api-server.ts",
+    "start": "bun run bin/cli.ts",
+    "start:api": "bun run bin/api-server.ts",
     "type-check": "tsc --noEmit",
     "lint": "eslint",
     "lint:fix": "eslint --fix"

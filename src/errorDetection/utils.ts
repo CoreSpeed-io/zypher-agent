@@ -139,6 +139,21 @@ export function getScript(
 }
 
 /**
+ * Safely converts a value to string, handling different types appropriately
+ *
+ * @param value - The value to convert to string
+ * @returns The string representation of the value
+ */
+function safeToString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (value instanceof Buffer) return value.toString();
+  if (typeof value === "object") return JSON.stringify(value);
+  // At this point, value can only be number, boolean, bigint, or symbol
+  return (value as number | boolean | bigint | symbol).toString();
+}
+
+/**
  * Safely extracts error output from an error object
  *
  * @param {unknown} error - The error object
@@ -154,24 +169,14 @@ export function extractErrorOutput(
   if (error && typeof error === "object") {
     // Extract stdout if available
     if ("stdout" in error) {
-      const stdout =
-        typeof error.stdout === "string"
-          ? error.stdout
-          : error.stdout instanceof Buffer
-            ? error.stdout.toString()
-            : String(error.stdout || "");
+      const stdout = safeToString(error.stdout);
       const filteredStdout = filterFn(stdout);
       if (filteredStdout) errorOutput += filteredStdout;
     }
 
     // Extract stderr if available
     if ("stderr" in error) {
-      const stderr =
-        typeof error.stderr === "string"
-          ? error.stderr
-          : error.stderr instanceof Buffer
-            ? error.stderr.toString()
-            : String(error.stderr || "");
+      const stderr = safeToString(error.stderr);
       const filteredStderr = filterFn(stderr);
       if (filteredStderr) {
         errorOutput += (errorOutput ? "\n" : "") + filteredStderr;
@@ -180,12 +185,7 @@ export function extractErrorOutput(
 
     // Extract message if available and no other output found
     if (!errorOutput && "message" in error) {
-      const message =
-        typeof error.message === "string"
-          ? error.message
-          : error.message instanceof Buffer
-            ? error.message.toString()
-            : String(error.message || "");
+      const message = safeToString(error.message);
       const filteredMessage = filterFn(message);
       if (filteredMessage) errorOutput = filteredMessage;
     }

@@ -12,6 +12,7 @@ import {
   getCurrentUserInfo,
   loadMessageHistory,
   saveMessageHistory,
+  formatError,
 } from "./utils";
 import { detectErrors } from "./errorDetection";
 import { getSystemPrompt } from "./prompt";
@@ -83,7 +84,7 @@ export class ZypherAgent {
   }
 
   async init(): Promise<void> {
-    const userInfo = await getCurrentUserInfo();
+    const userInfo = getCurrentUserInfo();
     const systemPromptText = await getSystemPrompt(userInfo);
 
     // Convert system prompt to content blocks
@@ -165,9 +166,7 @@ export class ZypherAgent {
 
       return true;
     } catch (error) {
-      console.error(
-        `Error applying checkpoint: ${error instanceof Error ? error.message : error}`,
-      );
+      console.error(`Error applying checkpoint: ${formatError(error)}`);
       return false;
     }
   }

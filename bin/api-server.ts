@@ -15,9 +15,18 @@ import {
   DeleteFileTool,
 } from "../src/tools";
 import { listCheckpoints } from "../src/checkpoints";
+import { formatError } from "../src/utils/error";
 
 // Load environment variables
 dotenv.config();
+
+interface ServerOptions {
+  port: string;
+  workspace?: string;
+  userId?: string;
+  baseUrl?: string;
+  apiKey?: string;
+}
 
 const program = new Command();
 
@@ -41,7 +50,7 @@ program
   )
   .parse(process.argv);
 
-const options = program.opts();
+const options = program.opts<ServerOptions>();
 const PORT = parseInt(options.port, 10);
 
 // Initialize Express app
@@ -52,7 +61,7 @@ app.use(cors());
 // Initialize the agent
 let agent: ZypherAgent;
 
-async function initializeAgent() {
+async function initializeAgent(): Promise<void> {
   try {
     // Handle workspace option
     if (options.workspace) {
@@ -61,16 +70,16 @@ async function initializeAgent() {
         console.log(`🚀 Changed working directory to: ${process.cwd()}`);
       } catch (error) {
         throw new Error(
-          `Failed to change to workspace directory: ${error instanceof Error ? error.message : error}`,
+          `Failed to change to workspace directory: ${formatError(error)}`,
         );
       }
     }
 
     // Initialize the agent with provided options
     agent = new ZypherAgent({
-      ...(options.userId && { userId: options.userId }),
-      ...(options.baseUrl && { baseUrl: options.baseUrl }),
-      ...(options.apiKey && { anthropicApiKey: options.apiKey }),
+      userId: options.userId,
+      baseUrl: options.baseUrl,
+      anthropicApiKey: options.apiKey,
     });
 
     // Register all available tools
@@ -92,10 +101,7 @@ async function initializeAgent() {
 
     console.log("🤖 ZypherAgent initialized successfully");
   } catch (error) {
-    console.error(
-      "Error initializing agent:",
-      error instanceof Error ? error.message : error,
-    );
+    console.error("Error initializing agent:", formatError(error));
     process.exit(1);
   }
 }
@@ -123,7 +129,7 @@ app.get("/agent/messages", [
     } catch (error) {
       res.status(500).json({
         code: 500,
-        message: `Error retrieving messages: ${error instanceof Error ? error.message : error}`,
+        message: `Error retrieving messages: ${formatError(error)}`,
       });
     }
   },
@@ -138,15 +144,19 @@ app.delete("/agent/messages", [
     } catch (error) {
       res.status(500).json({
         code: 500,
-        message: `Error clearing messages: ${error instanceof Error ? error.message : error}`,
+        message: `Error clearing messages: ${formatError(error)}`,
       });
     }
   },
 ]);
 
+interface TaskRequest {
+  task: string;
+}
+
 // Run a task
 app.post("/agent/tasks", [
-  async (req: Request, res: Response) => {
+  async (req: Request<unknown, unknown, TaskRequest>, res: Response) => {
     try {
       const { task } = req.body;
 
@@ -182,15 +192,13 @@ app.post("/agent/tasks", [
       } catch (error) {
         // Send error event
         res.write(`event: error\n`);
-        res.write(
-          `data: {"error": "${error instanceof Error ? error.message : error}"}\n\n`,
-        );
+        res.write(`data: {"error": "${formatError(error)}"}\n\n`);
         res.end();
       }
     } catch (error) {
       res.status(500).json({
         code: 500,
-        message: `Error running task: ${error instanceof Error ? error.message : error}`,
+        message: `Error running task: ${formatError(error)}`,
       });
     }
   },
@@ -205,7 +213,7 @@ app.get("/agent/checkpoints", [
     } catch (error) {
       res.status(500).json({
         code: 500,
-        message: `Error retrieving checkpoints: ${error instanceof Error ? error.message : error}`,
+        message: `Error retrieving checkpoints: ${formatError(error)}`,
       });
     }
   },
@@ -213,7 +221,7 @@ app.get("/agent/checkpoints", [
 
 // Apply checkpoint
 app.post("/agent/checkpoints/:checkpointId/apply", [
-  async (req: Request, res: Response) => {
+  async (req: Request<{ checkpointId: string }>, res: Response) => {
     try {
       const { checkpointId } = req.params;
 
@@ -226,28 +234,19 @@ app.post("/agent/checkpoints/:checkpointId/apply", [
       }
 
       // Use the agent's applyCheckpoint method to update both filesystem and message history
-      const success = await agent.applyCheckpoint(checkpointId);
-
-      if (!success) {
-        res.status(404).json({
-          code: 404,
-          message: `Checkpoint with ID ${checkpointId} not found or could not be applied`,
-        });
-        return;
-      }
-
+      await agent.applyCheckpoint(checkpointId);
       res.json({ success: true, id: checkpointId });
     } catch (error) {
       res.status(500).json({
         code: 500,
-        message: `Error applying checkpoint: ${error instanceof Error ? error.message : error}`,
+        message: `Error applying checkpoint: ${formatError(error)}`,
       });
     }
   },
 ]);
 
 // Start the server
-async function startServer() {
+async function startServer(): Promise<void> {
   await initializeAgent();
 
   app.listen(PORT, () => {
@@ -262,4 +261,4 @@ process.on("SIGINT", () => {
 });
 
 // Start the server
-startServer();
+void startServer();

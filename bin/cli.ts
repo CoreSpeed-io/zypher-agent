@@ -12,6 +12,14 @@ import { Command } from "commander";
 import dotenv from "dotenv";
 import readline from "readline";
 import { stdin as input, stdout as output } from "process";
+import { formatError } from "../src/utils/error";
+
+interface CliOptions {
+  workspace?: string;
+  userId?: string;
+  baseUrl?: string;
+  apiKey?: string;
+}
 
 const program = new Command();
 
@@ -34,7 +42,7 @@ program
   )
   .parse(process.argv);
 
-const options = program.opts();
+const options = program.opts<CliOptions>();
 
 const rl = readline.createInterface({ input, output });
 
@@ -46,7 +54,7 @@ function prompt(question: string): Promise<string> {
   });
 }
 
-async function main() {
+async function main(): Promise<void> {
   dotenv.config();
 
   try {
@@ -57,16 +65,16 @@ async function main() {
         console.log(`🚀 Changed working directory to: ${process.cwd()}`);
       } catch (error) {
         throw new Error(
-          `Failed to change to workspace directory: ${error instanceof Error ? error.message : error}`,
+          `Failed to change to workspace directory: ${formatError(error)}`,
         );
       }
     }
 
     // Initialize the agent with provided options
     const agent = new ZypherAgent({
-      ...(options.userId && { userId: options.userId }),
-      ...(options.baseUrl && { baseUrl: options.baseUrl }),
-      ...(options.apiKey && { anthropicApiKey: options.apiKey }),
+      userId: options.userId,
+      baseUrl: options.baseUrl,
+      anthropicApiKey: options.apiKey,
     });
 
     // Register all available tools
@@ -105,19 +113,13 @@ async function main() {
           await agent.runTaskLoop(task);
           console.log("\n✅ Task completed.\n");
         } catch (error) {
-          console.error(
-            "\n❌ Error:",
-            error instanceof Error ? error.message : error,
-          );
+          console.error("\n❌ Error:", formatError(error));
           console.log("\nReady for next task.\n");
         }
       }
     }
   } catch (error) {
-    console.error(
-      "Fatal Error:",
-      error instanceof Error ? error.message : error,
-    );
+    console.error("Fatal Error:", formatError(error));
     process.exit(1);
   } finally {
     rl.close();
@@ -131,4 +133,7 @@ process.on("SIGINT", () => {
 });
 
 // Run the CLI
-main();
+main().catch((error) => {
+  console.error("Unhandled error:", formatError(error));
+  process.exit(1);
+});
