@@ -59,15 +59,15 @@ export class ZypherAgent {
   private readonly userId?: string;
 
   constructor(config: ZypherAgentConfig = {}) {
-    const apiKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+    const apiKey = config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       throw new Error(
         "API key is required. Provide it in config or set ANTHROPIC_API_KEY environment variable.",
       );
     }
 
-    const baseUrl = config.baseUrl || process.env.ANTHROPIC_BASE_URL;
-    const userId = config.userId || process.env.ZYPHER_USER_ID;
+    const baseUrl = config.baseUrl ?? process.env.ANTHROPIC_BASE_URL;
+    const userId = config.userId ?? process.env.ZYPHER_USER_ID;
 
     this.client = new Anthropic({
       apiKey,
@@ -143,11 +143,7 @@ export class ZypherAgent {
   async applyCheckpoint(checkpointId: string): Promise<boolean> {
     try {
       // Apply the checkpoint to the filesystem
-      const success = await applyCheckpoint(checkpointId);
-
-      if (!success) {
-        return false;
-      }
+      await applyCheckpoint(checkpointId);
 
       // Update message history to discard messages beyond the checkpoint
       const checkpointIndex = this._messages.findIndex(
@@ -257,7 +253,7 @@ export class ZypherAgent {
   async runTaskLoop(
     taskDescription: string,
     messageHandler?: MessageHandler,
-    maxIterations: number = 25,
+    maxIterations = 25,
   ): Promise<Message[]> {
     // Ensure system prompt is initialized
     if (!this.system.length) {

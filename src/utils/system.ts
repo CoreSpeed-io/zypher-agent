@@ -26,6 +26,6 @@ export function getCurrentUserInfo(): UserInfo {
   return {
     osVersion: `${os.platform()} ${os.release()}`,
     workspacePath: process.cwd(),
-    shell: process.env.SHELL || "/bin/bash",
+    shell: process.env.SHELL ?? "/bin/bash",
   };
 }

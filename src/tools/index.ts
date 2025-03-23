@@ -5,9 +5,7 @@ import type { Tool as AnthropicTool } from "@anthropic-ai/sdk/resources/messages
 /**
  * Base interface for tool parameters
  */
-export interface BaseParams {
-  [key: string]: unknown;
-}
+export type BaseParams = Record<string, unknown>;
 
 /**
  * Base interface for all tools

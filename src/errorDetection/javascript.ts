@@ -206,7 +206,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
         scriptName = "tsc";
       } else {
         scriptName =
-          findScriptByPattern(packageJson, "type") ||
+          findScriptByPattern(packageJson, "type") ??
           findScriptByPattern(packageJson, "tsc");
       }
 

@@ -83,7 +83,7 @@ export function hasDependency(
   if (!packageJson) return false;
 
   return !!(
-    (packageJson.dependencies && dependency in packageJson.dependencies) ||
+    (packageJson.dependencies && dependency in packageJson.dependencies) ??
     (packageJson.devDependencies && dependency in packageJson.devDependencies)
   );
 }
@@ -99,7 +99,7 @@ export function hasScript(
   packageJson: PackageJson | null,
   scriptName: string,
 ): boolean {
-  if (!packageJson || !packageJson.scripts) return false;
+  if (!packageJson?.scripts) return false;
 
   return scriptName in packageJson.scripts;
 }
@@ -115,7 +115,7 @@ export function findScriptByPattern(
   packageJson: PackageJson | null,
   pattern: string,
 ): string | undefined {
-  if (!packageJson || !packageJson.scripts) return undefined;
+  if (!packageJson?.scripts) return undefined;
 
   return Object.keys(packageJson.scripts).find((script) =>
     script.includes(pattern),
@@ -133,7 +133,7 @@ export function getScript(
   packageJson: PackageJson | null,
   scriptName: string,
 ): string | undefined {
-  if (!packageJson || !packageJson.scripts) return undefined;
+  if (!packageJson?.scripts) return undefined;
 
   return packageJson.scripts[scriptName];
 }
