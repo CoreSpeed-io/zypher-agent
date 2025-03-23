@@ -86,14 +86,16 @@ const errorHandler = (
 
 // Validation middleware
 const validateRequest = <T>(schema: z.ZodType<T>) => {
-  return (req: Request, _res: Response, _next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     schema.parse(req.body);
+    next();
   };
 };
 
 const validateParams = <T>(schema: z.ZodType<T>) => {
-  return (req: Request, _res: Response, _next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     schema.parse(req.params);
+    next();
   };
 };
 
@@ -279,9 +281,24 @@ app.use(errorHandler);
 async function startServer(): Promise<void> {
   await initializeAgent();
 
-  app.listen(PORT, () => {
-    console.log(`🚀 API server running at http://localhost:${PORT}`);
-  });
+  try {
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 API server running at http://localhost:${PORT}`);
+    });
+
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Error: Port ${PORT} is already in use. Please try a different port.`);
+        process.exit(1);
+      } else {
+        console.error(`❌ Server error:`, formatError(error));
+        process.exit(1);
+      }
+    });
+  } catch (error) {
+    console.error(`❌ Failed to start server:`, formatError(error));
+    process.exit(1);
+  }
 }
 
 // Handle Ctrl+C
