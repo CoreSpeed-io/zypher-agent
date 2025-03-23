@@ -67,6 +67,11 @@
 - The API server should provide endpoints for managing messages, running tasks, and working with checkpoints
 - Stream event types should use descriptive names that reflect their purpose (e.g., 'content_delta' for incremental content updates)
 - Authentication is currently disabled for development simplicity
+- Use Zod for API request validation to ensure type safety at runtime and provide clear error messages
+- Create reusable validation middleware functions to handle common validation patterns
+- Define Zod schemas near the top of the file for better organization and reusability
+- Use Zod's inference to automatically generate TypeScript types from schemas for consistency
+- Include descriptive error messages in Zod validation rules to improve API usability
 
 ## Anthropic API Integration
 - Always use `response.stop_reason === 'tool_use'` to detect when Claude wants to use a tool, not by filtering content blocks

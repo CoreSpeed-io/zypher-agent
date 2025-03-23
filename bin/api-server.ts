@@ -1,9 +1,10 @@
 import express from "express";
-import type { Request, Response } from "express";
+import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Command } from "commander";
 import { ZypherAgent, type StreamHandler } from "../src/ZypherAgent";
+import { z } from "zod";
 
 import {
   ReadFileTool,
@@ -19,6 +20,82 @@ import { formatError } from "../src/utils/error";
 
 // Load environment variables
 dotenv.config();
+
+class ApiError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly type: string,
+    message: string,
+    public readonly details?: unknown,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+// Zod Schemas
+const taskSchema = z.object({
+  task: z.string().min(1, "Task cannot be empty"),
+});
+
+const checkpointParamsSchema = z.object({
+  checkpointId: z.string().min(1, "Checkpoint ID cannot be empty"),
+});
+
+// Type inference from Zod schema
+type TaskRequest = z.infer<typeof taskSchema>;
+type CheckpointParams = z.infer<typeof checkpointParamsSchema>;
+
+// Error handling middleware
+const errorHandler = (
+  err: Error,
+  _req: Request,
+  res: Response,
+  _next: NextFunction,
+): void => {
+  console.error(`Error processing request: ${formatError(err)}`);
+
+  if (err instanceof ApiError) {
+    res.status(err.statusCode).json({
+      code: err.statusCode,
+      type: err.type,
+      message: err.message,
+      details: err.details,
+    });
+    return;
+  }
+
+  if (err instanceof z.ZodError) {
+    res.status(400).json({
+      code: 400,
+      type: "invalid_request",
+      message: "Validation error",
+      details: err.errors,
+    });
+    return;
+  }
+
+  // Default to internal server error
+  res.status(500).json({
+    code: 500,
+    type: "internal_server_error",
+    message: "Internal server error",
+    error: formatError(err),
+  });
+};
+
+// Validation middleware
+const validateRequest = <T>(schema: z.ZodType<T>) => {
+  return (req: Request, _res: Response, _next: NextFunction) => {
+    schema.parse(req.body);
+  };
+};
+
+const validateParams = <T>(schema: z.ZodType<T>) => {
+  return (req: Request, _res: Response, _next: NextFunction) => {
+    schema.parse(req.params);
+  };
+};
 
 interface ServerOptions {
   port: string;
@@ -109,150 +186,94 @@ async function initializeAgent(): Promise<void> {
 // API Routes
 
 // Health check endpoint
-app.get("/health", [
-  (req: Request, res: Response) => {
-    const uptime = process.uptime();
-    res.json({
-      status: "ok",
-      version: "1.0.0",
-      uptime,
-    });
-  },
-]);
+app.get("/health", (req: Request, res: Response) => {
+  const uptime = process.uptime();
+  res.json({
+    status: "ok",
+    version: "1.0.0",
+    uptime,
+  });
+});
 
 // Get agent messages
-app.get("/agent/messages", [
-  (req: Request, res: Response) => {
-    try {
-      const messages = agent.getMessages();
-      res.json(messages);
-    } catch (error) {
-      res.status(500).json({
-        code: 500,
-        message: `Error retrieving messages: ${formatError(error)}`,
-      });
-    }
-  },
-]);
+app.get("/agent/messages", (_req: Request, res: Response) => {
+  const messages = agent.getMessages();
+  res.json(messages);
+});
 
 // Clear agent messages
-app.delete("/agent/messages", [
-  (req: Request, res: Response) => {
-    try {
-      agent.clearMessages();
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({
-        code: 500,
-        message: `Error clearing messages: ${formatError(error)}`,
-      });
-    }
-  },
-]);
-
-interface TaskRequest {
-  task: string;
-}
+app.delete("/agent/messages", (_req: Request, res: Response) => {
+  agent.clearMessages();
+  res.status(204).send();
+});
 
 // Run a task
-app.post("/agent/tasks", [
+app.post(
+  "/agent/tasks",
+  validateRequest(taskSchema),
   async (req: Request<unknown, unknown, TaskRequest>, res: Response) => {
+    const { task } = req.body;
+
+    // Set up SSE
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    // Set up streaming handler for both messages and real-time updates
+    const streamHandler: StreamHandler = {
+      onContent: (content, isFirstChunk) => {
+        // Send content_delta event for real-time content updates
+        res.write(`event: content_delta\n`);
+        res.write(`data: ${JSON.stringify({ content, isFirstChunk })}\n\n`);
+      },
+      onMessage: (message) => {
+        // Send message event as soon as a complete message is available
+        res.write(`event: message\n`);
+        res.write(`data: ${JSON.stringify(message)}\n\n`);
+      },
+    };
+
     try {
-      const { task } = req.body;
+      // Run the task with streaming handler
+      await agent.runTaskWithStreaming(task, streamHandler);
 
-      if (!task) {
-        res.status(400).json({
-          code: 400,
-          message: "Task is required",
-        });
-        return;
-      }
+      // After streaming is complete, send the complete event
+      // No need to send all messages again since they've been sent via onMessage
+      res.write(`event: complete\n`);
+      res.write(`data: {}\n\n`);
 
-      // Set up SSE
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
-
-      // Set up streaming handler for both messages and real-time updates
-      const streamHandler: StreamHandler = {
-        onContent: (content, isFirstChunk) => {
-          // Send content_delta event for real-time content updates
-          res.write(`event: content_delta\n`);
-          res.write(`data: ${JSON.stringify({ content, isFirstChunk })}\n\n`);
-        },
-        onMessage: (message) => {
-          // Send message event as soon as a complete message is available
-          res.write(`event: message\n`);
-          res.write(`data: ${JSON.stringify(message)}\n\n`);
-        },
-      };
-
-      try {
-        // Run the task with streaming handler
-        await agent.runTaskWithStreaming(task, streamHandler);
-
-        // After streaming is complete, send the complete event
-        // No need to send all messages again since they've been sent via onMessage
-        res.write(`event: complete\n`);
-        res.write(`data: {}\n\n`);
-
-        // End the response
-        res.end();
-      } catch (error) {
-        // Send error event
-        res.write(`event: error\n`);
-        res.write(`data: {"error": "${formatError(error)}"}\n\n`);
-        res.end();
-      }
+      // End the response
+      res.end();
     } catch (error) {
-      res.status(500).json({
-        code: 500,
-        message: `Error running task: ${formatError(error)}`,
-      });
+      // Send error event directly in the stream
+      res.write(`event: error\n`);
+      res.write(`data: {"error": "${formatError(error)}"}\n\n`);
+      res.end();
     }
   },
-]);
+);
 
 // List checkpoints
-app.get("/agent/checkpoints", [
-  async (req: Request, res: Response) => {
-    try {
-      const checkpoints = await listCheckpoints();
-      res.json(checkpoints);
-    } catch (error) {
-      res.status(500).json({
-        code: 500,
-        message: `Error retrieving checkpoints: ${formatError(error)}`,
-      });
-    }
-  },
-]);
+app.get("/agent/checkpoints", async (_req: Request, res: Response) => {
+  const checkpoints = await listCheckpoints();
+  res.json(checkpoints);
+});
 
 // Apply checkpoint
-app.post("/agent/checkpoints/:checkpointId/apply", [
-  async (req: Request<{ checkpointId: string }>, res: Response) => {
-    try {
-      const { checkpointId } = req.params;
+app.post(
+  "/agent/checkpoints/:checkpointId/apply",
+  validateParams(checkpointParamsSchema),
+  async (req: Request<CheckpointParams>, res: Response) => {
+    const { checkpointId } = req.params;
 
-      if (!checkpointId) {
-        res.status(400).json({
-          code: 400,
-          message: "Checkpoint ID is required",
-        });
-        return;
-      }
-
-      // Use the agent's applyCheckpoint method to update both filesystem and message history
-      await agent.applyCheckpoint(checkpointId);
-      res.json({ success: true, id: checkpointId });
-    } catch (error) {
-      res.status(500).json({
-        code: 500,
-        message: `Error applying checkpoint: ${formatError(error)}`,
-      });
-    }
+    // Use the agent's applyCheckpoint method to update both filesystem and message history
+    await agent.applyCheckpoint(checkpointId);
+    res.json({ success: true, id: checkpointId });
   },
-]);
+);
+
+// Register error handling middleware last
+app.use(errorHandler);
 
 // Start the server
 async function startServer(): Promise<void> {
