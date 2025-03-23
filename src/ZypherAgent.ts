@@ -272,16 +272,16 @@ export class ZypherAgent {
 
   /**
    * Run a task with streaming support (primary implementation)
-   * 
-   * This method provides real-time streaming of incremental content updates as they're generated, 
+   *
+   * This method provides real-time streaming of incremental content updates as they're generated,
    * allowing for character-by-character updates as Claude produces them. This enables
    * a more responsive user experience with immediate feedback.
-   * 
+   *
    * In contrast to runTaskLoop, this method:
    * - Streams individual text fragments as they become available (not just complete messages)
    * - Provides real-time updates via onContent callback
    * - Still delivers complete messages via onMessage when they're done
-   * 
+   *
    * @param taskDescription The task description
    * @param streamHandler Handler for real-time content updates and complete messages
    * @param maxIterations Maximum number of iterations to run
@@ -491,18 +491,18 @@ export class ZypherAgent {
 
   /**
    * Run a task with the agent (non-streaming version for backward compatibility)
-   * 
+   *
    * This method only provides completed messages, not real-time content updates.
-   * It's a compatibility wrapper around runTaskWithStreaming that adapts the older 
+   * It's a compatibility wrapper around runTaskWithStreaming that adapts the older
    * MessageHandler interface to the newer StreamHandler interface.
-   * 
+   *
    * Unlike runTaskWithStreaming, this method:
    * - Does NOT stream individual text fragments as they become available
    * - Only delivers complete messages once they're fully generated
    * - Has no concept of partial content updates
-   * 
+   *
    * For new code that needs real-time content updates, use runTaskWithStreaming directly.
-   * 
+   *
    * @param taskDescription The task description
    * @param messageHandler Handler for complete messages only
    * @param maxIterations Maximum number of iterations to run
