@@ -27,9 +27,27 @@ const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
 const DEFAULT_MAX_TOKENS = 8192;
 
 /**
- * Message handler function type for streaming messages
+ * Handler for receiving complete messages
  */
 export type MessageHandler = (message: Message) => void;
+
+/**
+ * Handler for streaming content and events
+ */
+export interface StreamHandler {
+  /**
+   * Called when new content is streamed
+   * @param content The text content being streamed
+   * @param isFirstChunk Whether this is the first chunk of content
+   */
+  onContent?: (content: string, isFirstChunk: boolean) => void;
+
+  /**
+   * Called when a complete message is available
+   * @param message The complete message that was just processed
+   */
+  onMessage?: (message: Message) => void;
+}
 
 export interface ZypherAgentConfig {
   anthropicApiKey?: string;
@@ -57,6 +75,7 @@ export class ZypherAgent {
   private readonly autoErrorCheck: boolean;
   private readonly enablePromptCaching: boolean;
   private readonly userId?: string;
+  private readonly model: string;
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY;
@@ -81,6 +100,7 @@ export class ZypherAgent {
     this.autoErrorCheck = config.autoErrorCheck ?? true;
     this.enablePromptCaching = config.enablePromptCaching ?? true;
     this.userId = userId;
+    this.model = config.model ?? DEFAULT_MODEL;
   }
 
   async init(): Promise<void> {
@@ -250,9 +270,26 @@ export class ZypherAgent {
     return { role, content: contentArray };
   };
 
-  async runTaskLoop(
+  /**
+   * Run a task with streaming support (primary implementation)
+   * 
+   * This method provides real-time streaming of incremental content updates as they're generated, 
+   * allowing for character-by-character updates as Claude produces them. This enables
+   * a more responsive user experience with immediate feedback.
+   * 
+   * In contrast to runTaskLoop, this method:
+   * - Streams individual text fragments as they become available (not just complete messages)
+   * - Provides real-time updates via onContent callback
+   * - Still delivers complete messages via onMessage when they're done
+   * 
+   * @param taskDescription The task description
+   * @param streamHandler Handler for real-time content updates and complete messages
+   * @param maxIterations Maximum number of iterations to run
+   * @returns Array of messages after task completion
+   */
+  async runTaskWithStreaming(
     taskDescription: string,
-    messageHandler?: MessageHandler,
+    streamHandler?: StreamHandler,
     maxIterations = 25,
   ): Promise<Message[]> {
     // Ensure system prompt is initialized
@@ -278,7 +315,7 @@ export class ZypherAgent {
       checkpoint,
       timestamp: new Date(), // current timestamp
     };
-    this.processMessage(userMessage, messages, messageHandler);
+    this.processMessage(userMessage, messages, streamHandler?.onMessage);
 
     const toolCalls = Array.from(this._tools.values()).map(
       (tool, index, tools): ToolUnion => ({
@@ -294,8 +331,13 @@ export class ZypherAgent {
     );
 
     while (iterations < maxIterations) {
-      const response = await this.client.messages.create({
-        model: DEFAULT_MODEL,
+      // Prepare the base message content that will be built up during streaming
+      const currentContent: ContentBlockParam[] = [];
+      let isFirstChunk = true;
+
+      // Create a stream
+      const stream = this.client.messages.stream({
+        model: this.model,
         max_tokens: this.maxTokens,
         system: this.system,
         messages: messages.map((msg, index) =>
@@ -305,19 +347,68 @@ export class ZypherAgent {
         ...(this.userId && { metadata: { user_id: this.userId } }),
       });
 
-      // Process the response
+      // Process the streaming content blocks
+      for await (const event of stream) {
+        if (event.type === "content_block_start") {
+          const contentBlock = event.content_block;
+          // Initialize with appropriate type
+          if (contentBlock.type === "text") {
+            // Ensure text is always a string
+            const textValue =
+              typeof contentBlock.text === "string" ? contentBlock.text : "";
+            currentContent.push({ ...contentBlock, text: textValue });
+
+            // Call stream handler for content
+            if (streamHandler?.onContent && textValue) {
+              streamHandler.onContent(textValue, isFirstChunk);
+              isFirstChunk = false;
+            }
+          } else {
+            currentContent.push(contentBlock);
+          }
+        } else if (event.type === "content_block_delta") {
+          const index = currentContent.length - 1;
+
+          if (
+            index >= 0 &&
+            currentContent[index] &&
+            currentContent[index].type === "text"
+          ) {
+            const textBlock = currentContent[index];
+            const delta = event.delta;
+
+            // Only handle text deltas
+            if ("text" in delta && delta.text) {
+              textBlock.text += delta.text;
+
+              // Call stream handler for content
+              if (streamHandler?.onContent) {
+                streamHandler.onContent(delta.text, isFirstChunk);
+                isFirstChunk = false;
+              }
+            }
+          }
+        }
+      }
+
+      // Create the assistant message after streaming is complete
       const assistantMessage: Message = {
         role: "assistant",
-        content: response.content,
+        content: currentContent,
         timestamp: new Date(),
       };
-      this.processMessage(assistantMessage, messages, messageHandler);
+      this.processMessage(assistantMessage, messages, streamHandler?.onMessage);
+
+      // Capture the final message from stream
+      const finalMessage = await stream.finalMessage();
 
       // Process tool calls if any
-      if (response.stop_reason === "tool_use") {
+      if (finalMessage.stop_reason === "tool_use") {
         // Execute tool calls
-        for (const block of response.content) {
+        for (const block of finalMessage.content) {
           if (block.type === "tool_use") {
+            // Tool use is already communicated through onMessage of assistantMessage
+
             const result = await this.executeToolCall({
               name: block.name,
               parameters: block.input as Record<string, unknown>,
@@ -335,17 +426,25 @@ export class ZypherAgent {
               ],
               timestamp: new Date(),
             };
-            this.processMessage(toolMessage, messages, messageHandler);
+            this.processMessage(
+              toolMessage,
+              messages,
+              streamHandler?.onMessage,
+            );
           }
         }
-      } else if (response.stop_reason === "max_tokens") {
+      } else if (finalMessage.stop_reason === "max_tokens") {
         // auto continue
         const continueMessage: Message = {
           role: "user",
           content: "Continue",
           timestamp: new Date(),
         };
-        this.processMessage(continueMessage, messages, messageHandler);
+        this.processMessage(
+          continueMessage,
+          messages,
+          streamHandler?.onMessage,
+        );
       } else {
         // Check for code errors if enabled and this is the end of the conversation
         if (this.autoErrorCheck) {
@@ -361,7 +460,11 @@ export class ZypherAgent {
               content: `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
               timestamp: new Date(),
             };
-            this.processMessage(errorMessage, messages, messageHandler);
+            this.processMessage(
+              errorMessage,
+              messages,
+              streamHandler?.onMessage,
+            );
 
             // Continue the loop to let the agent fix the errors
             iterations++;
@@ -384,5 +487,48 @@ export class ZypherAgent {
     }
 
     return this.messages;
+  }
+
+  /**
+   * Run a task with the agent (non-streaming version for backward compatibility)
+   * 
+   * This method only provides completed messages, not real-time content updates.
+   * It's a compatibility wrapper around runTaskWithStreaming that adapts the older 
+   * MessageHandler interface to the newer StreamHandler interface.
+   * 
+   * Unlike runTaskWithStreaming, this method:
+   * - Does NOT stream individual text fragments as they become available
+   * - Only delivers complete messages once they're fully generated
+   * - Has no concept of partial content updates
+   * 
+   * For new code that needs real-time content updates, use runTaskWithStreaming directly.
+   * 
+   * @param taskDescription The task description
+   * @param messageHandler Handler for complete messages only
+   * @param maxIterations Maximum number of iterations to run
+   * @returns Array of messages after task completion
+   */
+  async runTaskLoop(
+    taskDescription: string,
+    messageHandler?: MessageHandler,
+    maxIterations = 25,
+  ): Promise<Message[]> {
+    // Create a streamHandler adapter that delegates to the messageHandler
+    let streamHandler: StreamHandler | undefined;
+
+    if (messageHandler) {
+      // Create an adapter that forwards messages to the messageHandler
+      streamHandler = {
+        // We don't need content streaming for backward compatibility
+        onMessage: messageHandler,
+      };
+    }
+
+    // Call the streaming version with our adapter
+    return this.runTaskWithStreaming(
+      taskDescription,
+      streamHandler,
+      maxIterations,
+    );
   }
 }
