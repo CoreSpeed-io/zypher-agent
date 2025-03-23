@@ -1,4 +1,5 @@
 import { ZypherAgent } from "../src/ZypherAgent";
+import type { StreamHandler } from "../src/ZypherAgent";
 import {
   ReadFileTool,
   ListDirTool,
@@ -13,12 +14,14 @@ import dotenv from "dotenv";
 import readline from "readline";
 import { stdin as input, stdout as output } from "process";
 import { formatError } from "../src/utils/error";
+import chalk from "chalk";
 
 interface CliOptions {
   workspace?: string;
   userId?: string;
   baseUrl?: string;
   apiKey?: string;
+  noStreamingOutput?: boolean;
 }
 
 const program = new Command();
@@ -40,6 +43,7 @@ program
     "-k, --api-key <string>",
     "Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)",
   )
+  .option("--no-streaming", "Disable streaming output in the terminal")
   .parse(process.argv);
 
 const options = program.opts<CliOptions>();
@@ -110,10 +114,53 @@ async function main(): Promise<void> {
       if (task.trim()) {
         console.log("\n🚀 Starting task execution...\n");
         try {
-          await agent.runTaskLoop(task);
+          if (options.noStreamingOutput) {
+            // Use the non-streaming approach if streaming is disabled
+            await agent.runTaskLoop(task);
+          } else {
+            // Setup streaming handlers
+            const streamHandler: StreamHandler = {
+              onContent: (content, isFirstChunk) => {
+                // For the first content chunk, add a bot indicator
+                if (isFirstChunk) {
+                  process.stdout.write(chalk.blue("🤖 "));
+                }
+
+                // Write the text without newline to allow continuous streaming
+                process.stdout.write(content);
+              },
+              onMessage: (message) => {
+                // Add a separator between messages for better readability
+                if (message.role === "assistant") {
+                  process.stdout.write("\n");
+
+                  // Check if the message contains tool use
+                  const content = Array.isArray(message.content)
+                    ? message.content
+                    : [];
+                  for (const block of content) {
+                    if (block.type === "tool_use") {
+                      process.stdout.write(
+                        chalk.yellow("\n\n🛠️ Using tool: ") +
+                          chalk.green(block.name) +
+                          "\n",
+                      );
+                      break;
+                    }
+                  }
+                }
+              },
+            };
+
+            await agent.runTaskWithStreaming(task, streamHandler);
+
+            // Add extra newlines for readability after completion
+            process.stdout.write("\n\n");
+          }
+
           console.log("\n✅ Task completed.\n");
         } catch (error) {
-          console.error("\n❌ Error:", formatError(error));
+          console.error(chalk.red("\n❌ Error:"), formatError(error));
           console.log("\nReady for next task.\n");
         }
       }

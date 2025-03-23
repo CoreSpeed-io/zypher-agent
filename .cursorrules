@@ -17,7 +17,7 @@
 - Keep sensitive information out of version control
 
 ## Dependencies
-- Use pnpm as package manager
+- Use bun as package manager
 - Lock dependency versions for consistency
 - Document major dependencies in README.md
 
@@ -29,6 +29,7 @@
 - Always use asynchronous filesystem operations (fs/promises) to avoid blocking the event loop
 - Refactor repetitive code patterns into helper methods to improve maintainability
 - Use private helper methods for internal functionality that's used in multiple places
+- Always check for undefined objects before accessing their properties
 
 ## Testing Framework
 - Vitest is the preferred testing framework
@@ -64,9 +65,31 @@
 - The API server should rely on the ZypherAgent class for core functionality
 - The API server should use server-sent events (SSE) to stream responses back to the client
 - The API server should provide endpoints for managing messages, running tasks, and working with checkpoints
+- Stream event types should use descriptive names that reflect their purpose (e.g., 'content_delta' for incremental content updates)
 - Authentication is currently disabled for development simplicity
 
 ## Anthropic API Integration
 - Always use `response.stop_reason === 'tool_use'` to detect when Claude wants to use a tool, not by filtering content blocks
 - Process all tool use blocks in the response content when stop_reason is 'tool_use'
 - Handle different stop reasons appropriately ('tool_use', 'max_tokens', etc.)
+- When implementing streaming with the Anthropic API:
+  - Use the `messages.stream()` method instead of `messages.create()`
+  - Process the various event types: content_block_start, content_block_delta, message_stop, etc.
+  - Always null-check objects before accessing their properties to avoid TypeScript errors
+  - Maintain a current content array to build the complete message during streaming
+  - Retrieve the final message using `stream.finalMessage()` to get stop reasons and process tool calls
+  - Separate streaming handlers (real-time updates) from message handlers (complete messages)
+  - For TypeScript imports of type definitions, use `import type` syntax when verbatimModuleSyntax is enabled
+  - Design streaming handler interfaces for simplicity, focusing on what consumers need (content, events) rather than internal implementation details
+  - Provide backward compatibility by making non-streaming methods delegate to streaming ones with appropriate defaults
+  - Avoid API redundancy: don't have separate handlers for messages and streaming when one can handle both
+  - Use interface composition that matches natural usage patterns (onContent, onMessage)
+  - Derive specific events (like tool usage) from message content rather than creating redundant event handlers
+  - Reuse existing handler mechanisms rather than creating parallel implementations
+  - Prefer adapter patterns over temporary method overriding for interface compatibility
+  - Use `runTaskWithStreaming` as the primary implementation for real-time content deltas and `runTaskLoop` for whole-message updates only
+  - Use onMessage for message boundary notifications instead of waiting for the entire streaming process to complete
+  - Prefer standard async/await to determine completion rather than using completion callbacks
+  - Use standard JavaScript try/catch for error handling rather than callback-based error handlers to reduce API complexity
+  - Avoid nested try/catch blocks when the inner block is just re-throwing the error anyway
+  - Use clear, descriptive names for streaming events that reflect their purpose (e.g., 'content_delta' for content updates)

@@ -3,8 +3,8 @@ import type { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Command } from "commander";
-import { ZypherAgent, type MessageHandler } from "../src/ZypherAgent";
-import type { Message } from "../src/message";
+import { ZypherAgent, type StreamHandler } from "../src/ZypherAgent";
+
 import {
   ReadFileTool,
   ListDirTool,
@@ -173,21 +173,30 @@ app.post("/agent/tasks", [
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      try {
-        // Set up event listeners for agent responses
-        const messageHandler: MessageHandler = (message: Message) => {
-          // Send message event - the user message already contains checkpoint info
+      // Set up streaming handler for both messages and real-time updates
+      const streamHandler: StreamHandler = {
+        onContent: (content, isFirstChunk) => {
+          // Send content_delta event for real-time content updates
+          res.write(`event: content_delta\n`);
+          res.write(`data: ${JSON.stringify({ content, isFirstChunk })}\n\n`);
+        },
+        onMessage: (message) => {
+          // Send message event as soon as a complete message is available
           res.write(`event: message\n`);
           res.write(`data: ${JSON.stringify(message)}\n\n`);
-        };
+        },
+      };
 
-        // Run the task - the agent will create a checkpoint and handle all messages
-        await agent.runTaskLoop(task, messageHandler);
+      try {
+        // Run the task with streaming handler
+        await agent.runTaskWithStreaming(task, streamHandler);
 
-        // Send complete event
+        // After streaming is complete, send the complete event
+        // No need to send all messages again since they've been sent via onMessage
         res.write(`event: complete\n`);
         res.write(`data: {}\n\n`);
 
+        // End the response
         res.end();
       } catch (error) {
         // Send error event
