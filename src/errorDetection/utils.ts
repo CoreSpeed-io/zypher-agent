@@ -1,7 +1,7 @@
-import { readFile } from 'fs/promises';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { fileExists } from '../utils';
+import { readFile } from "fs/promises";
+import { exec } from "child_process";
+import { promisify } from "util";
+import { fileExists } from "../utils";
 
 export const execAsync = promisify(exec);
 
@@ -22,18 +22,18 @@ export interface PackageJson {
  *
  * @returns {Promise<'npm' | 'yarn' | 'pnpm'>} The detected package manager
  */
-export async function detectPackageManager(): Promise<'npm' | 'yarn' | 'pnpm'> {
+export async function detectPackageManager(): Promise<"npm" | "yarn" | "pnpm"> {
   // Check for lockfiles to determine package manager
-  if (await fileExists('pnpm-lock.yaml')) {
-    return 'pnpm';
+  if (await fileExists("pnpm-lock.yaml")) {
+    return "pnpm";
   }
 
-  if (await fileExists('yarn.lock')) {
-    return 'yarn';
+  if (await fileExists("yarn.lock")) {
+    return "yarn";
   }
 
   // Default to npm
-  return 'npm';
+  return "npm";
 }
 
 /**
@@ -46,9 +46,9 @@ export async function getRunCommand(script: string): Promise<string> {
   const packageManager = await detectPackageManager();
 
   switch (packageManager) {
-    case 'yarn':
+    case "yarn":
       return `yarn ${script}`;
-    case 'pnpm':
+    case "pnpm":
       return `pnpm ${script}`;
     default:
       return `npm run ${script}`;
@@ -62,7 +62,7 @@ export async function getRunCommand(script: string): Promise<string> {
  */
 export async function readPackageJson(): Promise<PackageJson | null> {
   try {
-    const content = await readFile('package.json', 'utf-8');
+    const content = await readFile("package.json", "utf-8");
     return JSON.parse(content) as PackageJson;
   } catch {
     return null;
@@ -76,11 +76,14 @@ export async function readPackageJson(): Promise<PackageJson | null> {
  * @param {string} dependency - The dependency name to check
  * @returns {boolean} True if the dependency exists in dependencies or devDependencies
  */
-export function hasDependency(packageJson: PackageJson | null, dependency: string): boolean {
+export function hasDependency(
+  packageJson: PackageJson | null,
+  dependency: string,
+): boolean {
   if (!packageJson) return false;
 
   return !!(
-    (packageJson.dependencies && dependency in packageJson.dependencies) ||
+    (packageJson.dependencies && dependency in packageJson.dependencies) ??
     (packageJson.devDependencies && dependency in packageJson.devDependencies)
   );
 }
@@ -92,8 +95,11 @@ export function hasDependency(packageJson: PackageJson | null, dependency: strin
  * @param {string} scriptName - The exact script name to check
  * @returns {boolean} True if the script exists
  */
-export function hasScript(packageJson: PackageJson | null, scriptName: string): boolean {
-  if (!packageJson || !packageJson.scripts) return false;
+export function hasScript(
+  packageJson: PackageJson | null,
+  scriptName: string,
+): boolean {
+  if (!packageJson?.scripts) return false;
 
   return scriptName in packageJson.scripts;
 }
@@ -109,9 +115,11 @@ export function findScriptByPattern(
   packageJson: PackageJson | null,
   pattern: string,
 ): string | undefined {
-  if (!packageJson || !packageJson.scripts) return undefined;
+  if (!packageJson?.scripts) return undefined;
 
-  return Object.keys(packageJson.scripts).find((script) => script.includes(pattern));
+  return Object.keys(packageJson.scripts).find((script) =>
+    script.includes(pattern),
+  );
 }
 
 /**
@@ -121,10 +129,28 @@ export function findScriptByPattern(
  * @param {string} scriptName - The script name to get
  * @returns {string | undefined} The script content or undefined if not found
  */
-export function getScript(packageJson: PackageJson | null, scriptName: string): string | undefined {
-  if (!packageJson || !packageJson.scripts) return undefined;
+export function getScript(
+  packageJson: PackageJson | null,
+  scriptName: string,
+): string | undefined {
+  if (!packageJson?.scripts) return undefined;
 
   return packageJson.scripts[scriptName];
+}
+
+/**
+ * Safely converts a value to string, handling different types appropriately
+ *
+ * @param value - The value to convert to string
+ * @returns The string representation of the value
+ */
+function safeToString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (value instanceof Buffer) return value.toString();
+  if (typeof value === "object") return JSON.stringify(value);
+  // At this point, value can only be number, boolean, bigint, or symbol
+  return (value as number | boolean | bigint | symbol).toString();
 }
 
 /**
@@ -134,29 +160,32 @@ export function getScript(packageJson: PackageJson | null, scriptName: string): 
  * @param {(output: string) => string} filterFn - Function to filter the output
  * @returns {string} The filtered error output
  */
-export function extractErrorOutput(error: unknown, filterFn: (output: string) => string): string {
-  let errorOutput = '';
+export function extractErrorOutput(
+  error: unknown,
+  filterFn: (output: string) => string,
+): string {
+  let errorOutput = "";
 
-  if (error && typeof error === 'object') {
+  if (error && typeof error === "object") {
     // Extract stdout if available
-    if ('stdout' in error) {
-      const stdout = String(error.stdout || '');
+    if ("stdout" in error) {
+      const stdout = safeToString(error.stdout);
       const filteredStdout = filterFn(stdout);
       if (filteredStdout) errorOutput += filteredStdout;
     }
 
     // Extract stderr if available
-    if ('stderr' in error) {
-      const stderr = String(error.stderr || '');
+    if ("stderr" in error) {
+      const stderr = safeToString(error.stderr);
       const filteredStderr = filterFn(stderr);
       if (filteredStderr) {
-        errorOutput += (errorOutput ? '\n' : '') + filteredStderr;
+        errorOutput += (errorOutput ? "\n" : "") + filteredStderr;
       }
     }
 
     // Extract message if available and no other output found
-    if (!errorOutput && 'message' in error) {
-      const message = String(error.message || '');
+    if (!errorOutput && "message" in error) {
+      const message = safeToString(error.message);
       const filteredMessage = filterFn(message);
       if (filteredMessage) errorOutput = filteredMessage;
     }

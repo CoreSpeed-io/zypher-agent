@@ -1,5 +1,5 @@
-import { access, constants, readFile } from 'fs/promises';
-import type { UserInfo } from './utils';
+import { access, constants, readFile } from "fs/promises";
+import type { UserInfo } from "./utils";
 
 /**
  * Attempts to read a file with proper error handling.
@@ -11,7 +11,7 @@ import type { UserInfo } from './utils';
 async function tryReadFile(path: string): Promise<string | null> {
   try {
     await access(path, constants.R_OK);
-    return await readFile(path, 'utf-8');
+    return await readFile(path, "utf-8");
   } catch {
     return null;
   }
@@ -31,15 +31,15 @@ async function tryReadFile(path: string): Promise<string | null> {
  */
 export async function getCustomRules(): Promise<string | null> {
   try {
-    const zypherRules = await tryReadFile('.zypherrules');
+    const zypherRules = await tryReadFile(".zypherrules");
     if (zypherRules) return zypherRules;
 
-    const cursorRules = await tryReadFile('.cursorrules');
+    const cursorRules = await tryReadFile(".cursorrules");
     if (cursorRules) return cursorRules;
 
     return null;
   } catch (error) {
-    console.warn('Failed to read custom rules:', error);
+    console.warn("Failed to read custom rules:", error);
     return null;
   }
 }
@@ -124,7 +124,7 @@ Answer the user's request using the relevant tool(s), if they are available. Che
 ${customRules}
 </custom_instructions>
 `
-    : '';
+    : "";
 
   return `${systemPrompt}
 ${customRulesBlock}`;

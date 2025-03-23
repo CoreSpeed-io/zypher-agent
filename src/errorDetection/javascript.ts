@@ -1,4 +1,4 @@
-import type { ErrorDetector } from './interface';
+import type { ErrorDetector } from "./interface";
 import {
   execAsync,
   readPackageJson,
@@ -7,28 +7,28 @@ import {
   hasScript,
   findScriptByPattern,
   extractErrorOutput,
-} from './utils';
-import { fileExists } from '../utils';
+} from "./utils";
+import { fileExists } from "../utils";
 
 /**
  * Detector for ESLint errors in JavaScript/TypeScript projects
  */
 export class ESLintErrorDetector implements ErrorDetector {
-  name = 'ESLint';
-  description = 'Detects code style and potential issues using ESLint';
+  name = "ESLint";
+  description = "Detects code style and potential issues using ESLint";
 
   async isApplicable(): Promise<boolean> {
     try {
       const packageJson = await readPackageJson();
 
       // Check if eslint is in dependencies or devDependencies
-      const hasEslint = hasDependency(packageJson, 'eslint');
+      const hasEslint = hasDependency(packageJson, "eslint");
 
       // Also check if there are lint scripts
       const hasLintScript =
-        hasScript(packageJson, 'lint') ||
-        hasScript(packageJson, 'eslint') ||
-        !!findScriptByPattern(packageJson, 'lint');
+        hasScript(packageJson, "lint") ||
+        hasScript(packageJson, "eslint") ||
+        !!findScriptByPattern(packageJson, "lint");
 
       return hasEslint || hasLintScript;
     } catch {
@@ -48,7 +48,9 @@ export class ESLintErrorDetector implements ErrorDetector {
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors
-        const errorOutput = extractErrorOutput(error, this.filterNonErrors);
+        const errorOutput = extractErrorOutput(error, (output) =>
+          this.filterNonErrors(output),
+        );
 
         if (errorOutput) {
           return `ESLint errors detected:\n${errorOutput}`;
@@ -57,7 +59,7 @@ export class ESLintErrorDetector implements ErrorDetector {
 
       return null;
     } catch (error) {
-      console.warn('Error running ESLint check:', error);
+      console.warn("Error running ESLint check:", error);
       return null;
     }
   }
@@ -76,12 +78,12 @@ export class ESLintErrorDetector implements ErrorDetector {
       // Find the appropriate script name
       let scriptName: string | undefined;
 
-      if (hasScript(packageJson, 'lint')) {
-        scriptName = 'lint';
-      } else if (hasScript(packageJson, 'eslint')) {
-        scriptName = 'eslint';
+      if (hasScript(packageJson, "lint")) {
+        scriptName = "lint";
+      } else if (hasScript(packageJson, "eslint")) {
+        scriptName = "eslint";
       } else {
-        scriptName = findScriptByPattern(packageJson, 'lint');
+        scriptName = findScriptByPattern(packageJson, "lint");
       }
 
       if (scriptName) {
@@ -91,7 +93,7 @@ export class ESLintErrorDetector implements ErrorDetector {
 
     // For direct commands, we'll use the eslint binary directly
     // but still respect the package manager via getRunCommand
-    return await getRunCommand('eslint . --ext .js,.jsx,.ts,.tsx');
+    return await getRunCommand("eslint . --ext .js,.jsx,.ts,.tsx");
   }
 
   /**
@@ -102,20 +104,20 @@ export class ESLintErrorDetector implements ErrorDetector {
    */
   private filterNonErrors(output: string): string {
     // Split by lines
-    const lines = output.split('\n');
+    const lines = output.split("\n");
 
     // Filter out npm notices and empty lines
     const errorLines = lines.filter((line) => {
       // Skip npm notices
-      if (line.trim().startsWith('npm notice')) return false;
+      if (line.trim().startsWith("npm notice")) return false;
       // Skip empty lines
-      if (line.trim() === '') return false;
+      if (line.trim() === "") return false;
       // Skip npm warnings that aren't related to the code
-      if (line.includes('npm WARN')) return false;
+      if (line.includes("npm WARN")) return false;
       return true;
     });
 
-    return errorLines.join('\n');
+    return errorLines.join("\n");
   }
 }
 
@@ -123,8 +125,8 @@ export class ESLintErrorDetector implements ErrorDetector {
  * Detector for TypeScript compiler errors
  */
 export class TypeScriptErrorDetector implements ErrorDetector {
-  name = 'TypeScript';
-  description = 'Detects type errors using the TypeScript compiler';
+  name = "TypeScript";
+  description = "Detects type errors using the TypeScript compiler";
 
   async isApplicable(): Promise<boolean> {
     try {
@@ -132,15 +134,15 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       const packageJson = await readPackageJson();
       if (packageJson) {
         // Check if typescript is in dependencies
-        const hasTypeScript = hasDependency(packageJson, 'typescript');
+        const hasTypeScript = hasDependency(packageJson, "typescript");
 
         // Check if there are type-check scripts
         const hasTypeCheckScript =
-          hasScript(packageJson, 'type-check') ||
-          hasScript(packageJson, 'typecheck') ||
-          hasScript(packageJson, 'tsc') ||
-          !!findScriptByPattern(packageJson, 'type') ||
-          !!findScriptByPattern(packageJson, 'tsc');
+          hasScript(packageJson, "type-check") ||
+          hasScript(packageJson, "typecheck") ||
+          hasScript(packageJson, "tsc") ||
+          !!findScriptByPattern(packageJson, "type") ||
+          !!findScriptByPattern(packageJson, "tsc");
 
         if (hasTypeScript || hasTypeCheckScript) {
           return true;
@@ -148,7 +150,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       }
 
       // Fallback to checking for tsconfig.json
-      return await fileExists('tsconfig.json');
+      return await fileExists("tsconfig.json");
     } catch {
       return false;
     }
@@ -166,7 +168,9 @@ export class TypeScriptErrorDetector implements ErrorDetector {
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors
-        const errorOutput = extractErrorOutput(error, this.filterNonErrors);
+        const errorOutput = extractErrorOutput(error, (output) =>
+          this.filterNonErrors(output),
+        );
 
         if (errorOutput) {
           return `TypeScript errors detected:\n${errorOutput}`;
@@ -175,7 +179,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
 
       return null;
     } catch (error) {
-      console.warn('Error running TypeScript check:', error);
+      console.warn("Error running TypeScript check:", error);
       return null;
     }
   }
@@ -194,15 +198,16 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       // Find the appropriate script name
       let scriptName: string | undefined;
 
-      if (hasScript(packageJson, 'type-check')) {
-        scriptName = 'type-check';
-      } else if (hasScript(packageJson, 'typecheck')) {
-        scriptName = 'typecheck';
-      } else if (hasScript(packageJson, 'tsc')) {
-        scriptName = 'tsc';
+      if (hasScript(packageJson, "type-check")) {
+        scriptName = "type-check";
+      } else if (hasScript(packageJson, "typecheck")) {
+        scriptName = "typecheck";
+      } else if (hasScript(packageJson, "tsc")) {
+        scriptName = "tsc";
       } else {
         scriptName =
-          findScriptByPattern(packageJson, 'type') || findScriptByPattern(packageJson, 'tsc');
+          findScriptByPattern(packageJson, "type") ??
+          findScriptByPattern(packageJson, "tsc");
       }
 
       if (scriptName) {
@@ -212,7 +217,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
 
     // For direct commands, we'll use the tsc binary directly
     // but still respect the package manager via getRunCommand
-    return await getRunCommand('tsc --noEmit');
+    return await getRunCommand("tsc --noEmit");
   }
 
   /**
@@ -223,19 +228,19 @@ export class TypeScriptErrorDetector implements ErrorDetector {
    */
   private filterNonErrors(output: string): string {
     // Split by lines
-    const lines = output.split('\n');
+    const lines = output.split("\n");
 
     // Filter out npm notices and empty lines
     const errorLines = lines.filter((line) => {
       // Skip npm notices
-      if (line.trim().startsWith('npm notice')) return false;
+      if (line.trim().startsWith("npm notice")) return false;
       // Skip empty lines
-      if (line.trim() === '') return false;
+      if (line.trim() === "") return false;
       // Skip npm warnings that aren't related to the code
-      if (line.includes('npm WARN')) return false;
+      if (line.includes("npm WARN")) return false;
       return true;
     });
 
-    return errorLines.join('\n');
+    return errorLines.join("\n");
   }
 }
