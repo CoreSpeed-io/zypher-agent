@@ -1,0 +1,25 @@
+# Environment variables
+.env
+.env.*.local
+
+# Logs
+*.log
+
+# Dependencies
+**/*node_modules
+
+# Git
+**/*/.git
+**/*/.gitignore
+**/*/.gitmodules
+**/*/.gitconfig
+**/*/.gitignore
+
+# VSCode
+**/.vscode
+
+# Docker
+**/*/Dockerfile*
+
+# Github
+.github

@@ -1,7 +1,7 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { z } from 'zod';
-import { defineTool } from './index';
+import { exec } from "child_process";
+import { promisify } from "util";
+import { z } from "zod";
+import { defineTool } from "./index";
 
 const execAsync = promisify(exec);
 
@@ -10,15 +10,15 @@ function escapeShellArg(arg: string): string {
 }
 
 export const FileSearchTool = defineTool({
-  name: 'file_search',
+  name: "file_search",
   description:
     "Fast file search based on fuzzy matching against file path. Use if you know part of the file path but don't know where it's located exactly. Response will be capped to 10 results. Make your query more specific if need to filter results further.",
   parameters: z.object({
-    query: z.string().describe('Fuzzy filename to search for'),
+    query: z.string().describe("Fuzzy filename to search for"),
     explanation: z
       .string()
       .describe(
-        'One sentence explanation as to why this tool is being used, and how it contributes to the goal.',
+        "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
   execute: async ({ query }) => {
@@ -28,16 +28,16 @@ export const FileSearchTool = defineTool({
 
       const { stdout, stderr } = await execAsync(command);
       if (!stdout && !stderr) {
-        return 'No matching files found.';
+        return "No matching files found.";
       }
 
       // Split results and take only first 10
       const files = stdout
-        .split('\n')
+        .split("\n")
         .filter(Boolean)
         .slice(0, 10)
         .map((file) => `- ${file}`)
-        .join('\n');
+        .join("\n");
 
       if (stderr) {
         return `Search completed with warnings:\n${stderr}\nMatching files:\n${files}`;
@@ -48,7 +48,7 @@ export const FileSearchTool = defineTool({
       if (error instanceof Error) {
         return `Error searching files: ${error.message}`;
       }
-      return 'Error searching files: Unknown error';
+      return "Error searching files: Unknown error";
     }
   },
 });

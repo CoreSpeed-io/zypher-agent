@@ -1,10 +1,10 @@
-import type { ErrorDetector } from './interface';
-import { ESLintErrorDetector, TypeScriptErrorDetector } from './javascript';
-import { PythonFlake8ErrorDetector, PythonMypyErrorDetector } from './python';
-import { GoLintErrorDetector, GoVetErrorDetector } from './go';
+import type { ErrorDetector } from "./interface";
+import { ESLintErrorDetector, TypeScriptErrorDetector } from "./javascript";
+import { PythonFlake8ErrorDetector, PythonMypyErrorDetector } from "./python";
+import { GoLintErrorDetector, GoVetErrorDetector } from "./go";
 
 // Export all interfaces and types
-export * from './interface';
+export * from "./interface";
 
 // Export all detectors
 export {
@@ -44,7 +44,10 @@ export async function detectErrors(): Promise<string | null> {
           applicableDetectors.push(detector);
         }
       } catch (error) {
-        console.warn(`Error checking if detector ${detector.name} is applicable:`, error);
+        console.warn(
+          `Error checking if detector ${detector.name} is applicable:`,
+          error,
+        );
       }
     }
 
@@ -70,9 +73,9 @@ export async function detectErrors(): Promise<string | null> {
       return null;
     }
 
-    return errorMessages.join('\n\n');
+    return errorMessages.join("\n\n");
   } catch (error) {
-    console.warn('Failed to run error detection:', error);
+    console.warn("Failed to run error detection:", error);
     return null;
   }
 }
