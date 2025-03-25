@@ -47,6 +47,13 @@ export interface StreamHandler {
    * @param message The complete message that was just processed
    */
   onMessage?: (message: Message) => void;
+
+  /**
+   * Called when tool use updates are available
+   * @param name Tool name being used
+   * @param partialInput Partial input data (JSON string fragment)
+   */
+  onToolUse?: (name: string, partialInput: string) => void;
 }
 
 export interface ZypherAgentConfig {
@@ -331,84 +338,62 @@ export class ZypherAgent {
     );
 
     while (iterations < maxIterations) {
-      // Prepare the base message content that will be built up during streaming
-      const currentContent: ContentBlockParam[] = [];
       let isFirstChunk = true;
+      let currentToolName: string | null = null;
 
-      // Create a stream
-      const stream = this.client.messages.stream({
-        model: this.model,
-        max_tokens: this.maxTokens,
-        system: this.system,
-        messages: messages.map((msg, index) =>
-          this.formatMessageForApi(msg, index === messages.length - 1),
-        ),
-        tools: toolCalls,
-        ...(this.userId && { metadata: { user_id: this.userId } }),
-      });
-
-      // Process the streaming content blocks
-      for await (const event of stream) {
-        if (event.type === "content_block_start") {
-          const contentBlock = event.content_block;
-          // Initialize with appropriate type
-          if (contentBlock.type === "text") {
-            // Ensure text is always a string
-            const textValue =
-              typeof contentBlock.text === "string" ? contentBlock.text : "";
-            currentContent.push({ ...contentBlock, text: textValue });
-
-            // Call stream handler for content
-            if (streamHandler?.onContent && textValue) {
-              streamHandler.onContent(textValue, isFirstChunk);
-              isFirstChunk = false;
-            }
-          } else {
-            currentContent.push(contentBlock);
+      // Create a stream with event handlers
+      const stream = this.client.messages
+        .stream({
+          model: this.model,
+          max_tokens: this.maxTokens,
+          system: this.system,
+          messages: messages.map((msg, index) =>
+            this.formatMessageForApi(msg, index === messages.length - 1),
+          ),
+          tools: toolCalls,
+          ...(this.userId && { metadata: { user_id: this.userId } }),
+        })
+        .on("text", (textDelta) => {
+          // Call stream handler for content
+          if (streamHandler?.onContent && textDelta) {
+            streamHandler.onContent(textDelta, isFirstChunk);
+            isFirstChunk = false;
           }
-        } else if (event.type === "content_block_delta") {
-          const index = currentContent.length - 1;
-
-          if (
-            index >= 0 &&
-            currentContent[index] &&
-            currentContent[index].type === "text"
-          ) {
-            const textBlock = currentContent[index];
-            const delta = event.delta;
-
-            // Only handle text deltas
-            if ("text" in delta && delta.text) {
-              textBlock.text += delta.text;
-
-              // Call stream handler for content
-              if (streamHandler?.onContent) {
-                streamHandler.onContent(delta.text, isFirstChunk);
-                isFirstChunk = false;
-              }
-            }
+        })
+        .on("streamEvent", (event) => {
+          // Detect tool use at the start of a content block
+          if (event.type === "content_block_start" && 
+              event.content_block?.type === "tool_use" && 
+              streamHandler?.onToolUse) {
+            // Store the tool name for subsequent inputJson events
+            currentToolName = event.content_block.name;
+            // Send the initial tool use notification with the tool name
+            streamHandler.onToolUse(currentToolName, "");
           }
-        }
-      }
+        })
+        .on("inputJson", (partialJson) => {
+          // Send updates whenever we have new partial JSON for a tool
+          if (partialJson && streamHandler?.onToolUse && currentToolName) {
+            streamHandler.onToolUse(currentToolName, partialJson);
+          }
+        });
 
-      // Create the assistant message after streaming is complete
+      // Wait for the final message
+      const finalMessage = await stream.finalMessage();
+
+      // Create the assistant message using the complete content from finalMessage
       const assistantMessage: Message = {
         role: "assistant",
-        content: currentContent,
+        content: finalMessage.content,
         timestamp: new Date(),
       };
       this.processMessage(assistantMessage, messages, streamHandler?.onMessage);
-
-      // Capture the final message from stream
-      const finalMessage = await stream.finalMessage();
 
       // Process tool calls if any
       if (finalMessage.stop_reason === "tool_use") {
         // Execute tool calls
         for (const block of finalMessage.content) {
           if (block.type === "tool_use") {
-            // Tool use is already communicated through onMessage of assistantMessage
-
             const result = await this.executeToolCall({
               name: block.name,
               parameters: block.input as Record<string, unknown>,
