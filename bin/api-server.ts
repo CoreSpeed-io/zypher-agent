@@ -223,10 +223,15 @@ app.post(
 
     // Set up streaming handler for both messages and real-time updates
     const streamHandler: StreamHandler = {
-      onContent: (content, isFirstChunk) => {
+      onContent: (content, _isFirstChunk) => {
         // Send content_delta event for real-time content updates
         res.write(`event: content_delta\n`);
-        res.write(`data: ${JSON.stringify({ content, isFirstChunk })}\n\n`);
+        res.write(`data: ${JSON.stringify({ content })}\n\n`);
+      },
+      onToolUse: (name, partialInput) => {
+        // Send tool_use event for real-time tool use updates
+        res.write(`event: tool_use_delta\n`);
+        res.write(`data: ${JSON.stringify({ name, partialInput })}\n\n`);
       },
       onMessage: (message) => {
         // Send message event as soon as a complete message is available
@@ -286,9 +291,11 @@ async function startServer(): Promise<void> {
       console.log(`🚀 API server running at http://localhost:${PORT}`);
     });
 
-    server.on('error', (error: NodeJS.ErrnoException) => {
-      if (error.code === 'EADDRINUSE') {
-        console.error(`❌ Error: Port ${PORT} is already in use. Please try a different port.`);
+    server.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") {
+        console.error(
+          `❌ Error: Port ${PORT} is already in use. Please try a different port.`,
+        );
         process.exit(1);
       } else {
         console.error(`❌ Server error:`, formatError(error));
