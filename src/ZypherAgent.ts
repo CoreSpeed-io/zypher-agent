@@ -362,9 +362,11 @@ export class ZypherAgent {
         })
         .on("streamEvent", (event) => {
           // Detect tool use at the start of a content block
-          if (event.type === "content_block_start" && 
-              event.content_block?.type === "tool_use" && 
-              streamHandler?.onToolUse) {
+          if (
+            event.type === "content_block_start" &&
+            event.content_block?.type === "tool_use" &&
+            streamHandler?.onToolUse
+          ) {
             // Store the tool name for subsequent inputJson events
             currentToolName = event.content_block.name;
             // Send the initial tool use notification with the tool name
