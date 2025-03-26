@@ -9,6 +9,8 @@ export default tseslint.config(
   eslint.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
   tseslint.configs.stylisticTypeChecked,
+  eslintPluginPrettierRecommended,
+  eslintConfigPrettier,
   {
     languageOptions: {
       parserOptions: {
@@ -16,7 +18,14 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          varsIgnorePattern: "^_",
+          argsIgnorePattern: "^_",
+        },
+      ],
+    },
   },
-  eslintPluginPrettierRecommended,
-  eslintConfigPrettier,
 );
