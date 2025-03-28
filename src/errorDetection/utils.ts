@@ -20,10 +20,16 @@ export interface PackageJson {
 /**
  * Detects the preferred package manager for a Node.js project.
  *
- * @returns {Promise<'npm' | 'yarn' | 'pnpm'>} The detected package manager
+ * @returns {Promise<'npm' | 'yarn' | 'pnpm' | 'bun'>} The detected package manager
  */
-export async function detectPackageManager(): Promise<"npm" | "yarn" | "pnpm"> {
+export async function detectPackageManager(): Promise<
+  "npm" | "yarn" | "pnpm" | "bun"
+> {
   // Check for lockfiles to determine package manager
+  if ((await fileExists("bun.lock")) || (await fileExists("bun.lockb"))) {
+    return "bun";
+  }
+
   if (await fileExists("pnpm-lock.yaml")) {
     return "pnpm";
   }
@@ -50,6 +56,8 @@ export async function getRunCommand(script: string): Promise<string> {
       return `yarn ${script}`;
     case "pnpm":
       return `pnpm ${script}`;
+    case "bun":
+      return `bun run ${script}`;
     default:
       return `npm run ${script}`;
   }

@@ -20,7 +20,7 @@ git clone https://github.com/yourusername/zypher-agent.git
 cd zypher-agent
 
 # Install dependencies
-pnpm install
+bun install
 
 # Set up environment variables
 cp .env.example .env
@@ -34,13 +34,13 @@ cp .env.example .env
 Start the CLI:
 
 ```bash
-pnpm start
+bun start
 ```
 
 Or specify a workspace directory:
 
 ```bash
-pnpm start -w /path/to/your/project
+bun start -w /path/to/your/project
 ```
 
 ### API Server
@@ -48,17 +48,17 @@ pnpm start -w /path/to/your/project
 Start the API server:
 
 ```bash
-pnpm start:api
+bun start:api
 ```
 
 Configuration options:
 
 ```bash
 # Set the port (default: 3000)
-pnpm start:api -p 8080
+bun start:api -p 8080
 
 # Set the workspace directory
-pnpm start:api -w /path/to/your/project
+bun start:api -w /path/to/your/project
 ```
 
 ## API Documentation
@@ -79,16 +79,16 @@ See the [API Specification](./api-spec.yaml) for detailed documentation.
 ### Local Development
 ```bash
 # Run tests
-pnpm test
+bun test
 
 # Type checking
-pnpm type-check
+bun type-check
 
 # Linting
-pnpm lint
+bun lint
 
 # Format code
-pnpm format
+bun lint:fix
 ```
 
 ### Docker Development (Recommended)
@@ -115,7 +115,7 @@ docker run -it --rm \
 docker run -it --rm \
   -v "$(pwd):/app" \
   -v zypher_modules:/app/node_modules \
-  zypher-agent pnpm test
+  zypher-agent bun test
 ```
 
 #### Test Workspace
