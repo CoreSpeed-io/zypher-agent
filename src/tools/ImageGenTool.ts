@@ -84,14 +84,14 @@ export const ImageGenTool = defineTool({
       .default("1024x1024")
       .describe("The size of the generated image"),
 
-    quality: z
+    imageQuality: z
       .enum(["standard", "hd"])
       .default("standard")
       .describe(
         "The quality of the generated image. 'hd' creates better quality images but costs 2x credits",
       ),
 
-    outputDir: z
+    destinationPath: z
       .string()
       .default("images")
       .describe(
@@ -104,7 +104,7 @@ export const ImageGenTool = defineTool({
       .describe("One sentence explanation as to why this tool is being used"),
   }),
 
-  execute: async ({ prompt, size, quality, outputDir }): Promise<string> => {
+  execute: async ({ prompt, size, imageQuality: quality, destinationPath: outputDir }): Promise<string> => {
     try {
       // Check rate limit
       if (!checkRateLimit(metrics.lastCallTime)) {
