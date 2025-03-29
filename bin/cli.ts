@@ -8,6 +8,7 @@ import {
   GrepSearchTool,
   FileSearchTool,
   DeleteFileTool,
+  ImageGenTool,
 } from "../src/tools";
 import { Command } from "commander";
 import dotenv from "dotenv";
@@ -89,6 +90,7 @@ async function main(): Promise<void> {
     agent.registerTool(GrepSearchTool);
     agent.registerTool(FileSearchTool);
     agent.registerTool(DeleteFileTool);
+    agent.registerTool(ImageGenTool);
 
     console.log(
       "🔧 Registered tools:",

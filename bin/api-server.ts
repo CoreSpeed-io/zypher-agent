@@ -14,6 +14,7 @@ import {
   GrepSearchTool,
   FileSearchTool,
   DeleteFileTool,
+  ImageGenTool,
 } from "../src/tools";
 import { listCheckpoints } from "../src/checkpoints";
 import { formatError } from "../src/utils/error";
@@ -169,6 +170,7 @@ async function initializeAgent(): Promise<void> {
     agent.registerTool(GrepSearchTool);
     agent.registerTool(FileSearchTool);
     agent.registerTool(DeleteFileTool);
+    agent.registerTool(ImageGenTool);
 
     console.log(
       "🔧 Registered tools:",
