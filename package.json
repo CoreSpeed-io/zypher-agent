@@ -11,7 +11,8 @@
     "start:api": "bun run bin/api-server.ts",
     "type-check": "tsc --noEmit",
     "lint": "eslint",
-    "lint:fix": "eslint --fix"
+    "lint:fix": "eslint --fix",
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
@@ -27,6 +28,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.8.0",
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
     "cors": "^2.8.5",
