@@ -3,11 +3,7 @@ import { defineTool } from "./index";
 import OpenAI from "openai";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { fileURLToPath } from "url";
 import { APIError } from "openai";
-
-// Get the current directory
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -54,11 +50,15 @@ export const ImageGenTool = defineTool({
     imageQuality: z
       .enum(["standard", "hd"])
       .default("standard")
-      .describe("Image quality setting. 'hd' for DALL-E 3 provides higher quality but uses more credits"),
+      .describe(
+        "Image quality setting. 'hd' for DALL-E 3 provides higher quality but uses more credits",
+      ),
 
     destinationPath: z
       .string()
-      .describe("The full file path where the image should be saved (e.g., public/images/zypher-agent-sota.png)"),
+      .describe(
+        "The full file path where the image should be saved (e.g., public/images/zypher-agent-sota.png)",
+      ),
 
     explanation: z
       .string()
@@ -66,7 +66,12 @@ export const ImageGenTool = defineTool({
       .describe("One sentence explanation as to why this tool is being used"),
   }),
 
-  execute: async ({ prompt, size, imageQuality, destinationPath }): Promise<string> => {
+  execute: async ({
+    prompt,
+    size,
+    imageQuality,
+    destinationPath,
+  }): Promise<string> => {
     try {
       // Create parent directory if it doesn't exist
       const parentDir = path.dirname(destinationPath);
@@ -109,7 +114,6 @@ export const ImageGenTool = defineTool({
       await fs.writeFile(destinationPath, Buffer.from(imageBuffer));
 
       return `Your image has been created successfully!`;
-        
     } catch (error: unknown) {
       // Handle OpenAI API specific errors
       if (error instanceof APIError) {

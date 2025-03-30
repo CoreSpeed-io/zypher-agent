@@ -82,7 +82,7 @@ export class ZypherAgent {
   private readonly autoErrorCheck: boolean;
   private readonly enablePromptCaching: boolean;
   private readonly userId?: string;
-  private readonly model: string;
+  private readonly _model: string;
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY;
@@ -107,7 +107,7 @@ export class ZypherAgent {
     this.autoErrorCheck = config.autoErrorCheck ?? true;
     this.enablePromptCaching = config.enablePromptCaching ?? true;
     this.userId = userId;
-    this.model = config.model ?? DEFAULT_MODEL;
+    this._model = config.model ?? DEFAULT_MODEL;
   }
 
   async init(): Promise<void> {
@@ -138,6 +138,13 @@ export class ZypherAgent {
 
   get tools(): Map<string, Tool> {
     return new Map(this._tools);
+  }
+
+  /**
+   * Get the current model being used by the agent
+   */
+  get model(): string {
+    return this._model;
   }
 
   /**
@@ -344,7 +351,7 @@ export class ZypherAgent {
       // Create a stream with event handlers
       const stream = this.client.messages
         .stream({
-          model: this.model,
+          model: this._model,
           max_tokens: this.maxTokens,
           system: this.system,
           messages: messages.map((msg, index) =>
