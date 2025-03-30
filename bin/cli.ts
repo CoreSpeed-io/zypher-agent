@@ -21,7 +21,8 @@ interface CliOptions {
   userId?: string;
   baseUrl?: string;
   apiKey?: string;
-  noStreamingOutput?: boolean;
+  model?: string;
+  streaming?: boolean;
 }
 
 const program = new Command();
@@ -42,6 +43,10 @@ program
   .option(
     "-k, --api-key <string>",
     "Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)",
+  )
+  .option(
+    "-m, --model <string>",
+    "Set the Claude model to use (overrides default model)",
   )
   .option("--no-streaming", "Disable streaming output in the terminal")
   .parse(process.argv);
@@ -74,11 +79,29 @@ async function main(): Promise<void> {
       }
     }
 
+    // Log CLI configuration
+    if (options.userId) {
+      console.log(`👤 Using custom user ID: ${options.userId}`);
+    }
+
+    if (options.baseUrl) {
+      console.log(`🌐 Using custom API base URL: ${options.baseUrl}`);
+    }
+
+    if (options.apiKey) {
+      console.log(`🔑 Using custom API key: ${chalk.gray("***")}`);
+    }
+
+    if (options.model) {
+      console.log(`🧠 Using custom model: ${chalk.cyan(options.model)}`);
+    }
+
     // Initialize the agent with provided options
     const agent = new ZypherAgent({
       userId: options.userId,
       baseUrl: options.baseUrl,
       anthropicApiKey: options.apiKey,
+      model: options.model,
     });
 
     // Register all available tools
@@ -99,6 +122,9 @@ async function main(): Promise<void> {
     await agent.init();
 
     console.log("\n🤖 Welcome to Zypher Agent CLI!\n");
+    if (!options.model) {
+      console.log(`🧠 Using model: ${chalk.cyan(agent.model)}`);
+    }
     console.log(
       'Type your task or command below. Use "exit" or Ctrl+C to quit.\n',
     );
@@ -114,7 +140,7 @@ async function main(): Promise<void> {
       if (task.trim()) {
         console.log("\n🚀 Starting task execution...\n");
         try {
-          if (options.noStreamingOutput) {
+          if (!options.streaming) {
             // Use the non-streaming approach if streaming is disabled
             await agent.runTaskLoop(task);
           } else {
@@ -143,7 +169,8 @@ async function main(): Promise<void> {
                       process.stdout.write(
                         chalk.yellow("\n\n🛠️ Using tool: ") +
                           chalk.green(block.name) +
-                          "\n",
+                          "\n" +
+                          JSON.stringify(block.input, null, 2),
                       );
                       break;
                     }
