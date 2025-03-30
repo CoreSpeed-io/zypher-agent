@@ -108,17 +108,8 @@ export const ImageGenTool = defineTool({
       // Save the image
       await fs.writeFile(destinationPath, Buffer.from(imageBuffer));
 
-      return JSON.stringify({
-        success: true,
-        message: `Great! Your image has been created successfully!`,
-        data: {
-          filepath: destinationPath,
-          url: response.data[0].url,
-          size,
-          imageQuality,
-          timestamp: new Date().toISOString(),
-        },
-      });
+      return `Your image has been created successfully!`;
+        
     } catch (error: unknown) {
       // Handle OpenAI API specific errors
       if (error instanceof APIError) {
