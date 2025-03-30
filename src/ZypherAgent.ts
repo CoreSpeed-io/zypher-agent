@@ -22,7 +22,7 @@ import {
   applyCheckpoint,
 } from "./checkpoints";
 import type { Message } from "./message";
-import MCPServerManager from "./mcp/McpServerManager";
+import { McpServerHelper } from "./mcp/McpServerHelper";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
 const DEFAULT_MAX_TOKENS = 8192;
@@ -84,7 +84,7 @@ export class ZypherAgent {
   private readonly enablePromptCaching: boolean;
   private readonly userId?: string;
   private readonly _model: string;
-  private mcpServerManager: MCPServerManager;
+  private readonly mcpServerHelper: McpServerHelper;
 
   get model(): string {
     return this._model;
@@ -114,12 +114,18 @@ export class ZypherAgent {
     this.enablePromptCaching = config.enablePromptCaching ?? true;
     this.userId = userId;
     this._model = config.model ?? DEFAULT_MODEL;
-    this.mcpServerManager = MCPServerManager.getInstance();
+    this.mcpServerHelper = McpServerHelper.getInstance();
   }
 
   async init(): Promise<void> {
     const userInfo = getCurrentUserInfo();
     const systemPromptText = await getSystemPrompt(userInfo);
+    const mcpServerHelper = await this.mcpServerHelper.init();
+    const tools = mcpServerHelper.getTools();
+    console.log("tools", tools);
+    for (const tool of tools) {
+      this.registerTool(tool);
+    }
 
     // Convert system prompt to content blocks
     // cache the main system prompt as it's large and reusable

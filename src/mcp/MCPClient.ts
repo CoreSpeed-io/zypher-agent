@@ -17,10 +17,7 @@
 import type { Tool as AnthropicTool } from "@anthropic-ai/sdk/resources/messages";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import {
-  CallToolResultSchema,
-  ListToolsResultSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { createTool, type Tool } from "../tools";
 import dotenv from "dotenv";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
@@ -31,7 +28,7 @@ dotenv.config();
 /**
  * Configuration options for the MCP client
  */
-interface IMCPClientConfig {
+interface IMcpClientConfig {
   /** Optional client name for identification */
   name?: string;
   /** Optional version string */
@@ -45,18 +42,18 @@ interface IMCPClientConfig {
 /**
  * MCPClient handles communication with MCP servers and tool execution
  */
-export class MCPClient {
+export class McpClient {
   private client: Client | null = null;
   private transport: StdioClientTransport | SSEClientTransport | null = null;
   private _anthropicTools: AnthropicTool[] = [];
-  private config: Required<IMCPClientConfig>;
+  private config: Required<IMcpClientConfig>;
 
   /**
    * Creates a new MCPClient instance
    * @param config Optional configuration for the client
    * @throws Error if ANTHROPIC_API_KEY is not set in environment
    */
-  constructor(config: IMCPClientConfig = {}) {
+  constructor(config: IMcpClientConfig = {}) {
     this.config = {
       name: config.name ?? "mcp-client",
       version: config.version ?? "1.0.0",
@@ -99,7 +96,6 @@ export class MCPClient {
       // );
       this.transport = new SSEClientTransport(new URL(url));
       await this.client.connect(this.transport);
-
       const toolResult = await this.client.listTools();
 
       const tools = toolResult.tools.map((tool) => {
