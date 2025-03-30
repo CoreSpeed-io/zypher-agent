@@ -14,17 +14,17 @@
  * - MCP SDK for tool communication
  * - StdioClientTransport for server communication
  */
-
-import { Anthropic } from "@anthropic-ai/sdk";
-import type { MessageParam, Tool } from "@anthropic-ai/sdk/resources/messages";
+import type { Tool as AnthropicTool } from "@anthropic-ai/sdk/resources/messages";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import {
   CallToolResultSchema,
   ListToolsResultSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { ListToolsResult } from "@modelcontextprotocol/sdk/types.js";
+import { createTool, type Tool } from "../tools";
 import dotenv from "dotenv";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { z } from "zod";
 
 dotenv.config();
 
@@ -36,195 +36,121 @@ interface IMCPClientConfig {
   name?: string;
   /** Optional version string */
   version?: string;
+  /** Optional model to use for queries */
+  model?: string;
+  /** Optional max tokens for model responses */
+  maxTokens?: number;
 }
 
 /**
- * MCPClient class handles communication between Claude and MCP tools
- *
- * This class manages:
- * 1. Connection to MCP servers via stdio transport
- * 2. Tool discovery and registration from servers
- * 3. Query processing with Claude
- * 4. Tool execution and result handling
- * 5. Message history management for conversations
+ * MCPClient handles communication with MCP servers and tool execution
  */
 export class MCPClient {
   private client: Client | null = null;
-  private anthropic: Anthropic;
-  private transport: StdioClientTransport | null = null;
-  private _tools: Tool[] = [];
-  private config: IMCPClientConfig;
+  private transport: StdioClientTransport | SSEClientTransport | null = null;
+  private _anthropicTools: AnthropicTool[] = [];
+  private config: Required<IMCPClientConfig>;
 
   /**
    * Creates a new MCPClient instance
    * @param config Optional configuration for the client
    * @throws Error if ANTHROPIC_API_KEY is not set in environment
    */
-  constructor(
-    config: IMCPClientConfig = {
-      name: "mcp-client",
-      version: "1.0.0",
-    },
-  ) {
-    this.config = config;
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error("ANTHROPIC_API_KEY is not set");
-    }
-    this.anthropic = new Anthropic({
-      apiKey,
-    });
-  }
+  constructor(config: IMCPClientConfig = {}) {
+    this.config = {
+      name: config.name ?? "mcp-client",
+      version: config.version ?? "1.0.0",
+      model: config.model ?? "claude-3-sonnet-20240229",
+      maxTokens:
+        config.maxTokens ?? parseInt(process.env.CLAUDE_MAX_TOKENS ?? "4096"),
+    };
 
-  /**
-   * Returns a copy of the available tools array
-   * @returns Array of Tool objects
-   */
-  get tools(): Tool[] {
-    return [...this._tools];
+    this.client = new Client(
+      {
+        name: this.config.name,
+        version: this.config.version,
+      },
+      {},
+    );
   }
 
   /**
    * Connects to an MCP server and discovers available tools
-   * @param command Command to start the server (e.g., "node", "python")
+   * @param command Command to start the server
    * @param args Arguments for the server command
    * @throws Error if connection fails or server is not responsive
    */
-  async connectToServer(command: string, args: string[]): Promise<void> {
+  async retriveTools(url: string): Promise<Tool[]> {
     try {
-      this.transport = new StdioClientTransport({
-        command,
-        args,
-      });
+      if (!this.client) {
+        throw new Error("Client is not initialized");
+      }
+      // deprecated cli transport support for now
+      // this.transport = new StdioClientTransport({ command, args });
 
-      this.client = new Client(
-        {
-          name: this.config.name ?? "mcp-client",
-          version: this.config.version ?? "1.0.0",
-        },
-        {
-          capabilities: {},
-        },
-      );
-
+      // this.client = new Client(
+      //   {
+      //     name: this.config.name,
+      //     version: this.config.version,
+      //   },
+      //   {
+      //     capabilities: {},
+      //   },
+      // );
+      this.transport = new SSEClientTransport(new URL(url));
       await this.client.connect(this.transport);
 
-      // List available tools
-      const response = await this.client.request(
-        { method: "tools/list" },
-        ListToolsResultSchema,
-      );
+      const toolResult = await this.client.listTools();
 
-      const toolsResponse = response as ListToolsResult;
-      this._tools = toolsResponse.tools.map((tool) => ({
-        name: tool.name,
-        description: tool.description ?? "",
-        input_schema: tool.inputSchema,
-      }));
-
-      console.log(
-        "\nConnected to server with tools:",
-        this._tools.map(({ name }) => name),
-      );
+      const tools = toolResult.tools.map((tool) => {
+        const inputSchema = z.object(
+          tool.inputSchema.properties as Record<string, z.ZodTypeAny>,
+        );
+        return createTool(
+          tool.name,
+          tool.description ?? "",
+          inputSchema,
+          async (params: Record<string, unknown>) => {
+            const result = await this.executeToolCall({
+              name: tool.name,
+              input: params,
+            });
+            return JSON.stringify(result);
+          },
+        );
+      });
+      return tools;
     } catch (error) {
-      console.error("Failed to connect to MCP server:", error);
-      throw error;
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      throw new Error(`Failed to connect to MCP server: ${errorMessage}`);
     }
   }
 
-  /**
-   * Processes a query using Claude and executes any requested tool calls
-   *
-   * This method:
-   * 1. Sends the initial query to Claude
-   * 2. Processes any tool calls requested by Claude
-   * 3. Sends tool results back to Claude for interpretation
-   * 4. Continues this loop until no more tool calls are needed
-   *
-   * @param query The user's query to process
-   * @returns Concatenated string of all responses and tool results
-   * @throws Error if client is not connected
-   */
-  async processQuery(query: string, model?: string): Promise<string> {
+  // /**
+  //  * Executes a tool call and returns the result
+  //  * @param toolCall The tool call to execute
+  //  * @returns The result of the tool execution
+  //  * @throws Error if client is not connected
+  //  */
+  private async executeToolCall(toolCall: {
+    name: string;
+    input: Record<string, unknown>;
+  }) {
     if (!this.client) {
       throw new Error("Client not connected");
     }
 
-    const messages: MessageParam[] = [
+    return this.client.request(
       {
-        role: "user",
-        content: query,
+        method: "tools/call",
+        params: {
+          name: toolCall.name,
+          args: toolCall.input,
+        },
       },
-    ];
-
-    const finalText: string[] = [];
-    let currentResponse = await this.anthropic.messages.create({
-      model: model ?? "claude-3-sonnet-20240229",
-      max_tokens: parseInt(process.env.CLAUDE_MAX_TOKENS ?? "4096"),
-      messages,
-      tools: this._tools,
-    });
-
-    while (true) {
-      for (const content of currentResponse.content) {
-        if (content.type === "text") {
-          finalText.push(content.text);
-        } else if (content.type === "tool_use") {
-          const toolName = content.name;
-          const toolArgs = content.input;
-
-          const result = await this.client.request(
-            {
-              method: "tools/call",
-              params: {
-                name: toolName,
-                args: toolArgs,
-              },
-            },
-            CallToolResultSchema,
-          );
-
-          finalText.push(
-            `[Calling tool ${toolName} with args ${JSON.stringify(toolArgs)}]`,
-          );
-
-          messages.push({
-            role: "assistant",
-            content: currentResponse.content,
-          });
-
-          messages.push({
-            role: "user",
-            content: [
-              {
-                type: "tool_result",
-                tool_use_id: content.id,
-                content: [
-                  { type: "text", text: JSON.stringify(result.content) },
-                ],
-              },
-            ],
-          });
-
-          currentResponse = await this.anthropic.messages.create({
-            model: model ?? "claude-3-sonnet-20240229",
-            max_tokens: parseInt(process.env.CLAUDE_MAX_TOKENS ?? "4096"),
-            messages,
-            tools: this._tools,
-          });
-
-          if (currentResponse.content[0]?.type === "text") {
-            finalText.push(currentResponse.content[0].text);
-          }
-
-          continue;
-        }
-      }
-
-      break;
-    }
-
-    return finalText.join("\n");
+      CallToolResultSchema,
+    );
   }
 
   /**
@@ -237,7 +163,9 @@ export class MCPClient {
         await this.client?.close();
         this.transport = null;
       } catch (error) {
-        console.error("Error during cleanup:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        console.error("Error during cleanup:", errorMessage);
       }
     }
   }

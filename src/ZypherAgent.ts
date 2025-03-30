@@ -22,6 +22,7 @@ import {
   applyCheckpoint,
 } from "./checkpoints";
 import type { Message } from "./message";
+import MCPServerManager from "./mcp/McpServerManager";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
 const DEFAULT_MAX_TOKENS = 8192;
@@ -82,7 +83,12 @@ export class ZypherAgent {
   private readonly autoErrorCheck: boolean;
   private readonly enablePromptCaching: boolean;
   private readonly userId?: string;
-  private readonly model: string;
+  private readonly _model: string;
+  private mcpServerManager: MCPServerManager;
+
+  get model(): string {
+    return this._model;
+  }
 
   constructor(config: ZypherAgentConfig = {}) {
     const apiKey = config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY;
@@ -107,7 +113,8 @@ export class ZypherAgent {
     this.autoErrorCheck = config.autoErrorCheck ?? true;
     this.enablePromptCaching = config.enablePromptCaching ?? true;
     this.userId = userId;
-    this.model = config.model ?? DEFAULT_MODEL;
+    this._model = config.model ?? DEFAULT_MODEL;
+    this.mcpServerManager = MCPServerManager.getInstance();
   }
 
   async init(): Promise<void> {
