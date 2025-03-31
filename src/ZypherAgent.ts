@@ -58,9 +58,13 @@ export interface StreamHandler {
   onToolUse?: (name: string, partialInput: string) => void;
 }
 
-interface ImageAttachment {
+export interface ImageAttachment {
   type: "image";
-  source: Base64ImageSource;
+  source: {
+    type: "base64";
+    media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+    data: string;
+  };
 }
 
 export interface ZypherAgentConfig {
@@ -317,9 +321,9 @@ export class ZypherAgent {
    */
   async runTaskWithStreaming(
     taskDescription: string,
-    streamHandler: StreamHandler,
+    streamHandler?: StreamHandler,
     imageAttachments?: ImageAttachment[],
-    maxIterations = 5,
+    maxIterations = 25,
   ): Promise<void> {
     // Ensure system prompt is initialized
     if (!this.system.length) {
@@ -338,20 +342,19 @@ export class ZypherAgent {
 
     // Prepare message content
     const imageBlocks = imageAttachments
-      ? imageAttachments.map(
-          (img) =>
-            ({
-              type: "image",
-              source: img.source,
-            }) as ImageBlockParam,
-        )
+      ? imageAttachments.map((img) => {
+          return {
+            type: "image",
+            source: img.source,
+          } as ImageBlockParam;
+        })
       : [];
     const messageContent: ContentBlockParam[] = [
+      ...imageBlocks,
       {
         type: "text",
         text: `<user_query>\n${taskDescription}\n</user_query>`,
       } as TextBlockParam,
-      ...imageBlocks,
     ];
 
     // Add user message with checkpoint reference
@@ -538,19 +541,17 @@ export class ZypherAgent {
     streamHandler?: StreamHandler,
     maxIterations = 25,
   ): Promise<Message[]> {
-    // Create a no-operation function that satisfies TypeScript
-    const noop = () => {
-      /* intentionally empty */
-    };
+    // Create a streamHandler adapter that delegates to the provided handler
+    let handler: StreamHandler | undefined;
+
+    if (streamHandler) {
+      handler = streamHandler;
+    }
 
     // Call the streaming version with our adapter
     await this.runTaskWithStreaming(
       taskDescription,
-      streamHandler ?? {
-        onContent: noop,
-        onMessage: noop,
-        onToolUse: noop,
-      },
+      handler,
       undefined, // This simplified interface is for text-only tasks
       maxIterations,
     );

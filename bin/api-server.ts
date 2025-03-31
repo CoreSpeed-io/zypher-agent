@@ -3,9 +3,12 @@ import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Command } from "commander";
-import { ZypherAgent, type StreamHandler } from "../src/ZypherAgent";
+import {
+  ZypherAgent,
+  type StreamHandler,
+  type ImageAttachment,
+} from "../src/ZypherAgent";
 import { z } from "zod";
-import type { Base64ImageSource } from "@anthropic-ai/sdk/resources/messages";
 
 import {
   ReadFileTool,
@@ -34,17 +37,13 @@ class ApiError extends Error {
   }
 }
 
-interface ImageAttachment {
-  type: "image";
-  source: {
-    type: "base64";
-    media_type: "image/jpeg" | "image/png" | "image/gif";
-    data: string;
-  };
-}
-
 // Define supported image MIME types with more precise validation
-const SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif"] as const;
+const SUPPORTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
 type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
 
 // Zod schema for image validation
@@ -253,7 +252,11 @@ app.post("/agent/tasks", async (req, res) => {
           type: "image" as const,
           source: {
             type: "base64" as const,
-            media_type: mimeType as "image/jpeg" | "image/png" | "image/gif",
+            media_type: mimeType as
+              | "image/jpeg"
+              | "image/png"
+              | "image/gif"
+              | "image/webp",
             data: base64Data,
           },
         });
