@@ -22,7 +22,7 @@ import {
   applyCheckpoint,
 } from "./checkpoints";
 import type { Message } from "./message";
-import { McpServerHelper } from "./mcp/McpServerHelper";
+import { McpServerManager } from "./mcp/McpServerManager";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
 const DEFAULT_MAX_TOKENS = 8192;
@@ -84,7 +84,7 @@ export class ZypherAgent {
   private readonly enablePromptCaching: boolean;
   private readonly userId?: string;
   private readonly _model: string;
-  private readonly mcpServerHelper: McpServerHelper;
+  private readonly mcpServerManager: McpServerManager;
 
   get model(): string {
     return this._model;
@@ -114,15 +114,14 @@ export class ZypherAgent {
     this.enablePromptCaching = config.enablePromptCaching ?? true;
     this.userId = userId;
     this._model = config.model ?? DEFAULT_MODEL;
-    this.mcpServerHelper = McpServerHelper.getInstance();
+    this.mcpServerManager = McpServerManager.getInstance();
   }
 
   async init(): Promise<void> {
     const userInfo = getCurrentUserInfo();
     const systemPromptText = await getSystemPrompt(userInfo);
-    const mcpServerHelper = await this.mcpServerHelper.init();
-    const tools = mcpServerHelper.getTools();
-    console.log("tools", tools);
+    const mcpServerManager = await this.mcpServerManager.init();
+    const tools = mcpServerManager.getTools();
     for (const tool of tools) {
       this.registerTool(tool);
     }
