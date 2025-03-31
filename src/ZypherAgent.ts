@@ -5,6 +5,8 @@ import type {
   ToolUnion,
   TextBlockParam,
   ContentBlockParam,
+  ImageBlockParam,
+  Base64ImageSource,
 } from "@anthropic-ai/sdk/resources/messages";
 import type { Tool } from "./tools";
 import {
@@ -288,14 +290,32 @@ export class ZypherAgent {
    * - Streams individual text fragments as they become available (not just complete messages)
    * - Provides real-time updates via onContent callback
    * - Still delivers complete messages via onMessage when they're done
+   * - Supports image attachments in Claude's native format
    *
-   * @param taskDescription The task description
+   * Image handling:
+   * - Images are passed as an array of base64-encoded data with proper MIME types
+   * - Each image should follow Claude's format: { type: "image", source: { type: "base64", media_type: string, data: string } }
+   * - Images are automatically included in the message content along with the text
+   * - The API will optimize images to stay within Claude's token limits
+   *
+   * Streaming behavior:
+   * - Content is streamed in real-time as it's generated
+   * - Tool usage is streamed as tools are invoked
+   * - Complete messages are delivered when available
+   * - Errors and code fixes are handled automatically
+   *
+   * @param taskDescription The text description of the task to perform
+   * @param imageAttachments Optional array of image attachments in Claude's format
    * @param streamHandler Handler for real-time content updates and complete messages
-   * @param maxIterations Maximum number of iterations to run
+   * @param maxIterations Maximum number of iterations to run (default: 25)
    * @returns Array of messages after task completion
    */
   async runTaskWithStreaming(
     taskDescription: string,
+    imageAttachments?: Array<{
+      type: "image";
+      source: Base64ImageSource;
+    }>,
     streamHandler?: StreamHandler,
     maxIterations = 25,
   ): Promise<Message[]> {
@@ -314,13 +334,24 @@ export class ZypherAgent {
       ? await getCheckpointDetails(checkpointId)
       : undefined;
 
+    // Prepare message content
+    const messageContent: ContentBlockParam[] = [
+      {
+        type: "text",
+        text: `<user_query>\n${taskDescription}\n</user_query>`,
+      } as TextBlockParam,
+      ...(imageAttachments?.map(img => ({
+        ...img,
+      } as ImageBlockParam)) ?? []),
+    ];
+
     // Add user message with checkpoint reference
     const userMessage: Message = {
       role: "user",
-      content: `<user_query>\n${taskDescription}\n</user_query>`,
+      content: messageContent,
       checkpointId,
       checkpoint,
-      timestamp: new Date(), // current timestamp
+      timestamp: new Date(),
     };
     this.processMessage(userMessage, messages, streamHandler?.onMessage);
 
@@ -514,6 +545,7 @@ export class ZypherAgent {
     // Call the streaming version with our adapter
     return this.runTaskWithStreaming(
       taskDescription,
+      /* imageAttachments= */ undefined, // This simplified interface is for text-only tasks
       streamHandler,
       maxIterations,
     );
