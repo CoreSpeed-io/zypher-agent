@@ -1,4 +1,4 @@
-import { McpClient } from "./McpClient";
+import { ConnectionMode, McpClient } from "./McpClient";
 import fs from "fs/promises";
 import type { Tool } from "../tools";
 import { z } from "zod";
@@ -56,16 +56,16 @@ export class McpServerManager {
     return this;
   }
 
-  public getTool(name: string): Tool | undefined {
-    const tool = this._tools.get(name);
-    console.debug(`Getting tool ${name}: ${tool ? "found" : "not found"}`);
-    return tool;
-  }
-
   getTools(): Tool[] {
     const tools = Array.from(this._tools.values());
     console.debug(`Getting all tools: found ${tools.length} tools`);
     return tools;
+  }
+
+  public getTool(name: string): Tool | undefined {
+    const tool = this._tools.get(name);
+    console.debug(`Getting tool ${name}: ${tool ? "found" : "not found"}`);
+    return tool;
   }
 
   private async loadConfig(configPath = "mcp.json"): Promise<void> {
@@ -97,7 +97,7 @@ export class McpServerManager {
       const server = McpServerSchema.parse({
         id,
         name: id,
-        client: new McpClient(),
+        client: new McpClient({ serverName: id }),
         config: serverConfig,
       });
       this._servers.set(id, server);
@@ -108,7 +108,11 @@ export class McpServerManager {
     const serverInitPromises = Array.from(this._servers.entries()).map(
       async ([id, server]) => {
         try {
-          const tools = await server.client.retriveTools(server.config);
+          const connectionMode = this.getConnectionMode(server.config);
+          const tools = await server.client.retriveTools(
+            server.config,
+            connectionMode,
+          );
           // Register each tool
           for (const tool of tools) {
             if (this._tools.has(tool.name)) {
@@ -151,5 +155,12 @@ export class McpServerManager {
     this._tools.clear();
     this._initialized = false;
     console.debug("Completed cleanup");
+  }
+
+  private getConnectionMode(config: IMcpServer["config"]): ConnectionMode {
+    if (config.url) {
+      return ConnectionMode.SSE;
+    }
+    return ConnectionMode.CLI;
   }
 }
