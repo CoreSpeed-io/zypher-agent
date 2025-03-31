@@ -28,18 +28,16 @@ dotenv.config();
 /**
  * Configuration options for the MCP client
  */
-interface IMcpClientConfig {
+export interface IMcpClientConfig {
   /** Optional client name for identification */
   name?: string;
   /** Optional version string */
   version?: string;
-  /** Optional model to use for queries */
-  model?: string;
-  /** Optional max tokens for model responses */
-  maxTokens?: number;
+  /** Optional server name */
+  serverName?: string;
 }
 
-enum ConnectionMode {
+export enum ConnectionMode {
   CLI = 1,
   SSE = 2,
 }
@@ -61,9 +59,7 @@ export class McpClient {
     this.config = {
       name: config.name ?? "mcp-client",
       version: config.version ?? "1.0.0",
-      model: config.model ?? "claude-3-sonnet-20240229",
-      maxTokens:
-        config.maxTokens ?? parseInt(process.env.CLAUDE_MAX_TOKENS ?? "4096"),
+      serverName: config.serverName ?? "default-server",
     };
 
     this.client = new Client(
@@ -100,7 +96,7 @@ export class McpClient {
           tool.inputSchema.properties as Record<string, z.ZodTypeAny>,
         );
         return createTool(
-          `mcp_${}_${tool.name}`,
+          `mcp_${this.config.serverName}_${tool.name}`,
           tool.description ?? "",
           inputSchema,
           async (params: Record<string, unknown>) => {
