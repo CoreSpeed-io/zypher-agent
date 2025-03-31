@@ -9,6 +9,8 @@
   "scripts": {
     "start": "bun run bin/cli.ts",
     "start:api": "bun run bin/api-server.ts",
+    "build:cli": "bun build bin/cli.ts --target bun --production --minify --outfile dist/cli.js",
+    "build:api": "bun build bin/api-server.ts --target bun --production --minify --outfile dist/api-server.js",
     "type-check": "tsc --noEmit",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
