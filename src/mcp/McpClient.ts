@@ -100,7 +100,7 @@ export class McpClient {
           tool.inputSchema.properties as Record<string, z.ZodTypeAny>,
         );
         return createTool(
-          tool.name,
+          `mcp_${}_${tool.name}`,
           tool.description ?? "",
           inputSchema,
           async (params: Record<string, unknown>) => {
