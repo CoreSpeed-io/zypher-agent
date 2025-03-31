@@ -14,7 +14,6 @@
  * - MCP SDK for tool communication
  * - StdioClientTransport for server communication
  */
-import type { Tool as AnthropicTool } from "@anthropic-ai/sdk/resources/messages";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -22,6 +21,7 @@ import { createTool, type Tool } from "../tools";
 import dotenv from "dotenv";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { z } from "zod";
+import type { IMcpServer } from "./types";
 
 dotenv.config();
 
@@ -39,13 +39,17 @@ interface IMcpClientConfig {
   maxTokens?: number;
 }
 
+enum ConnectionMode {
+  CLI = 1,
+  SSE = 2,
+}
+
 /**
  * MCPClient handles communication with MCP servers and tool execution
  */
 export class McpClient {
   private client: Client | null = null;
   private transport: StdioClientTransport | SSEClientTransport | null = null;
-  private _anthropicTools: AnthropicTool[] = [];
   private config: Required<IMcpClientConfig>;
 
   /**
@@ -77,24 +81,17 @@ export class McpClient {
    * @param args Arguments for the server command
    * @throws Error if connection fails or server is not responsive
    */
-  async retriveTools(url: string): Promise<Tool[]> {
+  async retriveTools(
+    config: IMcpServer["config"],
+    mode: ConnectionMode = ConnectionMode.CLI,
+  ): Promise<Tool[]> {
+    console.time(`[Performance] Retrieve tools`);
     try {
       if (!this.client) {
         throw new Error("Client is not initialized");
       }
-      // deprecated cli transport support for now
-      // this.transport = new StdioClientTransport({ command, args });
 
-      // this.client = new Client(
-      //   {
-      //     name: this.config.name,
-      //     version: this.config.version,
-      //   },
-      //   {
-      //     capabilities: {},
-      //   },
-      // );
-      this.transport = new SSEClientTransport(new URL(url));
+      this.transport = this.buildTransport(mode, config);
       await this.client.connect(this.transport);
       const toolResult = await this.client.listTools();
 
@@ -115,6 +112,7 @@ export class McpClient {
           },
         );
       });
+
       return tools;
     } catch (error) {
       const errorMessage =
@@ -163,6 +161,35 @@ export class McpClient {
           error instanceof Error ? error.message : "Unknown error";
         console.error("Error during cleanup:", errorMessage);
       }
+    }
+  }
+
+  private buildTransport(mode: ConnectionMode, config: IMcpServer["config"]) {
+    switch (mode) {
+      case ConnectionMode.CLI:
+        if (!config.command || !config.args) {
+          throw new Error("CLI mode requires command and args");
+        }
+        return new StdioClientTransport({
+          command: config.command,
+          args: config.args,
+          env: {
+            ...Object.fromEntries(
+              Object.entries(process.env).filter(([_, v]) => v !== undefined),
+            ),
+            ...config.env,
+          } as Record<string, string>,
+        });
+
+      case ConnectionMode.SSE: {
+        if (!config.url) {
+          throw new Error("SSE mode requires a URL");
+        }
+        return new SSEClientTransport(new URL(config.url));
+      }
+
+      default:
+        throw new Error(`Unsupported connection mode: ${mode as string}`);
     }
   }
 }

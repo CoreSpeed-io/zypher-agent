@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "test": {
-      "url": "http://localhost:3000/sse",
+      "url": "http://localhost:3000",
       "env": {
         "API_KEY": "test_key"
       }
