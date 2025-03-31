@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { Command } from "commander";
 import { ZypherAgent, type StreamHandler } from "../src/ZypherAgent";
 import { z } from "zod";
+import type { Base64ImageSource } from "@anthropic-ai/sdk/resources/messages";
 
 import {
   ReadFileTool,
@@ -33,60 +34,29 @@ class ApiError extends Error {
   }
 }
 
-// Define supported image MIME types with more precise validation
-const SUPPORTED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-] as const;
+interface ImageAttachment {
+  type: "image";
+  source: {
+    type: "base64";
+    media_type: "image/jpeg" | "image/png" | "image/gif";
+    data: string;
+  };
+}
 
-type SupportedImageType = typeof SUPPORTED_IMAGE_TYPES[number];
+// Define supported image MIME types with more precise validation
+const SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif"] as const;
+type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
 
 // Zod schema for image validation
-const imageAttachmentSchema = z.object({
-  name: z.string()
-    .min(1, "Image name cannot be empty")
-    .max(255, "Image name is too long")
-    .refine((name) => /^[\w\-. ]+$/.test(name), {
-      message: "Image name contains invalid characters",
-    }),
-  data: z.string()
-    .min(1, "Image data cannot be empty")
-    .refine(
-      (data) => {
-        try {
-          const [header, base64Data] = data.split(",");
-          if (!header || !base64Data) return false;
-          
-          const mimeMatch = /^data:(image\/[\w-+.]+);base64$/.exec(header);
-          if (!mimeMatch) return false;
-          
-          const mimeType = mimeMatch[1];
-          if (!SUPPORTED_IMAGE_TYPES.includes(mimeType as SupportedImageType)) {
-            return false;
-          }
-          
-          const validBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(base64Data);
-          return validBase64;
-        } catch {
-          return false;
-        }
-      },
-      {
-        message: `Invalid image format. Must be base64 encoded with MIME type (${SUPPORTED_IMAGE_TYPES.join(", ")})`,
-      },
-    ),
+const imageSchema = z.object({
+  name: z.string(),
+  data: z.string(),
 });
 
 // Update task schema to match API spec
 const taskSchema = z.object({
-  task: z.string()
-    .min(1, "Task description cannot be empty")
-    .describe("The task description to send to the agent"),
-  imageAttachments: z.array(imageAttachmentSchema)
-    .optional()
-    .describe("Image attachments for the task")
+  task: z.string(),
+  imageAttachments: z.array(imageSchema).optional(),
 });
 
 // Type inference from Zod schema
@@ -238,12 +208,57 @@ async function initializeAgent(): Promise<void> {
   }
 }
 
+function isBase64Image(data: string): boolean {
+  try {
+    const [header, base64Data] = data.split(",");
+
+    if (!header || !base64Data) {
+      return false;
+    }
+
+    const mimeType = header.split(":")[1]?.split(";")[0];
+    return SUPPORTED_IMAGE_TYPES.includes(mimeType as SupportedImageType);
+  } catch {
+    return false;
+  }
+}
+
+// Error handling middleware
+function handleError(error: unknown, res: Response) {
+  const message = error instanceof Error ? error.message : String(error);
+  res.write(`event: error\ndata: {"error": "${message}"}\n\n`);
+  res.end();
+}
+
 // Run a task
-app.post(
-  "/agent/tasks",
-  validateRequest(taskSchema),
-  async (req: Request<unknown, unknown, TaskRequest>, res: Response) => {
-    const { task, imageAttachments } = req.body;
+app.post("/agent/tasks", async (req, res) => {
+  try {
+    const { task, imageAttachments } = taskSchema.parse(req.body);
+    const processedImages: ImageAttachment[] = [];
+
+    if (imageAttachments?.length) {
+      for (const img of imageAttachments) {
+        const [header, base64Data] = img.data.split(",");
+
+        if (!header || !base64Data) {
+          throw new ApiError(
+            400,
+            "invalid_request",
+            "Invalid base64 image data",
+          );
+        }
+
+        const mimeType = header.split(":")[1]?.split(";")[0];
+        processedImages.push({
+          type: "image" as const,
+          source: {
+            type: "base64" as const,
+            media_type: mimeType as "image/jpeg" | "image/png" | "image/gif",
+            data: base64Data,
+          },
+        });
+      }
+    }
 
     // Set up SSE
     res.setHeader("Content-Type", "text/event-stream");
@@ -266,48 +281,12 @@ app.post(
       },
     };
 
-    try {
-      // Process images if present
-      const processedImages = imageAttachments?.map((img) => {
-        // Extract base64 data and MIME type
-        const [header = "", base64Data = ""] = img.data.split(",");
-        const mimeMatch = /^data:(image\/[\w-+.]+);base64$/.exec(header);
-        const mimeType = mimeMatch?.[1] ?? "image/png";
-        
-        if (!base64Data) {
-          throw new ApiError(400, "invalid_request", "Invalid base64 image data");
-        }
-        
-        // Return in Claude's expected format
-        return {
-          type: "image" as const,
-          source: {
-            type: "base64" as const,
-            media_type: mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
-            data: base64Data
-          }
-        };
-      }) ?? [];
-
-      // Run the task with streaming handler
-      await agent.runTaskWithStreaming(
-        task,
-        processedImages,
-        streamHandler
-      );
-
-      // Send complete event
-      res.write(`event: complete\n`);
-      res.write(`data: {}\n\n`);
-      res.end();
-    } catch (error) {
-      // Send error event
-      res.write(`event: error\n`);
-      res.write(`data: {"error": "${formatError(error)}"}\n\n`);
-      res.end();
-    }
-  },
-);
+    await agent.runTaskWithStreaming(task, streamHandler, processedImages);
+    res.end();
+  } catch (error) {
+    handleError(error, res);
+  }
+});
 
 // List checkpoints
 app.get("/agent/checkpoints", async (_req: Request, res: Response) => {

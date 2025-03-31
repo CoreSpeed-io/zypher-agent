@@ -58,6 +58,11 @@ export interface StreamHandler {
   onToolUse?: (name: string, partialInput: string) => void;
 }
 
+interface ImageAttachment {
+  type: "image";
+  source: Base64ImageSource;
+}
+
 export interface ZypherAgentConfig {
   anthropicApiKey?: string;
   /** Base URL for the Anthropic API. Defaults to Anthropic's production API. */
@@ -312,13 +317,10 @@ export class ZypherAgent {
    */
   async runTaskWithStreaming(
     taskDescription: string,
-    imageAttachments?: Array<{
-      type: "image";
-      source: Base64ImageSource;
-    }>,
-    streamHandler?: StreamHandler,
-    maxIterations = 25,
-  ): Promise<Message[]> {
+    streamHandler: StreamHandler,
+    imageAttachments?: ImageAttachment[],
+    maxIterations = 5,
+  ): Promise<void> {
     // Ensure system prompt is initialized
     if (!this.system.length) {
       await this.init();
@@ -335,14 +337,21 @@ export class ZypherAgent {
       : undefined;
 
     // Prepare message content
+    const imageBlocks = imageAttachments
+      ? imageAttachments.map(
+          (img) =>
+            ({
+              type: "image",
+              source: img.source,
+            }) as ImageBlockParam,
+        )
+      : [];
     const messageContent: ContentBlockParam[] = [
       {
         type: "text",
         text: `<user_query>\n${taskDescription}\n</user_query>`,
       } as TextBlockParam,
-      ...(imageAttachments?.map(img => ({
-        ...img,
-      } as ImageBlockParam)) ?? []),
+      ...imageBlocks,
     ];
 
     // Add user message with checkpoint reference
@@ -503,8 +512,6 @@ export class ZypherAgent {
     if (this.persistHistory) {
       await saveMessageHistory(this._messages);
     }
-
-    return this.messages;
   }
 
   /**
@@ -522,32 +529,32 @@ export class ZypherAgent {
    * For new code that needs real-time content updates, use runTaskWithStreaming directly.
    *
    * @param taskDescription The task description
-   * @param messageHandler Handler for complete messages only
+   * @param streamHandler Handler for complete messages only
    * @param maxIterations Maximum number of iterations to run
    * @returns Array of messages after task completion
    */
   async runTaskLoop(
     taskDescription: string,
-    messageHandler?: MessageHandler,
+    streamHandler?: StreamHandler,
     maxIterations = 25,
   ): Promise<Message[]> {
-    // Create a streamHandler adapter that delegates to the messageHandler
-    let streamHandler: StreamHandler | undefined;
-
-    if (messageHandler) {
-      // Create an adapter that forwards messages to the messageHandler
-      streamHandler = {
-        // We don't need content streaming for backward compatibility
-        onMessage: messageHandler,
-      };
-    }
+    // Create a no-operation function that satisfies TypeScript
+    const noop = () => {
+      /* intentionally empty */
+    };
 
     // Call the streaming version with our adapter
-    return this.runTaskWithStreaming(
+    await this.runTaskWithStreaming(
       taskDescription,
-      /* imageAttachments= */ undefined, // This simplified interface is for text-only tasks
-      streamHandler,
+      streamHandler ?? {
+        onContent: noop,
+        onMessage: noop,
+        onToolUse: noop,
+      },
+      undefined, // This simplified interface is for text-only tasks
       maxIterations,
     );
+
+    return this.messages;
   }
 }
