@@ -16,7 +16,6 @@
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { createTool, type Tool } from "../tools";
 import dotenv from "dotenv";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
@@ -92,9 +91,7 @@ export class McpClient {
       const toolResult = await this.client.listTools();
 
       const tools = toolResult.tools.map((tool) => {
-        const inputSchema = z.object(
-          tool.inputSchema.properties as Record<string, z.ZodTypeAny>,
-        );
+        const inputSchema = jsonToZod(tool.inputSchema);
         return createTool(
           `mcp_${this.config.serverName}_${tool.name}`,
           tool.description ?? "",
@@ -117,12 +114,12 @@ export class McpClient {
     }
   }
 
-  // /**
-  //  * Executes a tool call and returns the result
-  //  * @param toolCall The tool call to execute
-  //  * @returns The result of the tool execution
-  //  * @throws Error if client is not connected
-  //  */
+  /**
+   * Executes a tool call and returns the result
+   * @param toolCall The tool call to execute
+   * @returns The result of the tool execution
+   * @throws Error if client is not connected
+   */
   private async executeToolCall(toolCall: {
     name: string;
     input: Record<string, unknown>;
@@ -131,16 +128,11 @@ export class McpClient {
       throw new Error("Client not connected");
     }
 
-    return this.client.request(
-      {
-        method: "tools/call",
-        params: {
-          name: toolCall.name,
-          args: toolCall.input,
-        },
-      },
-      CallToolResultSchema,
-    );
+    const result = await this.client.callTool({
+      name: toolCall.name,
+      arguments: toolCall.input,
+    });
+    return result;
   }
 
   /**
@@ -188,4 +180,43 @@ export class McpClient {
         throw new Error(`Unsupported connection mode: ${mode as string}`);
     }
   }
+}
+
+function jsonToZod(inputSchema: {
+  type: "object";
+  properties?: Record<string, unknown>;
+  required?: string[];
+}) {
+  const properties = inputSchema.properties ?? {};
+  const required = inputSchema.required ?? [];
+
+  const schemaProperties = Object.entries(properties).reduce(
+    (acc: Record<string, z.ZodTypeAny>, [key, value]) => {
+      const property = value as { type: string; description?: string };
+      const zodType = createZodType(property);
+      acc[key] = required.includes(key) ? zodType : zodType.optional();
+      return acc;
+    },
+    {} as Record<string, z.ZodTypeAny>,
+  );
+
+  return z.object(schemaProperties);
+}
+
+function createZodType(property: {
+  type: string;
+  description?: string;
+}): z.ZodTypeAny {
+  const typeMap: Record<string, () => z.ZodTypeAny> = {
+    string: () => z.string(),
+    number: () => z.number(),
+    boolean: () => z.boolean(),
+    array: () => z.array(z.any()),
+    object: () => z.record(z.any()),
+  };
+
+  const zodType = typeMap[property.type]?.() ?? z.any();
+  return property.description
+    ? zodType.describe(property.description)
+    : zodType;
 }
