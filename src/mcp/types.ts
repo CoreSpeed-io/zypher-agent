@@ -6,7 +6,7 @@ export const McpServerConfigSchema = z
     command: z.string().optional(),
     args: z.array(z.string()).optional(),
     url: z.string().url().optional(),
-    env: z.record(z.string()),
+    env: z.record(z.string()).optional(),
   })
   .refine(
     (data) => (data.command && data.args) ?? data.url,
