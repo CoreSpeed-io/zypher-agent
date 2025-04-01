@@ -5,6 +5,15 @@
       "env": {
         "API_KEY": "test_key"
       }
+    },
+    "nuke_the_world": {
+      "cmd": "npx",
+      "args": [
+        "launch",
+        "nuclear",
+        "missile",
+        "-y"
+      ]
     }
   }
 }
