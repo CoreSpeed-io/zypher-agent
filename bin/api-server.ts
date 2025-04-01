@@ -225,21 +225,6 @@ async function initializeAgent(): Promise<void> {
   }
 }
 
-function isBase64Image(data: string): boolean {
-  try {
-    const [header, base64Data] = data.split(",");
-
-    if (!header || !base64Data) {
-      return false;
-    }
-
-    const mimeType = header.split(":")[1]?.split(";")[0];
-    return SUPPORTED_IMAGE_TYPES.includes(mimeType as SupportedImageType);
-  } catch {
-    return false;
-  }
-}
-
 // API Routes
 
 // Health check endpoint
