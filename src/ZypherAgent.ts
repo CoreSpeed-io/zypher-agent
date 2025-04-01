@@ -364,7 +364,7 @@ export class ZypherAgent {
       content: messageContent,
       checkpointId,
       checkpoint,
-      timestamp: new Date(),
+      timestamp: new Date(), // current timestamp
     };
     this.processMessage(userMessage, messages, streamHandler?.onMessage);
 
