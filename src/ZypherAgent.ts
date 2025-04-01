@@ -6,7 +6,6 @@ import type {
   TextBlockParam,
   ContentBlockParam,
   ImageBlockParam,
-  Base64ImageSource,
 } from "@anthropic-ai/sdk/resources/messages";
 import type { Tool } from "./tools";
 import {
@@ -349,6 +348,7 @@ export class ZypherAgent {
           } as ImageBlockParam;
         })
       : [];
+
     const messageContent: ContentBlockParam[] = [
       ...imageBlocks,
       {
@@ -532,30 +532,35 @@ export class ZypherAgent {
    * For new code that needs real-time content updates, use runTaskWithStreaming directly.
    *
    * @param taskDescription The task description
-   * @param streamHandler Handler for complete messages only
+   * @param messageHandler Handler for complete messages only
    * @param maxIterations Maximum number of iterations to run
    * @returns Array of messages after task completion
    */
   async runTaskLoop(
     taskDescription: string,
-    streamHandler?: StreamHandler,
+    messageHandler?: MessageHandler,
     maxIterations = 25,
   ): Promise<Message[]> {
-    // Create a streamHandler adapter that delegates to the provided handler
-    let handler: StreamHandler | undefined;
+    // Create a streamHandler adapter that delegates to the messageHandler
+    let streamHandler: StreamHandler | undefined;
 
-    if (streamHandler) {
-      handler = streamHandler;
+    if (messageHandler) {
+      // Create an adapter that forwards messages to the messageHandler
+      streamHandler = {
+        // We don't need content streaming for backward compatibility
+        onMessage: messageHandler,
+      };
     }
 
     // Call the streaming version with our adapter
     await this.runTaskWithStreaming(
       taskDescription,
-      handler,
-      undefined, // This simplified interface is for text-only tasks
+      streamHandler,
+      undefined,
       maxIterations,
     );
 
+    // Return the messages array
     return this.messages;
   }
 }

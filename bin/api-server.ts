@@ -46,10 +46,28 @@ const SUPPORTED_IMAGE_TYPES = [
 ] as const;
 type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
 
+// Zod schema for base64 image validation
+const base64ImageSchema = z
+  .string()
+  .regex(/^data:image\/[a-zA-Z+]+;base64,/, "Invalid base64 image format")
+  .refine(
+    (data) => {
+      const [header] = data.split(",");
+      const mimeType = header?.split(":")[1]?.split(";")[0];
+      return (
+        mimeType &&
+        SUPPORTED_IMAGE_TYPES.includes(mimeType as SupportedImageType)
+      );
+    },
+    {
+      message: `Image must be one of the following types: ${SUPPORTED_IMAGE_TYPES.join(", ")}`,
+    },
+  );
+
 // Zod schema for image validation
 const imageSchema = z.object({
   name: z.string(),
-  data: z.string(),
+  data: base64ImageSchema,
 });
 
 // Update task schema to match API spec
@@ -222,41 +240,49 @@ function isBase64Image(data: string): boolean {
   }
 }
 
-// Error handling middleware
-function handleError(error: unknown, res: Response) {
-  const message = error instanceof Error ? error.message : String(error);
-  res.write(`event: error\ndata: {"error": "${message}"}\n\n`);
-  res.end();
-}
+// API Routes
+
+// Health check endpoint
+app.get("/health", (req: Request, res: Response) => {
+  const uptime = process.uptime();
+  res.json({
+    status: "ok",
+    version: "1.0.0",
+    uptime,
+  });
+});
+
+// Get agent messages
+app.get("/agent/messages", (_req: Request, res: Response) => {
+  const messages = agent.getMessages();
+  res.json(messages);
+});
+
+// Clear agent messages
+app.delete("/agent/messages", (_req: Request, res: Response) => {
+  agent.clearMessages();
+  res.status(204).send();
+});
 
 // Run a task
-app.post("/agent/tasks", async (req, res) => {
-  try {
-    const { task, imageAttachments } = taskSchema.parse(req.body);
+app.post(
+  "/agent/tasks",
+  validateRequest(taskSchema),
+  async (req: Request<unknown, unknown, TaskRequest>, res: Response) => {
+    const { task, imageAttachments } = req.body;
     const processedImages: ImageAttachment[] = [];
 
     if (imageAttachments?.length) {
       for (const img of imageAttachments) {
-        const [header, base64Data] = img.data.split(",");
-
-        if (!header || !base64Data) {
-          throw new ApiError(
-            400,
-            "invalid_request",
-            "Invalid base64 image data",
-          );
-        }
-
-        const mimeType = header.split(":")[1]?.split(";")[0];
+        const [, base64Data = ""] = img.data.split(",");
+        const mimeType = img.data
+          .split(":")[1]
+          ?.split(";")[0] as SupportedImageType;
         processedImages.push({
           type: "image" as const,
           source: {
             type: "base64" as const,
-            media_type: mimeType as
-              | "image/jpeg"
-              | "image/png"
-              | "image/gif"
-              | "image/webp",
+            media_type: mimeType,
             data: base64Data,
           },
         });
@@ -268,28 +294,44 @@ app.post("/agent/tasks", async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    // Set up streaming handler
+    // Set up streaming handler for both messages and real-time updates
     const streamHandler: StreamHandler = {
       onContent: (content, _isFirstChunk) => {
+        // Send content_delta event for real-time content updates
         res.write(`event: content_delta\n`);
         res.write(`data: ${JSON.stringify({ content })}\n\n`);
       },
       onToolUse: (name, partialInput) => {
+        // Send tool_use event for real-time tool use updates
         res.write(`event: tool_use_delta\n`);
         res.write(`data: ${JSON.stringify({ name, partialInput })}\n\n`);
       },
       onMessage: (message) => {
+        // Send message event as soon as a complete message is available
         res.write(`event: message\n`);
         res.write(`data: ${JSON.stringify(message)}\n\n`);
       },
     };
 
-    await agent.runTaskWithStreaming(task, streamHandler, processedImages);
-    res.end();
-  } catch (error) {
-    handleError(error, res);
-  }
-});
+    try {
+      // Run the task with streaming handler
+      await agent.runTaskWithStreaming(task, streamHandler, processedImages);
+
+      // After streaming is complete, send the complete event
+      // No need to send all messages again since they've been sent via onMessage
+      res.write(`event: complete\n`);
+      res.write(`data: {}\n\n`);
+
+      // End the response
+      res.end();
+    } catch (error) {
+      // Send error event directly in the stream
+      res.write(`event: error\n`);
+      res.write(`data: {"error": "${formatError(error)}"}\n\n`);
+      res.end();
+    }
+  },
+);
 
 // List checkpoints
 app.get("/agent/checkpoints", async (_req: Request, res: Response) => {
