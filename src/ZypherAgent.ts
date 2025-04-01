@@ -6,6 +6,7 @@ import type {
   TextBlockParam,
   ContentBlockParam,
   ImageBlockParam,
+  Base64ImageSource,
 } from "@anthropic-ai/sdk/resources/messages";
 import type { Tool } from "./tools";
 import {
@@ -313,8 +314,8 @@ export class ZypherAgent {
    * - Errors and code fixes are handled automatically
    *
    * @param taskDescription The text description of the task to perform
-   * @param imageAttachments Optional array of image attachments in Claude's format
    * @param streamHandler Handler for real-time content updates and complete messages
+   * @param imageAttachments Optional array of image attachments in Claude's format
    * @param maxIterations Maximum number of iterations to run (default: 25)
    * @returns Array of messages after task completion
    */
@@ -323,7 +324,7 @@ export class ZypherAgent {
     streamHandler?: StreamHandler,
     imageAttachments?: ImageAttachment[],
     maxIterations = 25,
-  ): Promise<void> {
+  ): Promise<Message[]> {
     // Ensure system prompt is initialized
     if (!this.system.length) {
       await this.init();
@@ -515,6 +516,8 @@ export class ZypherAgent {
     if (this.persistHistory) {
       await saveMessageHistory(this._messages);
     }
+
+    return this.messages;
   }
 
   /**
@@ -552,15 +555,12 @@ export class ZypherAgent {
       };
     }
 
-    // Call the streaming version with our adapter
-    await this.runTaskWithStreaming(
+    // Call the streaming version with our adapter and return its messages
+    return this.runTaskWithStreaming(
       taskDescription,
       streamHandler,
       undefined,
       maxIterations,
     );
-
-    // Return the messages array
-    return this.messages;
   }
 }

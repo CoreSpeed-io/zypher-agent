@@ -225,6 +225,21 @@ async function initializeAgent(): Promise<void> {
   }
 }
 
+function isBase64Image(data: string): boolean {
+  try {
+    const [header, base64Data] = data.split(",");
+
+    if (!header || !base64Data) {
+      return false;
+    }
+
+    const mimeType = header.split(":")[1]?.split(";")[0];
+    return SUPPORTED_IMAGE_TYPES.includes(mimeType as SupportedImageType);
+  } catch {
+    return false;
+  }
+}
+
 // API Routes
 
 // Health check endpoint
@@ -279,35 +294,26 @@ app.post(
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    // Set up streaming handler for both messages and real-time updates
+    // Set up streaming handler
     const streamHandler: StreamHandler = {
       onContent: (content, _isFirstChunk) => {
-        // Send content_delta event for real-time content updates
         res.write(`event: content_delta\n`);
         res.write(`data: ${JSON.stringify({ content })}\n\n`);
       },
       onToolUse: (name, partialInput) => {
-        // Send tool_use event for real-time tool use updates
         res.write(`event: tool_use_delta\n`);
         res.write(`data: ${JSON.stringify({ name, partialInput })}\n\n`);
       },
       onMessage: (message) => {
-        // Send message event as soon as a complete message is available
         res.write(`event: message\n`);
         res.write(`data: ${JSON.stringify(message)}\n\n`);
       },
     };
 
     try {
-      // Run the task with streaming handler
       await agent.runTaskWithStreaming(task, streamHandler, processedImages);
-
-      // After streaming is complete, send the complete event
-      // No need to send all messages again since they've been sent via onMessage
       res.write(`event: complete\n`);
       res.write(`data: {}\n\n`);
-
-      // End the response
       res.end();
     } catch (error) {
       // Send error event directly in the stream
