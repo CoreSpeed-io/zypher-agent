@@ -22,7 +22,7 @@ export class McpServerManager {
   private _initialized = false;
 
   private constructor() {
-    console.debug("Initializing McpServerManager singleton");
+    // console.debug("Initializing McpServerManager singleton");
   }
 
   public static getInstance(): McpServerManager {
@@ -34,13 +34,13 @@ export class McpServerManager {
 
   async init() {
     if (this._initialized) {
-      console.debug(
-        "McpServerManager already initialized, skipping initialization",
-      );
+      // console.debug(
+      //   "McpServerManager already initialized, skipping initialization",
+      // );
       return this;
     }
 
-    console.debug("Starting McpServerManager initialization");
+    // console.debug("Starting McpServerManager initialization");
 
     // 1. Read and parse server configs from mcp.json
     await this.loadConfig();
@@ -48,9 +48,9 @@ export class McpServerManager {
     // 2. Initialize servers and fetch their tools
     await this.initializeServers();
 
-    console.debug("McpServerManager initialization complete");
-    console.debug("Registered servers:", Array.from(this._servers.keys()));
-    console.debug("Available tools:", Array.from(this._tools.keys()));
+    // console.debug("McpServerManager initialization complete");
+    // console.debug("Registered servers:", Array.from(this._servers.keys()));
+    // console.debug("Available tools:", Array.from(this._tools.keys()));
 
     this._initialized = true;
     return this;
@@ -58,25 +58,25 @@ export class McpServerManager {
 
   getTools(): Tool[] {
     const tools = Array.from(this._tools.values());
-    console.debug(`Getting all tools: found ${tools.length} tools`);
+    // console.debug(`Getting all tools: found ${tools.length} tools`);
     return tools;
   }
 
   public getTool(name: string): Tool | undefined {
     const tool = this._tools.get(name);
-    console.debug(`Getting tool ${name}: ${tool ? "found" : "not found"}`);
+    // console.debug(`Getting tool ${name}: ${tool ? "found" : "not found"}`);
     return tool;
   }
 
   private async loadConfig(configPath = "mcp.json"): Promise<void> {
-    console.debug(`Loading config from ${configPath}`);
+    // console.debug(`Loading config from ${configPath}`);
     try {
       const configContent = await fs.readFile(configPath, "utf-8");
       const parsedConfig = JSON.parse(configContent) as Record<string, unknown>;
       this._config = McpConfigSchema.parse(parsedConfig);
-      console.debug(
-        `Loaded config with ${Object.keys(this._config.mcpServers).length} servers`,
-      );
+      // console.debug(
+      //   `Loaded config with ${Object.keys(this._config.mcpServers).length} servers`,
+      // );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
@@ -90,7 +90,7 @@ export class McpServerManager {
       throw new Error("Config not loaded. Call loadConfig() first.");
     }
 
-    console.debug("Starting server initialization");
+    // console.debug("Starting server initialization");
 
     // First create all server instances
     for (const [id, serverConfig] of Object.entries(this._config.mcpServers)) {
@@ -101,7 +101,7 @@ export class McpServerManager {
         config: serverConfig,
       });
       this._servers.set(id, server);
-      console.debug(`Created server instance for ${id}`);
+      // console.debug(`Created server instance for ${id}`);
     }
 
     // Then fetch and register tools for all servers
@@ -121,7 +121,7 @@ export class McpServerManager {
               );
               continue;
             }
-            console.debug(`Registering tool ${tool.name} from server ${id}`);
+            // console.debug(`Registering tool ${tool.name} from server ${id}`);
             this._tools.set(tool.name, tool);
           }
         } catch (error) {
@@ -135,17 +135,13 @@ export class McpServerManager {
     );
 
     await Promise.all(serverInitPromises);
-    console.debug("Completed server initialization");
   }
 
   async cleanup(): Promise<void> {
-    console.debug("Starting cleanup");
-
     // Cleanup all server clients
     for (const server of this._servers.values()) {
       try {
         await server.client.cleanup();
-        console.debug(`Cleaned up client for server ${server.id}`);
       } catch (error) {
         console.error(`Error cleaning up server ${server.id}:`, error);
       }
@@ -154,7 +150,7 @@ export class McpServerManager {
     this._servers.clear();
     this._tools.clear();
     this._initialized = false;
-    console.debug("Completed cleanup");
+    // console.debug("Completed cleanup");
   }
 
   private getConnectionMode(config: IMcpServer["config"]): ConnectionMode {

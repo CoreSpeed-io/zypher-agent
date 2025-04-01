@@ -38,7 +38,7 @@ export function printMessage(message: Message): void {
       "input" in block
     ) {
       console.log(`🔧 Using tool: ${block.name}`);
-      console.log("Parameters:", JSON.stringify(block.input, null, 2));
+      // console.log("Parameters:", JSON.stringify(block.input, null, 2));
     } else if (block.type === "tool_result" && "content" in block) {
       console.log("📋 Tool result:");
       console.log(block.content);
