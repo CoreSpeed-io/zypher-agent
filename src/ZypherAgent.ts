@@ -6,7 +6,6 @@ import type {
   TextBlockParam,
   ContentBlockParam,
 } from "@anthropic-ai/sdk/resources/messages";
-import type { Tool } from "./tools";
 import {
   printMessage,
   getCurrentUserInfo,
@@ -55,7 +54,6 @@ export interface StreamHandler {
    * @param partialInput Partial input data (JSON string fragment)
    */
   onToolUse?: (name: string, partialInput: string) => void;
-
 }
 
 export interface ZypherAgentConfig {
@@ -345,7 +343,9 @@ export class ZypherAgent {
     };
     this.processMessage(userMessage, messages, streamHandler?.onMessage);
 
-    const toolCalls = Array.from(this.mcpServerManager.getAllTools().values()).map(
+    const toolCalls = Array.from(
+      this.mcpServerManager.getAllTools().values(),
+    ).map(
       (tool, index, tools): ToolUnion => ({
         name: tool.name,
         description: tool.description,
