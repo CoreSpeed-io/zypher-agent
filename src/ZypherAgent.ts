@@ -55,6 +55,7 @@ export interface StreamHandler {
    * @param partialInput Partial input data (JSON string fragment)
    */
   onToolUse?: (name: string, partialInput: string) => void;
+
 }
 
 export interface ZypherAgentConfig {
@@ -75,7 +76,7 @@ export interface ZypherAgentConfig {
 
 export class ZypherAgent {
   private readonly client: Anthropic;
-  private readonly _tools: Map<string, Tool>;
+  // private readonly _tools: Map<string, Tool>;
   private system: TextBlockParam[];
   private readonly maxTokens: number;
   private _messages: Message[];
@@ -86,7 +87,10 @@ export class ZypherAgent {
   private readonly _model: string;
   private readonly mcpServerManager: McpServerManager;
 
-  constructor(config: ZypherAgentConfig = {}) {
+  constructor(
+    config: ZypherAgentConfig = {},
+    mcpServerManager: McpServerManager,
+  ) {
     const apiKey = config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       throw new Error(
@@ -101,7 +105,7 @@ export class ZypherAgent {
       apiKey,
       ...(baseUrl && { baseURL: baseUrl }),
     });
-    this._tools = new Map();
+    // this._tools = new Map();
     this._messages = [];
     this.system = []; // Will be initialized in init()
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
@@ -110,17 +114,17 @@ export class ZypherAgent {
     this.enablePromptCaching = config.enablePromptCaching ?? true;
     this.userId = userId;
     this._model = config.model ?? DEFAULT_MODEL;
-    this.mcpServerManager = McpServerManager.getInstance();
+    this.mcpServerManager = mcpServerManager;
   }
 
   async init(): Promise<void> {
     const userInfo = getCurrentUserInfo();
     const systemPromptText = await getSystemPrompt(userInfo);
-    const mcpServerManager = await this.mcpServerManager.init();
-    const tools = mcpServerManager.getTools();
-    for (const tool of tools) {
-      this.registerTool(tool);
-    }
+    // const mcpServerManager = await this.mcpServerManager.init();
+    // const tools = mcpServerManager.getAllTools();
+    // for (const tool of tools) {
+    //   this.registerTool(tool);
+    // }
 
     // Convert system prompt to content blocks
     // cache the main system prompt as it's large and reusable
@@ -144,9 +148,9 @@ export class ZypherAgent {
     return [...this._messages];
   }
 
-  get tools(): Map<string, Tool> {
-    return new Map(this._tools);
-  }
+  // get tools(): Map<string, Tool> {
+  //   return new Map(this._tools);
+  // }
 
   /**
    * Get the current model being used by the agent
@@ -231,15 +235,17 @@ export class ZypherAgent {
     }
   }
 
-  registerTool(tool: Tool): void {
-    this._tools.set(tool.name, tool);
-  }
+  // registerTool(tool: Tool): void {
+  //   // this._tools.set(tool.name, tool);
+  //   this.mcpServerManager.registerTool(tool);
+  // }
 
   private async executeToolCall(toolCall: {
     name: string;
     parameters: Record<string, unknown>;
   }): Promise<string> {
-    const tool = this._tools.get(toolCall.name);
+    const tool = this.mcpServerManager.getTool(toolCall.name);
+    // const tool = this._tools.get(toolCall.name);
     if (!tool) {
       return `Error: Tool '${toolCall.name}' not found`;
     }
@@ -339,7 +345,7 @@ export class ZypherAgent {
     };
     this.processMessage(userMessage, messages, streamHandler?.onMessage);
 
-    const toolCalls = Array.from(this._tools.values()).map(
+    const toolCalls = Array.from(this.mcpServerManager.getAllTools().values()).map(
       (tool, index, tools): ToolUnion => ({
         name: tool.name,
         description: tool.description,
