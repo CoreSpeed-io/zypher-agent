@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { Command } from "commander";
 import { ZypherAgent, type StreamHandler } from "../src/ZypherAgent";
 import { z } from "zod";
+import { debounce } from "lodash";
 
 import {
   ReadFileTool,
@@ -318,12 +319,8 @@ app.post("/mcp/register", async (req: Request, res: Response) => {
     const servers = McpServerApiSchema.parse(req.body);
     await Promise.all(
       Object.entries(servers).map(
-        ([id, config]) =>
-          config &&
-          mcpServerManager.registerServer(
-            (config.serverName ?? id) as string,
-            config,
-          ),
+        ([name, config]) =>
+          config && mcpServerManager.registerServer(name, config),
       ),
     );
     res.status(201).json({ message: "Servers registered successfully" });
@@ -367,10 +364,7 @@ app.put("/mcp/servers/:id", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Server configuration is required" });
       return;
     }
-    await mcpServerManager.updateServerConfig(
-      (config.serverName ?? id) as string,
-      config,
-    );
+    await mcpServerManager.updateServerConfig(id, config);
     res.json({ message: "Server configuration updated successfully" });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -393,6 +387,26 @@ app.get("/mcp/tools", (req: Request, res: Response) => {
     res.json({ tools });
   } catch {
     res.status(500).json({ error: "Failed to query MCP tools" });
+  }
+});
+
+app.get("/mcp/reload", async (req: Request, res: Response) => {
+  try {
+    const debouncedReload = debounce(
+      async (): Promise<void> => {
+        try {
+          await mcpServerManager.reloadConfig();
+        } catch (error) {
+          console.error("Failed to reload MCP servers:", error);
+        }
+      },
+      5000,
+      { leading: true, trailing: false },
+    );
+    await debouncedReload();
+    res.json({ message: "MCP servers reloaded successfully" });
+  } catch {
+    res.status(500).json({ error: "Failed to reload MCP servers" });
   }
 });
 
