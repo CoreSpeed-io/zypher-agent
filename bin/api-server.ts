@@ -339,7 +339,9 @@ app.post("/mcp/register", async (req: Request, res: Response) => {
       });
       return;
     }
-    res.status(500).json({ error: "Failed to register MCP servers" });
+    res.status(500).json({
+      error: `${error instanceof Error ? error.message : "Unknown error"}`,
+    });
   }
 });
 

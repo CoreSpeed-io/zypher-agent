@@ -305,3 +305,240 @@ paths:
                   uptime:
                     type: number
                     format: float
+
+  /mcp/servers:
+    get:
+      summary: List all registered MCP servers
+      description: Returns all registered MCP servers and their configurations
+      operationId: listMcpServers
+      responses:
+        "200":
+          description: List of MCP servers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  servers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Unique identifier for the server
+                        name:
+                          type: string
+                          description: User-friendly name of the server
+                        config:
+                          type: object
+                          properties:
+                            command:
+                              type: string
+                              description: Command to start the server
+                            args:
+                              type: array
+                              items:
+                                type: string
+                              description: Command line arguments
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mcp/register:
+    post:
+      summary: Register a new MCP server
+      description: Registers one or more MCP servers with their configurations
+      operationId: registerMcpServer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  command:
+                    type: string
+                    description: Command to start the server
+                  args:
+                    type: array
+                    items:
+                      type: string
+                    description: Command line arguments
+      responses:
+        "201":
+          description: Server registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Servers registered successfully"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mcp/servers/{serverName}:
+    parameters:
+      - name: serverName
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Name of the MCP server
+    delete:
+      summary: Deregister a MCP server
+      description: Removes a registered MCP server
+      operationId: deregisterMcpServer
+      responses:
+        "200":
+          description: Server deregistered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Server deregistered successfully"
+        "404":
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      summary: Update MCP server configuration
+      description: Updates the configuration of an existing MCP server
+      operationId: updateMcpServer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command:
+                  type: string
+                  description: Command to start the server
+                args:
+                  type: array
+                  items:
+                    type: string
+                  description: Command line arguments
+      responses:
+        "200":
+          description: Server configuration updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Server configuration updated successfully"
+        "404":
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mcp/reload:
+    get:
+      summary: Reload MCP server configurations
+      description: Reloads all MCP server configurations from disk
+      operationId: reloadMcpServers
+      responses:
+        "200":
+          description: Servers reloaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "MCP servers reloaded successfully"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Too many requests"
+                  message:
+                    type: string
+                    example: "Please wait 3 seconds before trying again"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mcp/tools:
+    get:
+      summary: List all available tools from MCP servers
+      description: Returns all tools provided by registered MCP servers
+      operationId: listMcpTools
+      responses:
+        "200":
+          description: List of available tools
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Name of the tool
+                        description:
+                          type: string
+                          description: Description of what the tool does
+                        parameters:
+                          type: object
+                          description: Tool parameters schema
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
