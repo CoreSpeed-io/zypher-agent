@@ -116,6 +116,22 @@ components:
         task:
           type: string
           description: The task description to send to the agent
+        imageAttachments:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - data
+            properties:
+              name:
+                type: string
+                description: Name of the image file
+              data:
+                type: string
+                description: Image data in format data:${mimeType};base64,${base64String}
+                example: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/..."
+          description: Image attachments for the task
 
     TaskEvent:
       type: object
