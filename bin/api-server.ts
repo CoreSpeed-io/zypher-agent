@@ -3,7 +3,11 @@ import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Command } from "commander";
-import { ZypherAgent, type StreamHandler } from "../src/ZypherAgent";
+import {
+  ZypherAgent,
+  type StreamHandler,
+  type ImageAttachment,
+} from "../src/ZypherAgent";
 import { z } from "zod";
 
 import {
@@ -34,17 +38,53 @@ class ApiError extends Error {
   }
 }
 
-// Zod Schemas
-const taskSchema = z.object({
-  task: z.string().min(1, "Task cannot be empty"),
+// Define supported image MIME types with more precise validation
+const SUPPORTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
+
+// Zod schema for base64 image validation
+const base64ImageSchema = z
+  .string()
+  .regex(/^data:image\/[a-zA-Z+]+;base64,/, "Invalid base64 image format")
+  .refine(
+    (data) => {
+      const [header] = data.split(",");
+      const mimeType = header?.split(":")[1]?.split(";")[0];
+      return (
+        mimeType &&
+        SUPPORTED_IMAGE_TYPES.includes(mimeType as SupportedImageType)
+      );
+    },
+    {
+      message: `Image must be one of the following types: ${SUPPORTED_IMAGE_TYPES.join(", ")}`,
+    },
+  );
+
+// Zod schema for image validation
+const imageSchema = z.object({
+  name: z.string(),
+  data: base64ImageSchema,
 });
+
+// Update task schema to match API spec
+const taskSchema = z.object({
+  task: z.string(),
+  imageAttachments: z.array(imageSchema).optional(),
+});
+
+// Type inference from Zod schema
+type TaskRequest = z.infer<typeof taskSchema>;
 
 const checkpointParamsSchema = z.object({
   checkpointId: z.string().min(1, "Checkpoint ID cannot be empty"),
 });
 
 // Type inference from Zod schema
-type TaskRequest = z.infer<typeof taskSchema>;
 type CheckpointParams = z.infer<typeof checkpointParamsSchema>;
 
 // Error handling middleware
@@ -216,7 +256,25 @@ app.post(
   "/agent/tasks",
   validateRequest(taskSchema),
   async (req: Request<unknown, unknown, TaskRequest>, res: Response) => {
-    const { task } = req.body;
+    const { task, imageAttachments } = req.body;
+    const processedImages: ImageAttachment[] = [];
+
+    if (imageAttachments?.length) {
+      for (const img of imageAttachments) {
+        const [, base64Data = ""] = img.data.split(",");
+        const mimeType = img.data
+          .split(":")[1]
+          ?.split(";")[0] as SupportedImageType;
+        processedImages.push({
+          type: "image" as const,
+          source: {
+            type: "base64" as const,
+            media_type: mimeType,
+            data: base64Data,
+          },
+        });
+      }
+    }
 
     // Set up SSE
     res.setHeader("Content-Type", "text/event-stream");
@@ -244,7 +302,7 @@ app.post(
 
     try {
       // Run the task with streaming handler
-      await agent.runTaskWithStreaming(task, streamHandler);
+      await agent.runTaskWithStreaming(task, streamHandler, processedImages);
 
       // After streaming is complete, send the complete event
       // No need to send all messages again since they've been sent via onMessage

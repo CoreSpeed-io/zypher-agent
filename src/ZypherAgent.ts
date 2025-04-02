@@ -5,6 +5,8 @@ import type {
   ToolUnion,
   TextBlockParam,
   ContentBlockParam,
+  ImageBlockParam,
+  Base64ImageSource,
 } from "@anthropic-ai/sdk/resources/messages";
 import type { Tool } from "./tools";
 import {
@@ -54,6 +56,15 @@ export interface StreamHandler {
    * @param partialInput Partial input data (JSON string fragment)
    */
   onToolUse?: (name: string, partialInput: string) => void;
+}
+
+export interface ImageAttachment {
+  type: "image";
+  source: {
+    type: "base64";
+    media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+    data: string;
+  };
 }
 
 export interface ZypherAgentConfig {
@@ -295,15 +306,30 @@ export class ZypherAgent {
    * - Streams individual text fragments as they become available (not just complete messages)
    * - Provides real-time updates via onContent callback
    * - Still delivers complete messages via onMessage when they're done
+   * - Supports image attachments in Claude's native format
    *
-   * @param taskDescription The task description
+   * Image handling:
+   * - Images are passed as an array of base64-encoded data with proper MIME types
+   * - Each image should follow Claude's format: { type: "image", source: { type: "base64", media_type: string, data: string } }
+   * - Images are automatically included in the message content along with the text
+   * - The API will optimize images to stay within Claude's token limits
+   *
+   * Streaming behavior:
+   * - Content is streamed in real-time as it's generated
+   * - Tool usage is streamed as tools are invoked
+   * - Complete messages are delivered when available
+   * - Errors and code fixes are handled automatically
+   *
+   * @param taskDescription The text description of the task to perform
    * @param streamHandler Handler for real-time content updates and complete messages
-   * @param maxIterations Maximum number of iterations to run
+   * @param imageAttachments Optional array of image attachments in Claude's format
+   * @param maxIterations Maximum number of iterations to run (default: 25)
    * @returns Array of messages after task completion
    */
   async runTaskWithStreaming(
     taskDescription: string,
     streamHandler?: StreamHandler,
+    imageAttachments?: ImageAttachment[],
     maxIterations = 25,
   ): Promise<Message[]> {
     // Ensure system prompt is initialized
@@ -321,10 +347,28 @@ export class ZypherAgent {
       ? await getCheckpointDetails(checkpointId)
       : undefined;
 
+    // Prepare message content
+    const imageBlocks = imageAttachments
+      ? imageAttachments.map((img) => {
+          return {
+            type: "image",
+            source: img.source,
+          } as ImageBlockParam;
+        })
+      : [];
+
+    const messageContent: ContentBlockParam[] = [
+      ...imageBlocks,
+      {
+        type: "text",
+        text: `<user_query>\n${taskDescription}\n</user_query>`,
+      } as TextBlockParam,
+    ];
+
     // Add user message with checkpoint reference
     const userMessage: Message = {
       role: "user",
-      content: `<user_query>\n${taskDescription}\n</user_query>`,
+      content: messageContent,
       checkpointId,
       checkpoint,
       timestamp: new Date(), // current timestamp
@@ -518,10 +562,11 @@ export class ZypherAgent {
       };
     }
 
-    // Call the streaming version with our adapter
+    // Call the streaming version with our adapter and return its messages
     return this.runTaskWithStreaming(
       taskDescription,
       streamHandler,
+      undefined,
       maxIterations,
     );
   }
