@@ -5,7 +5,6 @@ import dotenv from "dotenv";
 import { Command } from "commander";
 import { ZypherAgent, type StreamHandler } from "../src/ZypherAgent";
 import { z } from "zod";
-import { debounce } from "lodash";
 
 import {
   ReadFileTool,
@@ -42,6 +41,10 @@ const McpServerApiSchema = z.record(z.string(), McpServerConfigSchema);
 
 // Initialize MCP Server Manager
 const mcpServerManager = McpServerManager.getInstance();
+
+// Debounce reload
+let lastReloadTime = 0;
+const RELOAD_COOLDOWN = 5000; // 5 seconds
 
 // Zod Schemas
 const taskSchema = z.object({
@@ -391,19 +394,21 @@ app.get("/mcp/tools", (req: Request, res: Response) => {
 });
 
 app.get("/mcp/reload", async (req: Request, res: Response) => {
-  try {
-    const debouncedReload = debounce(
-      async (): Promise<void> => {
-        try {
-          await mcpServerManager.reloadConfig();
-        } catch (error) {
-          console.error("Failed to reload MCP servers:", error);
-        }
-      },
-      5000,
-      { leading: true, trailing: false },
+  const now = Date.now();
+  if (now - lastReloadTime < RELOAD_COOLDOWN) {
+    const remainingSeconds = Math.ceil(
+      (RELOAD_COOLDOWN - (now - lastReloadTime)) / 1000,
     );
-    await debouncedReload();
+    res.status(429).json({
+      error: "Too many requests",
+      message: `Please wait ${remainingSeconds} seconds before trying again`,
+    });
+    return;
+  }
+
+  try {
+    await mcpServerManager.reloadConfig();
+    lastReloadTime = now;
     res.json({ message: "MCP servers reloaded successfully" });
   } catch {
     res.status(500).json({ error: "Failed to reload MCP servers" });

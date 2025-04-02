@@ -71,6 +71,12 @@ The API server provides the following endpoints:
 - `POST /agent/tasks` - Run a task using the agent (SSE endpoint)
 - `GET /agent/checkpoints` - List all available checkpoints
 - `POST /agent/checkpoints/{checkpointId}/apply` - Apply a checkpoint
+- `GET /mcp/servers` - List all registered MCP servers
+- `POST /mcp/register` - Register a new MCP server
+- `DELETE /mcp/servers/{serverName}` - Deregister a MCP server by name
+- `PUT /mcp/servers/{serverName}` - Update MCP server configuration by name
+- `GET /mcp/reload` - Reload MCP server configurations (5s cooldown)
+- `GET /mcp/tools` - List all available tools from MCP servers
 
 See the [API Specification](./api-spec.yaml) for detailed documentation.
 
