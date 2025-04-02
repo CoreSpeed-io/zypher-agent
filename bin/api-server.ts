@@ -18,6 +18,8 @@ import {
 } from "../src/tools";
 import { listCheckpoints } from "../src/checkpoints";
 import { formatError } from "../src/utils/error";
+import { McpServerManager } from "../src/mcp/McpServerManager";
+import { McpServerConfigSchema, type IMcpServer } from "../src/mcp/types";
 
 // Load environment variables
 dotenv.config();
@@ -33,6 +35,12 @@ class ApiError extends Error {
     this.name = "ApiError";
   }
 }
+
+// Schema for request validation
+const McpServerApiSchema = z.record(z.string(), McpServerConfigSchema);
+
+// Initialize MCP Server Manager
+const mcpServerManager = McpServerManager.getInstance();
 
 // Zod Schemas
 const taskSchema = z.object({
@@ -154,27 +162,31 @@ async function initializeAgent(): Promise<void> {
         );
       }
     }
+    await mcpServerManager.init();
 
     // Initialize the agent with provided options
-    agent = new ZypherAgent({
-      userId: options.userId,
-      baseUrl: options.baseUrl,
-      anthropicApiKey: options.apiKey,
-    });
+    agent = new ZypherAgent(
+      {
+        userId: options.userId,
+        baseUrl: options.baseUrl,
+        anthropicApiKey: options.apiKey,
+      },
+      mcpServerManager,
+    );
 
     // Register all available tools
-    agent.registerTool(ReadFileTool);
-    agent.registerTool(ListDirTool);
-    agent.registerTool(EditFileTool);
-    agent.registerTool(RunTerminalCmdTool);
-    agent.registerTool(GrepSearchTool);
-    agent.registerTool(FileSearchTool);
-    agent.registerTool(DeleteFileTool);
-    agent.registerTool(ImageGenTool);
+    mcpServerManager.registerTool(ReadFileTool);
+    mcpServerManager.registerTool(ListDirTool);
+    mcpServerManager.registerTool(EditFileTool);
+    mcpServerManager.registerTool(RunTerminalCmdTool);
+    mcpServerManager.registerTool(GrepSearchTool);
+    mcpServerManager.registerTool(FileSearchTool);
+    mcpServerManager.registerTool(DeleteFileTool);
+    mcpServerManager.registerTool(ImageGenTool);
 
     console.log(
       "🔧 Registered tools:",
-      Array.from(agent.tools.keys()).join(", "),
+      Array.from(mcpServerManager.getAllTools().keys()).join(", "),
     );
 
     // Initialize the agent (load message history, generate system prompt)
@@ -283,6 +295,106 @@ app.post(
 
 // Register error handling middleware last
 app.use(errorHandler);
+
+// List registered MCP servers
+app.get("/mcp/servers", (req: Request, res: Response) => {
+  try {
+    const servers = Array.from(mcpServerManager.getAllServers().entries()).map(
+      ([id, server]: [string, IMcpServer]) => ({
+        id,
+        name: server.name,
+        config: server.config,
+      }),
+    );
+    res.json({ servers });
+  } catch {
+    res.status(500).json({ error: "Failed to list MCP servers" });
+  }
+});
+
+// Register new MCP server
+app.post("/mcp/register", async (req: Request, res: Response) => {
+  try {
+    const servers = McpServerApiSchema.parse(req.body);
+    await Promise.all(
+      Object.entries(servers).map(
+        ([id, config]) =>
+          config &&
+          mcpServerManager.registerServer(
+            (config.serverName ?? id) as string,
+            config,
+          ),
+      ),
+    );
+    res.status(201).json({ message: "Servers registered successfully" });
+  } catch (error: unknown) {
+    console.error(
+      "Error registering MCP servers:",
+      error instanceof Error ? formatError(error.stack) : error,
+    );
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        error: "Invalid request data",
+        details: error.errors,
+      });
+      return;
+    }
+    res.status(500).json({ error: "Failed to register MCP servers" });
+  }
+});
+
+// Deregister MCP server
+app.delete("/mcp/servers/:id", async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id;
+    if (!id) {
+      res.status(400).json({ error: "Server ID is required" });
+      return;
+    }
+    await mcpServerManager.deregisterServer(id);
+    res.json({ message: "Server deregistered successfully" });
+  } catch {
+    res.status(500).json({ error: "Failed to deregister MCP server" });
+  }
+});
+
+// Update MCP server configuration
+app.put("/mcp/servers/:id", async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id ?? "";
+    const config = McpServerApiSchema.parse(req.body)[id];
+    if (!config) {
+      res.status(400).json({ error: "Server configuration is required" });
+      return;
+    }
+    await mcpServerManager.updateServerConfig(
+      (config.serverName ?? id) as string,
+      config,
+    );
+    res.json({ message: "Server configuration updated successfully" });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        error: "Invalid request data",
+        details: error.errors,
+      });
+      return;
+    }
+    res
+      .status(500)
+      .json({ error: "Failed to update MCP server configuration" });
+  }
+});
+
+// Query available tools from registered MCP servers
+app.get("/mcp/tools", (req: Request, res: Response) => {
+  try {
+    const tools = Array.from(mcpServerManager.getAllTools().values());
+    res.json({ tools });
+  } catch {
+    res.status(500).json({ error: "Failed to query MCP tools" });
+  }
+});
 
 // Start the server
 async function startServer(): Promise<void> {
