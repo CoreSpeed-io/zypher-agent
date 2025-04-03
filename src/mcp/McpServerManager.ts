@@ -24,6 +24,7 @@ export class McpServerManager {
   private _servers = new Map<string, IMcpServer>();
   private _tools = new Map<string, Tool>();
   private _initialized = false;
+  private _reloadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Initializes the McpServerManager by loading configuration and setting up servers
@@ -113,6 +114,23 @@ export class McpServerManager {
         error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Failed to reload MCP config: ${errorMessage}`);
     }
+  }
+
+  reloadConfigDebounced(): void {
+    if (this._reloadDebounceTimer) {
+      throw new Error(
+        "Cannot reload MCP config: Please wait 5 seconds between reload attempts",
+      );
+    }
+
+    this._reloadDebounceTimer = setTimeout(() => {
+      this._reloadDebounceTimer = null;
+      this.reloadConfig().catch((error) => {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        console.error(`Failed to reload MCP config: ${errorMessage}`);
+      });
+    }, 5000);
   }
 
   /**
