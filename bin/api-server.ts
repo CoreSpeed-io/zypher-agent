@@ -380,7 +380,16 @@ app.post("/mcp/register", async (req: Request, res: Response) => {
 app.delete("/mcp/servers/:id", async (req: Request, res: Response) => {
   const id = req.params.id;
   if (!id) {
-    throw new ApiError(400, "invalid_request", "Server ID is required");
+    // nevermind, I'll just throw a zod error my own way
+    throw new z.ZodError([
+      {
+        code: "invalid_type",
+        expected: "string",
+        received: "undefined",
+        path: ["id"],
+        message: "Server ID is required",
+      },
+    ]);
   }
   await mcpServerManager.deregisterServer(id);
   res.status(204).send();
