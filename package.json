@@ -37,7 +37,8 @@
     "dotenv": "^16.4.7",
     "express": "5.0.1",
     "openai": "^4.90.0",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "zod-to-json-schema": "^3.24.5"
   },
   "peerDependencies": {
     "typescript": "^5.8.2"
