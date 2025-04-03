@@ -46,10 +46,6 @@ const McpServerApiSchema = z.record(z.string(), McpServerConfigSchema);
 // Initialize MCP Server Manager
 const mcpServerManager = new McpServerManager();
 
-// Debounce reload
-let lastReloadTime = 0;
-const RELOAD_COOLDOWN = 5000; // 5 seconds
-
 // Zod Schemas
 // Define supported image MIME types with more precise validation
 const SUPPORTED_IMAGE_TYPES = [
@@ -463,29 +459,15 @@ app.get("/mcp/tools", (req: Request, res: Response) => {
   }
 });
 
-app.get("/mcp/reload", async (req: Request, res: Response) => {
-  const now = Date.now();
-  if (now - lastReloadTime < RELOAD_COOLDOWN) {
-    const remainingSeconds = Math.ceil(
-      (RELOAD_COOLDOWN - (now - lastReloadTime)) / 1000,
-    );
+app.get("/mcp/reload", (req: Request, res: Response) => {
+  try {
+    mcpServerManager.reloadConfigDebounced();
+    res.status(200).send();
+  } catch (error) {
     throw new ApiError(
       429,
       "too_many_requests",
-      `Please wait ${remainingSeconds} seconds before trying again`,
-    );
-  }
-
-  try {
-    await mcpServerManager.reloadConfig();
-    lastReloadTime = now;
-    res.json({ message: "MCP servers reloaded successfully" });
-  } catch (error) {
-    throw new ApiError(
-      500,
-      "mcp_reload_error",
-      "Failed to reload MCP servers",
-      error,
+      error instanceof Error ? error.message : "Too many reload attempts",
     );
   }
 });
