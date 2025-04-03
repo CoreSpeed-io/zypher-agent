@@ -57,7 +57,7 @@ const options = program.opts<CliOptions>();
 
 const rl = readline.createInterface({ input, output });
 
-const mcpServerManager = McpServerManager.getInstance();
+const mcpServerManager = new McpServerManager();
 
 function prompt(question: string): Promise<string> {
   return new Promise((resolve) => {

@@ -20,26 +20,10 @@ type IMcpConfig = z.infer<typeof McpConfigSchema>;
  * It handles server registration, tool management, and configuration persistence.
  */
 export class McpServerManager {
-  private static instance: McpServerManager;
   private _config: IMcpConfig | null = null;
   private _servers = new Map<string, IMcpServer>();
   private _tools = new Map<string, Tool>();
   private _initialized = false;
-
-  private constructor() {
-    // Private constructor to enforce singleton pattern
-  }
-
-  /**
-   * Gets the singleton instance of McpServerManager
-   * @returns The singleton instance
-   */
-  public static getInstance(): McpServerManager {
-    if (!McpServerManager.instance) {
-      McpServerManager.instance = new McpServerManager();
-    }
-    return McpServerManager.instance;
-  }
 
   /**
    * Initializes the McpServerManager by loading configuration and setting up servers
@@ -47,23 +31,14 @@ export class McpServerManager {
    */
   async init() {
     if (this._initialized) {
-      // console.debug(
-      //   "McpServerManager already initialized, skipping initialization",
-      // );
       return this;
     }
-
-    // console.debug("Starting McpServerManager initialization");
 
     // 1. Read and parse server configs from mcp.json
     await this.loadConfig();
 
     // 2. Initialize servers and fetch their tools
     await this.initializeServers();
-
-    // console.debug("McpServerManager initialization complete");
-    // console.debug("Registered servers:", Array.from(this._servers.keys()));
-    // console.debug("Available tools:", Array.from(this._tools.keys()));
 
     this._initialized = true;
     return this;
@@ -382,6 +357,5 @@ export class McpServerManager {
     this._servers.clear();
     this._tools.clear();
     this._initialized = false;
-    // console.debug("Completed cleanup");
   }
 }
