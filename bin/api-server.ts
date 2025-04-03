@@ -352,125 +352,65 @@ app.post(
   },
 );
 
-// Register error handling middleware last
-app.use(errorHandler);
-
 // List registered MCP servers
 app.get("/mcp/servers", (req: Request, res: Response) => {
-  try {
-    const servers = Array.from(mcpServerManager.getAllServers().entries()).map(
-      ([id, server]: [string, IMcpServer]) => ({
-        id,
-        name: server.name,
-        config: server.config,
-      }),
-    );
-    res.json({ servers });
-  } catch (error) {
-    throw new ApiError(
-      500,
-      "mcp_server_list_error",
-      "Failed to list MCP servers",
-      error,
-    );
-  }
+  const servers = Array.from(mcpServerManager.getAllServers().entries()).map(
+    ([id, server]: [string, IMcpServer]) => ({
+      id,
+      name: server.name,
+      config: server.config,
+    }),
+  );
+  res.json({ servers });
 });
 
 // Register new MCP server
 app.post("/mcp/register", async (req: Request, res: Response) => {
-  try {
-    const servers = McpServerApiSchema.parse(req.body);
-    await Promise.all(
-      Object.entries(servers).map(
-        ([name, config]) =>
-          config && mcpServerManager.registerServer(name, config),
-      ),
-    );
-    res.status(201).json({ message: "Servers registered successfully" });
-  } catch (error: unknown) {
-    console.error(
-      "Error registering MCP servers:",
-      error instanceof Error ? formatError(error.stack) : error,
-    );
-    throw new ApiError(
-      500,
-      "mcp_server_register_error",
-      "Failed to register MCP servers",
-      error,
-    );
-  }
+  const servers = McpServerApiSchema.parse(req.body);
+  await Promise.all(
+    Object.entries(servers).map(
+      ([name, config]) =>
+        config && mcpServerManager.registerServer(name, config),
+    ),
+  );
+  res.status(201).send();
 });
 
 // Deregister MCP server
 app.delete("/mcp/servers/:id", async (req: Request, res: Response) => {
-  try {
-    const id = req.params.id;
-    if (!id) {
-      throw new ApiError(400, "invalid_request", "Server ID is required");
-    }
-    await mcpServerManager.deregisterServer(id);
-    res.json({ message: "Server deregistered successfully" });
-  } catch (error) {
-    throw new ApiError(
-      500,
-      "mcp_server_deregister_error",
-      "Failed to deregister MCP server",
-      error,
-    );
+  const id = req.params.id;
+  if (!id) {
+    throw new ApiError(400, "invalid_request", "Server ID is required");
   }
+  await mcpServerManager.deregisterServer(id);
+  res.status(204).send();
 });
 
 // Update MCP server configuration
 app.put("/mcp/servers/:id", async (req: Request, res: Response) => {
-  try {
-    const id = req.params.id ?? "";
-    const config = McpServerApiSchema.parse(req.body)[id];
-    if (!config) {
-      throw new ApiError(
-        400,
-        "invalid_request",
-        "Server configuration is required",
-      );
-    }
-    await mcpServerManager.updateServerConfig(id, config);
-    res.json({ message: "Server configuration updated successfully" });
-  } catch (error) {
-    throw new ApiError(
-      500,
-      "mcp_server_update_error",
-      "Failed to update MCP server configuration",
-      error,
-    );
+  const id = req.params.id ?? "";
+  const config = McpServerApiSchema.parse(req.body)[id];
+  if (!config) {
+    // this is not a zod error, so we need to handle it differently
+    throw new ApiError(400, "invalid_request", "Invalid server configuration");
   }
+  await mcpServerManager.updateServerConfig(id, config);
+  res.status(204).send();
 });
 
 // Query available tools from registered MCP servers
 app.get("/mcp/tools", (req: Request, res: Response) => {
-  try {
-    const tools = Array.from(mcpServerManager.getAllTools().values());
-    res.json({ tools });
-  } catch (error) {
-    throw new ApiError(
-      500,
-      "mcp_tools_query_error",
-      "Failed to query MCP tools",
-      error,
-    );
-  }
+  const tools = Array.from(mcpServerManager.getAllTools().values());
+  res.json({ tools });
 });
 
-app.get("/mcp/reload", (req: Request, res: Response) => {
-  try {
-    mcpServerManager.reloadConfigDebounced();
-    res.status(200).send();
-  } catch (error) {
-    throw new ApiError(
-      429,
-      "too_many_requests",
-      error instanceof Error ? error.message : "Too many reload attempts",
-    );
-  }
+app.get("/mcp/reload", async (req: Request, res: Response) => {
+  await mcpServerManager.reloadConfig();
+  res.status(200).send();
 });
+
+// Register error handling middleware last
+app.use(errorHandler);
 
 // Start the server
 async function startServer(): Promise<void> {

@@ -16,7 +16,7 @@ const McpConfigSchema = z.object({
 type IMcpConfig = z.infer<typeof McpConfigSchema>;
 
 /**
- * McpServerManager is a singleton class that manages MCP (Model Context Protocol) servers and their tools.
+ * McpServerManager is a class that manages MCP (Model Context Protocol) servers and their tools.
  * It handles server registration, tool management, and configuration persistence.
  */
 export class McpServerManager {
@@ -114,23 +114,6 @@ export class McpServerManager {
         error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Failed to reload MCP config: ${errorMessage}`);
     }
-  }
-
-  reloadConfigDebounced(): void {
-    if (this._reloadDebounceTimer) {
-      throw new Error(
-        "Cannot reload MCP config: Please wait 5 seconds between reload attempts",
-      );
-    }
-
-    this._reloadDebounceTimer = setTimeout(() => {
-      this._reloadDebounceTimer = null;
-      this.reloadConfig().catch((error) => {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        console.error(`Failed to reload MCP config: ${errorMessage}`);
-      });
-    }, 5000);
   }
 
   /**
