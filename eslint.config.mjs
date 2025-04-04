@@ -4,6 +4,7 @@ import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 import eslintConfigPrettier from "eslint-config-prettier";
+import eslintConfigFlatGitignore from "eslint-config-flat-gitignore";
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -11,6 +12,7 @@ export default tseslint.config(
   tseslint.configs.stylisticTypeChecked,
   eslintPluginPrettierRecommended,
   eslintConfigPrettier,
+  eslintConfigFlatGitignore(),
   {
     languageOptions: {
       parserOptions: {

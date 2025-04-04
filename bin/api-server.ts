@@ -22,6 +22,8 @@ import {
 } from "../src/tools";
 import { listCheckpoints } from "../src/checkpoints";
 import { formatError } from "../src/utils/error";
+import { McpServerManager } from "../src/mcp/McpServerManager";
+import { McpServerConfigSchema, type IMcpServer } from "../src/mcp/types";
 
 // Load environment variables
 dotenv.config();
@@ -38,6 +40,13 @@ class ApiError extends Error {
   }
 }
 
+// Schema for request validation
+const McpServerApiSchema = z.record(z.string(), McpServerConfigSchema);
+
+// Initialize MCP Server Manager
+const mcpServerManager = new McpServerManager();
+
+// Zod Schemas
 // Define supported image MIME types with more precise validation
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -194,27 +203,31 @@ async function initializeAgent(): Promise<void> {
         );
       }
     }
+    await mcpServerManager.init();
 
     // Initialize the agent with provided options
-    agent = new ZypherAgent({
-      userId: options.userId,
-      baseUrl: options.baseUrl,
-      anthropicApiKey: options.apiKey,
-    });
+    agent = new ZypherAgent(
+      {
+        userId: options.userId,
+        baseUrl: options.baseUrl,
+        anthropicApiKey: options.apiKey,
+      },
+      mcpServerManager,
+    );
 
     // Register all available tools
-    agent.registerTool(ReadFileTool);
-    agent.registerTool(ListDirTool);
-    agent.registerTool(EditFileTool);
-    agent.registerTool(RunTerminalCmdTool);
-    agent.registerTool(GrepSearchTool);
-    agent.registerTool(FileSearchTool);
-    agent.registerTool(DeleteFileTool);
-    agent.registerTool(ImageGenTool);
+    mcpServerManager.registerTool(ReadFileTool);
+    mcpServerManager.registerTool(ListDirTool);
+    mcpServerManager.registerTool(EditFileTool);
+    mcpServerManager.registerTool(RunTerminalCmdTool);
+    mcpServerManager.registerTool(GrepSearchTool);
+    mcpServerManager.registerTool(FileSearchTool);
+    mcpServerManager.registerTool(DeleteFileTool);
+    mcpServerManager.registerTool(ImageGenTool);
 
     console.log(
       "🔧 Registered tools:",
-      Array.from(agent.tools.keys()).join(", "),
+      Array.from(mcpServerManager.getAllTools().keys()).join(", "),
     );
 
     // Initialize the agent (load message history, generate system prompt)
@@ -338,6 +351,61 @@ app.post(
     res.json({ success: true, id: checkpointId });
   },
 );
+
+// List registered MCP servers
+app.get("/mcp/servers", (req: Request, res: Response) => {
+  const servers = Array.from(mcpServerManager.getAllServers().entries()).map(
+    ([id, server]: [string, IMcpServer]) => ({
+      id,
+      name: server.name,
+      config: server.config,
+    }),
+  );
+  res.json({ servers });
+});
+
+// Register new MCP server
+app.post("/mcp/register", async (req: Request, res: Response) => {
+  const servers = McpServerApiSchema.parse(req.body);
+  await Promise.all(
+    Object.entries(servers).map(
+      ([name, config]) =>
+        config && mcpServerManager.registerServer(name, config),
+    ),
+  );
+  res.status(201).send();
+});
+
+// Deregister MCP server
+app.delete("/mcp/servers/:id", async (req: Request, res: Response) => {
+  // use zod to validate the id
+  const id = z.string().min(1).parse(req.params.id);
+  await mcpServerManager.deregisterServer(id);
+  res.status(204).send();
+});
+
+// Update MCP server configuration
+app.put("/mcp/servers/:id", async (req: Request, res: Response) => {
+  const id = req.params.id ?? "";
+  const config = McpServerApiSchema.parse(req.body)[id];
+  if (!config) {
+    // config can be undefined when id is not provided
+    throw new ApiError(400, "invalid_request", "Invalid server configuration");
+  }
+  await mcpServerManager.updateServerConfig(id, config);
+  res.status(204).send();
+});
+
+// Query available tools from registered MCP servers
+app.get("/mcp/tools", (req: Request, res: Response) => {
+  const tools = Array.from(mcpServerManager.getAllTools().values());
+  res.json({ tools });
+});
+
+app.get("/mcp/reload", async (req: Request, res: Response) => {
+  await mcpServerManager.reloadConfig();
+  res.status(200).send();
+});
 
 // Register error handling middleware last
 app.use(errorHandler);

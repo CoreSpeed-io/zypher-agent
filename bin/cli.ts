@@ -16,6 +16,7 @@ import readline from "readline";
 import { stdin as input, stdout as output } from "process";
 import { formatError } from "../src/utils/error";
 import chalk from "chalk";
+import { McpServerManager } from "../src/mcp/McpServerManager";
 
 interface CliOptions {
   workspace?: string;
@@ -56,6 +57,8 @@ const options = program.opts<CliOptions>();
 
 const rl = readline.createInterface({ input, output });
 
+const mcpServerManager = new McpServerManager();
+
 function prompt(question: string): Promise<string> {
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
@@ -66,6 +69,8 @@ function prompt(question: string): Promise<string> {
 
 async function main(): Promise<void> {
   dotenv.config();
+
+  await mcpServerManager.init();
 
   try {
     // Handle workspace option
@@ -98,26 +103,29 @@ async function main(): Promise<void> {
     }
 
     // Initialize the agent with provided options
-    const agent = new ZypherAgent({
-      userId: options.userId,
-      baseUrl: options.baseUrl,
-      anthropicApiKey: options.apiKey,
-      model: options.model,
-    });
+    const agent = new ZypherAgent(
+      {
+        userId: options.userId,
+        baseUrl: options.baseUrl,
+        anthropicApiKey: options.apiKey,
+        model: options.model,
+      },
+      mcpServerManager,
+    );
 
     // Register all available tools
-    agent.registerTool(ReadFileTool);
-    agent.registerTool(ListDirTool);
-    agent.registerTool(EditFileTool);
-    agent.registerTool(RunTerminalCmdTool);
-    agent.registerTool(GrepSearchTool);
-    agent.registerTool(FileSearchTool);
-    agent.registerTool(DeleteFileTool);
-    agent.registerTool(ImageGenTool);
+    mcpServerManager.registerTool(ReadFileTool);
+    mcpServerManager.registerTool(ListDirTool);
+    mcpServerManager.registerTool(EditFileTool);
+    mcpServerManager.registerTool(RunTerminalCmdTool);
+    mcpServerManager.registerTool(GrepSearchTool);
+    mcpServerManager.registerTool(FileSearchTool);
+    mcpServerManager.registerTool(DeleteFileTool);
+    mcpServerManager.registerTool(ImageGenTool);
 
     console.log(
       "🔧 Registered tools:",
-      Array.from(agent.tools.keys()).join(", "),
+      Array.from(mcpServerManager.getAllTools().keys()).join(", "),
     );
 
     // Initialize the agent

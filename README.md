@@ -71,12 +71,19 @@ The API server provides the following endpoints:
 - `POST /agent/tasks` - Run a task using the agent (SSE endpoint)
 - `GET /agent/checkpoints` - List all available checkpoints
 - `POST /agent/checkpoints/{checkpointId}/apply` - Apply a checkpoint
+- `GET /mcp/servers` - List all registered MCP servers
+- `POST /mcp/register` - Register a new MCP server
+- `DELETE /mcp/servers/{serverName}` - Deregister a MCP server by name
+- `PUT /mcp/servers/{serverName}` - Update MCP server configuration by name
+- `GET /mcp/reload` - Reload MCP server configurations (5s cooldown)
+- `GET /mcp/tools` - List all available tools from MCP servers
 
 See the [API Specification](./api-spec.yaml) for detailed documentation.
 
 ## Development
 
 ### Local Development
+
 ```bash
 # Run tests
 bun test
@@ -94,6 +101,7 @@ bun lint:fix
 ### Docker Development (Recommended)
 
 Basic usage:
+
 ```bash
 # Build the image
 docker build -t zypher-agent .
@@ -103,6 +111,7 @@ docker run -it --rm zypher-agent
 ```
 
 For development/debugging:
+
 ```bash
 # Run with source code mounting (for development)
 docker run -it --rm \
@@ -130,6 +139,7 @@ The Docker container includes a dedicated workspace at `/workspace` containing a
 The workspace is built into the Docker image and resets on each container start, providing a clean, isolated environment for testing the agent's capabilities.
 
 When you start the agent, it automatically operates in the `/workspace` directory. Example tasks:
+
 ```
 🔧 "Create a new utility function for date formatting"
 🔧 "Refactor the authentication logic"
@@ -164,6 +174,7 @@ bin/
 ## Environment Variables
 
 Required environment variables:
+
 - `ANTHROPIC_API_KEY`: Your Anthropic API key for Claude
 
 ## License
