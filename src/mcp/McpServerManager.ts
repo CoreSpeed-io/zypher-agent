@@ -8,6 +8,7 @@ import {
   McpServerConfigSchema,
   type McpServerConfig,
 } from "./types";
+import { formatError } from "../utils";
 
 const McpConfigSchema = z.object({
   mcpServers: z.record(McpServerConfigSchema),
@@ -24,7 +25,6 @@ export class McpServerManager {
   private _servers = new Map<string, IMcpServer>();
   private _tools = new Map<string, Tool>();
   private _initialized = false;
-  private _reloadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Initializes the McpServerManager by loading configuration and setting up servers
@@ -84,13 +84,13 @@ export class McpServerManager {
       this._config = McpConfigSchema.parse(parsedConfig);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new Error(
-          `Invalid MCP config structure: ${error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`,
-        );
+        throw new Error(`Invalid MCP config structure: ${formatError(error)}`);
       }
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
-      throw new Error(`Failed to load MCP config: ${errorMessage}`);
+      throw new Error(
+        `Failed to load MCP config: ${formatError(errorMessage)}`,
+      );
     }
   }
 
@@ -112,7 +112,9 @@ export class McpServerManager {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
-      throw new Error(`Failed to reload MCP config: ${errorMessage}`);
+      throw new Error(
+        `Failed to reload MCP config: ${formatError(errorMessage)}`,
+      );
     }
   }
 
@@ -227,15 +229,11 @@ export class McpServerManager {
           for (const tool of tools) {
             this._tools.delete(tool.name);
           }
-          throw new Error(
-            `Failed to update mcp.json: ${error instanceof Error ? error.message : "Unknown error"}`,
-          );
+          throw new Error(`Failed to update mcp.json: ${formatError(error)}`);
         }
       }
     } catch (error) {
-      throw new Error(
-        `Failed to register server ${id}: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      throw new Error(`Failed to register server ${id}: ${formatError(error)}`);
     }
   }
 
@@ -287,14 +285,12 @@ export class McpServerManager {
           this._servers.set(id, server);
           // Note: We don't need to restore tools as they will be re-registered
           // when the server is re-registered
-          throw new Error(
-            `Failed to update mcp.json: ${error instanceof Error ? error.message : "Unknown error"}`,
-          );
+          throw new Error(`Failed to update mcp.json: ${formatError(error)}`);
         }
       }
     } catch (error) {
       throw new Error(
-        `Failed to deregister server ${id}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Failed to deregister server ${id}: ${formatError(error)}`,
       );
     }
   }
@@ -317,9 +313,7 @@ export class McpServerManager {
       // Register with new config
       await this.registerServer(id, config);
     } catch (error) {
-      throw new Error(
-        `Failed to update server ${id}: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      throw new Error(`Failed to update server ${id}: ${formatError(error)}`);
     }
   }
 
