@@ -409,6 +409,7 @@ async function startServer(): Promise<void> {
     const server = Bun.serve({
       port: PORT,
       fetch: app.fetch,
+      idleTimeout: 180,
     });
 
     console.log(`🚀 API server running at http://localhost:${PORT}`);
