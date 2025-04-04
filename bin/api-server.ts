@@ -245,7 +245,6 @@ app.delete("/agent/messages", (c) => {
 });
 
 // Run a task
-// This seems to be a known type issue, see: https://github.com/honojs/middleware/issues/719
 app.post("/agent/tasks", zValidator("json", taskSchema), (c) => {
   const { task, imageAttachments } = c.req.valid("json");
   const processedImages: ImageAttachment[] = [];
