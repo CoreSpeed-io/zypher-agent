@@ -388,7 +388,7 @@ app.put(
 
     await mcpServerManager.updateServerConfig(id, body[id]);
     return c.status(204);
-  }
+  },
 );
 
 // Query available tools from registered MCP servers
