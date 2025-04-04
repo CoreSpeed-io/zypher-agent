@@ -407,7 +407,7 @@ async function startServer(): Promise<void> {
   await initializeAgent();
 
   try {
-    const _server = Bun.serve({
+    const server = Bun.serve({
       port: PORT,
       fetch: app.fetch,
     });
@@ -416,7 +416,7 @@ async function startServer(): Promise<void> {
 
     process.on("SIGINT", () => {
       console.log("\n\nShutting down API server... 👋\n");
-      void _server.stop();
+      void server.stop();
       process.exit(0);
     });
   } catch (error) {
