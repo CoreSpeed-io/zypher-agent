@@ -35,6 +35,7 @@
     "commander": "^13.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "eslint-config-flat-gitignore": "^2.1.0",
     "express": "5.0.1",
     "openai": "^4.90.0",
     "zod": "^3.24.2",

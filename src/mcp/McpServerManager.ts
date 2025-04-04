@@ -185,7 +185,7 @@ export class McpServerManager {
    * @returns The appropriate connection mode
    */
   private getConnectionMode(config: McpServerConfig): ConnectionMode {
-    if (config.url) {
+    if ("url" in config) {
       return ConnectionMode.SSE;
     }
     return ConnectionMode.CLI;

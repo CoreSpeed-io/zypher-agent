@@ -155,7 +155,7 @@ export class McpClient {
   private buildTransport(mode: ConnectionMode, config: IMcpServer["config"]) {
     switch (mode) {
       case ConnectionMode.CLI:
-        if (!config.command || !config.args) {
+        if ("url" in config) {
           throw new Error("CLI mode requires command and args");
         }
         return new StdioClientTransport({
@@ -170,7 +170,7 @@ export class McpClient {
         });
 
       case ConnectionMode.SSE: {
-        if (!config.url) {
+        if (!("url" in config)) {
           throw new Error("SSE mode requires a URL");
         }
         return new SSEClientTransport(new URL(config.url));
