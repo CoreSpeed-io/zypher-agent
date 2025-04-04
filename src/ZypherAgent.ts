@@ -85,7 +85,6 @@ export interface ZypherAgentConfig {
 
 export class ZypherAgent {
   private readonly client: Anthropic;
-  // private readonly _tools: Map<string, Tool>;
   private system: TextBlockParam[];
   private readonly maxTokens: number;
   private _messages: Message[];
@@ -114,7 +113,6 @@ export class ZypherAgent {
       apiKey,
       ...(baseUrl && { baseURL: baseUrl }),
     });
-    // this._tools = new Map();
     this._messages = [];
     this.system = []; // Will be initialized in init()
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
@@ -239,7 +237,6 @@ export class ZypherAgent {
     parameters: Record<string, unknown>;
   }): Promise<string> {
     const tool = this.mcpServerManager.getTool(toolCall.name);
-    // const tool = this._tools.get(toolCall.name);
     if (!tool) {
       return `Error: Tool '${toolCall.name}' not found`;
     }
