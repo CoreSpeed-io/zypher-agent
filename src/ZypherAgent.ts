@@ -6,7 +6,6 @@ import type {
   TextBlockParam,
   ContentBlockParam,
   ImageBlockParam,
-  Base64ImageSource,
 } from "@anthropic-ai/sdk/resources/messages";
 import {
   printMessage,
