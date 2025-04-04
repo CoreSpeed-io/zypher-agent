@@ -268,33 +268,34 @@ app.post("/agent/tasks", zValidator("json", taskSchema), async (c) => {
     }
   }
 
-  return streamSSE(c, async (stream) => {
-    // Set up streaming handler for both messages and real-time updates
-    const streamHandler: StreamHandler = {
-      onContent: (content, _isFirstChunk) => {
-        // Send content_delta event for real-time content updates
-        void stream.writeSSE({
-          event: "content_delta",
-          data: JSON.stringify({ content }),
-        });
-      },
-      onToolUse: (name, partialInput) => {
-        // Send tool_use event for real-time tool use updates
-        void stream.writeSSE({
-          event: "tool_use_delta",
-          data: JSON.stringify({ name, partialInput }),
-        });
-      },
-      onMessage: (message) => {
-        // Send message event as soon as a complete message is available
-        void stream.writeSSE({
-          event: "message",
-          data: JSON.stringify(message),
-        });
-      },
-    };
+  return streamSSE(
+    c,
+    async (stream) => {
+      // Set up streaming handler for both messages and real-time updates
+      const streamHandler: StreamHandler = {
+        onContent: (content, _isFirstChunk) => {
+          // Send content_delta event for real-time content updates
+          void stream.writeSSE({
+            event: "content_delta",
+            data: JSON.stringify({ content }),
+          });
+        },
+        onToolUse: (name, partialInput) => {
+          // Send tool_use event for real-time tool use updates
+          void stream.writeSSE({
+            event: "tool_use_delta",
+            data: JSON.stringify({ name, partialInput }),
+          });
+        },
+        onMessage: (message) => {
+          // Send message event as soon as a complete message is available
+          void stream.writeSSE({
+            event: "message",
+            data: JSON.stringify(message),
+          });
+        },
+      };
 
-    try {
       // Run the task with streaming handler
       await agent.runTaskWithStreaming(task, streamHandler, processedImages);
 
@@ -303,16 +304,14 @@ app.post("/agent/tasks", zValidator("json", taskSchema), async (c) => {
         event: "complete",
         data: JSON.stringify({}),
       });
-    } catch (error) {
-      // Send error event directly in the stream
+    },
+    async (err, stream) => {
       await stream.writeSSE({
         event: "error",
-        data: JSON.stringify({ error: formatError(error) }),
+        data: JSON.stringify({ error: formatError(err) }),
       });
-    } finally {
-      await stream.close();
-    }
-  });
+    },
+  );
 });
 
 // List checkpoints
