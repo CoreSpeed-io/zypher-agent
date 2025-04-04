@@ -378,6 +378,7 @@ app.post("/mcp/register", async (req: Request, res: Response) => {
 
 // Deregister MCP server
 app.delete("/mcp/servers/:id", async (req: Request, res: Response) => {
+  // use zod to validate the id
   const id = z.string().min(1).parse(req.params.id);
   await mcpServerManager.deregisterServer(id);
   res.status(204).send();
@@ -388,7 +389,7 @@ app.put("/mcp/servers/:id", async (req: Request, res: Response) => {
   const id = req.params.id ?? "";
   const config = McpServerApiSchema.parse(req.body)[id];
   if (!config) {
-    // this is not a zod error, so we need to handle it differently
+    // config can be undefined when id is not provided
     throw new ApiError(400, "invalid_request", "Invalid server configuration");
   }
   await mcpServerManager.updateServerConfig(id, config);
