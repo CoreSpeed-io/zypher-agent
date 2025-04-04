@@ -361,20 +361,21 @@ app.post("/mcp/register", zValidator("json", McpServerApiSchema), async (c) => {
 // Deregister MCP server
 app.delete(
   "/mcp/servers/:id",
-  zValidator("param", z.object({ id: z.string() })),
+  zValidator("param", z.object({ id: z.string().min(1) })),
   async (c) => {
     const { id } = c.req.valid("param");
     await mcpServerManager.deregisterServer(id);
-    return c.body(null, 204);
+    return c.status(204);
   },
 );
 
 // Update MCP server configuration
 app.put(
   "/mcp/servers/:id",
+  zValidator("param", z.object({ id: z.string().min(1) })),
   zValidator("json", McpServerApiSchema),
   async (c) => {
-    const id = c.req.param("id");
+    const { id } = c.req.valid("param");
     const body = c.req.valid("json");
 
     if (!body[id]) {
@@ -386,8 +387,8 @@ app.put(
     }
 
     await mcpServerManager.updateServerConfig(id, body[id]);
-    return c.body(null, 204);
-  },
+    return c.status(204);
+  }
 );
 
 // Query available tools from registered MCP servers
