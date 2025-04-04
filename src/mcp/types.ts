@@ -1,19 +1,21 @@
 import { z } from "zod";
 import { McpClient } from "./McpClient";
 
-const BaseMcpServerConfigSchema = z
-  .object({
-    command: z.string().optional(),
-    args: z.array(z.string()).optional(),
-    url: z.string().url().optional(),
-    env: z.record(z.string()).optional(),
-  })
-  .passthrough();
+const CliConfigSchema = z.object({
+  command: z.string(),
+  args: z.array(z.string()),
+  env: z.record(z.string()).optional(),
+});
 
-export const McpServerConfigSchema = BaseMcpServerConfigSchema.refine(
-  (data) => (data.command && data.args) ?? data.url,
-  "Either command and args for CLI mode, or url for SSE mode must be provided",
-);
+const SseConfigSchema = z.object({
+  url: z.string().url(),
+  env: z.record(z.string()).optional(),
+});
+
+export const McpServerConfigSchema = z.union([
+  CliConfigSchema,
+  SseConfigSchema,
+]);
 
 export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
 

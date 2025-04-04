@@ -84,7 +84,6 @@ export interface ZypherAgentConfig {
 
 export class ZypherAgent {
   private readonly client: Anthropic;
-  // private readonly _tools: Map<string, Tool>;
   private system: TextBlockParam[];
   private readonly maxTokens: number;
   private _messages: Message[];
@@ -113,7 +112,6 @@ export class ZypherAgent {
       apiKey,
       ...(baseUrl && { baseURL: baseUrl }),
     });
-    // this._tools = new Map();
     this._messages = [];
     this.system = []; // Will be initialized in init()
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
@@ -128,12 +126,6 @@ export class ZypherAgent {
   async init(): Promise<void> {
     const userInfo = getCurrentUserInfo();
     const systemPromptText = await getSystemPrompt(userInfo);
-    // const mcpServerManager = await this.mcpServerManager.init();
-    // const tools = mcpServerManager.getAllTools();
-    // for (const tool of tools) {
-    //   this.registerTool(tool);
-    // }
-
     // Convert system prompt to content blocks
     // cache the main system prompt as it's large and reusable
     this.system = [
@@ -155,10 +147,6 @@ export class ZypherAgent {
   get messages(): Message[] {
     return [...this._messages];
   }
-
-  // get tools(): Map<string, Tool> {
-  //   return new Map(this._tools);
-  // }
 
   /**
    * Get the current model being used by the agent
@@ -243,17 +231,11 @@ export class ZypherAgent {
     }
   }
 
-  // registerTool(tool: Tool): void {
-  //   // this._tools.set(tool.name, tool);
-  //   this.mcpServerManager.registerTool(tool);
-  // }
-
   private async executeToolCall(toolCall: {
     name: string;
     parameters: Record<string, unknown>;
   }): Promise<string> {
     const tool = this.mcpServerManager.getTool(toolCall.name);
-    // const tool = this._tools.get(toolCall.name);
     if (!tool) {
       return `Error: Tool '${toolCall.name}' not found`;
     }
