@@ -151,10 +151,6 @@ export class ZypherAgent {
     return [...this._messages];
   }
 
-  // get tools(): Map<string, Tool> {
-  //   return new Map(this._tools);
-  // }
-
   /**
    * Get the current model being used by the agent
    */
@@ -237,11 +233,6 @@ export class ZypherAgent {
       printMessage(message);
     }
   }
-
-  // registerTool(tool: Tool): void {
-  //   // this._tools.set(tool.name, tool);
-  //   this.mcpServerManager.registerTool(tool);
-  // }
 
   private async executeToolCall(toolCall: {
     name: string;
