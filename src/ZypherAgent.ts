@@ -8,7 +8,6 @@ import type {
   ImageBlockParam,
   Base64ImageSource,
 } from "@anthropic-ai/sdk/resources/messages";
-import type { Tool } from "./tools";
 import {
   printMessage,
   getCurrentUserInfo,
@@ -24,6 +23,7 @@ import {
   applyCheckpoint,
 } from "./checkpoints";
 import type { Message } from "./message";
+import { McpServerManager } from "./mcp/McpServerManager";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
 const DEFAULT_MAX_TOKENS = 8192;
@@ -85,7 +85,6 @@ export interface ZypherAgentConfig {
 
 export class ZypherAgent {
   private readonly client: Anthropic;
-  private readonly _tools: Map<string, Tool>;
   private system: TextBlockParam[];
   private readonly maxTokens: number;
   private _messages: Message[];
@@ -94,8 +93,12 @@ export class ZypherAgent {
   private readonly enablePromptCaching: boolean;
   private readonly userId?: string;
   private readonly _model: string;
+  private readonly mcpServerManager: McpServerManager;
 
-  constructor(config: ZypherAgentConfig = {}) {
+  constructor(
+    config: ZypherAgentConfig = {},
+    mcpServerManager: McpServerManager,
+  ) {
     const apiKey = config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       throw new Error(
@@ -110,7 +113,6 @@ export class ZypherAgent {
       apiKey,
       ...(baseUrl && { baseURL: baseUrl }),
     });
-    this._tools = new Map();
     this._messages = [];
     this.system = []; // Will be initialized in init()
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
@@ -119,12 +121,12 @@ export class ZypherAgent {
     this.enablePromptCaching = config.enablePromptCaching ?? true;
     this.userId = userId;
     this._model = config.model ?? DEFAULT_MODEL;
+    this.mcpServerManager = mcpServerManager;
   }
 
   async init(): Promise<void> {
     const userInfo = getCurrentUserInfo();
     const systemPromptText = await getSystemPrompt(userInfo);
-
     // Convert system prompt to content blocks
     // cache the main system prompt as it's large and reusable
     this.system = [
@@ -145,10 +147,6 @@ export class ZypherAgent {
 
   get messages(): Message[] {
     return [...this._messages];
-  }
-
-  get tools(): Map<string, Tool> {
-    return new Map(this._tools);
   }
 
   /**
@@ -234,15 +232,11 @@ export class ZypherAgent {
     }
   }
 
-  registerTool(tool: Tool): void {
-    this._tools.set(tool.name, tool);
-  }
-
   private async executeToolCall(toolCall: {
     name: string;
     parameters: Record<string, unknown>;
   }): Promise<string> {
-    const tool = this._tools.get(toolCall.name);
+    const tool = this.mcpServerManager.getTool(toolCall.name);
     if (!tool) {
       return `Error: Tool '${toolCall.name}' not found`;
     }
@@ -375,7 +369,9 @@ export class ZypherAgent {
     };
     this.processMessage(userMessage, messages, streamHandler?.onMessage);
 
-    const toolCalls = Array.from(this._tools.values()).map(
+    const toolCalls = Array.from(
+      this.mcpServerManager.getAllTools().values(),
+    ).map(
       (tool, index, tools): ToolUnion => ({
         name: tool.name,
         description: tool.description,

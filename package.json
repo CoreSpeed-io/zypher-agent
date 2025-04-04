@@ -13,7 +13,8 @@
     "build:api": "bun build bin/api-server.ts --target bun --production --minify --outfile dist/api-server.js",
     "type-check": "tsc --noEmit",
     "lint": "eslint",
-    "lint:fix": "eslint --fix"
+    "lint:fix": "eslint --fix",
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
@@ -29,14 +30,16 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.8.0",
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "eslint-config-flat-gitignore": "^2.1.0",
     "express": "5.0.1",
     "openai": "^4.90.0",
     "zod": "^3.24.2",
-    "zod-to-json-schema": "^3.24.3"
+    "zod-to-json-schema": "^3.24.5"
   },
   "peerDependencies": {
     "typescript": "^5.8.2"
