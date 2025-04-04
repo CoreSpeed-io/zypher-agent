@@ -129,12 +129,6 @@ export class ZypherAgent {
   async init(): Promise<void> {
     const userInfo = getCurrentUserInfo();
     const systemPromptText = await getSystemPrompt(userInfo);
-    // const mcpServerManager = await this.mcpServerManager.init();
-    // const tools = mcpServerManager.getAllTools();
-    // for (const tool of tools) {
-    //   this.registerTool(tool);
-    // }
-
     // Convert system prompt to content blocks
     // cache the main system prompt as it's large and reusable
     this.system = [
