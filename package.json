@@ -19,8 +19,6 @@
   "devDependencies": {
     "@eslint/js": "^9.22.0",
     "@types/bun": "latest",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
     "eslint": "^9.22.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.3",
@@ -30,12 +28,12 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@hono/zod-validator": "^0.4.3",
     "@modelcontextprotocol/sdk": "^1.8.0",
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
-    "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "5.0.1",
+    "hono": "^4.7.5",
     "openai": "^4.90.0",
     "zod": "^3.24.2",
     "zod-to-json-schema": "^3.24.5"
