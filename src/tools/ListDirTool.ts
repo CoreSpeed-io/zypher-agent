@@ -1,7 +1,7 @@
-import { readdir, stat } from "fs/promises";
-import { join } from "path";
+import { readdir, stat } from "node:fs/promises";
+import { join } from "node:path";
 import { z } from "zod";
-import { defineTool } from "./index";
+import { defineTool } from "./index.ts";
 
 export const ListDirTool = defineTool({
   name: "list_dir",

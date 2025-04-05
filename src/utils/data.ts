@@ -1,9 +1,9 @@
-import os from "os";
-import { mkdir, access, constants, readFile, writeFile } from "fs/promises";
-import { join } from "path";
-import type { Message } from "../message";
-import { isMessage } from "../message";
-import { formatError } from "./error";
+import os from "node:os";
+import { mkdir, access, constants, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { Message } from "../message.ts";
+import { isMessage } from "../message.ts";
+import { formatError } from "./error.ts";
 
 /**
  * Checks if a file exists and is readable.

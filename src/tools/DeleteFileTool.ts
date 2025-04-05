@@ -1,6 +1,6 @@
-import { unlink } from "fs/promises";
+import { unlink } from "node:fs/promises";
 import { z } from "zod";
-import { defineTool } from "./index";
+import { defineTool } from "./index.ts";
 
 export const DeleteFileTool = defineTool({
   name: "delete_file",

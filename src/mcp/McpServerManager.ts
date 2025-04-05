@@ -1,14 +1,14 @@
-import { ConnectionMode, McpClient } from "./McpClient";
-import fs from "fs/promises";
-import type { Tool } from "../tools";
+import { ConnectionMode, McpClient } from "./McpClient.ts";
+import fs from "node:fs/promises";
+import type { Tool } from "../tools/index.ts";
 import { z } from "zod";
 import {
   McpServerSchema,
   type IMcpServer,
   McpServerConfigSchema,
   type McpServerConfig,
-} from "./types";
-import { formatError } from "../utils";
+} from "./types.ts";
+import { formatError } from "../utils/index.ts";
 
 const McpConfigSchema = z.object({
   mcpServers: z.record(McpServerConfigSchema),

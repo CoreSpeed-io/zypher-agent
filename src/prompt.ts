@@ -1,5 +1,5 @@
-import { access, constants, readFile } from "fs/promises";
-import type { UserInfo } from "./utils";
+import { access, constants, readFile } from "node:fs/promises";
+import type { UserInfo } from "./utils/system.ts";
 
 /**
  * Attempts to read a file with proper error handling.

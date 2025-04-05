@@ -1,6 +1,6 @@
-import { readFile } from "fs/promises";
+import { readFile } from "node:fs/promises";
 import { z } from "zod";
-import { defineTool } from "./index";
+import { defineTool } from "./index.ts";
 
 export const ReadFileTool = defineTool({
   name: "read_file",
