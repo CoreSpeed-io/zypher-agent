@@ -16,13 +16,10 @@
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { createTool, type Tool } from "../tools";
-import dotenv from "dotenv";
+import { createTool, type Tool } from "../tools/index.ts";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { z } from "zod";
-import type { IMcpServer } from "./types";
-
-dotenv.config();
+import type { IMcpServer } from "./types.ts";
 
 /**
  * Configuration options for the MCP client

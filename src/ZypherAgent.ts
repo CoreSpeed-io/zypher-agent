@@ -13,16 +13,16 @@ import {
   loadMessageHistory,
   saveMessageHistory,
   formatError,
-} from "./utils";
-import { detectErrors } from "./errorDetection";
-import { getSystemPrompt } from "./prompt";
+} from "./utils/index.ts";
+import { detectErrors } from "./errorDetection/index.ts";
+import { getSystemPrompt } from "./prompt.ts";
 import {
   createCheckpoint,
   getCheckpointDetails,
   applyCheckpoint,
-} from "./checkpoints";
-import type { Message } from "./message";
-import { McpServerManager } from "./mcp/McpServerManager";
+} from "./checkpoints.ts";
+import type { Message } from "./message.ts";
+import { McpServerManager } from "./mcp/McpServerManager.ts";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
 const DEFAULT_MAX_TOKENS = 8192;

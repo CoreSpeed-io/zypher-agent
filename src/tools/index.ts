@@ -71,11 +71,11 @@ export function defineTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
 }
 
 // Tool exports
-export { ReadFileTool } from "./ReadFileTool";
-export { ListDirTool } from "./ListDirTool";
-export { EditFileTool } from "./EditFileTool";
-export { RunTerminalCmdTool } from "./RunTerminalCmdTool";
-export { GrepSearchTool } from "./GrepSearchTool";
-export { FileSearchTool } from "./FileSearchTool";
-export { DeleteFileTool } from "./DeleteFileTool";
-export { ImageGenTool } from "./ImageGenTool";
+export { ReadFileTool } from "./ReadFileTool.ts";
+export { ListDirTool } from "./ListDirTool.ts";
+export { EditFileTool } from "./EditFileTool.ts";
+export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
+export { GrepSearchTool } from "./GrepSearchTool.ts";
+export { FileSearchTool } from "./FileSearchTool.ts";
+export { DeleteFileTool } from "./DeleteFileTool.ts";
+export { ImageGenTool } from "./ImageGenTool.ts";

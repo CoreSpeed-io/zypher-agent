@@ -1,7 +1,7 @@
-import { exec, spawn } from "child_process";
-import { promisify } from "util";
+import { exec, spawn } from "node:child_process";
+import { promisify } from "node:util";
 import { z } from "zod";
-import { defineTool } from "./index";
+import { defineTool } from "./index.ts";
 
 const execAsync = promisify(exec);
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { McpClient } from "./McpClient";
+import { McpClient } from "./McpClient.ts";
 
 const CliConfigSchema = z.object({
   command: z.string(),

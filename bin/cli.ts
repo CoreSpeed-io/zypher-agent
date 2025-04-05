@@ -1,5 +1,6 @@
-import { ZypherAgent } from "../src/ZypherAgent";
-import type { StreamHandler } from "../src/ZypherAgent";
+import "jsr:@std/dotenv/load";
+import { ZypherAgent } from "../src/ZypherAgent.ts";
+import type { StreamHandler } from "../src/ZypherAgent.ts";
 import {
   ReadFileTool,
   ListDirTool,
@@ -9,14 +10,13 @@ import {
   FileSearchTool,
   DeleteFileTool,
   ImageGenTool,
-} from "../src/tools";
+} from "../src/tools/index.ts";
 import { Command } from "commander";
-import dotenv from "dotenv";
-import readline from "readline";
-import { stdin as input, stdout as output } from "process";
-import { formatError } from "../src/utils/error";
+import readline from "node:readline";
+import { stdin as input, stdout as output } from "node:process";
+import { formatError } from "../src/utils/error.ts";
 import chalk from "chalk";
-import { McpServerManager } from "../src/mcp/McpServerManager";
+import { McpServerManager } from "../src/mcp/McpServerManager.ts";
 
 interface CliOptions {
   workspace?: string;
@@ -68,8 +68,6 @@ function prompt(question: string): Promise<string> {
 }
 
 async function main(): Promise<void> {
-  dotenv.config();
-
   await mcpServerManager.init();
 
   try {

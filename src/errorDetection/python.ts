@@ -1,6 +1,6 @@
-import type { ErrorDetector } from "./interface";
-import { execAsync, extractErrorOutput } from "./utils";
-import { fileExists } from "../utils";
+import type { ErrorDetector } from "./interface.ts";
+import { execAsync, extractErrorOutput } from "./utils.ts";
+import { fileExists } from "../utils/index.ts";
 
 /**
  * Detector for Python linting errors using flake8

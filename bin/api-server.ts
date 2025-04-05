@@ -1,16 +1,17 @@
+import "jsr:@std/dotenv/load";
+
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { prettyJSON } from "hono/pretty-json";
 import { streamSSE } from "hono/streaming";
 import { zValidator } from "@hono/zod-validator";
 import type { StatusCode } from "hono/utils/http-status";
-import dotenv from "dotenv";
 import { Command } from "commander";
 import {
   ZypherAgent,
   type StreamHandler,
   type ImageAttachment,
-} from "../src/ZypherAgent";
+} from "../src/ZypherAgent.ts";
 import { z } from "zod";
 
 import {
@@ -22,14 +23,11 @@ import {
   FileSearchTool,
   DeleteFileTool,
   ImageGenTool,
-} from "../src/tools";
-import { listCheckpoints } from "../src/checkpoints";
-import { formatError } from "../src/utils/error";
-import { McpServerManager } from "../src/mcp/McpServerManager";
-import { McpServerConfigSchema, type IMcpServer } from "../src/mcp/types";
-
-// Load environment variables
-dotenv.config();
+} from "../src/tools/index.ts";
+import { listCheckpoints } from "../src/checkpoints.ts";
+import { formatError } from "../src/utils/error.ts";
+import { McpServerManager } from "../src/mcp/McpServerManager.ts";
+import { McpServerConfigSchema, type IMcpServer } from "../src/mcp/types.ts";
 
 class ApiError extends Error {
   constructor(
@@ -406,11 +404,7 @@ async function startServer(): Promise<void> {
   await initializeAgent();
 
   try {
-    const server = Bun.serve({
-      port: PORT,
-      fetch: app.fetch,
-      idleTimeout: 180,
-    });
+    const server = Deno.serve({ port: PORT }, app.fetch);
 
     console.log(`🚀 API server running at http://localhost:${PORT}`);
 

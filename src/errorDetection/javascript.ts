@@ -1,4 +1,4 @@
-import type { ErrorDetector } from "./interface";
+import type { ErrorDetector } from "./interface.ts";
 import {
   execAsync,
   readPackageJson,
@@ -7,8 +7,8 @@ import {
   hasScript,
   findScriptByPattern,
   extractErrorOutput,
-} from "./utils";
-import { fileExists } from "../utils";
+} from "./utils.ts";
+import { fileExists } from "../utils/index.ts";
 
 /**
  * Detector for ESLint errors in JavaScript/TypeScript projects

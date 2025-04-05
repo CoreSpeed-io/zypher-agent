@@ -1,7 +1,7 @@
-import { readFile } from "fs/promises";
-import { exec } from "child_process";
-import { promisify } from "util";
-import { fileExists } from "../utils";
+import { readFile } from "node:fs/promises";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import { fileExists } from "../utils/index.ts";
 
 export const execAsync = promisify(exec);
 
@@ -155,7 +155,6 @@ export function getScript(
 function safeToString(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
-  if (value instanceof Buffer) return value.toString();
   if (typeof value === "object") return JSON.stringify(value);
   // At this point, value can only be number, boolean, bigint, or symbol
   return (value as number | boolean | bigint | symbol).toString();

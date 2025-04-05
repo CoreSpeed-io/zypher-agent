@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { defineTool } from "./index";
+import { defineTool } from "./index.ts";
 import OpenAI from "openai";
-import * as fs from "fs/promises";
-import * as path from "path";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { APIError } from "openai";
 
 // Initialize OpenAI client

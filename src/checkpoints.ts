@@ -1,8 +1,8 @@
-import { exec } from "child_process";
-import { promisify } from "util";
-import { access, constants, mkdir } from "fs/promises";
-import { join } from "path";
-import { getWorkspaceDataDir } from "./utils";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import { access, constants, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { getWorkspaceDataDir } from "./utils/index.ts";
 
 const execAsync = promisify(exec);
 

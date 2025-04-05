@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { defineTool } from "./index";
-import * as fs from "fs/promises";
-import * as path from "path";
+import { defineTool } from "./index.ts";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 
 export const EditFileTool = defineTool({
   name: "edit_file",
