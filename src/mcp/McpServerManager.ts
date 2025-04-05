@@ -14,7 +14,10 @@ const McpConfigSchema = z.object({
   mcpServers: z.record(McpServerConfigSchema),
 });
 
+const ServerStatusSchema = z.record(z.string(), z.boolean());
+
 type IMcpConfig = z.infer<typeof McpConfigSchema>;
+type ServerStatusMap = z.infer<typeof ServerStatusSchema>;
 
 /**
  * McpServerManager is a class that manages MCP (Model Context Protocol) servers and their tools.
@@ -23,8 +26,10 @@ type IMcpConfig = z.infer<typeof McpConfigSchema>;
 export class McpServerManager {
   private _config: IMcpConfig | null = null;
   private _servers = new Map<string, IMcpServer>();
-  private _tools = new Map<string, Tool>();
+  private _toolbox = new Map<string, Tool>();
+  private _serverToolsMap = new Map<string, Set<string>>();
   private _initialized = false;
+  private _serverStatusFile = "server-status.json";
 
   /**
    * Initializes the McpServerManager by loading configuration and setting up servers
@@ -38,7 +43,10 @@ export class McpServerManager {
     // 1. Read and parse server configs from mcp.json
     await this.loadConfig();
 
-    // 2. Initialize servers and fetch their tools
+    // 2. Load server statuses
+    await this.loadServerStatuses();
+
+    // 3. Initialize servers and fetch their tools
     await this.initializeServers();
 
     this._initialized = true;
@@ -46,11 +54,140 @@ export class McpServerManager {
   }
 
   /**
+   * Loads server statuses from the status file
+   */
+  private async loadServerStatuses(): Promise<void> {
+    try {
+      try {
+        await fs.access(this._serverStatusFile);
+      } catch {
+        // Create default status file if it doesn't exist
+        const defaultStatuses: ServerStatusMap = {};
+        await fs.writeFile(
+          this._serverStatusFile,
+          JSON.stringify(defaultStatuses, null, 2),
+        );
+        return;
+      }
+
+      const statusContent = await fs.readFile(this._serverStatusFile, "utf-8");
+      const statuses = ServerStatusSchema.parse(JSON.parse(statusContent));
+
+      // Apply statuses to existing servers
+      for (const [serverId, status] of Object.entries(statuses)) {
+        const server = this._servers.get(serverId);
+        if (server) {
+          server.enabled = status;
+          if (!status) {
+            // Remove tools if server is disabled
+            this.removeServerTools(serverId);
+          }
+        }
+      }
+    } catch (error) {
+      throw new Error(`Failed to load server statuses: ${formatError(error)}`);
+    }
+  }
+
+  /**
+   * Saves current server statuses to the status file
+   */
+  private async saveServerStatuses(): Promise<void> {
+    const statuses: ServerStatusMap = {};
+    for (const [id, server] of this._servers.entries()) {
+      statuses[id] = server.enabled;
+    }
+    await fs.writeFile(
+      this._serverStatusFile,
+      JSON.stringify(statuses, null, 2),
+    );
+  }
+
+  /**
+   * Sets the status of a server
+   * @param serverId The ID of the server
+   * @param enabled Whether the server should be enabled
+   */
+  async setServerStatus(serverId: string, enabled: boolean): Promise<void> {
+    const server = this._servers.get(serverId);
+    if (!server) {
+      throw new Error(`Server ${serverId} not found`);
+    }
+
+    server.enabled = enabled;
+    if (!enabled) {
+      this.removeServerTools(serverId);
+    } else {
+      // Re-register tools if server is enabled
+      await this.registerServerTools(server);
+    }
+
+    await this.saveServerStatuses();
+  }
+
+  /**
+   * Gets the status of a server
+   * @param serverId The ID of the server
+   * @returns The server's enabled status
+   */
+  getServerStatus(serverId: string): boolean {
+    const server = this._servers.get(serverId);
+    if (!server) {
+      throw new Error(`Server ${serverId} not found`);
+    }
+    return server.enabled;
+  }
+
+  /**
+   * Removes all tools associated with a server from the toolbox
+   * @param serverId The ID of the server
+   */
+  private removeServerTools(serverId: string): void {
+    const toolNames = this._serverToolsMap.get(serverId);
+    if (toolNames) {
+      for (const toolName of toolNames) {
+        this._toolbox.delete(toolName);
+      }
+    }
+  }
+
+  /**
+   * Registers all tools for a server
+   * @param server The server to register tools for
+   */
+  private async registerServerTools(server: IMcpServer): Promise<void> {
+    if (!server.enabled) {
+      return;
+    }
+
+    try {
+      const connectionMode = this.getConnectionMode(server.config);
+      const tools = await server.client.retriveTools(
+        server.config,
+        connectionMode,
+      );
+      const serverTools = new Set<string>();
+
+      for (const tool of tools) {
+        const toolName = `mcp_${server.id}_${tool.name}`;
+        this._toolbox.set(toolName, tool);
+        serverTools.add(toolName);
+      }
+
+      this._serverToolsMap.set(server.id, serverTools);
+    } catch (error) {
+      throw new Error(
+        `Failed to register tools for server ${server.id}: ${formatError(error)}`,
+      );
+    }
+  }
+
+  /**
    * Gets all registered tools from all servers
    * @returns Array of all available tools
    */
   getAllTools(): Map<string, Tool> {
-    return this._tools;
+    return this._toolbox;
   }
 
   /**
@@ -59,7 +196,7 @@ export class McpServerManager {
    * @returns The tool if found, undefined otherwise
    */
   public getTool(name: string): Tool | undefined {
-    const tool = this._tools.get(name);
+    const tool = this._toolbox.get(name);
     return tool;
   }
 
@@ -227,7 +364,7 @@ export class McpServerManager {
           // Rollback server registration if file write fails
           this._servers.delete(id);
           for (const tool of tools) {
-            this._tools.delete(tool.name);
+            this._toolbox.delete(tool.name);
           }
           throw new Error(`Failed to update mcp.json: ${formatError(error)}`);
         }
@@ -243,10 +380,10 @@ export class McpServerManager {
    * @throws Error if tool is not found
    */
   removeTool(name: string): void {
-    if (!this._tools.has(name)) {
+    if (!this._toolbox.has(name)) {
       throw new Error(`Tool ${name} not found`);
     }
-    this._tools.delete(name);
+    this._toolbox.delete(name);
   }
 
   /**
@@ -266,7 +403,7 @@ export class McpServerManager {
 
       // Remove all tools associated with this server
       const toolPrefix = `mcp_${id}_`;
-      const toolsToRemove = Array.from(this._tools.keys()).filter((name) =>
+      const toolsToRemove = Array.from(this._toolbox.keys()).filter((name) =>
         name.startsWith(toolPrefix),
       );
 
@@ -325,10 +462,10 @@ export class McpServerManager {
    * @param tool The tool to register
    */
   registerTool(tool: Tool): void {
-    if (this._tools.has(tool.name)) {
+    if (this._toolbox.has(tool.name)) {
       throw new Error(`Tool ${tool.name} already registered`);
     }
-    this._tools.set(tool.name, tool);
+    this._toolbox.set(tool.name, tool);
   }
 
   /**
@@ -353,7 +490,7 @@ export class McpServerManager {
     }
 
     this._servers.clear();
-    this._tools.clear();
+    this._toolbox.clear();
     this._initialized = false;
   }
 }

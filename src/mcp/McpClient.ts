@@ -21,7 +21,6 @@ import dotenv from "dotenv";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { z } from "zod";
 import type { IMcpServerConfig } from "./types";
-import { formatError } from "../utils";
 
 dotenv.config();
 
