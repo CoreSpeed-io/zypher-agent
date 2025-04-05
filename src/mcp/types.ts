@@ -24,6 +24,7 @@ export const McpServerSchema = z.object({
   name: z.string(),
   client: z.instanceof(McpClient),
   config: McpServerConfigSchema,
+  enabled: z.boolean().default(true),
 });
 
 export type IMcpServer = z.infer<typeof McpServerSchema>;

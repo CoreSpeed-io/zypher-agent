@@ -520,3 +520,59 @@ paths:
                       $ref: "#/components/schemas/Tool"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /mcp/servers/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+        description: ID of the MCP server
+    get:
+      summary: Get server status
+      description: Returns the enabled/disabled status of a specific MCP server
+      operationId: getMcpServerStatus
+      responses:
+        "200":
+          description: Server status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                    description: Whether the server is enabled
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          description: Server not found
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      summary: Update server status
+      description: Enable or disable a specific MCP server
+      operationId: updateMcpServerStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - enabled
+              properties:
+                enabled:
+                  type: boolean
+                  description: Whether to enable or disable the server
+      responses:
+        "204":
+          description: Server status updated successfully
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          description: Server not found
+        "500":
+          $ref: "#/components/responses/InternalServerError"

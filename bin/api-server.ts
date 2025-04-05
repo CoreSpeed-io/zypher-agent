@@ -359,9 +359,25 @@ app.get("/mcp/servers", (req: Request, res: Response) => {
       id,
       name: server.name,
       config: server.config,
+      enabled: server.enabled,
     }),
   );
   res.json({ servers });
+});
+
+// Get server status
+app.get("/mcp/servers/:id/status", (req: Request, res: Response) => {
+  const id = z.string().min(1).parse(req.params.id);
+  const enabled = mcpServerManager.getServerStatus(id);
+  res.json({ enabled });
+});
+
+// Update server status
+app.put("/mcp/servers/:id/status", async (req: Request, res: Response) => {
+  const id = z.string().min(1).parse(req.params.id);
+  const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
+  await mcpServerManager.setServerStatus(id, enabled);
+  res.status(204).send();
 });
 
 // Register new MCP server
