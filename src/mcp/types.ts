@@ -17,7 +17,7 @@ export const McpServerConfigSchema = z.union([
   SseConfigSchema,
 ]);
 
-export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
+export type IMcpServerConfig = z.infer<typeof McpServerConfigSchema>;
 
 export const McpServerSchema = z.object({
   id: z.string(),

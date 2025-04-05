@@ -6,7 +6,7 @@ import {
   McpServerSchema,
   type IMcpServer,
   McpServerConfigSchema,
-  type McpServerConfig,
+  type IMcpServerConfig,
 } from "./types";
 import { formatError } from "../utils";
 
@@ -184,7 +184,7 @@ export class McpServerManager {
    * @param config The server configuration
    * @returns The appropriate connection mode
    */
-  private getConnectionMode(config: McpServerConfig): ConnectionMode {
+  private getConnectionMode(config: IMcpServerConfig): ConnectionMode {
     if ("url" in config) {
       return ConnectionMode.SSE;
     }
@@ -197,7 +197,7 @@ export class McpServerManager {
    * @param config Server configuration
    * @throws Error if server registration fails or server already exists
    */
-  async registerServer(id: string, config: McpServerConfig): Promise<void> {
+  async registerServer(id: string, config: IMcpServerConfig): Promise<void> {
     if (this._servers.has(id)) {
       throw new Error(`Server with id ${id} already exists`);
     }
@@ -301,7 +301,10 @@ export class McpServerManager {
    * @param config New server configuration
    * @throws Error if server is not found or update fails
    */
-  async updateServerConfig(id: string, config: McpServerConfig): Promise<void> {
+  async updateServerConfig(
+    id: string,
+    config: IMcpServerConfig,
+  ): Promise<void> {
     const server = this._servers.get(id);
     if (!server) {
       throw new Error(`Server with id ${id} not found`);
