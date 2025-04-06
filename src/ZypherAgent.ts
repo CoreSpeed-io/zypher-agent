@@ -1,13 +1,4 @@
 import '@anthropic-ai/sdk/shims/web'
-import { Anthropic } from "@anthropic-ai/sdk";
-import type {
-  MessageParam as AnthropicMessageParam,
-  ToolResultBlockParam,
-  ToolUnion,
-  TextBlockParam,
-  ContentBlockParam,
-  ImageBlockParam,
-} from "@anthropic-ai/sdk/resources/messages";
 import {
   printMessage,
   getCurrentUserInfo,
@@ -24,6 +15,7 @@ import {
 } from "./checkpoints.ts";
 import type { Message } from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
+import { Anthropic } from "@anthropic-ai/sdk";
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
 const DEFAULT_MAX_TOKENS = 8192;
@@ -85,7 +77,7 @@ export interface ZypherAgentConfig {
 
 export class ZypherAgent {
   private readonly client: Anthropic;
-  private system: TextBlockParam[];
+  private system: Anthropic.TextBlockParam[];
   private readonly maxTokens: number;
   private _messages: Message[];
   private readonly persistHistory: boolean;
@@ -262,14 +254,14 @@ export class ZypherAgent {
   private formatMessageForApi = (
     message: Message,
     isLastMessage: boolean,
-  ): AnthropicMessageParam => {
+  ): Anthropic.MessageParam => {
     // Destructure to get only the standard fields
     const { role, content } = message;
 
     // For string content, convert to array format
     let contentArray =
       typeof content === "string"
-        ? [{ type: "text" as const, text: content } as TextBlockParam]
+        ? [{ type: "text" as const, text: content } as Anthropic.TextBlockParam]
         : content; // Use original array for non-last messages
 
     // Add cache control to the last block of the last message
@@ -282,7 +274,7 @@ export class ZypherAgent {
         {
           ...contentArray[contentArray.length - 1],
           cache_control: { type: "ephemeral" },
-        } as ContentBlockParam,
+        } as Anthropic.ContentBlockParam,
       ];
     }
 
@@ -347,16 +339,16 @@ export class ZypherAgent {
           return {
             type: "image",
             source: img.source,
-          } as ImageBlockParam;
+          } as Anthropic.ImageBlockParam;
         })
       : [];
 
-    const messageContent: ContentBlockParam[] = [
+    const messageContent: Anthropic.ContentBlockParam[] = [
       ...imageBlocks,
       {
         type: "text",
         text: `<user_query>\n${taskDescription}\n</user_query>`,
-      } as TextBlockParam,
+      } as Anthropic.TextBlockParam,
     ];
 
     // Add user message with checkpoint reference
@@ -372,7 +364,7 @@ export class ZypherAgent {
     const toolCalls = Array.from(
       this.mcpServerManager.getAllTools().values(),
     ).map(
-      (tool, index, tools): ToolUnion => ({
+      (tool, index, tools): Anthropic.ToolUnion => ({
         name: tool.name,
         description: tool.description,
         input_schema: tool.parameters,
@@ -407,7 +399,7 @@ export class ZypherAgent {
             isFirstChunk = false;
           }
         })
-        .on("streamEvent", (event) => {
+        .on("streamEvent", (event: Anthropic.MessageStreamEvent) => {
           // Detect tool use at the start of a content block
           if (
             event.type === "content_block_start" &&
@@ -456,7 +448,7 @@ export class ZypherAgent {
                   type: "tool_result",
                   tool_use_id: block.id,
                   content: result,
-                } as ToolResultBlockParam,
+                } as Anthropic.ToolResultBlockParam,
               ],
               timestamp: new Date(),
             };
