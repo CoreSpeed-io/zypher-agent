@@ -87,7 +87,7 @@ export function hasDependency(
 
   return !!(
     (packageJson.dependencies && dependency in packageJson.dependencies) ??
-    (packageJson.devDependencies && dependency in packageJson.devDependencies)
+      (packageJson.devDependencies && dependency in packageJson.devDependencies)
   );
 }
 
@@ -121,7 +121,7 @@ export function findScriptByPattern(
   if (!packageJson?.scripts) return undefined;
 
   return Object.keys(packageJson.scripts).find((script) =>
-    script.includes(pattern),
+    script.includes(pattern)
   );
 }
 

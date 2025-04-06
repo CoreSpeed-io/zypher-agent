@@ -8,26 +8,26 @@ import { zValidator } from "@hono/zod-validator";
 import type { StatusCode } from "hono/utils/http-status";
 import { Command } from "commander";
 import {
-  ZypherAgent,
-  type StreamHandler,
   type ImageAttachment,
+  type StreamHandler,
+  ZypherAgent,
 } from "../src/ZypherAgent.ts";
 import { z } from "zod";
 
 import {
-  ReadFileTool,
-  ListDirTool,
-  EditFileTool,
-  RunTerminalCmdTool,
-  GrepSearchTool,
-  FileSearchTool,
   DeleteFileTool,
+  EditFileTool,
+  FileSearchTool,
+  GrepSearchTool,
   ImageGenTool,
+  ListDirTool,
+  ReadFileTool,
+  RunTerminalCmdTool,
 } from "../src/tools/index.ts";
 import { listCheckpoints } from "../src/checkpoints.ts";
 import { formatError } from "../src/utils/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
-import { McpServerConfigSchema, type IMcpServer } from "../src/mcp/types.ts";
+import { type IMcpServer, McpServerConfigSchema } from "../src/mcp/types.ts";
 import process from "node:process";
 
 class ApiError extends Error {
@@ -72,7 +72,9 @@ const base64ImageSchema = z
       );
     },
     {
-      message: `Image must be one of the following types: ${SUPPORTED_IMAGE_TYPES.join(", ")}`,
+      message: `Image must be one of the following types: ${
+        SUPPORTED_IMAGE_TYPES.join(", ")
+      }`,
     },
   );
 

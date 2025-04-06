@@ -105,8 +105,9 @@ export class McpClient {
 
       return tools;
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Unknown error";
       throw new Error(`Failed to connect to MCP server: ${errorMessage}`);
     }
   }
@@ -142,8 +143,9 @@ export class McpClient {
         await this.client?.close();
         this.transport = null;
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
+        const errorMessage = error instanceof Error
+          ? error.message
+          : "Unknown error";
         console.error("Error during cleanup:", errorMessage);
       }
     }

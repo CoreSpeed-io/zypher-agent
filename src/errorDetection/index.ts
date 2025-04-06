@@ -1,6 +1,9 @@
 import type { ErrorDetector } from "./interface.ts";
 import { ESLintErrorDetector, TypeScriptErrorDetector } from "./javascript.ts";
-import { PythonFlake8ErrorDetector, PythonMypyErrorDetector } from "./python.ts";
+import {
+  PythonFlake8ErrorDetector,
+  PythonMypyErrorDetector,
+} from "./python.ts";
 import { GoLintErrorDetector, GoVetErrorDetector } from "./go.ts";
 
 // Export all interfaces and types
@@ -9,11 +12,11 @@ export * from "./interface.ts";
 // Export all detectors
 export {
   ESLintErrorDetector,
-  TypeScriptErrorDetector,
-  PythonFlake8ErrorDetector,
-  PythonMypyErrorDetector,
   GoLintErrorDetector,
   GoVetErrorDetector,
+  PythonFlake8ErrorDetector,
+  PythonMypyErrorDetector,
+  TypeScriptErrorDetector,
 };
 
 /**

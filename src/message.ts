@@ -36,8 +36,8 @@ export function isMessage(value: unknown): value is Message {
     return false;
   }
 
-  const hasRequiredProps =
-    "role" in value && "content" in value && "timestamp" in value;
+  const hasRequiredProps = "role" in value && "content" in value &&
+    "timestamp" in value;
 
   if (!hasRequiredProps) {
     return false;

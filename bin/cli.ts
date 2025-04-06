@@ -2,14 +2,14 @@ import "jsr:@std/dotenv/load";
 import { ZypherAgent } from "../src/ZypherAgent.ts";
 import type { StreamHandler } from "../src/ZypherAgent.ts";
 import {
-  ReadFileTool,
-  ListDirTool,
-  EditFileTool,
-  RunTerminalCmdTool,
-  GrepSearchTool,
-  FileSearchTool,
   DeleteFileTool,
+  EditFileTool,
+  FileSearchTool,
+  GrepSearchTool,
   ImageGenTool,
+  ListDirTool,
+  ReadFileTool,
+  RunTerminalCmdTool,
 } from "../src/tools/index.ts";
 import { Command } from "commander";
 import readline from "node:readline";
@@ -157,7 +157,9 @@ async function main(): Promise<void> {
               onContent: (content, isFirstChunk) => {
                 // For the first content chunk, add a bot indicator
                 if (isFirstChunk) {
-                  Deno.stdout.write(new TextEncoder().encode(chalk.blue("🤖 ")));
+                  Deno.stdout.write(
+                    new TextEncoder().encode(chalk.blue("🤖 ")),
+                  );
                 }
 
                 // Write the text without newline to allow continuous streaming

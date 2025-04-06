@@ -5,18 +5,18 @@
 // To provide a better experience (faster responses from the Anthropic API), we MUST use the global fetch for HTTP/2.
 import "@anthropic-ai/sdk/shims/web";
 import {
-  printMessage,
+  formatError,
   getCurrentUserInfo,
   loadMessageHistory,
+  printMessage,
   saveMessageHistory,
-  formatError,
 } from "./utils/index.ts";
 import { detectErrors } from "./errorDetection/index.ts";
 import { getSystemPrompt } from "./prompt.ts";
 import {
+  applyCheckpoint,
   createCheckpoint,
   getCheckpointDetails,
-  applyCheckpoint,
 } from "./checkpoints.ts";
 import type { Message } from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
@@ -264,10 +264,9 @@ export class ZypherAgent {
     const { role, content } = message;
 
     // For string content, convert to array format
-    let contentArray =
-      typeof content === "string"
-        ? [{ type: "text" as const, text: content } as Anthropic.TextBlockParam]
-        : content; // Use original array for non-last messages
+    let contentArray = typeof content === "string"
+      ? [{ type: "text" as const, text: content } as Anthropic.TextBlockParam]
+      : content; // Use original array for non-last messages
 
     // Add cache control to the last block of the last message
     if (isLastMessage && this.enablePromptCaching && contentArray.length > 0) {
@@ -332,7 +331,9 @@ export class ZypherAgent {
     const messages: Message[] = [...this._messages];
 
     // Always create a checkpoint before executing the task
-    const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${taskDescription.length > 50 ? "..." : ""}`;
+    const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${
+      taskDescription.length > 50 ? "..." : ""
+    }`;
     const checkpointId = await createCheckpoint(checkpointName);
     const checkpoint = checkpointId
       ? await getCheckpointDetails(checkpointId)
@@ -341,11 +342,11 @@ export class ZypherAgent {
     // Prepare message content
     const imageBlocks = imageAttachments
       ? imageAttachments.map((img) => {
-          return {
-            type: "image",
-            source: img.source,
-          } as Anthropic.ImageBlockParam;
-        })
+        return {
+          type: "image",
+          source: img.source,
+        } as Anthropic.ImageBlockParam;
+      })
       : [];
 
     const messageContent: Anthropic.ContentBlockParam[] = [
@@ -376,8 +377,8 @@ export class ZypherAgent {
         // Only add cache control to the last tool as it acts as a breakpoint
         ...(this.enablePromptCaching &&
           index === tools.length - 1 && {
-            cache_control: { type: "ephemeral" },
-          }),
+          cache_control: { type: "ephemeral" },
+        }),
       }),
     );
 
@@ -392,7 +393,7 @@ export class ZypherAgent {
           max_tokens: this.maxTokens,
           system: this.system,
           messages: messages.map((msg, index) =>
-            this.formatMessageForApi(msg, index === messages.length - 1),
+            this.formatMessageForApi(msg, index === messages.length - 1)
           ),
           tools: toolCalls,
           ...(this.userId && { metadata: { user_id: this.userId } }),
@@ -488,7 +489,8 @@ export class ZypherAgent {
             // Add errors as a user message
             const errorMessage: Message = {
               role: "user",
-              content: `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
+              content:
+                `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
               timestamp: new Date(),
             };
             this.processMessage(

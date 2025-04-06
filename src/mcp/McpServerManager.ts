@@ -2,10 +2,10 @@ import { ConnectionMode, McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/index.ts";
 import { z } from "zod";
 import {
-  McpServerSchema,
   type IMcpServer,
-  McpServerConfigSchema,
   type McpServerConfig,
+  McpServerConfigSchema,
+  McpServerSchema,
 } from "./types.ts";
 import { formatError } from "../utils/index.ts";
 
@@ -73,7 +73,10 @@ export class McpServerManager {
         await Deno.stat(configPath);
       } catch {
         const defaultConfig: IMcpConfig = { mcpServers: {} };
-        await Deno.writeTextFile(configPath, JSON.stringify(defaultConfig, null, 2));
+        await Deno.writeTextFile(
+          configPath,
+          JSON.stringify(defaultConfig, null, 2),
+        );
         this._config = defaultConfig;
         return;
       }
@@ -85,8 +88,9 @@ export class McpServerManager {
       if (error instanceof z.ZodError) {
         throw new Error(`Invalid MCP config structure: ${formatError(error)}`);
       }
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Unknown error";
       throw new Error(
         `Failed to load MCP config: ${formatError(errorMessage)}`,
       );
@@ -109,8 +113,9 @@ export class McpServerManager {
       // Reload configuration
       await this.init();
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Unknown error";
       throw new Error(
         `Failed to reload MCP config: ${formatError(errorMessage)}`,
       );
@@ -166,8 +171,9 @@ export class McpServerManager {
             }
           }
         } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Unknown error";
+          const errorMessage = error instanceof Error
+            ? error.message
+            : "Unknown error";
           console.error(`Failed to initialize server ${id}: ${errorMessage}`);
           // Remove the failed server
           this._servers.delete(id);
@@ -221,7 +227,10 @@ export class McpServerManager {
       if (this._config) {
         try {
           this._config.mcpServers[id] = config;
-          await Deno.writeTextFile("mcp.json", JSON.stringify(this._config, null, 2));
+          await Deno.writeTextFile(
+            "mcp.json",
+            JSON.stringify(this._config, null, 2),
+          );
         } catch (error) {
           // Rollback server registration if file write fails
           this._servers.delete(id);
@@ -266,7 +275,7 @@ export class McpServerManager {
       // Remove all tools associated with this server
       const toolPrefix = `mcp_${id}_`;
       const toolsToRemove = Array.from(this._tools.keys()).filter((name) =>
-        name.startsWith(toolPrefix),
+        name.startsWith(toolPrefix)
       );
 
       toolsToRemove.forEach((toolName) => this.removeTool(toolName));
@@ -278,7 +287,10 @@ export class McpServerManager {
       if (this._config) {
         try {
           delete this._config.mcpServers[id];
-          await Deno.writeTextFile("mcp.json", JSON.stringify(this._config, null, 2));
+          await Deno.writeTextFile(
+            "mcp.json",
+            JSON.stringify(this._config, null, 2),
+          );
         } catch (error) {
           // Rollback server deregistration if file write fails
           this._servers.set(id, server);
