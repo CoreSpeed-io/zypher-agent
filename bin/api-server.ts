@@ -23,7 +23,8 @@ import {
 import { listCheckpoints } from "../src/checkpoints";
 import { formatError } from "../src/utils/error";
 import { McpServerManager } from "../src/mcp/McpServerManager";
-import { McpServerConfigSchema, type IMcpServer } from "../src/mcp/types";
+import McpServerController from "../src/mcp/McpServerController";
+import { McpServerConfigSchema, McpServerIdSchema } from "../src/mcp/types";
 
 // Load environment variables
 dotenv.config();
@@ -43,8 +44,9 @@ class ApiError extends Error {
 // Schema for request validation
 const McpServerApiSchema = z.record(z.string(), McpServerConfigSchema);
 
-// Initialize MCP Server Manager
+// Initialize MCP Server Manager and Controller
 const mcpServerManager = new McpServerManager();
+const mcpServerController = new McpServerController(mcpServerManager);
 
 // Zod Schemas
 // Define supported image MIME types with more precise validation
@@ -216,18 +218,18 @@ async function initializeAgent(): Promise<void> {
     );
 
     // Register all available tools
-    mcpServerManager.registerTool(ReadFileTool);
-    mcpServerManager.registerTool(ListDirTool);
-    mcpServerManager.registerTool(EditFileTool);
-    mcpServerManager.registerTool(RunTerminalCmdTool);
-    mcpServerManager.registerTool(GrepSearchTool);
-    mcpServerManager.registerTool(FileSearchTool);
-    mcpServerManager.registerTool(DeleteFileTool);
-    mcpServerManager.registerTool(ImageGenTool);
+    mcpServerController.registerTool(ReadFileTool);
+    mcpServerController.registerTool(ListDirTool);
+    mcpServerController.registerTool(EditFileTool);
+    mcpServerController.registerTool(RunTerminalCmdTool);
+    mcpServerController.registerTool(GrepSearchTool);
+    mcpServerController.registerTool(FileSearchTool);
+    mcpServerController.registerTool(DeleteFileTool);
+    mcpServerController.registerTool(ImageGenTool);
 
     console.log(
       "🔧 Registered tools:",
-      Array.from(mcpServerManager.getAllTools().keys()).join(", "),
+      mcpServerController.getAvailableTools().join(", "),
     );
 
     // Initialize the agent (load message history, generate system prompt)
@@ -354,29 +356,22 @@ app.post(
 
 // List registered MCP servers
 app.get("/mcp/servers", (req: Request, res: Response) => {
-  const servers = Array.from(mcpServerManager.getAllServers().entries()).map(
-    ([id, server]: [string, IMcpServer]) => ({
-      id,
-      name: server.name,
-      config: server.config,
-      enabled: server.enabled,
-    }),
-  );
+  const servers = mcpServerController.getServersWithTools();
   res.json({ servers });
 });
 
 // Get server status
 app.get("/mcp/servers/:id/status", (req: Request, res: Response) => {
-  const id = z.string().min(1).parse(req.params.id);
-  const enabled = mcpServerManager.getServerStatus(id);
+  const id = McpServerIdSchema.parse(req.params.id);
+  const enabled = mcpServerController.getServerStatus(id);
   res.json({ enabled });
 });
 
 // Update server status
 app.put("/mcp/servers/:id/status", async (req: Request, res: Response) => {
-  const id = z.string().min(1).parse(req.params.id);
+  const id = McpServerIdSchema.parse(req.params.id);
   const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
-  await mcpServerManager.setServerStatus(id, enabled);
+  await mcpServerController.setServerStatus(id, enabled);
   res.status(204).send();
 });
 
@@ -386,7 +381,7 @@ app.post("/mcp/register", async (req: Request, res: Response) => {
   await Promise.all(
     Object.entries(servers).map(
       ([name, config]) =>
-        config && mcpServerManager.registerServer(name, config),
+        config && mcpServerController.registerServer(name, config),
     ),
   );
   res.status(201).send();
@@ -394,9 +389,8 @@ app.post("/mcp/register", async (req: Request, res: Response) => {
 
 // Deregister MCP server
 app.delete("/mcp/servers/:id", async (req: Request, res: Response) => {
-  // use zod to validate the id
-  const id = z.string().min(1).parse(req.params.id);
-  await mcpServerManager.deregisterServer(id);
+  const id = McpServerIdSchema.parse(req.params.id);
+  await mcpServerController.deregisterServer(id);
   res.status(204).send();
 });
 
@@ -408,19 +402,34 @@ app.put("/mcp/servers/:id", async (req: Request, res: Response) => {
     // config can be undefined when id is not provided
     throw new ApiError(400, "invalid_request", "Invalid server configuration");
   }
-  await mcpServerManager.updateServerConfig(id, config);
+  await mcpServerController.updateServerConfig(id, config);
   res.status(204).send();
 });
 
 // Query available tools from registered MCP servers
 app.get("/mcp/tools", (req: Request, res: Response) => {
-  const tools = Array.from(mcpServerManager.getAllTools().values());
+  const tools = mcpServerController.getAvailableTools();
   res.json({ tools });
 });
 
+// Reload MCP server configuration
 app.get("/mcp/reload", async (req: Request, res: Response) => {
-  await mcpServerManager.reloadConfig();
+  await mcpServerController.reloadConfig();
   res.status(200).send();
+});
+
+// Get server config
+app.get("/mcp/servers/:id/config", (req: Request, res: Response) => {
+  const id = McpServerIdSchema.parse(req.params.id);
+  const config = mcpServerController.getServerConfig(id);
+  res.json({ config });
+});
+
+// Get server config
+app.get("/mcp/servers/:id/config", (req: Request, res: Response) => {
+  const id = McpServerIdSchema.parse(req.params.id);
+  const config = mcpServerController.getServerConfig(id);
+  res.json({ config });
 });
 
 // Register error handling middleware last
