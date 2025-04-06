@@ -1,3 +1,4 @@
+import '@anthropic-ai/sdk/shims/web'
 import { Anthropic } from "@anthropic-ai/sdk";
 import type {
   MessageParam as AnthropicMessageParam,
@@ -98,15 +99,15 @@ export class ZypherAgent {
     config: ZypherAgentConfig = {},
     mcpServerManager: McpServerManager,
   ) {
-    const apiKey = config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY;
+    const apiKey = config.anthropicApiKey ?? Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
       throw new Error(
         "API key is required. Provide it in config or set ANTHROPIC_API_KEY environment variable.",
       );
     }
 
-    const baseUrl = config.baseUrl ?? process.env.ANTHROPIC_BASE_URL;
-    const userId = config.userId ?? process.env.ZYPHER_USER_ID;
+    const baseUrl = config.baseUrl ?? Deno.env.get("ANTHROPIC_BASE_URL");
+    const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
 
     this.client = new Anthropic({
       apiKey,
@@ -541,7 +542,7 @@ export class ZypherAgent {
    * @param maxIterations Maximum number of iterations to run
    * @returns Array of messages after task completion
    */
-  async runTaskLoop(
+  runTaskLoop(
     taskDescription: string,
     messageHandler?: MessageHandler,
     maxIterations = 25,

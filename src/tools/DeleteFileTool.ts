@@ -1,4 +1,3 @@
-import { unlink } from "node:fs/promises";
 import { z } from "zod";
 import { defineTool } from "./index.ts";
 
@@ -21,14 +20,14 @@ export const DeleteFileTool = defineTool({
   }),
   execute: async ({ targetFile }) => {
     try {
-      await unlink(targetFile);
+      await Deno.remove(targetFile);
       return `Successfully deleted file: ${targetFile}`;
     } catch (error) {
       if (error instanceof Error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        if (error instanceof Deno.errors.NotFound) {
           return `File not found: ${targetFile}`;
         }
-        if ((error as NodeJS.ErrnoException).code === "EACCES") {
+        if (error instanceof Deno.errors.PermissionDenied) {
           return `Permission denied to delete file: ${targetFile}`;
         }
         return `Error deleting file: ${error.message}`;

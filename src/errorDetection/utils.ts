@@ -1,9 +1,4 @@
-import { readFile } from "node:fs/promises";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import { fileExists } from "../utils/index.ts";
-
-export const execAsync = promisify(exec);
 
 /**
  * Type definition for package.json structure
@@ -70,7 +65,7 @@ export async function getRunCommand(script: string): Promise<string> {
  */
 export async function readPackageJson(): Promise<PackageJson | null> {
   try {
-    const content = await readFile("package.json", "utf-8");
+    const content = await Deno.readTextFile("package.json");
     return JSON.parse(content) as PackageJson;
   } catch {
     return null;

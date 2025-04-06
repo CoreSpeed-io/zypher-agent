@@ -160,7 +160,7 @@ export class McpClient {
           args: config.args,
           env: {
             ...Object.fromEntries(
-              Object.entries(process.env).filter(([_, v]) => v !== undefined),
+              Object.entries(Deno.env).filter(([_, v]) => v !== undefined),
             ),
             ...config.env,
           } as Record<string, string>,

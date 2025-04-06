@@ -1,7 +1,6 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { access, constants, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import * as path from "jsr:@std/path";
 import { getWorkspaceDataDir } from "./utils/index.ts";
 
 const execAsync = promisify(exec);
@@ -39,7 +38,7 @@ export interface Checkpoint {
  */
 async function pathExists(path: string): Promise<boolean> {
   try {
-    await access(path, constants.F_OK);
+    await Deno.stat(path);
     return true;
   } catch {
     return false;
@@ -53,11 +52,11 @@ async function pathExists(path: string): Promise<boolean> {
  */
 async function getWorkspaceCheckpointsDir(): Promise<string> {
   const workspaceDir = await getWorkspaceDataDir();
-  const checkpointsDir = join(workspaceDir, "checkpoints");
+  const checkpointsDir = path.join(workspaceDir, "checkpoints");
 
   // Create checkpoints directory if it doesn't exist
   if (!(await pathExists(checkpointsDir))) {
-    await mkdir(checkpointsDir, { recursive: true });
+    await Deno.mkdir(checkpointsDir, { recursive: true });
   }
 
   return checkpointsDir;
@@ -70,7 +69,7 @@ async function getWorkspaceCheckpointsDir(): Promise<string> {
  */
 async function getGitCommand(): Promise<string> {
   const checkpointsDir = await getWorkspaceCheckpointsDir();
-  return `git --git-dir=${checkpointsDir} --work-tree=${process.cwd()}`;
+  return `git --git-dir=${checkpointsDir} --work-tree=${Deno.cwd()}`;
 }
 
 /**

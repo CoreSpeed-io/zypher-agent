@@ -1,5 +1,4 @@
 import { ConnectionMode, McpClient } from "./McpClient.ts";
-import fs from "node:fs/promises";
 import type { Tool } from "../tools/index.ts";
 import { z } from "zod";
 import {
@@ -71,15 +70,15 @@ export class McpServerManager {
   private async loadConfig(configPath = "mcp.json"): Promise<void> {
     try {
       try {
-        await fs.access(configPath);
+        await Deno.stat(configPath);
       } catch {
         const defaultConfig: IMcpConfig = { mcpServers: {} };
-        await fs.writeFile(configPath, JSON.stringify(defaultConfig, null, 2));
+        await Deno.writeTextFile(configPath, JSON.stringify(defaultConfig, null, 2));
         this._config = defaultConfig;
         return;
       }
 
-      const configContent = await fs.readFile(configPath, "utf-8");
+      const configContent = await Deno.readTextFile(configPath);
       const parsedConfig = JSON.parse(configContent) as Record<string, unknown>;
       this._config = McpConfigSchema.parse(parsedConfig);
     } catch (error) {
@@ -222,7 +221,7 @@ export class McpServerManager {
       if (this._config) {
         try {
           this._config.mcpServers[id] = config;
-          await fs.writeFile("mcp.json", JSON.stringify(this._config, null, 2));
+          await Deno.writeTextFile("mcp.json", JSON.stringify(this._config, null, 2));
         } catch (error) {
           // Rollback server registration if file write fails
           this._servers.delete(id);
@@ -279,7 +278,7 @@ export class McpServerManager {
       if (this._config) {
         try {
           delete this._config.mcpServers[id];
-          await fs.writeFile("mcp.json", JSON.stringify(this._config, null, 2));
+          await Deno.writeTextFile("mcp.json", JSON.stringify(this._config, null, 2));
         } catch (error) {
           // Rollback server deregistration if file write fails
           this._servers.set(id, server);

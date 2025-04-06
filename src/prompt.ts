@@ -1,21 +1,5 @@
-import { access, constants, readFile } from "node:fs/promises";
 import type { UserInfo } from "./utils/system.ts";
-
-/**
- * Attempts to read a file with proper error handling.
- *
- * @param {string} path - Path to the file to read
- * @returns {Promise<string | null>} File contents if successful, null if file doesn't exist or isn't readable
- * @private
- */
-async function tryReadFile(path: string): Promise<string | null> {
-  try {
-    await access(path, constants.R_OK);
-    return await readFile(path, "utf-8");
-  } catch {
-    return null;
-  }
-}
+import { fileExists } from "./utils/index.ts";
 
 /**
  * Reads custom rules from either .zypherrules or .cursorrules file.
@@ -31,11 +15,14 @@ async function tryReadFile(path: string): Promise<string | null> {
  */
 export async function getCustomRules(): Promise<string | null> {
   try {
-    const zypherRules = await tryReadFile(".zypherrules");
-    if (zypherRules) return zypherRules;
-
-    const cursorRules = await tryReadFile(".cursorrules");
-    if (cursorRules) return cursorRules;
+    if (await fileExists(".zypherrules")) {
+      const zypherRules = await Deno.readTextFile(".zypherrules");
+      return zypherRules;
+    }
+    if (await fileExists(".cursorrules")) {
+      const cursorRules = await Deno.readTextFile(".cursorrules");
+      return cursorRules;
+    }
 
     return null;
   } catch (error) {
