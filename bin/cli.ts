@@ -51,7 +51,7 @@ program
     "Set the Claude model to use (overrides default model)",
   )
   .option("--no-streaming", "Disable streaming output in the terminal")
-  .parse(process.argv);
+  .parse(Deno.args);
 
 const options = program.opts<CliOptions>();
 
@@ -74,8 +74,8 @@ async function main(): Promise<void> {
     // Handle workspace option
     if (options.workspace) {
       try {
-        process.chdir(options.workspace);
-        console.log(`🚀 Changed working directory to: ${process.cwd()}`);
+        Deno.chdir(options.workspace);
+        console.log(`🚀 Changed working directory to: ${Deno.cwd()}`);
       } catch (error) {
         throw new Error(
           `Failed to change to workspace directory: ${formatError(error)}`,
@@ -157,16 +157,16 @@ async function main(): Promise<void> {
               onContent: (content, isFirstChunk) => {
                 // For the first content chunk, add a bot indicator
                 if (isFirstChunk) {
-                  process.stdout.write(chalk.blue("🤖 "));
+                  Deno.stdout.write(new TextEncoder().encode(chalk.blue("🤖 ")));
                 }
 
                 // Write the text without newline to allow continuous streaming
-                process.stdout.write(content);
+                Deno.stdout.write(new TextEncoder().encode(content));
               },
               onMessage: (message) => {
                 // Add a separator between messages for better readability
                 if (message.role === "assistant") {
-                  process.stdout.write("\n");
+                  Deno.stdout.write(new TextEncoder().encode("\n"));
 
                   // Check if the message contains tool use
                   const content = Array.isArray(message.content)
@@ -174,11 +174,13 @@ async function main(): Promise<void> {
                     : [];
                   for (const block of content) {
                     if (block.type === "tool_use") {
-                      process.stdout.write(
-                        chalk.yellow("\n\n🛠️ Using tool: ") +
-                          chalk.green(block.name) +
-                          "\n" +
-                          JSON.stringify(block.input, null, 2),
+                      Deno.stdout.write(
+                        new TextEncoder().encode(
+                          chalk.yellow("\n\n🛠️ Using tool: ") +
+                            chalk.green(block.name) +
+                            "\n" +
+                            JSON.stringify(block.input, null, 2),
+                        ),
                       );
                       break;
                     }
@@ -190,7 +192,7 @@ async function main(): Promise<void> {
             await agent.runTaskWithStreaming(task, streamHandler);
 
             // Add extra newlines for readability after completion
-            process.stdout.write("\n\n");
+            Deno.stdout.write(new TextEncoder().encode("\n\n"));
           }
 
           console.log("\n✅ Task completed.\n");
@@ -202,20 +204,20 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     console.error("Fatal Error:", formatError(error));
-    process.exit(1);
+    Deno.exit(1);
   } finally {
     rl.close();
   }
 }
 
 // Handle Ctrl+C
-process.on("SIGINT", () => {
+Deno.addSignalListener("SIGINT", () => {
   console.log("\n\nGoodbye! 👋\n");
-  process.exit(0);
+  Deno.exit(0);
 });
 
 // Run the CLI
 main().catch((error) => {
   console.error("Unhandled error:", formatError(error));
-  process.exit(1);
+  Deno.exit(1);
 });

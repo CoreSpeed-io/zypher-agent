@@ -1,7 +1,6 @@
-import { readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
 import { z } from "zod";
 import { defineTool } from "./index.ts";
+import * as path from "jsr:@std/path";
 
 export const ListDirTool = defineTool({
   name: "list_dir",
@@ -20,17 +19,15 @@ export const ListDirTool = defineTool({
   }),
   execute: async ({ relativePath }) => {
     try {
-      const entries = await readdir(relativePath);
-      const results = await Promise.all(
-        entries.map(async (entry) => {
-          const fullPath = join(relativePath, entry);
-          const stats = await stat(fullPath);
-          const type = stats.isDirectory() ? "directory" : "file";
-          const size = stats.size;
-          return `[${type}] ${entry} (${size} bytes)`;
-        }),
-      );
-      return results.join("\n");
+      const entries = [];
+      for await (const entry of Deno.readDir(relativePath)) {
+        const fullPath = path.join(relativePath, entry.name);
+        const fileInfo = await Deno.stat(fullPath);
+        const type = entry.isDirectory ? "directory" : "file";
+        const size = fileInfo.size;
+        entries.push(`[${type}] ${entry.name} (${size} bytes)`);
+      }
+      return entries.join("\n");
     } catch (error) {
       if (error instanceof Error) {
         return `Error listing directory: ${error.message}`;

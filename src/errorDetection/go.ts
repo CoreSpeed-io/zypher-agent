@@ -1,5 +1,5 @@
 import type { ErrorDetector } from "./interface.ts";
-import { execAsync, extractErrorOutput } from "./utils.ts";
+import { extractErrorOutput } from "./utils.ts";
 import { fileExists } from "../utils/index.ts";
 
 /**
@@ -22,10 +22,20 @@ export class GoLintErrorDetector implements ErrorDetector {
     try {
       // Check if golint is installed
       try {
-        await execAsync("which golint");
+        const whichCmd = await new Deno.Command("which", {
+          args: ["golint"],
+        }).output();
+        if (!whichCmd.success) {
+          throw new Error("golint not found");
+        }
       } catch {
         try {
-          await execAsync("go list -f {{.Target}} golang.org/x/lint/golint");
+          const goListCmd = await new Deno.Command("go", {
+            args: ["list", "-f", "{{.Target}}", "golang.org/x/lint/golint"],
+          }).output();
+          if (!goListCmd.success) {
+            return null; // golint not available
+          }
         } catch {
           return null; // golint not available
         }
@@ -33,9 +43,13 @@ export class GoLintErrorDetector implements ErrorDetector {
 
       // Run golint
       try {
-        const result = await execAsync("golint ./...");
-        if (result.stdout) {
-          return `Go lint errors detected:\n${result.stdout}`;
+        const golintCmd = await new Deno.Command("golint", {
+          args: ["./..."],
+        }).output();
+        
+        const stdout = new TextDecoder().decode(golintCmd.stdout);
+        if (stdout) {
+          return `Go lint errors detected:\n${stdout}`;
         }
         return null;
       } catch (error) {
@@ -73,12 +87,16 @@ export class GoVetErrorDetector implements ErrorDetector {
     try {
       // Run go vet
       try {
-        const result = await execAsync("go vet ./...");
+        const goVetCmd = await new Deno.Command("go", {
+          args: ["vet", "./..."],
+        }).output();
+        
         // If stderr is empty, there are no errors
-        if (!result.stderr) {
+        const stderr = new TextDecoder().decode(goVetCmd.stderr);
+        if (!stderr) {
           return null;
         }
-        return `Go vet errors detected:\n${result.stderr}`;
+        return `Go vet errors detected:\n${stderr}`;
       } catch (error) {
         const errorOutput = extractErrorOutput(error, (output) => output);
 

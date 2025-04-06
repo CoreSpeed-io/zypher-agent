@@ -5,12 +5,12 @@
   },
   "imports": {
     "@hono/zod-validator": "npm:@hono/zod-validator@^0.4.3",
+    "@openai/openai": "jsr:@openai/openai@^4.91.1",
     "hono": "jsr:@hono/hono@^4.7.5",
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.39.0",
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.8.0",
     "chalk": "npm:chalk@^5.4.1",
     "commander": "npm:commander@^13.1.0",
-    "openai": "npm:openai@^4.91.1",
     "zod": "npm:zod@^3.24.2",
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.5"
   }

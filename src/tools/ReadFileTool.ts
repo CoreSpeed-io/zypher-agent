@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { defineTool } from "./index.ts";
 
@@ -37,7 +36,7 @@ export const ReadFileTool = defineTool({
     shouldReadEntireFile,
   }) => {
     try {
-      const content = await readFile(relativePath, "utf-8");
+      const content = await Deno.readTextFile(relativePath);
       const lines = content.split("\n");
 
       if (shouldReadEntireFile) {

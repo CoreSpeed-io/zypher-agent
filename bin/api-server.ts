@@ -28,6 +28,7 @@ import { listCheckpoints } from "../src/checkpoints.ts";
 import { formatError } from "../src/utils/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
 import { McpServerConfigSchema, type IMcpServer } from "../src/mcp/types.ts";
+import process from "node:process";
 
 class ApiError extends Error {
   constructor(
@@ -119,7 +120,7 @@ program
     "-k, --api-key <string>",
     "Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)",
   )
-  .parse(process.argv);
+  .parse(Deno.args);
 
 const options = program.opts<ServerOptions>();
 const PORT = parseInt(options.port, 10);
@@ -139,8 +140,8 @@ async function initializeAgent(): Promise<void> {
     // Handle workspace option
     if (options.workspace) {
       try {
-        process.chdir(options.workspace);
-        console.log(`🚀 Changed working directory to: ${process.cwd()}`);
+        Deno.chdir(options.workspace);
+        console.log(`🚀 Changed working directory to: ${Deno.cwd()}`);
       } catch (error) {
         throw new Error(
           `Failed to change to workspace directory: ${formatError(error)}`,
@@ -180,7 +181,7 @@ async function initializeAgent(): Promise<void> {
     console.log("🤖 ZypherAgent initialized successfully");
   } catch (error) {
     console.error("Error initializing agent:", formatError(error));
-    process.exit(1);
+    Deno.exit(1);
   }
 }
 
@@ -408,14 +409,14 @@ async function startServer(): Promise<void> {
 
     console.log(`🚀 API server running at http://localhost:${PORT}`);
 
-    process.on("SIGINT", () => {
+    Deno.addSignalListener("SIGINT", () => {
       console.log("\n\nShutting down API server... 👋\n");
-      void server.stop();
-      process.exit(0);
+      void server.shutdown();
+      Deno.exit(0);
     });
   } catch (error) {
     console.error(`❌ Failed to start server:`, formatError(error));
-    process.exit(1);
+    Deno.exit(1);
   }
 }
 

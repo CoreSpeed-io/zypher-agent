@@ -1,13 +1,5 @@
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import { z } from "zod";
 import { defineTool } from "./index.ts";
-
-const execAsync = promisify(exec);
-
-function escapeShellArg(arg: string): string {
-  return `'${arg.replace(/'/g, "'\\''")}'`;
-}
 
 export const FileSearchTool = defineTool({
   name: "file_search",
@@ -24,23 +16,29 @@ export const FileSearchTool = defineTool({
   execute: async ({ query }) => {
     try {
       // Using fd (modern alternative to find) with fuzzy matching
-      const command = `fd -t f -d 10 -l ${escapeShellArg(query)}`;
+      const command = new Deno.Command("fd", {
+        args: ["-t", "f", "-d", "10", "-l", query],
+      });
 
-      const { stdout, stderr } = await execAsync(command);
-      if (!stdout && !stderr) {
+      const { stdout, stderr } = await command.output();
+      const textDecoder = new TextDecoder();
+      const stdoutText = textDecoder.decode(stdout);
+      const stderrText = textDecoder.decode(stderr);
+
+      if (!stdoutText && !stderrText) {
         return "No matching files found.";
       }
 
       // Split results and take only first 10
-      const files = stdout
+      const files = stdoutText
         .split("\n")
         .filter(Boolean)
         .slice(0, 10)
         .map((file) => `- ${file}`)
         .join("\n");
 
-      if (stderr) {
-        return `Search completed with warnings:\n${stderr}\nMatching files:\n${files}`;
+      if (stderrText) {
+        return `Search completed with warnings:\n${stderrText}\nMatching files:\n${files}`;
       }
 
       return `Matching files:\n${files}`;
