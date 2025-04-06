@@ -1,18 +1,17 @@
-import "jsr:@std/dotenv/load";
-
+import "@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { prettyJSON } from "hono/pretty-json";
 import { streamSSE } from "hono/streaming";
 import { zValidator } from "@hono/zod-validator";
 import type { StatusCode } from "hono/utils/http-status";
-import { Command } from "commander";
 import {
   type ImageAttachment,
   type StreamHandler,
   ZypherAgent,
 } from "../src/ZypherAgent.ts";
 import { z } from "zod";
+import { parseArgs } from "jsr:@std/cli";
 
 import {
   DeleteFileTool,
@@ -102,29 +101,30 @@ interface ServerOptions {
   apiKey?: string;
 }
 
-const program = new Command();
+// Parse command line arguments using std/cli
+const cliFlags = parseArgs(Deno.args, {
+  string: ["port", "workspace", "user-id", "base-url", "api-key"],
+  alias: {
+    p: "port",
+    w: "workspace",
+    u: "user-id",
+    b: "base-url",
+    k: "api-key",
+  },
+  default: {
+    port: "3000",
+  },
+});
 
-program
-  .name("zypher-api")
-  .description("API server for ZypherAgent")
-  .version("1.0.0")
-  .option("-p, --port <number>", "Port to run the server on", "3000")
-  .option("-w, --workspace <path>", "Set working directory for the agent")
-  .option(
-    "-u, --user-id <string>",
-    "Set the user identifier (overrides ZYPHER_USER_ID env variable)",
-  )
-  .option(
-    "-b, --base-url <string>",
-    "Set the Anthropic API base URL (overrides ANTHROPIC_BASE_URL env variable)",
-  )
-  .option(
-    "-k, --api-key <string>",
-    "Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)",
-  )
-  .parse(Deno.args);
+// Convert kebab-case args to camelCase for consistency
+const options: ServerOptions = {
+  port: cliFlags.port,
+  workspace: cliFlags.workspace,
+  userId: cliFlags["user-id"],
+  baseUrl: cliFlags["base-url"],
+  apiKey: cliFlags["api-key"],
+};
 
-const options = program.opts<ServerOptions>();
 const PORT = parseInt(options.port, 10);
 
 // Initialize Hono app
