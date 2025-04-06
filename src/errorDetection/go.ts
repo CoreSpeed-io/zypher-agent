@@ -46,7 +46,7 @@ export class GoLintErrorDetector implements ErrorDetector {
         const golintCmd = await new Deno.Command("golint", {
           args: ["./..."],
         }).output();
-        
+
         const stdout = new TextDecoder().decode(golintCmd.stdout);
         if (stdout) {
           return `Go lint errors detected:\n${stdout}`;
@@ -90,7 +90,7 @@ export class GoVetErrorDetector implements ErrorDetector {
         const goVetCmd = await new Deno.Command("go", {
           args: ["vet", "./..."],
         }).output();
-        
+
         // If stderr is empty, there are no errors
         const stderr = new TextDecoder().decode(goVetCmd.stderr);
         if (!stderr) {

@@ -1,11 +1,11 @@
 import type { ErrorDetector } from "./interface.ts";
 import {
-  readPackageJson,
+  extractErrorOutput,
+  findScriptByPattern,
   getRunCommand,
   hasDependency,
   hasScript,
-  findScriptByPattern,
-  extractErrorOutput,
+  readPackageJson,
 } from "./utils.ts";
 import { fileExists } from "../utils/index.ts";
 
@@ -24,8 +24,7 @@ export class ESLintErrorDetector implements ErrorDetector {
       const hasEslint = hasDependency(packageJson, "eslint");
 
       // Also check if there are lint scripts
-      const hasLintScript =
-        hasScript(packageJson, "lint") ||
+      const hasLintScript = hasScript(packageJson, "lint") ||
         hasScript(packageJson, "eslint") ||
         !!findScriptByPattern(packageJson, "lint");
 
@@ -47,8 +46,9 @@ export class ESLintErrorDetector implements ErrorDetector {
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors
-        const errorOutput = extractErrorOutput(error, (output) =>
-          this.filterNonErrors(output),
+        const errorOutput = extractErrorOutput(
+          error,
+          (output) => this.filterNonErrors(output),
         );
 
         if (errorOutput) {
@@ -136,8 +136,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
         const hasTypeScript = hasDependency(packageJson, "typescript");
 
         // Check if there are type-check scripts
-        const hasTypeCheckScript =
-          hasScript(packageJson, "type-check") ||
+        const hasTypeCheckScript = hasScript(packageJson, "type-check") ||
           hasScript(packageJson, "typecheck") ||
           hasScript(packageJson, "tsc") ||
           !!findScriptByPattern(packageJson, "type") ||
@@ -167,8 +166,9 @@ export class TypeScriptErrorDetector implements ErrorDetector {
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors
-        const errorOutput = extractErrorOutput(error, (output) =>
-          this.filterNonErrors(output),
+        const errorOutput = extractErrorOutput(
+          error,
+          (output) => this.filterNonErrors(output),
         );
 
         if (errorOutput) {
@@ -204,8 +204,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       } else if (hasScript(packageJson, "tsc")) {
         scriptName = "tsc";
       } else {
-        scriptName =
-          findScriptByPattern(packageJson, "type") ??
+        scriptName = findScriptByPattern(packageJson, "type") ??
           findScriptByPattern(packageJson, "tsc");
       }
 

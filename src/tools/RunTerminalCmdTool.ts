@@ -37,7 +37,7 @@ export const RunTerminalCmdTool = defineTool({
           stdout: "null",
           stderr: "null",
         }).spawn();
-        
+
         // We don't await the process in background mode
         return `Started background command: ${command}`;
       }
@@ -48,7 +48,7 @@ export const RunTerminalCmdTool = defineTool({
         stdout: "piped",
         stderr: "piped",
       });
-      
+
       const { stdout, stderr } = await process.output();
       const textDecoder = new TextDecoder();
       const stdoutText = textDecoder.decode(stdout);

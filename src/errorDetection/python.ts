@@ -39,7 +39,9 @@ export class PythonFlake8ErrorDetector implements ErrorDetector {
       } catch {
         // flake8 not installed, try with python -m
         try {
-          await new Deno.Command("python", { args: ["-m", "flake8", "--version"] }).output();
+          await new Deno.Command("python", {
+            args: ["-m", "flake8", "--version"],
+          }).output();
         } catch {
           return null; // flake8 not available
         }
@@ -47,7 +49,8 @@ export class PythonFlake8ErrorDetector implements ErrorDetector {
 
       // Run flake8
       try {
-        const result = await new Deno.Command("flake8", { args: ["."] }).output();
+        const result = await new Deno.Command("flake8", { args: ["."] })
+          .output();
         // If we get here with no stdout, there are no errors
         if (!result.stdout) {
           return null;
@@ -78,8 +81,8 @@ export class PythonMypyErrorDetector implements ErrorDetector {
   async isApplicable(): Promise<boolean> {
     try {
       // Check if it's a Python project
-      const isPythonProject =
-        await new PythonFlake8ErrorDetector().isApplicable();
+      const isPythonProject = await new PythonFlake8ErrorDetector()
+        .isApplicable();
       if (!isPythonProject) return false;
 
       // Check if mypy is available
@@ -88,7 +91,9 @@ export class PythonMypyErrorDetector implements ErrorDetector {
         return true;
       } catch {
         try {
-          await new Deno.Command("python", { args: ["-m", "mypy", "--version"] }).output();
+          await new Deno.Command("python", {
+            args: ["-m", "mypy", "--version"],
+          }).output();
           return true;
         } catch {
           return false; // mypy not available

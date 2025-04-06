@@ -1,6 +1,7 @@
 # Zypher Agent
 
-An AI-powered coding assistant that helps you with code editing, file management, and development tasks through natural language interaction.
+An AI-powered coding assistant that helps you with code editing, file
+management, and development tasks through natural language interaction.
 
 ## Features
 
@@ -129,16 +130,20 @@ docker run -it --rm \
 
 #### Test Workspace
 
-The Docker container includes a dedicated workspace at `/workspace` containing a real Next.js project from CoreSpeed's template. This workspace serves as a safe testing ground where the AI agent can:
+The Docker container includes a dedicated workspace at `/workspace` containing a
+real Next.js project from CoreSpeed's template. This workspace serves as a safe
+testing ground where the AI agent can:
 
 - Make and test code changes
 - Search and analyze code
 - Refactor and experiment
 - Create new features
 
-The workspace is built into the Docker image and resets on each container start, providing a clean, isolated environment for testing the agent's capabilities.
+The workspace is built into the Docker image and resets on each container start,
+providing a clean, isolated environment for testing the agent's capabilities.
 
-When you start the agent, it automatically operates in the `/workspace` directory. Example tasks:
+When you start the agent, it automatically operates in the `/workspace`
+directory. Example tasks:
 
 ```
 🔧 "Create a new utility function for date formatting"
