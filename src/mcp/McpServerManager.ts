@@ -8,7 +8,6 @@ import {
   McpServerConfigSchema,
   type IMcpServerConfig,
   type IMcpServerApi,
-  type IMcpServerPublicConfig,
 } from "./types";
 import { formatError } from "../utils";
 import { join } from "path";
@@ -26,7 +25,9 @@ type IMcpConfig = z.infer<typeof McpConfigSchema>;
  */
 export class McpServerManager {
   private _config: IMcpConfig | null = null;
+  // toolbox only contains active tools for agent to call
   private _toolbox = new Map<string, Tool>();
+  // serverToolsMap maintains all tools for each server
   private _serverToolsMap = new Map<IMcpServer, Tool[]>();
   private _initialized = false;
   private _configFile = "mcp.json";
@@ -362,37 +363,22 @@ export class McpServerManager {
     }
   }
 
-  private getServer(id: string): IMcpServer | undefined {
+  private getServer(id: string): IMcpServer {
     for (const server of this._serverToolsMap.keys()) {
       if (server.id === id) {
         return server;
       }
     }
-    return undefined;
+    throw new Error(`Server ${id} not found`);
   }
 
-  getServerConfig(serverId: string): IMcpServerPublicConfig | undefined {
-    const server = this.getServer(serverId);
-    if (!server) {
-      return undefined;
-    }
-    // Return config without enabled property
-    const { enabled: _enabled, ...config } = server.config;
-    return config;
-  }
-
-  /**
-   * Gets the status of a server
-   * @param serverId The ID of the server
-   * @returns The server's enabled status
-   * @throws Error if server is not found
-   */
-  getServerStatus(serverId: string): boolean {
+  getServerConfig(serverId: string): IMcpServerConfig {
     const server = this.getServer(serverId);
     if (!server) {
       throw new Error(`Server ${serverId} not found`);
     }
-    return server.enabled;
+    // Return config without enabled property
+    return server.config;
   }
 
   /**
