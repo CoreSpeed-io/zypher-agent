@@ -1,6 +1,5 @@
 import type { ErrorDetector } from "./interface.ts";
 import {
-  execAsync,
   readPackageJson,
   getRunCommand,
   hasDependency,
@@ -44,7 +43,7 @@ export class ESLintErrorDetector implements ErrorDetector {
       // Execute the command
       try {
         // If we get here, the command succeeded (no errors)
-        await execAsync(command);
+        await new Deno.Command(command).output();
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors
@@ -164,7 +163,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       // Execute the command
       try {
         // If we get here, the command succeeded (no errors)
-        await execAsync(command);
+        await new Deno.Command(command).output();
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors
