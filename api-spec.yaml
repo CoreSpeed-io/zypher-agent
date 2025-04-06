@@ -158,17 +158,24 @@ components:
     McpServerConfig:
       type: object
       properties:
+        url:
+          type: string
+          description: Server URL for SSE mode (only exposed for SSE servers)
+
+    McpServerPrivateConfig:
+      type: object
+      properties:
         command:
           type: string
-          description: Command to start the server
+          description: Command to start the server (CLI mode)
         args:
           type: array
           items:
             type: string
-          description: Command line arguments
+          description: Command line arguments (CLI mode)
         url:
           type: string
-          description: Server URL for SSE mode
+          description: Server URL (SSE mode)
         env:
           type: object
           additionalProperties:
@@ -403,7 +410,7 @@ paths:
   /mcp/servers:
     get:
       summary: List all registered MCP servers
-      description: Returns all registered MCP servers and their configurations
+      description: Returns all registered MCP servers with their public configurations
       operationId: listMcpServers
       responses:
         "200":
@@ -424,6 +431,14 @@ paths:
                         name:
                           type: string
                           description: User-friendly name of the server
+                        enabled:
+                          type: boolean
+                          description: Whether the server is enabled
+                        tools:
+                          type: array
+                          items:
+                            type: string
+                          description: List of tool names provided by this server
                         config:
                           $ref: "#/components/schemas/McpServerConfig"
         "500":
@@ -441,7 +456,7 @@ paths:
             schema:
               type: object
               additionalProperties:
-                $ref: "#/components/schemas/McpServerConfig"
+                $ref: "#/components/schemas/McpServerPrivateConfig"
       responses:
         "201":
           description: Server registered successfully
@@ -481,7 +496,7 @@ paths:
             schema:
               type: object
               additionalProperties:
-                $ref: "#/components/schemas/McpServerConfig"
+                $ref: "#/components/schemas/McpServerPrivateConfig"
       responses:
         "204":
           description: Server configuration updated successfully
