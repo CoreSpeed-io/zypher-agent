@@ -35,9 +35,6 @@ export const McpServerConfigSchema = z.union([
 
 export type IMcpServerConfig = z.infer<typeof McpServerConfigSchema>;
 
-// Public config type without enabled property
-export type IMcpServerPublicConfig = Omit<IMcpServerConfig, "enabled">;
-
 export const McpServerSchema = z.object({
   id: z.string(),
   name: z.string(),
