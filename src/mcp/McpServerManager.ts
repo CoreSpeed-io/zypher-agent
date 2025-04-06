@@ -377,7 +377,7 @@ export class McpServerManager {
       return undefined;
     }
     // Return config without enabled property
-    const { ...config } = server.config;
+    const { enabled: _enabled, ...config } = server.config;
     return config;
   }
 

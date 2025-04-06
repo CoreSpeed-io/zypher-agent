@@ -1,6 +1,9 @@
-import express from "express";
-import type { Request, Response, NextFunction } from "express";
-import cors from "cors";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { prettyJSON } from "hono/pretty-json";
+import { streamSSE } from "hono/streaming";
+import { zValidator } from "@hono/zod-validator";
+import type { StatusCode } from "hono/utils/http-status";
 import dotenv from "dotenv";
 import { Command } from "commander";
 import {
@@ -82,74 +85,15 @@ const imageSchema = z.object({
   data: base64ImageSchema,
 });
 
-// Update task schema to match API spec
+// Zod schema for task
 const taskSchema = z.object({
   task: z.string(),
   imageAttachments: z.array(imageSchema).optional(),
 });
 
-// Type inference from Zod schema
-type TaskRequest = z.infer<typeof taskSchema>;
-
 const checkpointParamsSchema = z.object({
   checkpointId: z.string().min(1, "Checkpoint ID cannot be empty"),
 });
-
-// Type inference from Zod schema
-type CheckpointParams = z.infer<typeof checkpointParamsSchema>;
-
-// Error handling middleware
-const errorHandler = (
-  err: Error,
-  _req: Request,
-  res: Response,
-  _next: NextFunction,
-): void => {
-  console.error(`Error processing request: ${formatError(err)}`);
-
-  if (err instanceof ApiError) {
-    res.status(err.statusCode).json({
-      code: err.statusCode,
-      type: err.type,
-      message: err.message,
-      details: err.details,
-    });
-    return;
-  }
-
-  if (err instanceof z.ZodError) {
-    res.status(400).json({
-      code: 400,
-      type: "invalid_request",
-      message: "Validation error",
-      details: err.errors,
-    });
-    return;
-  }
-
-  // Default to internal server error
-  res.status(500).json({
-    code: 500,
-    type: "internal_server_error",
-    message: "Internal server error",
-    error: formatError(err),
-  });
-};
-
-// Validation middleware
-const validateRequest = <T>(schema: z.ZodType<T>) => {
-  return (req: Request, _res: Response, next: NextFunction) => {
-    schema.parse(req.body);
-    next();
-  };
-};
-
-const validateParams = <T>(schema: z.ZodType<T>) => {
-  return (req: Request, _res: Response, next: NextFunction) => {
-    schema.parse(req.params);
-    next();
-  };
-};
 
 interface ServerOptions {
   port: string;
@@ -184,10 +128,12 @@ program
 const options = program.opts<ServerOptions>();
 const PORT = parseInt(options.port, 10);
 
-// Initialize Express app
-const app = express();
-app.use(express.json());
-app.use(cors());
+// Initialize Hono app
+const app = new Hono();
+
+// Middleware
+app.use("*", cors());
+app.use("*", prettyJSON());
 
 // Initialize the agent
 let agent: ZypherAgent;
@@ -242,12 +188,46 @@ async function initializeAgent(): Promise<void> {
   }
 }
 
+// Error handling middleware
+app.onError((err, c) => {
+  console.error(`Error processing request: ${formatError(err)}`);
+
+  if (err instanceof ApiError) {
+    c.status(err.statusCode as StatusCode);
+    return c.json({
+      code: err.statusCode,
+      type: err.type,
+      message: err.message,
+      details: err.details,
+    });
+  }
+
+  if (err instanceof z.ZodError) {
+    c.status(400);
+    return c.json({
+      code: 400,
+      type: "invalid_request",
+      message: "Validation error",
+      details: err.errors,
+    });
+  }
+
+  // Default to internal server error
+  c.status(500);
+  return c.json({
+    code: 500,
+    type: "internal_server_error",
+    message: "Internal server error",
+    error: formatError(err),
+  });
+});
+
 // API Routes
 
 // Health check endpoint
-app.get("/health", (req: Request, res: Response) => {
+app.get("/health", (c) => {
   const uptime = process.uptime();
-  res.json({
+  return c.json({
     status: "ok",
     version: "1.0.0",
     uptime,
@@ -255,217 +235,209 @@ app.get("/health", (req: Request, res: Response) => {
 });
 
 // Get agent messages
-app.get("/agent/messages", (_req: Request, res: Response) => {
+app.get("/agent/messages", (c) => {
   const messages = agent.getMessages();
-  res.json(messages);
+  return c.json(messages);
 });
 
 // Clear agent messages
-app.delete("/agent/messages", (_req: Request, res: Response) => {
+app.delete("/agent/messages", (c) => {
   agent.clearMessages();
-  res.status(204).send();
+  return c.body(null, 204);
 });
 
 // Run a task
-app.post(
-  "/agent/tasks",
-  validateRequest(taskSchema),
-  async (req: Request<unknown, unknown, TaskRequest>, res: Response) => {
-    const { task, imageAttachments } = req.body;
-    const processedImages: ImageAttachment[] = [];
+app.post("/agent/tasks", zValidator("json", taskSchema), (c) => {
+  const { task, imageAttachments } = c.req.valid("json");
+  const processedImages: ImageAttachment[] = [];
 
-    if (imageAttachments?.length) {
-      for (const img of imageAttachments) {
-        const [, base64Data = ""] = img.data.split(",");
-        const mimeType = img.data
-          .split(":")[1]
-          ?.split(";")[0] as SupportedImageType;
-        processedImages.push({
-          type: "image" as const,
-          source: {
-            type: "base64" as const,
-            media_type: mimeType,
-            data: base64Data,
-          },
-        });
-      }
+  if (imageAttachments?.length) {
+    for (const img of imageAttachments) {
+      const [, base64Data = ""] = img.data.split(",");
+      const mimeType = img.data
+        .split(":")[1]
+        ?.split(";")[0] as SupportedImageType;
+      processedImages.push({
+        type: "image" as const,
+        source: {
+          type: "base64" as const,
+          media_type: mimeType,
+          data: base64Data,
+        },
+      });
     }
+  }
 
-    // Set up SSE
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
+  return streamSSE(
+    c,
+    async (stream) => {
+      // Set up streaming handler for both messages and real-time updates
+      const streamHandler: StreamHandler = {
+        onContent: (content, _isFirstChunk) => {
+          // Send content_delta event for real-time content updates
+          void stream.writeSSE({
+            event: "content_delta",
+            data: JSON.stringify({ content }),
+          });
+        },
+        onToolUse: (name, partialInput) => {
+          // Send tool_use event for real-time tool use updates
+          void stream.writeSSE({
+            event: "tool_use_delta",
+            data: JSON.stringify({ name, partialInput }),
+          });
+        },
+        onMessage: (message) => {
+          // Send message event as soon as a complete message is available
+          void stream.writeSSE({
+            event: "message",
+            data: JSON.stringify(message),
+          });
+        },
+      };
 
-    // Set up streaming handler for both messages and real-time updates
-    const streamHandler: StreamHandler = {
-      onContent: (content, _isFirstChunk) => {
-        // Send content_delta event for real-time content updates
-        res.write(`event: content_delta\n`);
-        res.write(`data: ${JSON.stringify({ content })}\n\n`);
-      },
-      onToolUse: (name, partialInput) => {
-        // Send tool_use event for real-time tool use updates
-        res.write(`event: tool_use_delta\n`);
-        res.write(`data: ${JSON.stringify({ name, partialInput })}\n\n`);
-      },
-      onMessage: (message) => {
-        // Send message event as soon as a complete message is available
-        res.write(`event: message\n`);
-        res.write(`data: ${JSON.stringify(message)}\n\n`);
-      },
-    };
-
-    try {
       // Run the task with streaming handler
       await agent.runTaskWithStreaming(task, streamHandler, processedImages);
 
       // After streaming is complete, send the complete event
-      // No need to send all messages again since they've been sent via onMessage
-      res.write(`event: complete\n`);
-      res.write(`data: {}\n\n`);
-
-      // End the response
-      res.end();
-    } catch (error) {
-      // Send error event directly in the stream
-      res.write(`event: error\n`);
-      res.write(`data: {"error": "${formatError(error)}"}\n\n`);
-      res.end();
-    }
-  },
-);
+      await stream.writeSSE({
+        event: "complete",
+        data: JSON.stringify({}),
+      });
+    },
+    async (err, stream) => {
+      await stream.writeSSE({
+        event: "error",
+        data: JSON.stringify({ error: formatError(err) }),
+      });
+    },
+  );
+});
 
 // List checkpoints
-app.get("/agent/checkpoints", async (_req: Request, res: Response) => {
+app.get("/agent/checkpoints", async (c) => {
   const checkpoints = await listCheckpoints();
-  res.json(checkpoints);
+  return c.json(checkpoints);
 });
 
 // Apply checkpoint
 app.post(
   "/agent/checkpoints/:checkpointId/apply",
-  validateParams(checkpointParamsSchema),
-  async (req: Request<CheckpointParams>, res: Response) => {
-    const { checkpointId } = req.params;
+  zValidator("param", checkpointParamsSchema),
+  async (c) => {
+    const checkpointId = c.req.param("checkpointId");
 
     // Use the agent's applyCheckpoint method to update both filesystem and message history
     await agent.applyCheckpoint(checkpointId);
-    res.json({ success: true, id: checkpointId });
+    return c.json({ success: true, id: checkpointId });
   },
 );
 
 // List registered MCP servers
-app.get("/mcp/servers", (req: Request, res: Response) => {
+app.get("/mcp/servers", (c) => {
   const servers = mcpServerController.getServersWithTools();
-  res.json({ servers });
+  return c.json({ servers });
 });
 
 // Get server status
-app.get("/mcp/servers/:id/status", (req: Request, res: Response) => {
-  const id = McpServerIdSchema.parse(req.params.id);
+app.get("/mcp/servers/:id/status", (c) => {
+  const id = McpServerIdSchema.parse(c.req.param("id"));
   const enabled = mcpServerController.getServerStatus(id);
-  res.json({ enabled });
+  return c.json({ enabled });
 });
 
 // Update server status
-app.put("/mcp/servers/:id/status", async (req: Request, res: Response) => {
-  const id = McpServerIdSchema.parse(req.params.id);
-  const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
-  await mcpServerController.setServerStatus(id, enabled);
-  res.status(204).send();
-});
+app.put(
+  "/mcp/servers/:id/status",
+  zValidator("json", z.object({ enabled: z.boolean() })),
+  async (c) => {
+    const id = McpServerIdSchema.parse(c.req.param("id"));
+    const { enabled } = c.req.valid("json");
+    await mcpServerController.setServerStatus(id, enabled);
+    return c.body(null, 204);
+  },
+);
 
 // Register new MCP server
-app.post("/mcp/register", async (req: Request, res: Response) => {
-  const servers = McpServerApiSchema.parse(req.body);
+app.post("/mcp/register", zValidator("json", McpServerApiSchema), async (c) => {
+  const servers = c.req.valid("json");
   await Promise.all(
     Object.entries(servers).map(
       ([name, config]) =>
         config && mcpServerController.registerServer(name, config),
     ),
   );
-  res.status(201).send();
+  return c.body(null, 201);
 });
 
 // Deregister MCP server
-app.delete("/mcp/servers/:id", async (req: Request, res: Response) => {
-  const id = McpServerIdSchema.parse(req.params.id);
+app.delete("/mcp/servers/:id", async (c) => {
+  const id = McpServerIdSchema.parse(c.req.param("id"));
   await mcpServerController.deregisterServer(id);
-  res.status(204).send();
+  return c.body(null, 204);
 });
 
 // Update MCP server configuration
-app.put("/mcp/servers/:id", async (req: Request, res: Response) => {
-  const id = req.params.id ?? "";
-  const config = McpServerApiSchema.parse(req.body)[id];
-  if (!config) {
-    // config can be undefined when id is not provided
-    throw new ApiError(400, "invalid_request", "Invalid server configuration");
-  }
-  await mcpServerController.updateServerConfig(id, config);
-  res.status(204).send();
-});
+app.put(
+  "/mcp/servers/:id",
+  zValidator("json", McpServerApiSchema),
+  async (c) => {
+    const id = c.req.param("id") ?? "";
+    const config = c.req.valid("json")[id];
+    if (!config) {
+      throw new ApiError(
+        400,
+        "invalid_request",
+        "Invalid server configuration",
+      );
+    }
+    await mcpServerController.updateServerConfig(id, config);
+    return c.body(null, 204);
+  },
+);
 
 // Query available tools from registered MCP servers
-app.get("/mcp/tools", (req: Request, res: Response) => {
+app.get("/mcp/tools", (c) => {
   const tools = mcpServerController.getAvailableTools();
-  res.json({ tools });
+  return c.json({ tools });
 });
 
 // Reload MCP server configuration
-app.get("/mcp/reload", async (req: Request, res: Response) => {
+app.get("/mcp/reload", async (c) => {
   await mcpServerController.reloadConfig();
-  res.status(200).send();
+  return c.body(null, 200);
 });
 
 // Get server config
-app.get("/mcp/servers/:id/config", (req: Request, res: Response) => {
-  const id = McpServerIdSchema.parse(req.params.id);
+app.get("/mcp/servers/:id/config", (c) => {
+  const id = McpServerIdSchema.parse(c.req.param("id"));
   const config = mcpServerController.getServerConfig(id);
-  res.json({ config });
+  return c.json({ config });
 });
-
-// Get server config
-app.get("/mcp/servers/:id/config", (req: Request, res: Response) => {
-  const id = McpServerIdSchema.parse(req.params.id);
-  const config = mcpServerController.getServerConfig(id);
-  res.json({ config });
-});
-
-// Register error handling middleware last
-app.use(errorHandler);
 
 // Start the server
 async function startServer(): Promise<void> {
   await initializeAgent();
 
   try {
-    const server = app.listen(PORT, () => {
-      console.log(`🚀 API server running at http://localhost:${PORT}`);
+    const server = Bun.serve({
+      port: PORT,
+      fetch: app.fetch,
+      idleTimeout: 180,
     });
 
-    server.on("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "EADDRINUSE") {
-        console.error(
-          `❌ Error: Port ${PORT} is already in use. Please try a different port.`,
-        );
-        process.exit(1);
-      } else {
-        console.error(`❌ Server error:`, formatError(error));
-        process.exit(1);
-      }
+    console.log(`🚀 API server running at http://localhost:${PORT}`);
+
+    process.on("SIGINT", () => {
+      console.log("\n\nShutting down API server... 👋\n");
+      void server.stop();
+      process.exit(0);
     });
   } catch (error) {
     console.error(`❌ Failed to start server:`, formatError(error));
     process.exit(1);
   }
 }
-
-// Handle Ctrl+C
-process.on("SIGINT", () => {
-  console.log("\n\nShutting down API server... 👋\n");
-  process.exit(0);
-});
 
 // Start the server
 void startServer();
