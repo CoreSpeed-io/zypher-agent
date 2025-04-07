@@ -2,6 +2,8 @@ import * as path from "jsr:@std/path";
 import { getWorkspaceDataDir } from "./utils/index.ts";
 import { fileExists as pathExists } from "./utils/index.ts";
 
+let gitEnv: Record<string, string> = {};
+
 /**
  * Checkpoint information
  */
@@ -49,21 +51,25 @@ async function getWorkspaceCheckpointsDir(): Promise<string> {
  *
  * @returns Promise resolving to the Git command prefix
  */
-async function getGitCommand(): Promise<string> {
+async function getGitEnv(): Promise<Record<string, string>> {
   const checkpointsDir = await getWorkspaceCheckpointsDir();
-  return `git --git-dir=${checkpointsDir} --work-tree=${Deno.cwd()}`;
+
+  return gitEnv ??= {
+    GIT_DIR: checkpointsDir,
+    GIT_WORK_TREE: Deno.cwd(),
+  };
 }
 
 /**
  * Initialize the checkpoint repository if it doesn't exist
  */
 async function initCheckpointRepo(): Promise<void> {
-  const checkpointsDir = await getWorkspaceCheckpointsDir();
-
   // Check if Git repository already exists and is valid
   try {
-    const git = await getGitCommand();
-    await new Deno.Command(git, { args: ["status"] }).output();
+    await new Deno.Command("git", {
+      args: ["status"],
+      env: await getGitEnv(),
+    }).output();
     return; // It's a valid Git repository, so we're done
   } catch {
     // Not a valid Git repository or doesn't exist, continue with initialization
@@ -71,26 +77,25 @@ async function initCheckpointRepo(): Promise<void> {
 
   // Initialize a new git repository (non-bare)
   await new Deno.Command("git", {
-    args: ["init", checkpointsDir],
-    env: {
-      GIT_DIR: checkpointsDir,
-    },
+    args: ["init"],
+    env: await getGitEnv(),
   }).output();
 
-  // Get the Git command now that the repository is initialized
-  const git = await getGitCommand();
-
   // Configure the repository
-  await new Deno.Command(git, { args: ["config", "user.name", "ZypherAgent"] })
-    .output();
-  await new Deno.Command(git, {
+  await new Deno.Command("git", {
+    args: ["config", "user.name", "ZypherAgent"],
+    env: await getGitEnv(),
+  }).output();
+  await new Deno.Command("git", {
     args: ["config", "user.email", "zypher@corespeed.io"],
+    env: await getGitEnv(),
   }).output();
 
   // Create an initial empty commit
   try {
-    await new Deno.Command(git, {
+    await new Deno.Command("git", {
       args: ["commit", "--allow-empty", "-m", "Initial checkpoint repository"],
+      env: await getGitEnv(),
     }).output();
   } catch (error) {
     console.error("Failed to initialize checkpoint repository:", error);
@@ -110,14 +115,16 @@ export async function createCheckpoint(
     // Initialize the checkpoint repository if needed
     await initCheckpointRepo();
 
-    const git = await getGitCommand();
-
     // Add all files to the index
-    await new Deno.Command(git, { args: ["add", "-A"] }).output();
+    await new Deno.Command("git", {
+      args: ["add", "-A"],
+      env: await getGitEnv(),
+    }).output();
 
     // Check if there are any changes
-    const { stdout: status } = await new Deno.Command(git, {
+    const { stdout: status } = await new Deno.Command("git", {
       args: ["status", "--porcelain"],
+      env: await getGitEnv(),
     }).output();
     const hasChanges = new TextDecoder().decode(status).trim().length > 0;
 
@@ -128,13 +135,15 @@ export async function createCheckpoint(
     }
 
     // Create the commit (using --allow-empty to handle cases with no changes)
-    await new Deno.Command(git, {
+    await new Deno.Command("git", {
       args: ["commit", "--allow-empty", "-m", commitMessage],
+      env: await getGitEnv(),
     }).output();
 
     // Get the commit hash
-    const { stdout: commitHash } = await new Deno.Command(git, {
+    const { stdout: commitHash } = await new Deno.Command("git", {
       args: ["rev-parse", "HEAD"],
+      env: await getGitEnv(),
     }).output();
 
     return new TextDecoder().decode(commitHash).trim();
@@ -155,11 +164,10 @@ export async function getCheckpointDetails(
   checkpointId: string,
 ): Promise<Checkpoint> {
   try {
-    const git = await getGitCommand();
-
     // Get commit details
-    const { stdout: commitInfo } = await new Deno.Command(git, {
+    const { stdout: commitInfo } = await new Deno.Command("git", {
       args: ["show", "--no-patch", "--format=%H%n%B%n%aI", checkpointId],
+      env: await getGitEnv(),
     }).output();
 
     const lines = new TextDecoder().decode(commitInfo).trim().split("\n");
@@ -199,8 +207,9 @@ export async function getCheckpointDetails(
     }
 
     // Get files changed in this commit
-    const { stdout: filesChanged } = await new Deno.Command(git, {
+    const { stdout: filesChanged } = await new Deno.Command("git", {
       args: ["diff-tree", "--no-commit-id", "--name-only", "-r", checkpointId],
+      env: await getGitEnv(),
     }).output();
 
     const files = new TextDecoder().decode(filesChanged).trim().split("\n")
@@ -228,20 +237,21 @@ export async function getCheckpointDetails(
  */
 export async function listCheckpoints(): Promise<Checkpoint[]> {
   try {
-    // Get the Git command
-    const git = await getGitCommand();
-
     // Check if it's a valid Git repository using git status
     try {
-      await new Deno.Command(git, { args: ["status"] }).output();
+      await new Deno.Command("git", {
+        args: ["status"],
+        env: await getGitEnv(),
+      }).output();
     } catch {
       return []; // Not a valid Git repository or doesn't exist
     }
 
     // Get all checkpoint commits with a custom delimiter between commits
     // Using a unique delimiter "###COMMIT###" that won't appear in commit messages
-    const { stdout } = await new Deno.Command(git, {
+    const { stdout } = await new Deno.Command("git", {
       args: ["log", "--pretty=format:%H%n%aI%n%s"],
+      env: await getGitEnv(),
     }).output();
 
     if (!new TextDecoder().decode(stdout).trim()) {
@@ -287,8 +297,9 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
         : subject;
 
       // Get files for this checkpoint
-      const { stdout: filesChanged } = await new Deno.Command(git, {
+      const { stdout: filesChanged } = await new Deno.Command("git", {
         args: ["diff-tree", "--no-commit-id", "--name-only", "-r", id],
+        env: await getGitEnv(),
       }).output();
 
       const files = new TextDecoder().decode(filesChanged).trim().split("\n")
@@ -318,11 +329,11 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
  */
 export async function applyCheckpoint(checkpointId: string): Promise<void> {
   try {
-    const git = await getGitCommand();
-
     // Verify the checkpoint exists
-    await new Deno.Command(git, { args: ["cat-file", "-e", checkpointId] })
-      .output();
+    await new Deno.Command("git", {
+      args: ["cat-file", "-e", checkpointId],
+      env: await getGitEnv(),
+    }).output();
 
     // Get checkpoint details
     const checkpoint = await getCheckpointDetails(checkpointId);
@@ -339,8 +350,10 @@ export async function applyCheckpoint(checkpointId: string): Promise<void> {
 
     // Reset the working directory to the checkpoint state
     // Use checkout to avoid changing the HEAD
-    await new Deno.Command(git, { args: ["checkout", checkpointId, "--", "."] })
-      .output();
+    await new Deno.Command("git", {
+      args: ["checkout", checkpointId, "--", "."],
+      env: await getGitEnv(),
+    }).output();
   } catch (error) {
     // Convert any error to a consistent error format
     if (error instanceof Error) {
