@@ -242,26 +242,6 @@ components:
                     message:
                       type: string
 
-    InternalServerError:
-      description: Internal server error
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              code:
-                type: integer
-                example: 500
-              type:
-                type: string
-                example: "internal_server_error"
-              message:
-                type: string
-                example: "Internal server error"
-              error:
-                type: string
-                description: Formatted error message
-
 paths:
   /agent/messages:
     get:
@@ -277,8 +257,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Message"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
     delete:
       summary: Clear agent messages
       description: Clears all messages in the agent's history
@@ -286,9 +264,6 @@ paths:
       responses:
         "204":
           description: Messages cleared
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
   /agent/tasks:
     post:
       summary: Run a task
@@ -324,8 +299,6 @@ paths:
                 data: {}
         "400":
           $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
 
   /agent/checkpoints:
     get:
@@ -341,8 +314,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Checkpoint"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
 
   /agent/checkpoints/{checkpointId}/apply:
     parameters:
@@ -374,8 +345,6 @@ paths:
                   - id
         "400":
           $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
 
   /health:
     get:
@@ -428,8 +397,6 @@ paths:
                           items:
                             type: string
                           description: List of tool names provided by this server
-        "500":
-          $ref: "#/components/responses/InternalServerError"
 
   /mcp/register:
     post:
@@ -449,8 +416,6 @@ paths:
           description: Servers registered successfully
         "400":
           $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
 
   /mcp/servers/{id}:
     parameters:
@@ -470,8 +435,6 @@ paths:
           description: Server deregistered successfully
         "400":
           $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
     put:
       summary: Update MCP server configuration
       description: Updates the configuration of an existing MCP server
@@ -489,8 +452,6 @@ paths:
           description: Server configuration updated successfully
         "400":
           $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
 
   /mcp/servers/{id}/status:
     parameters:
@@ -522,8 +483,6 @@ paths:
           description: Server status updated successfully
         "400":
           $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
 
   /mcp/tools:
     get:
@@ -542,8 +501,6 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Tool"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
 
   /mcp/reload:
     get:
@@ -553,5 +510,3 @@ paths:
       responses:
         "200":
           description: Configuration reloaded successfully
-        "500":
-          $ref: "#/components/responses/InternalServerError"
