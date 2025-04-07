@@ -2,8 +2,6 @@ import * as path from "jsr:@std/path";
 import { getWorkspaceDataDir } from "./utils/index.ts";
 import { fileExists as pathExists } from "./utils/index.ts";
 
-let gitEnv: Record<string, string> = {};
-
 /**
  * Checkpoint information
  */
@@ -46,6 +44,8 @@ async function getWorkspaceCheckpointsDir(): Promise<string> {
   return checkpointsDir;
 }
 
+let _gitEnv: Record<string, string> | undefined;
+
 /**
  * Get the Git command with the proper git-dir and work-tree flags
  *
@@ -54,7 +54,7 @@ async function getWorkspaceCheckpointsDir(): Promise<string> {
 async function getGitEnv(): Promise<Record<string, string>> {
   const checkpointsDir = await getWorkspaceCheckpointsDir();
 
-  return gitEnv ??= {
+  return _gitEnv ??= {
     GIT_DIR: checkpointsDir,
     GIT_WORK_TREE: Deno.cwd(),
   };
