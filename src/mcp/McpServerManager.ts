@@ -9,7 +9,7 @@ import {
   McpServerSchema,
 } from "./types.ts";
 import { formatError, getWorkspaceDataDir } from "../utils/index.ts";
-import { join } from "path";
+import { join } from "jsr:@std/path";
 
 const McpConfigSchema = z.object({
   mcpServers: z.record(McpServerConfigSchema),
