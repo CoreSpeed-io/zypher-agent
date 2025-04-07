@@ -17,17 +17,22 @@ jobs:
       - name: Setup repo
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.2.8
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: deno install --frozen=true
 
-      - name: Run linter
-        run: bun lint
+      - name: Run linter check
+        run: deno lint
+
+      - name: Run formatter check
+        run: deno fmt --check
 
       - name: Build CLI
-        run: bun run build:cli
+        run: deno task build:cli
 
       - name: Build API Server
-        run: bun run build:api
+        run: deno task build:api
