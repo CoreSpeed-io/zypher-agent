@@ -1,13 +1,14 @@
-import type { ErrorDetector } from "./interface.ts";
+import type { ErrorDetector } from "../interface.ts";
 import {
-  extractErrorOutput,
+  CommandConfig,
   findScriptByPattern,
   getRunCommand,
   hasDependency,
   hasScript,
   readPackageJson,
 } from "./utils.ts";
-import { fileExists } from "../utils/index.ts";
+import { extractErrorOutput } from "../utils.ts";
+import { fileExists } from "../../utils/index.ts";
 
 /**
  * Detector for ESLint errors in JavaScript/TypeScript projects
@@ -37,12 +38,14 @@ export class ESLintErrorDetector implements ErrorDetector {
   async detect(): Promise<string | null> {
     try {
       // Determine the command to run
-      const command = await this.determineCommand();
+      const commandConfig = await this.determineCommand();
 
       // Execute the command
       try {
         // If we get here, the command succeeded (no errors)
-        await new Deno.Command(command).output();
+        await new Deno.Command(commandConfig.cmd, {
+          args: commandConfig.args || [],
+        }).output();
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors
@@ -66,10 +69,10 @@ export class ESLintErrorDetector implements ErrorDetector {
   /**
    * Determines the command to run for ESLint
    *
-   * @returns {Promise<string>} The command to execute
+   * @returns {Promise<CommandConfig>} The command configuration to execute
    * @private
    */
-  private async determineCommand(): Promise<string> {
+  private async determineCommand(): Promise<CommandConfig> {
     const packageJson = await readPackageJson();
 
     // If package.json has a lint script, use it
@@ -86,13 +89,13 @@ export class ESLintErrorDetector implements ErrorDetector {
       }
 
       if (scriptName) {
-        return await getRunCommand(scriptName);
+        return await getRunCommand([scriptName]);
       }
     }
 
     // For direct commands, we'll use the eslint binary directly
     // but still respect the package manager via getRunCommand
-    return await getRunCommand("eslint . --ext .js,.jsx,.ts,.tsx");
+    return await getRunCommand(["eslint", ".", "--ext", ".js,.jsx,.ts,.tsx"]);
   }
 
   /**
@@ -157,12 +160,14 @@ export class TypeScriptErrorDetector implements ErrorDetector {
   async detect(): Promise<string | null> {
     try {
       // Determine the command to run
-      const command = await this.determineCommand();
+      const commandConfig = await this.determineCommand();
 
       // Execute the command
       try {
         // If we get here, the command succeeded (no errors)
-        await new Deno.Command(command).output();
+        await new Deno.Command(commandConfig.cmd, {
+          args: commandConfig.args || [],
+        }).output();
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors
@@ -186,10 +191,10 @@ export class TypeScriptErrorDetector implements ErrorDetector {
   /**
    * Determines the command to run for TypeScript
    *
-   * @returns {Promise<string>} The command to execute
+   * @returns {Promise<CommandConfig>} The command configuration to execute
    * @private
    */
-  private async determineCommand(): Promise<string> {
+  private async determineCommand(): Promise<CommandConfig> {
     const packageJson = await readPackageJson();
 
     // If package.json has a type-check script, use it
@@ -209,13 +214,13 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       }
 
       if (scriptName) {
-        return await getRunCommand(scriptName);
+        return await getRunCommand([scriptName]);
       }
     }
 
     // For direct commands, we'll use the tsc binary directly
     // but still respect the package manager via getRunCommand
-    return await getRunCommand("tsc --noEmit");
+    return await getRunCommand(["tsc", "--noEmit"]);
   }
 
   /**
