@@ -1,5 +1,5 @@
 import type { ErrorDetector } from "./interface.ts";
-import { ESLintErrorDetector, TypeScriptErrorDetector } from "./javascript.ts";
+import { ESLintErrorDetector, TypeScriptErrorDetector } from "./javascript/ErrorDetector.ts";
 import {
   PythonFlake8ErrorDetector,
   PythonMypyErrorDetector,
