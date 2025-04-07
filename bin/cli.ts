@@ -11,7 +11,7 @@ import {
   ReadFileTool,
   RunTerminalCmdTool,
 } from "../src/tools/index.ts";
-import { Command } from "commander";
+import { parseArgs } from "jsr:@std/cli";
 import readline from "node:readline";
 import { stdin as input, stdout as output } from "node:process";
 import { formatError } from "../src/utils/error.ts";
@@ -27,33 +27,24 @@ interface CliOptions {
   streaming?: boolean;
 }
 
-const program = new Command();
+// Parse command line arguments using std/cli
+const cliFlags = parseArgs(Deno.args, {
+  string: ["workspace", "user-id", "base-url", "api-key"],
+  alias: {
+    w: "workspace",
+    u: "user-id",
+    b: "base-url",
+    k: "api-key",
+  },
+});
 
-program
-  .name("zypher")
-  .description("AI-powered coding assistant")
-  .version("0.1.0")
-  .option("-w, --workspace <path>", "Set working directory for the agent")
-  .option(
-    "-u, --user-id <string>",
-    "Set the user identifier (overrides ZYPHER_USER_ID env variable)",
-  )
-  .option(
-    "-b, --base-url <string>",
-    "Set the Anthropic API base URL (overrides ANTHROPIC_BASE_URL env variable)",
-  )
-  .option(
-    "-k, --api-key <string>",
-    "Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)",
-  )
-  .option(
-    "-m, --model <string>",
-    "Set the Claude model to use (overrides default model)",
-  )
-  .option("--no-streaming", "Disable streaming output in the terminal")
-  .parse(Deno.args);
-
-const options = program.opts<CliOptions>();
+// Convert kebab-case args to camelCase for consistency
+const options: CliOptions = {
+  workspace: cliFlags.workspace,
+  userId: cliFlags["user-id"],
+  baseUrl: cliFlags["base-url"],
+  apiKey: cliFlags["api-key"],
+};
 
 const rl = readline.createInterface({ input, output });
 
