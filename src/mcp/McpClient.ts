@@ -20,7 +20,7 @@ import { createTool, type Tool } from "../tools";
 import dotenv from "dotenv";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { z } from "zod";
-import type { IMcpServer } from "./types";
+import type { IMcpServerConfig } from "./types";
 
 dotenv.config();
 
@@ -77,7 +77,7 @@ export class McpClient {
    * @throws Error if connection fails or server is not responsive
    */
   async retriveTools(
-    config: IMcpServer["config"],
+    config: IMcpServerConfig,
     mode: ConnectionMode = ConnectionMode.CLI,
   ): Promise<Tool[]> {
     console.time(`[Performance] Retrieve tools`);
@@ -152,10 +152,10 @@ export class McpClient {
     }
   }
 
-  private buildTransport(mode: ConnectionMode, config: IMcpServer["config"]) {
+  private buildTransport(mode: ConnectionMode, config: IMcpServerConfig) {
     switch (mode) {
       case ConnectionMode.CLI:
-        if ("url" in config) {
+        if (!("command" in config)) {
           throw new Error("CLI mode requires command and args");
         }
         return new StdioClientTransport({
