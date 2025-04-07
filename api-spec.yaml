@@ -21,15 +21,25 @@ components:
       type: object
       required:
         - code
+        - type
         - message
       properties:
         code:
           type: integer
           format: int32
           description: Error code
+        type:
+          type: string
+          description: Error type (e.g. invalid_request, internal_server_error)
         message:
           type: string
           description: Error message
+        details:
+          type: object
+          description: Additional error details
+        error:
+          type: string
+          description: Formatted error message for internal server errors
 
     ContentBlock:
       type: object
@@ -133,7 +143,7 @@ components:
                 example: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/..."
           description: Image attachments for the task
 
-    TaskEvent:
+    StreamEvent:
       type: object
       required:
         - event
@@ -141,18 +151,31 @@ components:
       properties:
         event:
           type: string
-          enum: [message, complete, error]
+          enum: [message, content_delta, tool_use_delta, complete, error]
           description: The type of event
         data:
           oneOf:
             - $ref: "#/components/schemas/Message"
             - type: object
               properties:
+                content:
+                  type: string
+                  description: Content delta for incremental updates
+            - type: object
+              properties:
+                name:
+                  type: string
+                  description: Tool name
+                partialInput:
+                  type: object
+                  description: Partial tool input parameters
+            - type: object
+              description: Empty object for complete event
+            - type: object
+              properties:
                 error:
                   type: string
                   description: Error message
-              required:
-                - error
           description: The event data
 
     McpServerConfig:
@@ -160,15 +183,15 @@ components:
       properties:
         command:
           type: string
-          description: Command to start the server
+          description: Command to start the server (CLI mode)
         args:
           type: array
           items:
             type: string
-          description: Command line arguments
+          description: Command line arguments (CLI mode)
         url:
           type: string
-          description: Server URL for SSE mode
+          description: Server URL (SSE mode)
         env:
           type: object
           additionalProperties:
@@ -219,26 +242,6 @@ components:
                     message:
                       type: string
 
-    InternalServerError:
-      description: Internal server error
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              code:
-                type: integer
-                example: 500
-              type:
-                type: string
-                example: "internal_server_error"
-              message:
-                type: string
-                example: "Internal server error"
-              error:
-                type: string
-                description: Formatted error message
-
 paths:
   /agent/messages:
     get:
@@ -254,12 +257,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Message"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
     delete:
       summary: Clear agent messages
       description: Clears all messages in the agent's history
@@ -267,13 +264,6 @@ paths:
       responses:
         "204":
           description: Messages cleared
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
   /agent/tasks:
     post:
       summary: Run a task
@@ -296,8 +286,11 @@ paths:
                 type: string
                 description: Stream of server-sent events containing task progress
               example: |
-                event: message
-                data: {"role":"user","content":"<user_query>\nHow can I create a React component?\n</user_query>","checkpointId":"abc123","checkpoint":{"id":"abc123","name":"Before task: How can I create a React component?","timestamp":"2024-03-10T12:30:45Z"}}
+                event: content_delta
+                data: {"content":"I'll help you create a React component."}
+
+                event: tool_use_delta
+                data: {"name":"read_file","partialInput":{"target_file":"src/components/Example.tsx"}}
 
                 event: message
                 data: {"role":"assistant","content":[{"type":"text","text":"I'll help you create a React component."}]}
@@ -305,17 +298,7 @@ paths:
                 event: complete
                 data: {}
         "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/ValidationError"
 
   /agent/checkpoints:
     get:
@@ -331,12 +314,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Checkpoint"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
 
   /agent/checkpoints/{checkpointId}/apply:
     parameters:
@@ -345,6 +322,7 @@ paths:
         required: true
         schema:
           type: string
+          minLength: 1
         description: ID of the checkpoint (Git commit hash)
     post:
       summary: Apply checkpoint
@@ -365,18 +343,8 @@ paths:
                 required:
                   - success
                   - id
-        "404":
-          description: Checkpoint not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+        "400":
+          $ref: "#/components/responses/ValidationError"
 
   /health:
     get:
@@ -403,7 +371,7 @@ paths:
   /mcp/servers:
     get:
       summary: List all registered MCP servers
-      description: Returns all registered MCP servers and their configurations
+      description: Returns all registered MCP servers with their tools
       operationId: listMcpServers
       responses:
         "200":
@@ -421,17 +389,18 @@ paths:
                         id:
                           type: string
                           description: Unique identifier for the server
-                        name:
-                          type: string
-                          description: User-friendly name of the server
-                        config:
-                          $ref: "#/components/schemas/McpServerConfig"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
+                        enabled:
+                          type: boolean
+                          description: Whether the server is enabled
+                        tools:
+                          type: array
+                          items:
+                            type: string
+                          description: List of tool names provided by this server
 
   /mcp/register:
     post:
-      summary: Register a new MCP server
+      summary: Register new MCP servers
       description: Registers one or more MCP servers with their configurations
       operationId: registerMcpServer
       requestBody:
@@ -444,11 +413,9 @@ paths:
                 $ref: "#/components/schemas/McpServerConfig"
       responses:
         "201":
-          description: Server registered successfully
+          description: Servers registered successfully
         "400":
           $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
 
   /mcp/servers/{id}:
     parameters:
@@ -468,8 +435,6 @@ paths:
           description: Server deregistered successfully
         "400":
           $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
     put:
       summary: Update MCP server configuration
       description: Updates the configuration of an existing MCP server
@@ -487,19 +452,37 @@ paths:
           description: Server configuration updated successfully
         "400":
           $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
 
-  /mcp/reload:
-    get:
-      summary: Reload MCP configuration
-      description: Reloads the MCP configuration and reinitializes all servers
-      operationId: reloadMcpConfig
+  /mcp/servers/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+        description: ID of the MCP server
+    put:
+      summary: Update server status
+      description: Enable or disable a specific MCP server
+      operationId: updateMcpServerStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - enabled
+              properties:
+                enabled:
+                  type: boolean
+                  description: Whether to enable or disable the server
       responses:
-        "200":
-          description: Configuration reloaded successfully
-        "500":
-          $ref: "#/components/responses/InternalServerError"
+        "204":
+          description: Server status updated successfully
+        "400":
+          $ref: "#/components/responses/ValidationError"
 
   /mcp/tools:
     get:
@@ -518,5 +501,12 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Tool"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
+
+  /mcp/reload:
+    get:
+      summary: Reload MCP configuration
+      description: Reloads the MCP configuration and reinitializes all servers
+      operationId: reloadMcpConfig
+      responses:
+        "200":
+          description: Configuration reloaded successfully

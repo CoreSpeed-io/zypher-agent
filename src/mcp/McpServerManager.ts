@@ -3,11 +3,13 @@ import type { Tool } from "../tools/index.ts";
 import { z } from "zod";
 import {
   type IMcpServer,
-  type McpServerConfig,
+  type IMcpServerApi,
+  type IMcpServerConfig,
   McpServerConfigSchema,
   McpServerSchema,
 } from "./types.ts";
-import { formatError } from "../utils/index.ts";
+import { formatError, getWorkspaceDataDir } from "../utils/index.ts";
+import { join } from "path";
 
 const McpConfigSchema = z.object({
   mcpServers: z.record(McpServerConfigSchema),
@@ -21,9 +23,13 @@ type IMcpConfig = z.infer<typeof McpConfigSchema>;
  */
 export class McpServerManager {
   private _config: IMcpConfig | null = null;
-  private _servers = new Map<string, IMcpServer>();
-  private _tools = new Map<string, Tool>();
+  // toolbox only contains active tools for agent to call
+  private _toolbox = new Map<string, Tool>();
+  // serverToolsMap maintains all tools for each server
+  private _serverToolsMap = new Map<IMcpServer, Tool[]>();
   private _initialized = false;
+  private _configFile = "mcp.json";
+  private _dataDir: string | null = null;
 
   /**
    * Initializes the McpServerManager by loading configuration and setting up servers
@@ -34,10 +40,13 @@ export class McpServerManager {
       return this;
     }
 
-    // 1. Read and parse server configs from mcp.json
+    // Get workspace data directory
+    this._dataDir = await getWorkspaceDataDir();
+
+    // Load and parse server configs from mcp.json
     await this.loadConfig();
 
-    // 2. Initialize servers and fetch their tools
+    // Initialize servers and fetch their tools
     await this.initializeServers();
 
     this._initialized = true;
@@ -45,34 +54,30 @@ export class McpServerManager {
   }
 
   /**
-   * Gets all registered tools from all servers
-   * @returns Array of all available tools
+   * Gets the full path for a configuration file
+   * @param filename The configuration file name
+   * @returns The full path to the configuration file
    */
-  getAllTools(): Map<string, Tool> {
-    return this._tools;
-  }
-
-  /**
-   * Gets a specific tool by name
-   * @param name The name of the tool to retrieve
-   * @returns The tool if found, undefined otherwise
-   */
-  public getTool(name: string): Tool | undefined {
-    const tool = this._tools.get(name);
-    return tool;
+  private getConfigPath(filename: string): string {
+    if (!this._dataDir) {
+      throw new Error("Data directory not initialized");
+    }
+    return join(this._dataDir, filename);
   }
 
   /**
    * Loads and validates the MCP configuration from mcp.json
-   * @param configPath Path to the configuration file
    * @throws Error if config file is invalid or cannot be loaded
    */
-  private async loadConfig(configPath = "mcp.json"): Promise<void> {
+  private async loadConfig(): Promise<void> {
     try {
+      const configPath = this.getConfigPath(this._configFile);
       try {
         await Deno.stat(configPath);
       } catch {
-        const defaultConfig: IMcpConfig = { mcpServers: {} };
+        const defaultConfig: IMcpConfig = {
+          mcpServers: {},
+        };
         await Deno.writeTextFile(
           configPath,
           JSON.stringify(defaultConfig, null, 2),
@@ -84,6 +89,22 @@ export class McpServerManager {
       const configContent = await Deno.readTextFile(configPath);
       const parsedConfig = JSON.parse(configContent) as Record<string, unknown>;
       this._config = McpConfigSchema.parse(parsedConfig);
+
+      // Create server instances with their enabled states from config
+      for (
+        const [serverId, serverConfig] of Object.entries(
+          this._config.mcpServers,
+        )
+      ) {
+        const server = McpServerSchema.parse({
+          id: serverId,
+          name: serverId,
+          client: new McpClient({ serverName: serverId }),
+          config: serverConfig,
+          enabled: serverConfig.enabled ?? true,
+        });
+        this._serverToolsMap.set(server, []);
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         throw new Error(`Invalid MCP config structure: ${formatError(error)}`);
@@ -131,52 +152,17 @@ export class McpServerManager {
       throw new Error("Config not loaded. Call loadConfig() first.");
     }
 
-    // First create all server instances
-    for (const [id, serverConfig] of Object.entries(this._config.mcpServers)) {
-      const server = McpServerSchema.parse({
-        id,
-        name: id,
-        client: new McpClient({ serverName: id }),
-        config: serverConfig,
-      });
-      this._servers.set(id, server);
-    }
-
     // Then fetch and register tools for all servers
-    const serverInitPromises = Array.from(this._servers.entries()).map(
-      async ([id, server]) => {
+    const serverInitPromises = Array.from(this._serverToolsMap.entries()).map(
+      async ([server, _]) => {
         try {
-          const connectionMode = this.getConnectionMode(server.config);
-          const tools = await server.client.retriveTools(
-            server.config,
-            connectionMode,
-          );
-          // Register each tool
-          for (const tool of tools) {
-            try {
-              this.registerTool(tool);
-            } catch (error) {
-              // Skip duplicate tools without logging warnings
-              if (
-                !(
-                  error instanceof Error &&
-                  error.message.includes("already registered")
-                )
-              ) {
-                console.error(
-                  `Failed to register tool ${tool.name} from server ${id}:`,
-                  error,
-                );
-              }
-            }
-          }
+          await this.registerServerTools(server);
         } catch (error) {
-          const errorMessage = error instanceof Error
-            ? error.message
-            : "Unknown error";
-          console.error(`Failed to initialize server ${id}: ${errorMessage}`);
+          console.error(
+            `Failed to initialize server ${server.id}: ${formatError(error)}`,
+          );
           // Remove the failed server
-          this._servers.delete(id);
+          this._serverToolsMap.delete(server);
         }
       },
     );
@@ -189,7 +175,7 @@ export class McpServerManager {
    * @param config The server configuration
    * @returns The appropriate connection mode
    */
-  private getConnectionMode(config: McpServerConfig): ConnectionMode {
+  private getConnectionMode(config: IMcpServerConfig): ConnectionMode {
     if ("url" in config) {
       return ConnectionMode.SSE;
     }
@@ -202,45 +188,34 @@ export class McpServerManager {
    * @param config Server configuration
    * @throws Error if server registration fails or server already exists
    */
-  async registerServer(id: string, config: McpServerConfig): Promise<void> {
-    if (this._servers.has(id)) {
-      throw new Error(`Server with id ${id} already exists`);
-    }
-
-    const server = McpServerSchema.parse({
+  async registerServer(id: string, config: IMcpServerConfig): Promise<void> {
+    const newServer = McpServerSchema.parse({
       id,
       name: id,
       client: new McpClient({ serverName: id }),
       config,
+      enabled: true, // New servers are enabled by default
     });
 
+    if (this.getServer(id)) {
+      throw new Error(`Server with id ${id} already exists`);
+    }
+
     try {
-      const connectionMode = this.getConnectionMode(config);
-      const tools = await server.client.retriveTools(config, connectionMode);
+      // First register the server with empty tools
+      this._serverToolsMap.set(newServer, []);
 
-      // Register each tool
-      tools.forEach((tool) => this.registerTool(tool));
-
-      this._servers.set(id, server);
+      // Then fetch and register its tools
+      await this.registerServerTools(newServer);
 
       // Update mcp.json file
       if (this._config) {
-        try {
-          this._config.mcpServers[id] = config;
-          await Deno.writeTextFile(
-            "mcp.json",
-            JSON.stringify(this._config, null, 2),
-          );
-        } catch (error) {
-          // Rollback server registration if file write fails
-          this._servers.delete(id);
-          for (const tool of tools) {
-            this._tools.delete(tool.name);
-          }
-          throw new Error(`Failed to update mcp.json: ${formatError(error)}`);
-        }
+        this._config.mcpServers[id] = config;
+        await this.saveConfig();
       }
     } catch (error) {
+      // Clean up any partial registration
+      this._serverToolsMap.delete(newServer);
       throw new Error(`Failed to register server ${id}: ${formatError(error)}`);
     }
   }
@@ -251,10 +226,10 @@ export class McpServerManager {
    * @throws Error if tool is not found
    */
   removeTool(name: string): void {
-    if (!this._tools.has(name)) {
+    if (!this._toolbox.has(name)) {
       throw new Error(`Tool ${name} not found`);
     }
-    this._tools.delete(name);
+    this._toolbox.delete(name);
   }
 
   /**
@@ -263,7 +238,7 @@ export class McpServerManager {
    * @throws Error if server is not found or deregistration fails
    */
   async deregisterServer(id: string): Promise<void> {
-    const server = this._servers.get(id);
+    const server = this.getServer(id);
     if (!server) {
       throw new Error(`Server with id ${id} not found`);
     }
@@ -272,32 +247,22 @@ export class McpServerManager {
       // First cleanup the server client
       await server.client.cleanup();
 
-      // Remove all tools associated with this server
-      const toolPrefix = `mcp_${id}_`;
-      const toolsToRemove = Array.from(this._tools.keys()).filter((name) =>
-        name.startsWith(toolPrefix)
-      );
+      // Remove all tools from toolbox
+      const tools = this._serverToolsMap.get(server);
+      if (tools) {
+        for (const tool of tools) {
+          const toolName = `mcp_${server.id}_${tool.name}`;
+          this._toolbox.delete(toolName);
+        }
+      }
 
-      toolsToRemove.forEach((toolName) => this.removeTool(toolName));
-
-      // Remove the server
-      this._servers.delete(id);
+      // Remove server and its tools from serverToolsMap
+      this._serverToolsMap.delete(server);
 
       // Update mcp.json file
       if (this._config) {
-        try {
-          delete this._config.mcpServers[id];
-          await Deno.writeTextFile(
-            "mcp.json",
-            JSON.stringify(this._config, null, 2),
-          );
-        } catch (error) {
-          // Rollback server deregistration if file write fails
-          this._servers.set(id, server);
-          // Note: We don't need to restore tools as they will be re-registered
-          // when the server is re-registered
-          throw new Error(`Failed to update mcp.json: ${formatError(error)}`);
-        }
+        delete this._config.mcpServers[id];
+        await this.saveConfig();
       }
     } catch (error) {
       throw new Error(
@@ -312,8 +277,11 @@ export class McpServerManager {
    * @param config New server configuration
    * @throws Error if server is not found or update fails
    */
-  async updateServerConfig(id: string, config: McpServerConfig): Promise<void> {
-    const server = this._servers.get(id);
+  async updateServerConfig(
+    id: string,
+    config: IMcpServerConfig,
+  ): Promise<void> {
+    const server = this.getServer(id);
     if (!server) {
       throw new Error(`Server with id ${id} not found`);
     }
@@ -333,18 +301,10 @@ export class McpServerManager {
    * @param tool The tool to register
    */
   registerTool(tool: Tool): void {
-    if (this._tools.has(tool.name)) {
+    if (this._toolbox.has(tool.name)) {
       throw new Error(`Tool ${tool.name} already registered`);
     }
-    this._tools.set(tool.name, tool);
-  }
-
-  /**
-   * Gets all registered servers
-   * @returns Map of server IDs to server instances
-   */
-  getAllServers(): Map<string, IMcpServer> {
-    return this._servers;
+    this._toolbox.set(tool.name, tool);
   }
 
   /**
@@ -352,16 +312,170 @@ export class McpServerManager {
    */
   async cleanup(): Promise<void> {
     // Cleanup all server clients
-    for (const server of this._servers.values()) {
+    for (const server of this._serverToolsMap.keys()) {
       try {
         await server.client.cleanup();
       } catch (error) {
         console.error(`Error cleaning up server ${server.id}:`, error);
       }
     }
-
-    this._servers.clear();
-    this._tools.clear();
+    this._serverToolsMap.clear();
+    this._toolbox.clear();
     this._initialized = false;
+  }
+
+  getAllServerWithTools(): IMcpServerApi[] {
+    return Array.from(this._serverToolsMap.entries()).map(
+      ([server, tools]) => ({
+        id: server.id,
+        name: server.name,
+        enabled: server.enabled,
+        tools: tools.map((tool) => tool.name),
+      }),
+    );
+  }
+
+  /**
+   * Sets the status of a server and saves it to mcp.json
+   * @param serverId The ID of the server
+   * @param enabled The new status
+   */
+  async setServerStatus(serverId: string, enabled: boolean): Promise<void> {
+    const server = this.getServer(serverId);
+    if (!server) {
+      throw new Error(`Server ${serverId} not found`);
+    }
+
+    server.enabled = enabled;
+    const tools = this._serverToolsMap.get(server);
+    if (enabled && tools) {
+      // Re-add tools to toolbox when enabling
+      for (const tool of tools) {
+        const toolName = `mcp_${server.id}_${tool.name}`;
+        this._toolbox.set(toolName, tool);
+      }
+    } else if (!enabled) {
+      // Remove tools from toolbox when disabling
+      this.removeServerTools(serverId);
+    }
+
+    // Update the config
+    if (this._config?.mcpServers[serverId]) {
+      this._config.mcpServers[serverId] = {
+        ...this._config.mcpServers[serverId],
+        enabled,
+      };
+      await this.saveConfig();
+    }
+  }
+
+  private getServer(id: string): IMcpServer {
+    for (const server of this._serverToolsMap.keys()) {
+      if (server.id === id) {
+        return server;
+      }
+    }
+    throw new Error(`Server ${id} not found`);
+  }
+
+  getServerConfig(serverId: string): IMcpServerConfig {
+    const server = this.getServer(serverId);
+    if (!server) {
+      throw new Error(`Server ${serverId} not found`);
+    }
+    // Return config without enabled property
+    return server.config;
+  }
+
+  /**
+   * Saves the current configuration to mcp.json
+   */
+  private async saveConfig(): Promise<void> {
+    if (!this._config) {
+      throw new Error("Config not loaded");
+    }
+
+    // Update enabled state in config for all servers
+    for (const server of this._serverToolsMap.keys()) {
+      const serverId = server.id;
+      if (this._config.mcpServers[serverId]) {
+        const currentConfig = this._config.mcpServers[serverId];
+        this._config.mcpServers[serverId] = {
+          ...currentConfig,
+          enabled: server.enabled,
+        };
+      }
+    }
+
+    // Write config to file
+    await Deno.writeTextFile(
+      this.getConfigPath(this._configFile),
+      JSON.stringify(this._config, null, 2),
+    );
+  }
+
+  /**
+   * Removes all tools associated with a server from the toolbox
+   * @param serverId The ID of the server
+   */
+  private removeServerTools(serverId: string): void {
+    const server = this.getServer(serverId);
+    if (!server) return;
+    const tools = this._serverToolsMap.get(server);
+    if (tools) {
+      // Only remove from toolbox, keep in serverToolsMap
+      for (const tool of tools) {
+        const toolName = `mcp_${server.id}_${tool.name}`;
+        this._toolbox.delete(toolName);
+      }
+    }
+  }
+
+  /**
+   * Registers all tools for a server
+   * @param server The server to register tools for
+   */
+  private async registerServerTools(server: IMcpServer): Promise<void> {
+    try {
+      const connectionMode = this.getConnectionMode(server.config);
+      const tools = await server.client.retriveTools(
+        server.config,
+        connectionMode,
+      );
+
+      // Store tools in serverToolsMap regardless of enabled state
+      this._serverToolsMap.set(server, tools);
+
+      // Only add to toolbox if server is enabled
+      if (server.enabled) {
+        for (const tool of tools) {
+          const toolName = `mcp_${server.id}_${tool.name}`;
+          this._toolbox.set(toolName, tool);
+        }
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to register tools for server ${server.id}: ${
+          formatError(error)
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Gets all registered tools from all servers
+   * @returns Map of tool names to tool instances
+   */
+  getAllTools(): Map<string, Tool> {
+    return this._toolbox;
+  }
+
+  /**
+   * Gets a specific tool by name
+   * @param name The name of the tool to retrieve
+   * @returns The tool if found, undefined otherwise
+   */
+  getTool(name: string): Tool | undefined {
+    return this._toolbox.get(name);
   }
 }
