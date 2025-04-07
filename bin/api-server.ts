@@ -26,7 +26,7 @@ import {
 import { listCheckpoints } from "../src/checkpoints";
 import { formatError } from "../src/utils/error";
 import { McpServerManager } from "../src/mcp/McpServerManager";
-import { McpServerConfigSchema, type IMcpServer } from "../src/mcp/types";
+import { McpServerConfigSchema, McpServerIdSchema } from "../src/mcp/types";
 
 // Load environment variables
 dotenv.config();
@@ -46,7 +46,7 @@ class ApiError extends Error {
 // Schema for request validation
 const McpServerApiSchema = z.record(z.string(), McpServerConfigSchema);
 
-// Initialize MCP Server Manager
+// Initialize MCP Server Manager and Controller
 const mcpServerManager = new McpServerManager();
 
 // Zod Schemas
@@ -333,21 +333,25 @@ app.post(
 
 // List registered MCP servers
 app.get("/mcp/servers", (c) => {
-  const servers = Array.from(mcpServerManager.getAllServers().entries()).map(
-    ([id, server]: [string, IMcpServer]) => ({
-      id,
-      name: server.name,
-      config: server.config,
-    }),
-  );
+  const servers = mcpServerManager.getAllServerWithTools();
   return c.json({ servers });
 });
 
+// Update server status
+app.put(
+  "/mcp/servers/:id/status",
+  zValidator("json", z.object({ enabled: z.boolean() })),
+  async (c) => {
+    const id = McpServerIdSchema.parse(c.req.param("id"));
+    const { enabled } = c.req.valid("json");
+    await mcpServerManager.setServerStatus(id, enabled);
+    return c.body(null, 204);
+  },
+);
+
 // Register new MCP server
-// FIXME: Zod schema looks way too permissive.
 app.post("/mcp/register", zValidator("json", McpServerApiSchema), async (c) => {
   const servers = c.req.valid("json");
-  console.log("servers", servers);
   await Promise.all(
     Object.entries(servers).map(
       ([name, config]) =>
@@ -358,47 +362,48 @@ app.post("/mcp/register", zValidator("json", McpServerApiSchema), async (c) => {
 });
 
 // Deregister MCP server
-app.delete(
-  "/mcp/servers/:id",
-  zValidator("param", z.object({ id: z.string().min(1) })),
-  async (c) => {
-    const { id } = c.req.valid("param");
-    await mcpServerManager.deregisterServer(id);
-    return c.status(204);
-  },
-);
+app.delete("/mcp/servers/:id", async (c) => {
+  const id = McpServerIdSchema.parse(c.req.param("id"));
+  await mcpServerManager.deregisterServer(id);
+  return c.body(null, 204);
+});
 
 // Update MCP server configuration
 app.put(
   "/mcp/servers/:id",
-  zValidator("param", z.object({ id: z.string().min(1) })),
   zValidator("json", McpServerApiSchema),
   async (c) => {
-    const { id } = c.req.valid("param");
-    const body = c.req.valid("json");
-
-    if (!body[id]) {
+    const id = c.req.param("id") ?? "";
+    const config = c.req.valid("json")[id];
+    if (!config) {
       throw new ApiError(
         400,
         "invalid_request",
         "Invalid server configuration",
       );
     }
-
-    await mcpServerManager.updateServerConfig(id, body[id]);
-    return c.status(204);
+    await mcpServerManager.updateServerConfig(id, config);
+    return c.body(null, 204);
   },
 );
 
 // Query available tools from registered MCP servers
 app.get("/mcp/tools", (c) => {
-  const tools = Array.from(mcpServerManager.getAllTools().values());
+  const tools = mcpServerManager.getAllTools();
   return c.json({ tools });
 });
 
+// Reload MCP server configuration
 app.get("/mcp/reload", async (c) => {
   await mcpServerManager.reloadConfig();
   return c.body(null, 200);
+});
+
+// Get server config
+app.get("/mcp/servers/:id", (c) => {
+  const id = McpServerIdSchema.parse(c.req.param("id"));
+  const { enabled: _enabled, ...rest } = mcpServerManager.getServerConfig(id);
+  return c.json({ [id]: rest });
 });
 
 // Start the server
