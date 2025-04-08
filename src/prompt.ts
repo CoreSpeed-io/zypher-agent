@@ -1,21 +1,5 @@
-import { access, constants, readFile } from "fs/promises";
-import type { UserInfo } from "./utils";
-
-/**
- * Attempts to read a file with proper error handling.
- *
- * @param {string} path - Path to the file to read
- * @returns {Promise<string | null>} File contents if successful, null if file doesn't exist or isn't readable
- * @private
- */
-async function tryReadFile(path: string): Promise<string | null> {
-  try {
-    await access(path, constants.R_OK);
-    return await readFile(path, "utf-8");
-  } catch {
-    return null;
-  }
-}
+import type { UserInfo } from "./utils/system.ts";
+import { fileExists } from "./utils/index.ts";
 
 /**
  * Reads custom rules from either .zypherrules or .cursorrules file.
@@ -31,11 +15,14 @@ async function tryReadFile(path: string): Promise<string | null> {
  */
 export async function getCustomRules(): Promise<string | null> {
   try {
-    const zypherRules = await tryReadFile(".zypherrules");
-    if (zypherRules) return zypherRules;
-
-    const cursorRules = await tryReadFile(".cursorrules");
-    if (cursorRules) return cursorRules;
+    if (await fileExists(".zypherrules")) {
+      const zypherRules = await Deno.readTextFile(".zypherrules");
+      return zypherRules;
+    }
+    if (await fileExists(".cursorrules")) {
+      const cursorRules = await Deno.readTextFile(".cursorrules");
+      return cursorRules;
+    }
 
     return null;
   } catch (error) {
@@ -45,7 +32,8 @@ export async function getCustomRules(): Promise<string | null> {
 }
 
 export async function getSystemPrompt(userInfo: UserInfo): Promise<string> {
-  const systemPrompt = `You are Zypher, a powerful agentic AI coding assistant by CoreSpeed, powered by Claude 3.5 Sonnet.
+  const systemPrompt =
+    `You are Zypher, a powerful agentic AI coding assistant by CoreSpeed, powered by Claude 3.5 Sonnet.
 
 You are pair programming with a USER to solve their coding task.
 The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.

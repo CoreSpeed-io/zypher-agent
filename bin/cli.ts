@@ -1,22 +1,22 @@
-import { ZypherAgent } from "../src/ZypherAgent";
-import type { StreamHandler } from "../src/ZypherAgent";
+import "jsr:@std/dotenv/load";
+import { ZypherAgent } from "../src/ZypherAgent.ts";
+import type { StreamHandler } from "../src/ZypherAgent.ts";
 import {
-  ReadFileTool,
-  ListDirTool,
-  EditFileTool,
-  RunTerminalCmdTool,
-  GrepSearchTool,
-  FileSearchTool,
   DeleteFileTool,
+  EditFileTool,
+  FileSearchTool,
+  GrepSearchTool,
   ImageGenTool,
-} from "../src/tools";
-import { Command } from "commander";
-import dotenv from "dotenv";
-import readline from "readline";
-import { stdin as input, stdout as output } from "process";
-import { formatError } from "../src/utils/error";
+  ListDirTool,
+  ReadFileTool,
+  RunTerminalCmdTool,
+} from "../src/tools/index.ts";
+import { parseArgs } from "jsr:@std/cli";
+import readline from "node:readline";
+import { stdin as input, stdout as output } from "node:process";
+import { formatError } from "../src/utils/error.ts";
 import chalk from "chalk";
-import { McpServerManager } from "../src/mcp/McpServerManager";
+import { McpServerManager } from "../src/mcp/McpServerManager.ts";
 
 interface CliOptions {
   workspace?: string;
@@ -27,33 +27,24 @@ interface CliOptions {
   streaming?: boolean;
 }
 
-const program = new Command();
+// Parse command line arguments using std/cli
+const cliFlags = parseArgs(Deno.args, {
+  string: ["workspace", "user-id", "base-url", "api-key"],
+  alias: {
+    w: "workspace",
+    u: "user-id",
+    b: "base-url",
+    k: "api-key",
+  },
+});
 
-program
-  .name("zypher")
-  .description("AI-powered coding assistant")
-  .version("0.1.0")
-  .option("-w, --workspace <path>", "Set working directory for the agent")
-  .option(
-    "-u, --user-id <string>",
-    "Set the user identifier (overrides ZYPHER_USER_ID env variable)",
-  )
-  .option(
-    "-b, --base-url <string>",
-    "Set the Anthropic API base URL (overrides ANTHROPIC_BASE_URL env variable)",
-  )
-  .option(
-    "-k, --api-key <string>",
-    "Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)",
-  )
-  .option(
-    "-m, --model <string>",
-    "Set the Claude model to use (overrides default model)",
-  )
-  .option("--no-streaming", "Disable streaming output in the terminal")
-  .parse(process.argv);
-
-const options = program.opts<CliOptions>();
+// Convert kebab-case args to camelCase for consistency
+const options: CliOptions = {
+  workspace: cliFlags.workspace,
+  userId: cliFlags["user-id"],
+  baseUrl: cliFlags["base-url"],
+  apiKey: cliFlags["api-key"],
+};
 
 const rl = readline.createInterface({ input, output });
 
@@ -68,16 +59,14 @@ function prompt(question: string): Promise<string> {
 }
 
 async function main(): Promise<void> {
-  dotenv.config();
-
   await mcpServerManager.init();
 
   try {
     // Handle workspace option
     if (options.workspace) {
       try {
-        process.chdir(options.workspace);
-        console.log(`🚀 Changed working directory to: ${process.cwd()}`);
+        Deno.chdir(options.workspace);
+        console.log(`🚀 Changed working directory to: ${Deno.cwd()}`);
       } catch (error) {
         throw new Error(
           `Failed to change to workspace directory: ${formatError(error)}`,
@@ -159,16 +148,18 @@ async function main(): Promise<void> {
               onContent: (content, isFirstChunk) => {
                 // For the first content chunk, add a bot indicator
                 if (isFirstChunk) {
-                  process.stdout.write(chalk.blue("🤖 "));
+                  Deno.stdout.write(
+                    new TextEncoder().encode(chalk.blue("🤖 ")),
+                  );
                 }
 
                 // Write the text without newline to allow continuous streaming
-                process.stdout.write(content);
+                Deno.stdout.write(new TextEncoder().encode(content));
               },
               onMessage: (message) => {
                 // Add a separator between messages for better readability
                 if (message.role === "assistant") {
-                  process.stdout.write("\n");
+                  Deno.stdout.write(new TextEncoder().encode("\n"));
 
                   // Check if the message contains tool use
                   const content = Array.isArray(message.content)
@@ -176,11 +167,13 @@ async function main(): Promise<void> {
                     : [];
                   for (const block of content) {
                     if (block.type === "tool_use") {
-                      process.stdout.write(
-                        chalk.yellow("\n\n🛠️ Using tool: ") +
-                          chalk.green(block.name) +
-                          "\n" +
-                          JSON.stringify(block.input, null, 2),
+                      Deno.stdout.write(
+                        new TextEncoder().encode(
+                          chalk.yellow("\n\n🛠️ Using tool: ") +
+                            chalk.green(block.name) +
+                            "\n" +
+                            JSON.stringify(block.input, null, 2),
+                        ),
                       );
                       break;
                     }
@@ -192,7 +185,7 @@ async function main(): Promise<void> {
             await agent.runTaskWithStreaming(task, streamHandler);
 
             // Add extra newlines for readability after completion
-            process.stdout.write("\n\n");
+            Deno.stdout.write(new TextEncoder().encode("\n\n"));
           }
 
           console.log("\n✅ Task completed.\n");
@@ -204,20 +197,20 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     console.error("Fatal Error:", formatError(error));
-    process.exit(1);
+    Deno.exit(1);
   } finally {
     rl.close();
   }
 }
 
 // Handle Ctrl+C
-process.on("SIGINT", () => {
+Deno.addSignalListener("SIGINT", () => {
   console.log("\n\nGoodbye! 👋\n");
-  process.exit(0);
+  Deno.exit(0);
 });
 
 // Run the CLI
 main().catch((error) => {
   console.error("Unhandled error:", formatError(error));
-  process.exit(1);
+  Deno.exit(1);
 });

@@ -1,6 +1,6 @@
-import type { ErrorDetector } from "./interface";
-import { execAsync, extractErrorOutput } from "./utils";
-import { fileExists } from "../utils";
+import type { ErrorDetector } from "./interface.ts";
+import { extractErrorOutput } from "./utils.ts";
+import { fileExists } from "../utils/index.ts";
 
 /**
  * Detector for Python linting errors using flake8
@@ -35,11 +35,13 @@ export class PythonFlake8ErrorDetector implements ErrorDetector {
     try {
       // Check if flake8 is installed
       try {
-        await execAsync("which flake8");
+        await new Deno.Command("which", { args: ["flake8"] }).output();
       } catch {
         // flake8 not installed, try with python -m
         try {
-          await execAsync("python -m flake8 --version");
+          await new Deno.Command("python", {
+            args: ["-m", "flake8", "--version"],
+          }).output();
         } catch {
           return null; // flake8 not available
         }
@@ -47,7 +49,8 @@ export class PythonFlake8ErrorDetector implements ErrorDetector {
 
       // Run flake8
       try {
-        const result = await execAsync("flake8 .");
+        const result = await new Deno.Command("flake8", { args: ["."] })
+          .output();
         // If we get here with no stdout, there are no errors
         if (!result.stdout) {
           return null;
@@ -78,17 +81,19 @@ export class PythonMypyErrorDetector implements ErrorDetector {
   async isApplicable(): Promise<boolean> {
     try {
       // Check if it's a Python project
-      const isPythonProject =
-        await new PythonFlake8ErrorDetector().isApplicable();
+      const isPythonProject = await new PythonFlake8ErrorDetector()
+        .isApplicable();
       if (!isPythonProject) return false;
 
       // Check if mypy is available
       try {
-        await execAsync("which mypy");
+        await new Deno.Command("which", { args: ["mypy"] }).output();
         return true;
       } catch {
         try {
-          await execAsync("python -m mypy --version");
+          await new Deno.Command("python", {
+            args: ["-m", "mypy", "--version"],
+          }).output();
           return true;
         } catch {
           return false; // mypy not available
@@ -103,7 +108,7 @@ export class PythonMypyErrorDetector implements ErrorDetector {
     try {
       // Run mypy
       try {
-        const result = await execAsync("mypy .");
+        const result = await new Deno.Command("mypy", { args: ["."] }).output();
         // If we get here with no stdout, there are no errors
         if (!result.stdout) {
           return null;

@@ -1,10 +1,6 @@
-import { exec } from "child_process";
-import { promisify } from "util";
-import { access, constants, mkdir } from "fs/promises";
-import { join } from "path";
-import { getWorkspaceDataDir } from "./utils";
-
-const execAsync = promisify(exec);
+import * as path from "jsr:@std/path";
+import { getWorkspaceDataDir } from "./utils/index.ts";
+import { fileExists as pathExists } from "./utils/index.ts";
 
 /**
  * Checkpoint information
@@ -32,77 +28,75 @@ export interface Checkpoint {
 }
 
 /**
- * Check if a path exists
- *
- * @param path - Path to check
- * @returns Promise resolving to true if the path exists, false otherwise
- */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path, constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Gets the path to the checkpoints directory for the current workspace
  *
  * @returns Promise resolving to the path to the checkpoints directory
  */
 async function getWorkspaceCheckpointsDir(): Promise<string> {
   const workspaceDir = await getWorkspaceDataDir();
-  const checkpointsDir = join(workspaceDir, "checkpoints");
+  const checkpointsDir = path.join(workspaceDir, "checkpoints");
 
   // Create checkpoints directory if it doesn't exist
   if (!(await pathExists(checkpointsDir))) {
-    await mkdir(checkpointsDir, { recursive: true });
+    await Deno.mkdir(checkpointsDir, { recursive: true });
   }
 
   return checkpointsDir;
 }
+
+let _gitEnv: Record<string, string> | undefined;
 
 /**
  * Get the Git command with the proper git-dir and work-tree flags
  *
  * @returns Promise resolving to the Git command prefix
  */
-async function getGitCommand(): Promise<string> {
+async function getGitEnv(): Promise<Record<string, string>> {
   const checkpointsDir = await getWorkspaceCheckpointsDir();
-  return `git --git-dir=${checkpointsDir} --work-tree=${process.cwd()}`;
+
+  return _gitEnv ??= {
+    GIT_DIR: checkpointsDir,
+    GIT_WORK_TREE: Deno.cwd(),
+  };
 }
 
 /**
  * Initialize the checkpoint repository if it doesn't exist
  */
 async function initCheckpointRepo(): Promise<void> {
-  const checkpointsDir = await getWorkspaceCheckpointsDir();
-
   // Check if Git repository already exists and is valid
   try {
-    const git = await getGitCommand();
-    await execAsync(`${git} status`);
+    await new Deno.Command("git", {
+      args: ["status"],
+      env: await getGitEnv(),
+    }).output();
     return; // It's a valid Git repository, so we're done
   } catch {
     // Not a valid Git repository or doesn't exist, continue with initialization
   }
 
   // Initialize a new git repository (non-bare)
-  await execAsync(`GIT_DIR=${checkpointsDir} git init`);
-
-  // Get the Git command now that the repository is initialized
-  const git = await getGitCommand();
+  await new Deno.Command("git", {
+    args: ["init"],
+    env: await getGitEnv(),
+  }).output();
 
   // Configure the repository
-  await execAsync(`${git} config user.name "ZypherAgent"`);
-  await execAsync(`${git} config user.email "zypher@corespeed.io"`);
+  await new Deno.Command("git", {
+    args: ["config", "user.name", "ZypherAgent"],
+    env: await getGitEnv(),
+  }).output();
+  await new Deno.Command("git", {
+    args: ["config", "user.email", "zypher@corespeed.io"],
+    env: await getGitEnv(),
+  }).output();
 
   // Create an initial empty commit
   try {
-    await execAsync(
-      `${git} commit --allow-empty -m "Initial checkpoint repository"`,
-    );
+    await new Deno.Command("git", {
+      args: ["commit", "--allow-empty", "-m", "Initial checkpoint repository"],
+      env: await getGitEnv(),
+    }).output();
   } catch (error) {
     console.error("Failed to initialize checkpoint repository:", error);
   }
@@ -121,14 +115,18 @@ export async function createCheckpoint(
     // Initialize the checkpoint repository if needed
     await initCheckpointRepo();
 
-    const git = await getGitCommand();
-
     // Add all files to the index
-    await execAsync(`${git} add -A`);
+    await new Deno.Command("git", {
+      args: ["add", "-A"],
+      env: await getGitEnv(),
+    }).output();
 
     // Check if there are any changes
-    const { stdout: status } = await execAsync(`${git} status --porcelain`);
-    const hasChanges = status.trim().length > 0;
+    const { stdout: status } = await new Deno.Command("git", {
+      args: ["status", "--porcelain"],
+      env: await getGitEnv(),
+    }).output();
+    const hasChanges = new TextDecoder().decode(status).trim().length > 0;
 
     // Create checkpoint commit with appropriate message
     let commitMessage = `CHECKPOINT: ${name}`;
@@ -137,12 +135,18 @@ export async function createCheckpoint(
     }
 
     // Create the commit (using --allow-empty to handle cases with no changes)
-    await execAsync(`${git} commit --allow-empty -m "${commitMessage}"`);
+    await new Deno.Command("git", {
+      args: ["commit", "--allow-empty", "-m", commitMessage],
+      env: await getGitEnv(),
+    }).output();
 
     // Get the commit hash
-    const { stdout: commitHash } = await execAsync(`${git} rev-parse HEAD`);
+    const { stdout: commitHash } = await new Deno.Command("git", {
+      args: ["rev-parse", "HEAD"],
+      env: await getGitEnv(),
+    }).output();
 
-    return commitHash.trim();
+    return new TextDecoder().decode(commitHash).trim();
   } catch (error) {
     console.error("Failed to create checkpoint:", error);
     return undefined;
@@ -160,14 +164,13 @@ export async function getCheckpointDetails(
   checkpointId: string,
 ): Promise<Checkpoint> {
   try {
-    const git = await getGitCommand();
-
     // Get commit details
-    const { stdout: commitInfo } = await execAsync(
-      `${git} show --no-patch --format="%H%n%B%n%aI" ${checkpointId}`,
-    );
+    const { stdout: commitInfo } = await new Deno.Command("git", {
+      args: ["show", "--no-patch", "--format=%H%n%B%n%aI", checkpointId],
+      env: await getGitEnv(),
+    }).output();
 
-    const lines = commitInfo.trim().split("\n");
+    const lines = new TextDecoder().decode(commitInfo).trim().split("\n");
     if (lines.length < 2) {
       throw new Error(
         `Invalid commit info format for checkpoint ${checkpointId}`,
@@ -189,7 +192,7 @@ export async function getCheckpointDetails(
 
     // Find the checkpoint prefix
     const checkpointLine = lines.find((line) =>
-      line.startsWith("CHECKPOINT: "),
+      line.startsWith("CHECKPOINT: ")
     );
 
     if (checkpointLine) {
@@ -204,11 +207,13 @@ export async function getCheckpointDetails(
     }
 
     // Get files changed in this commit
-    const { stdout: filesChanged } = await execAsync(
-      `${git} diff-tree --no-commit-id --name-only -r ${checkpointId}`,
-    );
+    const { stdout: filesChanged } = await new Deno.Command("git", {
+      args: ["diff-tree", "--no-commit-id", "--name-only", "-r", checkpointId],
+      env: await getGitEnv(),
+    }).output();
 
-    const files = filesChanged.trim().split("\n").filter(Boolean);
+    const files = new TextDecoder().decode(filesChanged).trim().split("\n")
+      .filter(Boolean);
 
     return {
       id,
@@ -232,23 +237,24 @@ export async function getCheckpointDetails(
  */
 export async function listCheckpoints(): Promise<Checkpoint[]> {
   try {
-    // Get the Git command
-    const git = await getGitCommand();
-
     // Check if it's a valid Git repository using git status
     try {
-      await execAsync(`${git} status`);
+      await new Deno.Command("git", {
+        args: ["status"],
+        env: await getGitEnv(),
+      }).output();
     } catch {
       return []; // Not a valid Git repository or doesn't exist
     }
 
     // Get all checkpoint commits with a custom delimiter between commits
     // Using a unique delimiter "###COMMIT###" that won't appear in commit messages
-    const { stdout } = await execAsync(
-      `${git} log --pretty=format:"###COMMIT###%n%H%n%aI%n%s"`,
-    );
+    const { stdout } = await new Deno.Command("git", {
+      args: ["log", "--pretty=format:%H%n%aI%n%s"],
+      env: await getGitEnv(),
+    }).output();
 
-    if (!stdout.trim()) {
+    if (!new TextDecoder().decode(stdout).trim()) {
       return [];
     }
 
@@ -256,7 +262,8 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
     const checkpoints: Checkpoint[] = [];
 
     // Split by the delimiter, remove the first empty entry if it exists
-    const commitEntries = stdout.split("###COMMIT###").filter(Boolean);
+    const commitEntries = new TextDecoder().decode(stdout).split("###COMMIT###")
+      .filter(Boolean);
 
     for (const entry of commitEntries) {
       const lines = entry.trim().split("\n");
@@ -285,16 +292,18 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
       // Extract name from commit message
       const name = subject.startsWith("CHECKPOINT:")
         ? subject
-            .substring("CHECKPOINT: ".length)
-            .replace(/ \(advice-only\)$/, "")
+          .substring("CHECKPOINT: ".length)
+          .replace(/ \(advice-only\)$/, "")
         : subject;
 
       // Get files for this checkpoint
-      const { stdout: filesChanged } = await execAsync(
-        `${git} diff-tree --no-commit-id --name-only -r ${id}`,
-      );
+      const { stdout: filesChanged } = await new Deno.Command("git", {
+        args: ["diff-tree", "--no-commit-id", "--name-only", "-r", id],
+        env: await getGitEnv(),
+      }).output();
 
-      const files = filesChanged.trim().split("\n").filter(Boolean);
+      const files = new TextDecoder().decode(filesChanged).trim().split("\n")
+        .filter(Boolean);
 
       checkpoints.push({
         id,
@@ -320,10 +329,11 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
  */
 export async function applyCheckpoint(checkpointId: string): Promise<void> {
   try {
-    const git = await getGitCommand();
-
     // Verify the checkpoint exists
-    await execAsync(`${git} cat-file -e ${checkpointId}`);
+    await new Deno.Command("git", {
+      args: ["cat-file", "-e", checkpointId],
+      env: await getGitEnv(),
+    }).output();
 
     // Get checkpoint details
     const checkpoint = await getCheckpointDetails(checkpointId);
@@ -340,7 +350,10 @@ export async function applyCheckpoint(checkpointId: string): Promise<void> {
 
     // Reset the working directory to the checkpoint state
     // Use checkout to avoid changing the HEAD
-    await execAsync(`${git} checkout ${checkpointId} -- .`);
+    await new Deno.Command("git", {
+      args: ["checkout", checkpointId, "--", "."],
+      env: await getGitEnv(),
+    }).output();
   } catch (error) {
     // Convert any error to a consistent error format
     if (error instanceof Error) {

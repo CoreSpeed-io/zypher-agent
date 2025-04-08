@@ -1,6 +1,3 @@
-import os from "os";
-import process from "process";
-
 /**
  * Information about the user's system environment.
  */
@@ -24,8 +21,8 @@ export interface UserInfo {
  */
 export function getCurrentUserInfo(): UserInfo {
   return {
-    osVersion: `${os.platform()} ${os.release()}`,
-    workspacePath: process.cwd(),
-    shell: process.env.SHELL ?? "/bin/bash",
+    osVersion: `${Deno.build.os} ${Deno.osRelease()}`,
+    workspacePath: Deno.cwd(),
+    shell: Deno.env.get("SHELL") ?? "/bin/bash",
   };
 }

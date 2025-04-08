@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { defineTool } from "./index";
-import * as fs from "fs/promises";
-import * as path from "path";
+import { defineTool } from "./index.ts";
+import * as path from "jsr:@std/path";
 
 export const EditFileTool = defineTool({
   name: "edit_file",
@@ -28,10 +27,10 @@ export const EditFileTool = defineTool({
     try {
       // Ensure the directory exists
       const dir = path.dirname(targetFile);
-      await fs.mkdir(dir, { recursive: true });
+      await Deno.mkdir(dir, { recursive: true });
 
       // Write the file
-      await fs.writeFile(targetFile, codeEdit);
+      await Deno.writeTextFile(targetFile, codeEdit);
       return `Successfully wrote ${targetFile}`;
     } catch (error) {
       if (error instanceof Error) {

@@ -1,35 +1,33 @@
+import "@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { prettyJSON } from "hono/pretty-json";
 import { streamSSE } from "hono/streaming";
 import { zValidator } from "@hono/zod-validator";
 import type { StatusCode } from "hono/utils/http-status";
-import dotenv from "dotenv";
-import { Command } from "commander";
 import {
-  ZypherAgent,
-  type StreamHandler,
   type ImageAttachment,
-} from "../src/ZypherAgent";
+  type StreamHandler,
+  ZypherAgent,
+} from "../src/ZypherAgent.ts";
 import { z } from "zod";
+import { parseArgs } from "jsr:@std/cli";
 
 import {
-  ReadFileTool,
-  ListDirTool,
-  EditFileTool,
-  RunTerminalCmdTool,
-  GrepSearchTool,
-  FileSearchTool,
   DeleteFileTool,
+  EditFileTool,
+  FileSearchTool,
+  GrepSearchTool,
   ImageGenTool,
-} from "../src/tools";
-import { listCheckpoints } from "../src/checkpoints";
-import { formatError } from "../src/utils/error";
-import { McpServerManager } from "../src/mcp/McpServerManager";
-import { McpServerConfigSchema, McpServerIdSchema } from "../src/mcp/types";
-
-// Load environment variables
-dotenv.config();
+  ListDirTool,
+  ReadFileTool,
+  RunTerminalCmdTool,
+} from "../src/tools/index.ts";
+import { listCheckpoints } from "../src/checkpoints.ts";
+import { formatError } from "../src/utils/error.ts";
+import { McpServerManager } from "../src/mcp/McpServerManager.ts";
+import { McpServerConfigSchema, McpServerIdSchema } from "../src/mcp/types.ts";
+import process from "node:process";
 
 class ApiError extends Error {
   constructor(
@@ -46,7 +44,7 @@ class ApiError extends Error {
 // Schema for request validation
 const McpServerApiSchema = z.record(z.string(), McpServerConfigSchema);
 
-// Initialize MCP Server Manager and Controller
+// Initialize MCP Server Manager
 const mcpServerManager = new McpServerManager();
 
 // Zod Schemas
@@ -73,7 +71,9 @@ const base64ImageSchema = z
       );
     },
     {
-      message: `Image must be one of the following types: ${SUPPORTED_IMAGE_TYPES.join(", ")}`,
+      message: `Image must be one of the following types: ${
+        SUPPORTED_IMAGE_TYPES.join(", ")
+      }`,
     },
   );
 
@@ -101,29 +101,30 @@ interface ServerOptions {
   apiKey?: string;
 }
 
-const program = new Command();
+// Parse command line arguments using std/cli
+const cliFlags = parseArgs(Deno.args, {
+  string: ["port", "workspace", "user-id", "base-url", "api-key"],
+  alias: {
+    p: "port",
+    w: "workspace",
+    u: "user-id",
+    b: "base-url",
+    k: "api-key",
+  },
+  default: {
+    port: "3000",
+  },
+});
 
-program
-  .name("zypher-api")
-  .description("API server for ZypherAgent")
-  .version("1.0.0")
-  .option("-p, --port <number>", "Port to run the server on", "3000")
-  .option("-w, --workspace <path>", "Set working directory for the agent")
-  .option(
-    "-u, --user-id <string>",
-    "Set the user identifier (overrides ZYPHER_USER_ID env variable)",
-  )
-  .option(
-    "-b, --base-url <string>",
-    "Set the Anthropic API base URL (overrides ANTHROPIC_BASE_URL env variable)",
-  )
-  .option(
-    "-k, --api-key <string>",
-    "Set the Anthropic API key (overrides ANTHROPIC_API_KEY env variable)",
-  )
-  .parse(process.argv);
+// Convert kebab-case args to camelCase for consistency
+const options: ServerOptions = {
+  port: cliFlags.port,
+  workspace: cliFlags.workspace,
+  userId: cliFlags["user-id"],
+  baseUrl: cliFlags["base-url"],
+  apiKey: cliFlags["api-key"],
+};
 
-const options = program.opts<ServerOptions>();
 const PORT = parseInt(options.port, 10);
 
 // Initialize Hono app
@@ -141,8 +142,8 @@ async function initializeAgent(): Promise<void> {
     // Handle workspace option
     if (options.workspace) {
       try {
-        process.chdir(options.workspace);
-        console.log(`🚀 Changed working directory to: ${process.cwd()}`);
+        Deno.chdir(options.workspace);
+        console.log(`🚀 Changed working directory to: ${Deno.cwd()}`);
       } catch (error) {
         throw new Error(
           `Failed to change to workspace directory: ${formatError(error)}`,
@@ -411,22 +412,18 @@ async function startServer(): Promise<void> {
   await initializeAgent();
 
   try {
-    const server = Bun.serve({
-      port: PORT,
-      fetch: app.fetch,
-      idleTimeout: 180,
-    });
+    const server = Deno.serve({ port: PORT }, app.fetch);
 
     console.log(`🚀 API server running at http://localhost:${PORT}`);
 
-    process.on("SIGINT", () => {
+    Deno.addSignalListener("SIGINT", () => {
       console.log("\n\nShutting down API server... 👋\n");
-      void server.stop();
-      process.exit(0);
+      void server.shutdown();
+      Deno.exit(0);
     });
   } catch (error) {
     console.error(`❌ Failed to start server:`, formatError(error));
-    process.exit(1);
+    Deno.exit(1);
   }
 }
 

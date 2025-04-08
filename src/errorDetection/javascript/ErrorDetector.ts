@@ -1,14 +1,14 @@
-import type { ErrorDetector } from "./interface";
+import type { ErrorDetector } from "../interface.ts";
 import {
-  execAsync,
-  readPackageJson,
+  CommandConfig,
+  findScriptByPattern,
   getRunCommand,
   hasDependency,
   hasScript,
-  findScriptByPattern,
-  extractErrorOutput,
-} from "./utils";
-import { fileExists } from "../utils";
+  readPackageJson,
+} from "./utils.ts";
+import { extractErrorOutput } from "../utils.ts";
+import { fileExists } from "../../utils/index.ts";
 
 /**
  * Detector for ESLint errors in JavaScript/TypeScript projects
@@ -25,8 +25,7 @@ export class ESLintErrorDetector implements ErrorDetector {
       const hasEslint = hasDependency(packageJson, "eslint");
 
       // Also check if there are lint scripts
-      const hasLintScript =
-        hasScript(packageJson, "lint") ||
+      const hasLintScript = hasScript(packageJson, "lint") ||
         hasScript(packageJson, "eslint") ||
         !!findScriptByPattern(packageJson, "lint");
 
@@ -39,17 +38,20 @@ export class ESLintErrorDetector implements ErrorDetector {
   async detect(): Promise<string | null> {
     try {
       // Determine the command to run
-      const command = await this.determineCommand();
+      const commandConfig = await this.determineCommand();
 
       // Execute the command
       try {
         // If we get here, the command succeeded (no errors)
-        await execAsync(command);
+        await new Deno.Command(commandConfig.cmd, {
+          args: commandConfig.args || [],
+        }).output();
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors
-        const errorOutput = extractErrorOutput(error, (output) =>
-          this.filterNonErrors(output),
+        const errorOutput = extractErrorOutput(
+          error,
+          (output) => this.filterNonErrors(output),
         );
 
         if (errorOutput) {
@@ -67,10 +69,10 @@ export class ESLintErrorDetector implements ErrorDetector {
   /**
    * Determines the command to run for ESLint
    *
-   * @returns {Promise<string>} The command to execute
+   * @returns {Promise<CommandConfig>} The command configuration to execute
    * @private
    */
-  private async determineCommand(): Promise<string> {
+  private async determineCommand(): Promise<CommandConfig> {
     const packageJson = await readPackageJson();
 
     // If package.json has a lint script, use it
@@ -87,13 +89,13 @@ export class ESLintErrorDetector implements ErrorDetector {
       }
 
       if (scriptName) {
-        return await getRunCommand(scriptName);
+        return await getRunCommand([scriptName]);
       }
     }
 
     // For direct commands, we'll use the eslint binary directly
     // but still respect the package manager via getRunCommand
-    return await getRunCommand("eslint . --ext .js,.jsx,.ts,.tsx");
+    return await getRunCommand(["eslint", ".", "--ext", ".js,.jsx,.ts,.tsx"]);
   }
 
   /**
@@ -137,8 +139,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
         const hasTypeScript = hasDependency(packageJson, "typescript");
 
         // Check if there are type-check scripts
-        const hasTypeCheckScript =
-          hasScript(packageJson, "type-check") ||
+        const hasTypeCheckScript = hasScript(packageJson, "type-check") ||
           hasScript(packageJson, "typecheck") ||
           hasScript(packageJson, "tsc") ||
           !!findScriptByPattern(packageJson, "type") ||
@@ -159,17 +160,20 @@ export class TypeScriptErrorDetector implements ErrorDetector {
   async detect(): Promise<string | null> {
     try {
       // Determine the command to run
-      const command = await this.determineCommand();
+      const commandConfig = await this.determineCommand();
 
       // Execute the command
       try {
         // If we get here, the command succeeded (no errors)
-        await execAsync(command);
+        await new Deno.Command(commandConfig.cmd, {
+          args: commandConfig.args || [],
+        }).output();
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors
-        const errorOutput = extractErrorOutput(error, (output) =>
-          this.filterNonErrors(output),
+        const errorOutput = extractErrorOutput(
+          error,
+          (output) => this.filterNonErrors(output),
         );
 
         if (errorOutput) {
@@ -187,10 +191,10 @@ export class TypeScriptErrorDetector implements ErrorDetector {
   /**
    * Determines the command to run for TypeScript
    *
-   * @returns {Promise<string>} The command to execute
+   * @returns {Promise<CommandConfig>} The command configuration to execute
    * @private
    */
-  private async determineCommand(): Promise<string> {
+  private async determineCommand(): Promise<CommandConfig> {
     const packageJson = await readPackageJson();
 
     // If package.json has a type-check script, use it
@@ -205,19 +209,18 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       } else if (hasScript(packageJson, "tsc")) {
         scriptName = "tsc";
       } else {
-        scriptName =
-          findScriptByPattern(packageJson, "type") ??
+        scriptName = findScriptByPattern(packageJson, "type") ??
           findScriptByPattern(packageJson, "tsc");
       }
 
       if (scriptName) {
-        return await getRunCommand(scriptName);
+        return await getRunCommand([scriptName]);
       }
     }
 
     // For direct commands, we'll use the tsc binary directly
     // but still respect the package manager via getRunCommand
-    return await getRunCommand("tsc --noEmit");
+    return await getRunCommand(["tsc", "--noEmit"]);
   }
 
   /**

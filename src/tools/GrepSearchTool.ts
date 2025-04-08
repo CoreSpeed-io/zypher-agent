@@ -1,13 +1,5 @@
-import { exec } from "child_process";
-import { promisify } from "util";
 import { z } from "zod";
-import { defineTool } from "./index";
-
-const execAsync = promisify(exec);
-
-function escapeShellArg(arg: string): string {
-  return `'${arg.replace(/'/g, "'\\''")}'`;
-}
+import { defineTool } from "./index.ts";
 
 export const GrepSearchTool = defineTool({
   name: "grep_search",
@@ -38,33 +30,44 @@ export const GrepSearchTool = defineTool({
   }),
   execute: async ({ query, caseSensitive, includePattern, excludePattern }) => {
     try {
-      let command = "rg --line-number --no-heading";
+      // Build the arguments array for ripgrep
+      const args = ["--line-number", "--no-heading"];
 
       if (!caseSensitive) {
-        command += " -i";
+        args.push("-i");
       }
 
       if (includePattern) {
-        command += ` -g ${escapeShellArg(includePattern)}`;
+        args.push("-g", includePattern);
       }
 
       if (excludePattern) {
-        command += ` -g !${escapeShellArg(excludePattern)}`;
+        args.push("-g", `!${excludePattern}`);
       }
 
       // Add max count to avoid overwhelming output
-      command += " -m 50";
+      args.push("-m", "50");
 
-      command += ` ${escapeShellArg(query)}`;
+      // Add the search query
+      args.push(query);
 
-      const { stdout, stderr } = await execAsync(command);
-      if (!stdout && !stderr) {
+      // Execute the command
+      const command = new Deno.Command("rg", {
+        args: args,
+      });
+
+      const { stdout, stderr } = await command.output();
+      const textDecoder = new TextDecoder();
+      const stdoutText = textDecoder.decode(stdout);
+      const stderrText = textDecoder.decode(stderr);
+
+      if (!stdoutText && !stderrText) {
         return "No matches found.";
       }
-      if (stderr) {
-        return `Search completed with warnings:\n${stderr}\nResults:\n${stdout}`;
+      if (stderrText) {
+        return `Search completed with warnings:\n${stderrText}\nResults:\n${stdoutText}`;
       }
-      return stdout;
+      return stdoutText;
     } catch (error) {
       if (error instanceof Error) {
         return `Error performing search: ${error.message}`;

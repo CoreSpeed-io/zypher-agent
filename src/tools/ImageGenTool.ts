@@ -1,13 +1,12 @@
 import { z } from "zod";
-import { defineTool } from "./index";
-import OpenAI from "openai";
-import * as fs from "fs/promises";
-import * as path from "path";
-import { APIError } from "openai";
+import { defineTool } from "./index.ts";
+import OpenAI from "@openai/openai";
+import * as path from "jsr:@std/path";
+import { APIError } from "@openai/openai";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: Deno.env.get("OPENAI_API_KEY"),
 });
 
 export const ImageGenTool = defineTool({
@@ -76,7 +75,7 @@ export const ImageGenTool = defineTool({
       // Create parent directory if it doesn't exist
       const parentDir = path.dirname(destinationPath);
       try {
-        await fs.mkdir(parentDir, { recursive: true });
+        await Deno.mkdir(parentDir, { recursive: true });
       } catch (error) {
         throw new Error(
           `Failed to create directory for saving the image. Please check if you have write permissions: ${
@@ -111,7 +110,7 @@ export const ImageGenTool = defineTool({
       const imageBuffer = await imageResponse.arrayBuffer();
 
       // Save the image
-      await fs.writeFile(destinationPath, Buffer.from(imageBuffer));
+      await Deno.writeFile(destinationPath, new Uint8Array(imageBuffer));
 
       return `Your image has been created successfully!`;
     } catch (error: unknown) {

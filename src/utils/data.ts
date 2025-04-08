@@ -1,9 +1,8 @@
-import os from "os";
-import { mkdir, access, constants, readFile, writeFile } from "fs/promises";
-import { join } from "path";
-import type { Message } from "../message";
-import { isMessage } from "../message";
-import { formatError } from "./error";
+import * as path from "jsr:@std/path";
+import { encodeBase64 } from "jsr:@std/encoding/base64";
+import type { Message } from "../message.ts";
+import { isMessage } from "../message.ts";
+import { formatError } from "./error.ts";
 
 /**
  * Checks if a file exists and is readable.
@@ -13,7 +12,7 @@ import { formatError } from "./error";
  */
 export async function fileExists(path: string): Promise<boolean> {
   try {
-    await access(path, constants.R_OK);
+    await Deno.stat(path);
     return true;
   } catch {
     return false;
@@ -27,11 +26,14 @@ export async function fileExists(path: string): Promise<boolean> {
  * @returns {Promise<string>} Path to the Zypher data directory
  */
 export async function getDataDir(): Promise<string> {
-  const homeDir = os.homedir();
-  const dataDir = join(homeDir, ".zypher");
+  const homeDir = Deno.env.get("HOME");
+  if (!homeDir) {
+    throw new Error("Could not determine home directory");
+  }
+  const dataDir = path.join(homeDir, ".zypher");
 
   try {
-    await mkdir(dataDir, { recursive: true });
+    await Deno.mkdir(dataDir, { recursive: true });
   } catch (error) {
     console.warn("Failed to create data directory:", error);
   }
@@ -49,11 +51,11 @@ export async function getWorkspaceDataDir(): Promise<string> {
   const dataDir = await getDataDir();
 
   // Create workspace-specific directory
-  const workspaceHash = Buffer.from(process.cwd()).toString("base64url");
-  const workspaceDir = join(dataDir, workspaceHash);
+  const workspaceHash = encodeBase64(Deno.cwd());
+  const workspaceDir = path.join(dataDir, workspaceHash);
 
   try {
-    await mkdir(workspaceDir, { recursive: true });
+    await Deno.mkdir(workspaceDir, { recursive: true });
   } catch (error) {
     console.warn("Failed to create workspace directory:", error);
   }
@@ -70,14 +72,14 @@ export async function getWorkspaceDataDir(): Promise<string> {
 export async function loadMessageHistory(): Promise<Message[]> {
   try {
     const workspaceDir = await getWorkspaceDataDir();
-    const historyPath = join(workspaceDir, "history.json");
+    const historyPath = path.join(workspaceDir, "history.json");
 
     // Check if file exists before trying to read it
     if (!(await fileExists(historyPath))) {
       return [];
     }
 
-    const content = await readFile(historyPath, "utf-8");
+    const content = await Deno.readTextFile(historyPath);
     const parsedData: unknown = JSON.parse(content);
 
     // Validate that parsedData is an array
@@ -115,9 +117,9 @@ export async function loadMessageHistory(): Promise<Message[]> {
 export async function saveMessageHistory(messages: Message[]): Promise<void> {
   try {
     const workspaceDir = await getWorkspaceDataDir();
-    const historyPath = join(workspaceDir, "history.json");
+    const historyPath = path.join(workspaceDir, "history.json");
 
-    await writeFile(historyPath, JSON.stringify(messages, null, 2));
+    await Deno.writeTextFile(historyPath, JSON.stringify(messages, null, 2));
   } catch (error) {
     console.warn(`Failed to save message history: ${formatError(error)}`);
   }

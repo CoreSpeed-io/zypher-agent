@@ -1,17 +1,15 @@
-import { ConnectionMode, McpClient } from "./McpClient";
-import fs from "fs/promises";
-import type { Tool } from "../tools";
+import { ConnectionMode, McpClient } from "./McpClient.ts";
+import type { Tool } from "../tools/index.ts";
 import { z } from "zod";
 import {
-  McpServerSchema,
   type IMcpServer,
-  McpServerConfigSchema,
-  type IMcpServerConfig,
   type IMcpServerApi,
-} from "./types";
-import { formatError } from "../utils";
-import { join } from "path";
-import { getWorkspaceDataDir } from "../utils/data";
+  type IMcpServerConfig,
+  McpServerConfigSchema,
+  McpServerSchema,
+} from "./types.ts";
+import { formatError, getWorkspaceDataDir } from "../utils/index.ts";
+import { join } from "jsr:@std/path";
 
 const McpConfigSchema = z.object({
   mcpServers: z.record(McpServerConfigSchema),
@@ -75,24 +73,29 @@ export class McpServerManager {
     try {
       const configPath = this.getConfigPath(this._configFile);
       try {
-        await fs.access(configPath);
+        await Deno.stat(configPath);
       } catch {
         const defaultConfig: IMcpConfig = {
           mcpServers: {},
         };
-        await fs.writeFile(configPath, JSON.stringify(defaultConfig, null, 2));
+        await Deno.writeTextFile(
+          configPath,
+          JSON.stringify(defaultConfig, null, 2),
+        );
         this._config = defaultConfig;
         return;
       }
 
-      const configContent = await fs.readFile(configPath, "utf-8");
+      const configContent = await Deno.readTextFile(configPath);
       const parsedConfig = JSON.parse(configContent) as Record<string, unknown>;
       this._config = McpConfigSchema.parse(parsedConfig);
 
       // Create server instances with their enabled states from config
-      for (const [serverId, serverConfig] of Object.entries(
-        this._config.mcpServers,
-      )) {
+      for (
+        const [serverId, serverConfig] of Object.entries(
+          this._config.mcpServers,
+        )
+      ) {
         const server = McpServerSchema.parse({
           id: serverId,
           name: serverId,
@@ -106,8 +109,9 @@ export class McpServerManager {
       if (error instanceof z.ZodError) {
         throw new Error(`Invalid MCP config structure: ${formatError(error)}`);
       }
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Unknown error";
       throw new Error(
         `Failed to load MCP config: ${formatError(errorMessage)}`,
       );
@@ -130,8 +134,9 @@ export class McpServerManager {
       // Reload configuration
       await this.init();
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Unknown error";
       throw new Error(
         `Failed to reload MCP config: ${formatError(errorMessage)}`,
       );
@@ -306,6 +311,7 @@ export class McpServerManager {
    * Cleans up all server connections and resets the manager state
    */
   async cleanup(): Promise<void> {
+    // Cleanup all server clients
     for (const server of this._serverToolsMap.keys()) {
       try {
         await server.client.cleanup();
@@ -402,7 +408,7 @@ export class McpServerManager {
     }
 
     // Write config to file
-    await fs.writeFile(
+    await Deno.writeTextFile(
       this.getConfigPath(this._configFile),
       JSON.stringify(this._config, null, 2),
     );
@@ -449,7 +455,9 @@ export class McpServerManager {
       }
     } catch (error) {
       throw new Error(
-        `Failed to register tools for server ${server.id}: ${formatError(error)}`,
+        `Failed to register tools for server ${server.id}: ${
+          formatError(error)
+        }`,
       );
     }
   }
