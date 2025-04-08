@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { defineTool } from "./index.ts";
+import { exec, spawn } from "node:child_process";
+import { promisify } from "node:util";
+
+const execAsync = promisify(exec);
 
 export const RunTerminalCmdTool = defineTool({
   name: "run_terminal_cmd",
@@ -24,40 +28,22 @@ export const RunTerminalCmdTool = defineTool({
         return `Command proposed: ${command}\nWaiting for user approval...`;
       }
 
-      // Parse the command string into command and args
-      const cmdParts = command.trim().split(/\s+/);
-      const cmd = cmdParts[0];
-      const args = cmdParts.slice(1);
-
       if (isBackground) {
-        // For background processes
-        const _process = new Deno.Command(cmd, {
-          args: args,
-          stdin: "null",
-          stdout: "null",
-          stderr: "null",
-        }).spawn();
-
-        // We don't await the process in background mode
+        // For background processes, use spawn
+        const child = spawn(command, [], {
+          shell: true,
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
         return `Started background command: ${command}`;
       }
 
-      // For foreground processes, wait for completion
-      const process = new Deno.Command(cmd, {
-        args: args,
-        stdout: "piped",
-        stderr: "piped",
-      });
-
-      const { stdout, stderr } = await process.output();
-      const textDecoder = new TextDecoder();
-      const stdoutText = textDecoder.decode(stdout);
-      const stderrText = textDecoder.decode(stderr);
-
-      if (stderrText) {
-        return `Command executed with warnings:\n${stderrText}\nOutput:\n${stdoutText}`;
+      const { stdout, stderr } = await execAsync(command);
+      if (stderr) {
+        return `Command executed with warnings:\n${stderr}\nOutput:\n${stdout}`;
       }
-      return `Command executed successfully:\n${stdoutText}`;
+      return `Command executed successfully:\n${stdout}`;
     } catch (error) {
       if (error instanceof Error) {
         return `Error executing command: ${error.message}`;
