@@ -1,4 +1,4 @@
-import type { Message } from "../message";
+import type { Message } from "../message.ts";
 
 /**
  * Prints a message from the agent's conversation to the console with proper formatting.

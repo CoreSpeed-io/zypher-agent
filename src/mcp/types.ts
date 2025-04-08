@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { McpClient } from "./McpClient";
+import { McpClient } from "./McpClient.ts";
 
 // Common configuration fields shared between CLI and SSE modes
 const BaseConfigSchema = z.object({

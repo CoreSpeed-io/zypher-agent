@@ -1,9 +1,9 @@
-import type { MessageParam as AnthropicMessageParam } from "@anthropic-ai/sdk/resources/messages";
+import { Anthropic } from "@anthropic-ai/sdk";
 
 /**
  * Extended message parameter type that includes checkpoint information
  */
-export interface Message extends AnthropicMessageParam {
+export interface Message extends Anthropic.MessageParam {
   /**
    * Timestamp indicating when the message was created
    */
@@ -36,8 +36,8 @@ export function isMessage(value: unknown): value is Message {
     return false;
   }
 
-  const hasRequiredProps =
-    "role" in value && "content" in value && "timestamp" in value;
+  const hasRequiredProps = "role" in value && "content" in value &&
+    "timestamp" in value;
 
   if (!hasRequiredProps) {
     return false;

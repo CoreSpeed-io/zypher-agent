@@ -16,13 +16,10 @@
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { createTool, type Tool } from "../tools";
-import dotenv from "dotenv";
+import { createTool, type Tool } from "../tools/index.ts";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { z } from "zod";
-import type { IMcpServerConfig } from "./types";
-
-dotenv.config();
+import type { IMcpServerConfig } from "./types.ts";
 
 /**
  * Configuration options for the MCP client
@@ -108,8 +105,9 @@ export class McpClient {
 
       return tools;
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Unknown error";
       throw new Error(`Failed to connect to MCP server: ${errorMessage}`);
     }
   }
@@ -145,8 +143,9 @@ export class McpClient {
         await this.client?.close();
         this.transport = null;
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
+        const errorMessage = error instanceof Error
+          ? error.message
+          : "Unknown error";
         console.error("Error during cleanup:", errorMessage);
       }
     }
@@ -163,7 +162,7 @@ export class McpClient {
           args: config.args,
           env: {
             ...Object.fromEntries(
-              Object.entries(process.env).filter(([_, v]) => v !== undefined),
+              Object.entries(Deno.env).filter(([_, v]) => v !== undefined),
             ),
             ...config.env,
           } as Record<string, string>,
