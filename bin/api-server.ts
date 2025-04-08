@@ -412,9 +412,7 @@ async function startServer(): Promise<void> {
   await initializeAgent();
 
   try {
-    const server = Deno.serve({ port: PORT }, app.fetch);
-
-    console.log(`🚀 API server running at http://localhost:${PORT}`);
+    const server = Deno.serve({ hostname: "::", port: PORT }, app.fetch);
 
     Deno.addSignalListener("SIGINT", () => {
       console.log("\n\nShutting down API server... 👋\n");
