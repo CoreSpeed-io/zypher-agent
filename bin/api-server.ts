@@ -247,7 +247,7 @@ app.delete("/agent/messages", (c) => {
 });
 
 type TaskEvent = {
-  event: "content_delta" | "tool_use_delta" | "message" | "error";
+  event: "content_delta" | "tool_use_delta" | "message" | "error" | "complete";
   data: unknown;
 };
 
@@ -259,32 +259,21 @@ async function runAgentTask(
   // Set up streaming handler for the agent
   const streamHandler: StreamHandler = {
     onContent: (content, _isFirstChunk) => {
-      onEvent({
-        event: "content_delta",
-        data: { content },
-      });
+      onEvent({ event: "content_delta", data: { content } });
     },
     onToolUse: (name, partialInput) => {
-      onEvent({
-        event: "tool_use_delta",
-        data: { name, partialInput },
-      });
+      onEvent({ event: "tool_use_delta", data: { name, partialInput } });
     },
     onMessage: (message) => {
-      onEvent({
-        event: "message",
-        data: message,
-      });
+      onEvent({ event: "message", data: message });
     },
   };
 
   try {
     await agent.runTaskWithStreaming(task, streamHandler, imageAttachments);
+    onEvent({ event: "complete", data: {} });
   } catch (error) {
-    onEvent({
-      event: "error",
-      data: JSON.stringify({ error: formatError(error) }),
-    });
+    onEvent({ event: "error", data: { error: formatError(error) } });
   }
 }
 
