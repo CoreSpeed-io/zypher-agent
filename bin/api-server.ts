@@ -1,6 +1,7 @@
 import "@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { upgradeWebSocket } from "hono/deno";
 import { prettyJSON } from "hono/pretty-json";
 import { streamSSE } from "hono/streaming";
 import { zValidator } from "@hono/zod-validator";
@@ -131,7 +132,11 @@ const PORT = parseInt(options.port, 10);
 const app = new Hono();
 
 // Middleware
-app.use("*", cors());
+// TODO: improve cors usage/policy
+app.use("/health", cors());
+app.use("/agent/messages/*", cors());
+app.use("/agent/checkpoint/*", cors());
+app.use("/mcp/*", cors());
 app.use("*", prettyJSON());
 
 // Initialize the agent
@@ -246,7 +251,7 @@ app.delete("/agent/messages", (c) => {
 });
 
 // Run a task
-app.post("/agent/tasks", zValidator("json", taskSchema), (c) => {
+app.post("/agent/task", zValidator("json", taskSchema), (c) => {
   const { task, imageAttachments } = c.req.valid("json");
   const processedImages: ImageAttachment[] = [];
 
@@ -312,6 +317,99 @@ app.post("/agent/tasks", zValidator("json", taskSchema), (c) => {
     },
   );
 });
+
+// Run a task (websocket)
+app.get("/agent/task/ws", upgradeWebSocket((_c) => {
+  return {
+    onMessage(event, ws) {
+      try {
+        const messageData = JSON.parse(event.data as string);
+        const result = taskSchema.safeParse(messageData);
+        if (!result.success) {
+          ws.send(JSON.stringify({
+            event: "error",
+            data: {
+              error: "Invalid request format",
+              details: result.error.format(),
+            },
+          }));
+          return;
+        }
+
+        const { task, imageAttachments } = result.data;
+        const processedImages: ImageAttachment[] = [];
+
+        // Process image attachments if present
+        if (imageAttachments?.length) {
+          for (const img of imageAttachments) {
+            const [, base64Data = ""] = img.data.split(",");
+            const mimeType = img.data
+              .split(":")[1]
+              ?.split(";")[0] as SupportedImageType;
+            processedImages.push({
+              type: "image" as const,
+              source: {
+                type: "base64" as const,
+                media_type: mimeType,
+                data: base64Data,
+              },
+            });
+          }
+        }
+
+        // Set up streaming handler for WebSocket
+        const streamHandler: StreamHandler = {
+          onContent: (content, _isFirstChunk) => {
+            ws.send(JSON.stringify({
+              event: "content_delta",
+              data: { content },
+            }));
+          },
+          onToolUse: (name, partialInput) => {
+            ws.send(JSON.stringify({
+              event: "tool_use_delta",
+              data: { name, partialInput },
+            }));
+          },
+          onMessage: (message) => {
+            ws.send(JSON.stringify({
+              event: "message",
+              data: message,
+            }));
+          },
+        };
+
+        // Run the task with streaming handler
+        void (async () => {
+          try {
+            await agent.runTaskWithStreaming(task, streamHandler, processedImages);
+            
+            ws.send(JSON.stringify({
+              event: "complete",
+              data: {},
+            }));
+          } catch (err) {
+            ws.send(JSON.stringify({
+              event: "error",
+              data: { error: formatError(err) },
+            }));
+          }
+        })();
+      } catch (err) {
+        ws.send(JSON.stringify({
+          event: "error",
+          data: { error: formatError(err) },
+        }));
+      }
+    },
+    onClose() {
+      console.log('WebSocket connection closed');
+    },
+    onError(error) {
+      console.error('WebSocket error:', error);
+    },
+  };
+}));
 
 // List checkpoints
 app.get("/agent/checkpoints", async (c) => {
