@@ -176,7 +176,7 @@ components:
                 error:
                   type: string
                   description: Error message
-          description: The event data
+              description: The event data
 
     McpServerConfig:
       type: object
@@ -229,18 +229,18 @@ components:
                 type: string
                 example: "Validation error"
               details:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    code:
-                      type: string
-                    path:
-                      type: array
-                      items:
-                        type: string
-                    message:
-                      type: string
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                        path:
+                          type: array
+                          items:
+                            type: string
+                        message:
+                          type: string
 
 paths:
   /agent/messages:
@@ -264,13 +264,14 @@ paths:
       responses:
         "204":
           description: Messages cleared
-  /agent/tasks:
+
+  /agent/task/sse:
     post:
-      summary: Run a task
+      summary: Run a task with Server-Sent Events
       description: |
         Runs a task using the agent. This endpoint uses server-sent events (SSE) to stream
         the agent's responses back to the client in real-time.
-      operationId: runTask
+      operationId: runTaskSSE
       requestBody:
         description: Task request
         content:
@@ -299,7 +300,19 @@ paths:
                 data: {}
         "400":
           $ref: "#/components/responses/ValidationError"
-
+          
+  /agent/task/ws:
+    get:
+      summary: Run a task with WebSocket
+      description: |
+        Establishes a WebSocket connection for running tasks using the agent.
+        The client sends task requests as JSON messages and receives stream events
+        as responses.
+      operationId: runTaskWebSocket
+      responses:
+        "101":
+          description: WebSocket connection established
+          
   /agent/checkpoints:
     get:
       summary: List checkpoints
@@ -426,6 +439,21 @@ paths:
           type: string
           minLength: 1
         description: ID of the MCP server
+    get:
+      summary: Get MCP server configuration
+      description: Returns the configuration of a specific MCP server
+      operationId: getMcpServerConfig
+      responses:
+        "200":
+          description: Server configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: "#/components/schemas/McpServerConfig"
+        "400":
+          $ref: "#/components/responses/ValidationError"
     delete:
       summary: Deregister a MCP server
       description: Removes a registered MCP server
