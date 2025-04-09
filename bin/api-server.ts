@@ -390,7 +390,7 @@ app.put(
 
 // Query available tools from registered MCP servers
 app.get("/mcp/tools", (c) => {
-  const tools = mcpServerManager.getAllTools();
+  const tools = Array.from(mcpServerManager.getAllTools().keys());
   return c.json({ tools });
 });
 
