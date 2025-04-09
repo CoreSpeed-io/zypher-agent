@@ -152,7 +152,7 @@ export class McpClient {
 
   private buildTransport(mode: ConnectionMode, config: IMcpServerConfig) {
     switch (mode) {
-      case ConnectionMode.CLI:
+      case ConnectionMode.CLI: {
         if (!("command" in config)) {
           throw new Error("CLI mode requires command and args");
         }
@@ -167,6 +167,7 @@ export class McpClient {
             PATH: env.PATH || Deno.env.get("PATH") || "",
           } as Record<string, string>,
         });
+      }
 
       case ConnectionMode.SSE: {
         if (!("url" in config)) {
