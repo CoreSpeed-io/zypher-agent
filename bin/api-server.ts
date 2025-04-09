@@ -7,7 +7,7 @@ import { streamSSE } from "hono/streaming";
 import { zValidator } from "@hono/zod-validator";
 import type { StatusCode } from "hono/utils/http-status";
 import {
-  type ImageAttachment,
+  type ImageAttachment as ZypherImageAttachment,
   type StreamHandler,
   ZypherAgent,
 } from "../src/ZypherAgent.ts";
@@ -83,6 +83,7 @@ const imageSchema = z.object({
   name: z.string(),
   data: base64ImageSchema,
 });
+type ImageAttachment = z.infer<typeof imageSchema>;
 
 // Zod schema for task
 const taskSchema = z.object({
@@ -245,69 +246,75 @@ app.delete("/agent/messages", (c) => {
   return c.body(null, 204);
 });
 
+type TaskEvent = {
+  event: "content_delta" | "tool_use_delta" | "message" | "error";
+  data: unknown;
+};
+
+async function runAgentTask(
+  task: string,
+  imageAttachments: ZypherImageAttachment[],
+  onEvent: (event: TaskEvent) => void,
+): Promise<void> {
+  // Set up streaming handler for the agent
+  const streamHandler: StreamHandler = {
+    onContent: (content, _isFirstChunk) => {
+      onEvent({
+        event: "content_delta",
+        data: { content },
+      });
+    },
+    onToolUse: (name, partialInput) => {
+      onEvent({
+        event: "tool_use_delta",
+        data: { name, partialInput },
+      });
+    },
+    onMessage: (message) => {
+      onEvent({
+        event: "message",
+        data: message,
+      });
+    },
+  };
+
+  try {
+    await agent.runTaskWithStreaming(task, streamHandler, imageAttachments);
+  } catch (error) {
+    onEvent({
+      event: "error",
+      data: JSON.stringify({ error: formatError(error) }),
+    });
+  }
+}
+
+function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
+  return images.map((img) => ({
+    type: "image" as const,
+    source: {
+      type: "base64" as const,
+      media_type: img.data.split(":")[1].split(";")[0] as SupportedImageType,
+      data: img.data.split(",")[1],
+    },
+  }));
+}
+
 // Run a task
 app.post("/agent/task", zValidator("json", taskSchema), (c) => {
   const { task, imageAttachments } = c.req.valid("json");
-  const processedImages: ImageAttachment[] = [];
-
-  if (imageAttachments?.length) {
-    for (const img of imageAttachments) {
-      const [, base64Data = ""] = img.data.split(",");
-      const mimeType = img.data
-        .split(":")[1]
-        ?.split(";")[0] as SupportedImageType;
-      processedImages.push({
-        type: "image" as const,
-        source: {
-          type: "base64" as const,
-          media_type: mimeType,
-          data: base64Data,
-        },
-      });
-    }
-  }
+  const processedImages: ZypherImageAttachment[] = imageAttachments
+    ? processImages(imageAttachments)
+    : [];
 
   return streamSSE(
     c,
     async (stream) => {
-      // Set up streaming handler for both messages and real-time updates
-      const streamHandler: StreamHandler = {
-        onContent: (content, _isFirstChunk) => {
-          // Send content_delta event for real-time content updates
-          void stream.writeSSE({
-            event: "content_delta",
-            data: JSON.stringify({ content }),
-          });
-        },
-        onToolUse: (name, partialInput) => {
-          // Send tool_use event for real-time tool use updates
-          void stream.writeSSE({
-            event: "tool_use_delta",
-            data: JSON.stringify({ name, partialInput }),
-          });
-        },
-        onMessage: (message) => {
-          // Send message event as soon as a complete message is available
-          void stream.writeSSE({
-            event: "message",
-            data: JSON.stringify(message),
-          });
-        },
-      };
-
-      // Run the task with streaming handler
-      await agent.runTaskWithStreaming(task, streamHandler, processedImages);
-
-      // After streaming is complete, send the complete event
-      await stream.writeSSE({
-        event: "complete",
-        data: JSON.stringify({}),
-      });
-    },
-    async (err, stream) => {
-      await stream.writeSSE({
-        event: "error",
-        data: JSON.stringify({ error: formatError(err) }),
+      // Pass event handlers during initialization
+      await runAgentTask(task, processedImages, (event) => {
+        void stream.writeSSE({
+          event: event.event,
+          data: JSON.stringify(event.data),
+        });
       });
     },
   );
@@ -319,89 +326,27 @@ app.get(
   upgradeWebSocket((_c) => {
     return {
       onMessage(event, ws) {
-        try {
-          const messageData = JSON.parse(event.data as string);
-          const result = taskSchema.safeParse(messageData);
-          if (!result.success) {
-            ws.send(JSON.stringify({
-              event: "error",
-              data: {
-                error: "Invalid request format",
-                details: result.error.format(),
-              },
-            }));
-            return;
-          }
-
-          const { task, imageAttachments } = result.data;
-          const processedImages: ImageAttachment[] = [];
-
-          // Process image attachments if present
-          if (imageAttachments?.length) {
-            for (const img of imageAttachments) {
-              const [, base64Data = ""] = img.data.split(",");
-              const mimeType = img.data
-                .split(":")[1]
-                ?.split(";")[0] as SupportedImageType;
-              processedImages.push({
-                type: "image" as const,
-                source: {
-                  type: "base64" as const,
-                  media_type: mimeType,
-                  data: base64Data,
-                },
-              });
-            }
-          }
-
-          // Set up streaming handler for WebSocket
-          const streamHandler: StreamHandler = {
-            onContent: (content, _isFirstChunk) => {
-              ws.send(JSON.stringify({
-                event: "content_delta",
-                data: { content },
-              }));
-            },
-            onToolUse: (name, partialInput) => {
-              ws.send(JSON.stringify({
-                event: "tool_use_delta",
-                data: { name, partialInput },
-              }));
-            },
-            onMessage: (message) => {
-              ws.send(JSON.stringify({
-                event: "message",
-                data: message,
-              }));
-            },
-          };
-
-          // Run the task with streaming handler
-          void (async () => {
-            try {
-              await agent.runTaskWithStreaming(
-                task,
-                streamHandler,
-                processedImages,
-              );
-
-              ws.send(JSON.stringify({
-                event: "complete",
-                data: {},
-              }));
-            } catch (err) {
-              ws.send(JSON.stringify({
-                event: "error",
-                data: { error: formatError(err) },
-              }));
-            }
-          })();
-        } catch (err) {
+        const messageData = JSON.parse(event.data as string);
+        const result = taskSchema.safeParse(messageData);
+        if (!result.success) {
           ws.send(JSON.stringify({
             event: "error",
-            data: { error: formatError(err) },
+            data: {
+              error: "Invalid request format",
+              details: result.error.format(),
+            },
           }));
+          return;
         }
+
+        const { task, imageAttachments } = result.data;
+        const processedImages: ZypherImageAttachment[] = imageAttachments
+          ? processImages(imageAttachments)
+          : [];
+
+        runAgentTask(task, processedImages, (event) => {
+          ws.send(JSON.stringify(event));
+        });
       },
       onClose() {
         console.log("WebSocket connection closed");
