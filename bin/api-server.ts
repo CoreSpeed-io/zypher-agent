@@ -289,7 +289,7 @@ function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
 }
 
 // Run a task
-app.post("/agent/task", zValidator("json", taskSchema), (c) => {
+app.post("/agent/task/sse", zValidator("json", taskSchema), (c) => {
   const { task, imageAttachments } = c.req.valid("json");
   const processedImages: ZypherImageAttachment[] = imageAttachments
     ? processImages(imageAttachments)
