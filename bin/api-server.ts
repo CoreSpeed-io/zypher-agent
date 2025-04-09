@@ -131,12 +131,7 @@ const PORT = parseInt(options.port, 10);
 // Initialize Hono app
 const app = new Hono();
 
-// Middleware
-// TODO: improve cors usage/policy
-app.use("/health", cors());
-app.use("/agent/messages/*", cors());
-app.use("/agent/checkpoint/*", cors());
-app.use("/mcp/*", cors());
+// Middleware (prettyJSON)
 app.use("*", prettyJSON());
 
 // Initialize the agent
@@ -511,6 +506,10 @@ app.get("/mcp/servers/:id", (c) => {
   const { enabled: _enabled, ...rest } = mcpServerManager.getServerConfig(id);
   return c.json({ [id]: rest });
 });
+
+// Middleware (CORS)
+// This has to be placed at the very end, see: https://hono.dev/docs/helpers/websocket
+app.use("*", cors());
 
 // Start the server
 async function startServer(): Promise<void> {
