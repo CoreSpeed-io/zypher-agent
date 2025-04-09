@@ -157,14 +157,13 @@ export class McpClient {
           throw new Error("CLI mode requires command and args");
         }
 
-        const env = Deno.env;
+        const envVars = Deno.env.toObject();
         return new StdioClientTransport({
           command: config.command,
           args: config.args,
           env: {
-            ...env,
+            ...envVars,
             ...config.env,
-            PATH: env.PATH || Deno.env.get("PATH") || "",
           } as Record<string, string>,
         });
       }
