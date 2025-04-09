@@ -369,13 +369,13 @@ export class McpServerManager {
     }
   }
 
-  private getServer(id: string): IMcpServer {
+  private getServer(id: string): IMcpServer | undefined {
     for (const server of this._serverToolsMap.keys()) {
       if (server.id === id) {
         return server;
       }
     }
-    throw new Error(`Server ${id} not found`);
+    return undefined;
   }
 
   getServerConfig(serverId: string): IMcpServerConfig {

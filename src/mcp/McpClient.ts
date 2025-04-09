@@ -77,7 +77,6 @@ export class McpClient {
     config: IMcpServerConfig,
     mode: ConnectionMode = ConnectionMode.CLI,
   ): Promise<Tool[]> {
-    console.time(`[Performance] Retrieve tools`);
     try {
       if (!this.client) {
         throw new Error("Client is not initialized");
@@ -157,14 +156,15 @@ export class McpClient {
         if (!("command" in config)) {
           throw new Error("CLI mode requires command and args");
         }
+
+        const env = Deno.env;
         return new StdioClientTransport({
           command: config.command,
           args: config.args,
           env: {
-            ...Object.fromEntries(
-              Object.entries(Deno.env).filter(([_, v]) => v !== undefined),
-            ),
+            ...env,
             ...config.env,
+            PATH: env.PATH || Deno.env.get("PATH") || "",
           } as Record<string, string>,
         });
 
