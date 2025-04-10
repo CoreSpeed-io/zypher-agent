@@ -1,12 +1,13 @@
 import "@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { upgradeWebSocket } from "hono/deno";
 import { prettyJSON } from "hono/pretty-json";
 import { streamSSE } from "hono/streaming";
 import { zValidator } from "@hono/zod-validator";
 import type { StatusCode } from "hono/utils/http-status";
 import {
-  type ImageAttachment,
+  type ImageAttachment as ZypherImageAttachment,
   type StreamHandler,
   ZypherAgent,
 } from "../src/ZypherAgent.ts";
@@ -85,6 +86,7 @@ const imageSchema = z.object({
   name: z.string(),
   data: base64ImageSchema,
 });
+type ImageAttachment = z.infer<typeof imageSchema>;
 
 // Zod schema for task
 const taskSchema = z.object({
@@ -133,8 +135,7 @@ const PORT = parseInt(options.port, 10);
 // Initialize Hono app
 const app = new Hono();
 
-// Middleware
-app.use("*", cors());
+// Middleware (prettyJSON)
 app.use("*", prettyJSON());
 
 // Initialize the agent
@@ -248,73 +249,106 @@ app.delete("/agent/messages", (c) => {
   return c.body(null, 204);
 });
 
-// Run a task
-app.post("/agent/tasks", zValidator("json", taskSchema), (c) => {
-  const { task, imageAttachments } = c.req.valid("json");
-  const processedImages: ImageAttachment[] = [];
+type TaskEvent = {
+  event: "content_delta" | "tool_use_delta" | "message" | "error" | "complete";
+  data: unknown;
+};
 
-  if (imageAttachments?.length) {
-    for (const img of imageAttachments) {
-      const [, base64Data = ""] = img.data.split(",");
-      const mimeType = img.data
-        .split(":")[1]
-        ?.split(";")[0] as SupportedImageType;
-      processedImages.push({
-        type: "image" as const,
-        source: {
-          type: "base64" as const,
-          media_type: mimeType,
-          data: base64Data,
-        },
-      });
-    }
+async function runAgentTask(
+  task: string,
+  imageAttachments: ZypherImageAttachment[],
+  onEvent: (event: TaskEvent) => void,
+): Promise<void> {
+  // Set up streaming handler for the agent
+  const streamHandler: StreamHandler = {
+    onContent: (content, _isFirstChunk) => {
+      onEvent({ event: "content_delta", data: { content } });
+    },
+    onToolUse: (name, partialInput) => {
+      onEvent({ event: "tool_use_delta", data: { name, partialInput } });
+    },
+    onMessage: (message) => {
+      onEvent({ event: "message", data: message });
+    },
+  };
+
+  try {
+    await agent.runTaskWithStreaming(task, streamHandler, imageAttachments);
+    onEvent({ event: "complete", data: {} });
+  } catch (error) {
+    onEvent({ event: "error", data: { error: formatError(error) } });
   }
+}
+
+function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
+  return images.map((img) => ({
+    type: "image" as const,
+    source: {
+      type: "base64" as const,
+      media_type: img.data.split(":")[1].split(";")[0] as SupportedImageType,
+      data: img.data.split(",")[1],
+    },
+  }));
+}
+
+// Run a task
+app.post("/agent/task/sse", zValidator("json", taskSchema), (c) => {
+  const { task, imageAttachments } = c.req.valid("json");
+  const processedImages: ZypherImageAttachment[] = imageAttachments
+    ? processImages(imageAttachments)
+    : [];
 
   return streamSSE(
     c,
     async (stream) => {
-      // Set up streaming handler for both messages and real-time updates
-      const streamHandler: StreamHandler = {
-        onContent: (content, _isFirstChunk) => {
-          // Send content_delta event for real-time content updates
-          void stream.writeSSE({
-            event: "content_delta",
-            data: JSON.stringify({ content }),
-          });
-        },
-        onToolUse: (name, partialInput) => {
-          // Send tool_use event for real-time tool use updates
-          void stream.writeSSE({
-            event: "tool_use_delta",
-            data: JSON.stringify({ name, partialInput }),
-          });
-        },
-        onMessage: (message) => {
-          // Send message event as soon as a complete message is available
-          void stream.writeSSE({
-            event: "message",
-            data: JSON.stringify(message),
-          });
-        },
-      };
-
-      // Run the task with streaming handler
-      await agent.runTaskWithStreaming(task, streamHandler, processedImages);
-
-      // After streaming is complete, send the complete event
-      await stream.writeSSE({
-        event: "complete",
-        data: JSON.stringify({}),
-      });
-    },
-    async (err, stream) => {
-      await stream.writeSSE({
-        event: "error",
-        data: JSON.stringify({ error: formatError(err) }),
+      // Pass event handlers during initialization
+      await runAgentTask(task, processedImages, (event) => {
+        void stream.writeSSE({
+          event: event.event,
+          data: JSON.stringify(event.data),
+        });
       });
     },
   );
 });
+
+// Run a task (websocket)
+app.get(
+  "/agent/task/ws",
+  upgradeWebSocket((_c) => {
+    return {
+      onMessage(event, ws) {
+        const messageData = JSON.parse(event.data as string);
+        const result = taskSchema.safeParse(messageData);
+        if (!result.success) {
+          ws.send(JSON.stringify({
+            event: "error",
+            data: {
+              error: "Invalid request format",
+              details: result.error.format(),
+            },
+          }));
+          return;
+        }
+
+        const { task, imageAttachments } = result.data;
+        const processedImages: ZypherImageAttachment[] = imageAttachments
+          ? processImages(imageAttachments)
+          : [];
+
+        runAgentTask(task, processedImages, (event) => {
+          ws.send(JSON.stringify(event));
+        });
+      },
+      onClose() {
+        console.log("WebSocket connection closed");
+      },
+      onError(error) {
+        console.error("WebSocket error:", error);
+      },
+    };
+  }),
+);
 
 // List checkpoints
 app.get("/agent/checkpoints", async (c) => {
@@ -416,6 +450,10 @@ app.get("/mcp/servers/:id", (c) => {
   const { enabled: _enabled, ...rest } = mcpServerManager.getServerConfig(id);
   return c.json({ [id]: rest });
 });
+
+// Middleware (CORS)
+// This has to be placed at the very end, see: https://hono.dev/docs/helpers/websocket
+app.use("*", cors());
 
 // Start the server
 async function startServer(): Promise<void> {
