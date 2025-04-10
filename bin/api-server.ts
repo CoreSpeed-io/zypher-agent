@@ -26,7 +26,10 @@ import {
 } from "../src/tools/index.ts";
 import { listCheckpoints } from "../src/checkpoints.ts";
 import { formatError } from "../src/utils/error.ts";
-import { McpServerManager } from "../src/mcp/McpServerManager.ts";
+import {
+  McpServerError,
+  McpServerManager,
+} from "../src/mcp/McpServerManager.ts";
 import { McpServerConfigSchema, McpServerIdSchema } from "../src/mcp/types.ts";
 import process from "node:process";
 
@@ -387,12 +390,19 @@ app.put(
 // Register new MCP server
 app.post("/mcp/register", zValidator("json", McpServerApiSchema), async (c) => {
   const servers = c.req.valid("json");
-  await Promise.all(
-    Object.entries(servers).map(
-      ([name, config]) =>
-        config && mcpServerManager.registerServer(name, config),
-    ),
-  );
+  try {
+    await Promise.all(
+      Object.entries(servers).map(
+        ([name, config]) =>
+          config && mcpServerManager.registerServer(name, config),
+      ),
+    );
+  } catch (error) {
+    if (error instanceof McpServerError && error.code === "already_exists") {
+      throw new ApiError(409, error.code, error.message, error.details);
+    }
+    throw error;
+  }
   return c.body(null, 201);
 });
 
@@ -424,7 +434,7 @@ app.put(
 
 // Query available tools from registered MCP servers
 app.get("/mcp/tools", (c) => {
-  const tools = mcpServerManager.getAllTools();
+  const tools = Array.from(mcpServerManager.getAllTools().keys());
   return c.json({ tools });
 });
 
