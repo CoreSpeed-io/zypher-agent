@@ -198,19 +198,6 @@ components:
             type: string
           description: Environment variables
 
-    Tool:
-      type: object
-      properties:
-        name:
-          type: string
-          description: Name of the tool
-        description:
-          type: string
-          description: Description of the tool
-        parameters:
-          type: object
-          description: Tool parameters schema
-
   responses:
     ValidationError:
       description: Validation error
@@ -429,6 +416,29 @@ paths:
           description: Servers registered successfully
         "400":
           $ref: "#/components/responses/ValidationError"
+        "409":
+          description: Server already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - code
+                  - type
+                  - message
+                properties:
+                  code:
+                    type: integer
+                    example: 409
+                  type:
+                    type: string
+                    example: "already_exists"
+                  message:
+                    type: string
+                    description: Error message explaining which server already exists
+                  details:
+                    type: object
+                    description: Additional error details
 
   /mcp/servers/{id}:
     parameters:
@@ -528,7 +538,10 @@ paths:
                   tools:
                     type: array
                     items:
-                      $ref: "#/components/schemas/Tool"
+                      type: string
+                      description: Name of the tool
+                required:
+                  - tools
 
   /mcp/reload:
     get:

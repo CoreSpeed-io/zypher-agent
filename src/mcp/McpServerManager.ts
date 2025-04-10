@@ -11,6 +11,17 @@ import {
 import { formatError, getWorkspaceDataDir } from "../utils/index.ts";
 import { join } from "jsr:@std/path";
 
+export class McpServerError extends Error {
+  constructor(
+    public code: "already_exists",
+    message: string,
+    public details?: unknown,
+  ) {
+    super(message);
+    this.name = "McpServerError";
+  }
+}
+
 const McpConfigSchema = z.object({
   mcpServers: z.record(McpServerConfigSchema),
 });
@@ -198,7 +209,11 @@ export class McpServerManager {
     });
 
     if (this.getServer(id)) {
-      throw new Error(`Server with id ${id} already exists`);
+      throw new McpServerError(
+        "already_exists",
+        `Server with id ${id} already exists`,
+        { serverId: id },
+      );
     }
 
     try {
@@ -369,13 +384,13 @@ export class McpServerManager {
     }
   }
 
-  private getServer(id: string): IMcpServer {
+  private getServer(id: string): IMcpServer | undefined {
     for (const server of this._serverToolsMap.keys()) {
       if (server.id === id) {
         return server;
       }
     }
-    throw new Error(`Server ${id} not found`);
+    return undefined;
   }
 
   getServerConfig(serverId: string): IMcpServerConfig {
