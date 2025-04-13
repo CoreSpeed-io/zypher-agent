@@ -303,6 +303,7 @@ app.post("/agent/task/sse", zValidator("json", taskSchema), (c) => {
     async (stream) => {
       // Below contains a workaround to ensure the complete event is sent.
       // This is needed because the connection might close before the complete event is sent.
+      // TODO: Find a better solution.
       let taskCompleted = false;
       
       // Pass event handlers during initialization
