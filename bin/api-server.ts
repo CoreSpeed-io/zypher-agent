@@ -301,13 +301,31 @@ app.post("/agent/task/sse", zValidator("json", taskSchema), (c) => {
   return streamSSE(
     c,
     async (stream) => {
+      // Below contains a workaround to ensure the complete event is sent.
+      // This is needed because the connection might close before the complete event is sent.
+      let taskCompleted = false;
+      
       // Pass event handlers during initialization
       await runAgentTask(task, processedImages, (event) => {
+        if (event.event === "complete") {
+          taskCompleted = true;
+        }
         void stream.writeSSE({
           event: event.event,
           data: JSON.stringify(event.data),
         });
       });
+      
+      // If the complete event wasn't sent through the normal flow, send it now
+      if (!taskCompleted) {
+        void stream.writeSSE({
+          event: "complete",
+          data: JSON.stringify({}),
+        });
+      }
+      
+      // Add a small delay to ensure the event is sent before the stream closes
+      await new Promise(resolve => setTimeout(resolve, 100));
     },
   );
 });
