@@ -264,7 +264,6 @@ export class McpServerManager {
 
       // Remove all tools from toolbox
       const tools = this._serverToolsMap.get(server);
-      // print the tools names
       if (tools) {
         for (const tool of tools) {
           this._toolbox.delete(tool.name);
