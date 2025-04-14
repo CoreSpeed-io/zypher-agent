@@ -266,8 +266,7 @@ export class McpServerManager {
       const tools = this._serverToolsMap.get(server);
       if (tools) {
         for (const tool of tools) {
-          const toolName = `mcp_${server.id}_${tool.name}`;
-          this._toolbox.delete(toolName);
+          this._toolbox.delete(tool.name);
         }
       }
 
@@ -366,8 +365,7 @@ export class McpServerManager {
     if (enabled && tools) {
       // Re-add tools to toolbox when enabling
       for (const tool of tools) {
-        const toolName = `mcp_${server.id}_${tool.name}`;
-        this._toolbox.set(toolName, tool);
+        this._toolbox.set(tool.name, tool);
       }
     } else if (!enabled) {
       // Remove tools from toolbox when disabling
@@ -440,8 +438,7 @@ export class McpServerManager {
     if (tools) {
       // Only remove from toolbox, keep in serverToolsMap
       for (const tool of tools) {
-        const toolName = `mcp_${server.id}_${tool.name}`;
-        this._toolbox.delete(toolName);
+        this._toolbox.delete(tool.name);
       }
     }
   }
@@ -464,8 +461,7 @@ export class McpServerManager {
       // Only add to toolbox if server is enabled
       if (server.enabled) {
         for (const tool of tools) {
-          const toolName = `mcp_${server.id}_${tool.name}`;
-          this._toolbox.set(toolName, tool);
+          this._toolbox.set(tool.name, tool);
         }
       }
     } catch (error) {
