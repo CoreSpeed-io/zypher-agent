@@ -187,7 +187,7 @@ async function initializeAgent(): Promise<void> {
     console.log("🤖 ZypherAgent initialized successfully");
   } catch (error) {
     console.error("Error initializing agent:", formatError(error));
-    process.exit(1);
+    Deno.exit(1);
   }
 }
 

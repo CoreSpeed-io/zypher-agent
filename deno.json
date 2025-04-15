@@ -7,12 +7,12 @@
   },
   "imports": {
     "@std/dotenv": "jsr:@std/dotenv@^0.225.3",
-    "@std/cli": "jsr:@std/cli@^1.0.15",
-    "hono": "npm:hono@^4.7.5",
+    "@std/cli": "jsr:@std/cli@^1.0.16",
+    "hono": "npm:hono@^4.7.6",
     "@hono/zod-validator": "npm:@hono/zod-validator@^0.4.3",
-    "@openai/openai": "jsr:@openai/openai@^4.91.1",
+    "@openai/openai": "jsr:@openai/openai@^4.94.0",
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.39.0",
-    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.8.0",
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.9.0",
     "chalk": "npm:chalk@^5.4.1",
     "zod": "npm:zod@^3.24.2",
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.5"
