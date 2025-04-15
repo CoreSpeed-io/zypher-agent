@@ -2,11 +2,16 @@
   "version": "4",
   "specifiers": {
     "jsr:@openai/openai@^4.94.0": "4.94.0",
+    "jsr:@std/cli@*": "1.0.16",
     "jsr:@std/cli@^1.0.16": "1.0.16",
+    "jsr:@std/dotenv@*": "0.225.3",
     "jsr:@std/dotenv@~0.225.3": "0.225.3",
+    "jsr:@std/encoding@*": "1.0.9",
+    "jsr:@std/path@*": "1.0.8",
     "npm:@anthropic-ai/sdk@0.39": "0.39.0",
     "npm:@hono/zod-validator@~0.4.3": "0.4.3_hono@4.7.6_zod@3.24.2",
     "npm:@modelcontextprotocol/sdk@^1.9.0": "1.9.0_express@5.1.0_zod@3.24.2",
+    "npm:@types/node@*": "22.12.0",
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.6": "4.7.6",
     "npm:zod-to-json-schema@^3.24.5": "3.24.5_zod@3.24.2",
@@ -25,6 +30,12 @@
     },
     "@std/dotenv@0.225.3": {
       "integrity": "a95e5b812c27b0854c52acbae215856d9cce9d4bbf774d938c51d212711e8d4a"
+    },
+    "@std/encoding@1.0.9": {
+      "integrity": "025b8f18eb1749bc30d1353bf48b77d1eb5e35610220fa226f5a046b9240c5d7"
+    },
+    "@std/path@1.0.8": {
+      "integrity": "548fa456bb6a04d3c1a1e7477986b6cffbce95102d0bb447c67c4ee70e0364be"
     }
   },
   "npm": {
