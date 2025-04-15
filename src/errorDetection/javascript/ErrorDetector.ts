@@ -10,6 +10,12 @@ import {
 import { extractErrorOutput } from "../utils.ts";
 import { fileExists } from "../../utils/index.ts";
 
+// Workaround for Deno.Command not throwing an error when the command returns a non-zero exit code
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+
+const execAsync = promisify(exec);
+
 /**
  * Detector for ESLint errors in JavaScript/TypeScript projects
  */
@@ -165,9 +171,9 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       // Execute the command
       try {
         // If we get here, the command succeeded (no errors)
-        await new Deno.Command(commandConfig.cmd, {
-          args: commandConfig.args || [],
-        }).output();
+        await execAsync(
+          `${commandConfig.cmd} ${commandConfig.args?.join(" ")}`,
+        );
         return null;
       } catch (error) {
         // Command failed, which likely means it found errors

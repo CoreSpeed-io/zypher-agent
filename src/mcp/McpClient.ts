@@ -157,24 +157,11 @@ export class McpClient {
           throw new Error("CLI mode requires command and args");
         }
 
-        // Common environment variables to pass through
-        const commonEnvVars = ["PATH", "HOME", "SHELL", "TERM"];
-
-        // Get environment variables, with default only for LANG
-        const filteredEnvVars = {
-          ...Object.fromEntries(
-            commonEnvVars
-              .map((key) => [key, Deno.env.get(key)])
-              .filter(([_, value]) => value !== null),
-          ),
-          LANG: Deno.env.get("LANG") || "en_US.UTF-8",
-        };
-
         return new StdioClientTransport({
           command: config.command,
           args: config.args,
           env: {
-            ...filteredEnvVars,
+            ...{ LANG: Deno.env.get("LANG") || "en_US.UTF-8" },
             ...config.env,
           } as Record<string, string>,
         });
