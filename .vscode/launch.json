@@ -5,29 +5,43 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "CLI",
+      "name": "cli",
       "type": "node",
       "request": "launch",
-      // Debug current file in VSCode
       "program": "${workspaceFolder}/bin/cli.ts",
-      /*
-       * Path to tsx binary
-       * Assuming locally installed
-       */
-      "runtimeExecutable": "tsx",
-      /*
-       * Open terminal when debugging starts (Optional)
-       * Useful to see console.logs
-       */
+      "runtimeExecutable": "deno",
+      "args": ["run", "bin/cli.ts", "-w", "${input:workspace}"],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      // Files to exclude from debugger (e.g. call stack)
       "skipFiles": [
-        // Node.js internal core modules
         "<node_internals>/**",
-        // Ignore all dependencies (optional)
         "${workspaceFolder}/node_modules/**"
       ]
+    },
+    {
+      "name": "api-server",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/api-server.ts",
+      "runtimeExecutable": "deno",
+      "args": ["run", "bin/api-server.ts", "-w", "${input:workspace}"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**",
+        "${workspaceFolder}/node_modules/**"
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "workspace",
+      // TODO: use command to open a file dialog
+      // "type": "command",
+      // "command": "",
+      "type": "promptString",
+      "default": "test_workspace",
+      "description": "The workspace to run the agent in"
     }
   ]
 }
