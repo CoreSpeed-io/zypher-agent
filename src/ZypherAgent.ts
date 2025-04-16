@@ -22,7 +22,7 @@ import type { Message } from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
 import { Anthropic } from "@anthropic-ai/sdk";
 
-const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
+const DEFAULT_MODEL = "claude-3-7-sonnet-20250219";
 const DEFAULT_MAX_TOKENS = 8192;
 
 /**
