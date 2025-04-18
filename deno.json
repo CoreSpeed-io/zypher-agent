@@ -16,5 +16,6 @@
     "chalk": "npm:chalk@^5.4.1",
     "zod": "npm:zod@^3.24.3",
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.5"
-  }
+  },
+  "nodeModulesDir": "auto"
 }
