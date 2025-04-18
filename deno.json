@@ -11,9 +11,9 @@
     "@std/cli": "jsr:@std/cli@^1.0.16",
     "hono": "npm:hono@^4.7.7",
     "@hono/zod-validator": "npm:@hono/zod-validator@^0.4.3",
-    "@openai/openai": "jsr:@openai/openai@^4.95.0",
+    "@openai/openai": "jsr:@openai/openai@^4.95.1",
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.39.0",
-    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.10.0",
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.10.1",
     "chalk": "npm:chalk@^5.4.1",
     "zod": "npm:zod@^3.24.3",
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.5"
