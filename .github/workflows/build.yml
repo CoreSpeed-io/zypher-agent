@@ -30,4 +30,3 @@ jobs:
 
       - name: Run formatter check
         run: deno fmt --check
-
