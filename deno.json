@@ -3,18 +3,20 @@
     "start": "deno run -A bin/cli.ts",
     "start:api": "deno run -A bin/api-server.ts",
     "build:cli": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
-    "build:api": "deno compile --allow-all --frozen=true --output dist/api-server bin/api-server.ts"
+    "build:api": "deno compile --allow-all --frozen=true --output dist/api-server bin/api-server.ts",
+    "bundle:api": "deno run -A npm:rolldown -c rolldown.config.mts"
   },
   "imports": {
     "@std/dotenv": "jsr:@std/dotenv@^0.225.3",
     "@std/cli": "jsr:@std/cli@^1.0.16",
-    "hono": "npm:hono@^4.7.6",
+    "hono": "npm:hono@^4.7.7",
     "@hono/zod-validator": "npm:@hono/zod-validator@^0.4.3",
-    "@openai/openai": "jsr:@openai/openai@^4.94.0",
+    "@openai/openai": "jsr:@openai/openai@^4.95.1",
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.39.0",
-    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.9.0",
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.10.1",
     "chalk": "npm:chalk@^5.4.1",
-    "zod": "npm:zod@^3.24.2",
+    "zod": "npm:zod@^3.24.3",
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.5"
-  }
+  },
+  "nodeModulesDir": "auto"
 }
