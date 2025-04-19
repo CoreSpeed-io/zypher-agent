@@ -6,7 +6,7 @@ import process from "node:process";
 
 // Read and parse the deno.json file to get the import map
 const denoConfigPath = path.resolve("deno.json");
-const denoConfig = JSON.parse(fs.readFileSync(denoConfigPath, "utf8"))
+const denoConfig = JSON.parse(fs.readFileSync(denoConfigPath, "utf8"));
 const importMap = { imports: denoConfig.imports };
 
 export default defineConfig({
