@@ -1,4 +1,4 @@
-import "@std/dotenv/load";
+import "jsr:@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { upgradeWebSocket } from "hono/deno";
