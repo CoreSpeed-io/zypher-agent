@@ -1,26 +1,21 @@
 {
   "version": "4",
   "specifiers": {
-    "jsr:@openai/openai@^4.94.0": "4.94.0",
-    "jsr:@std/cli@*": "1.0.16",
+    "jsr:@openai/openai@^4.95.1": "4.95.1",
     "jsr:@std/cli@^1.0.16": "1.0.16",
-    "jsr:@std/dotenv@*": "0.225.3",
     "jsr:@std/dotenv@~0.225.3": "0.225.3",
-    "jsr:@std/encoding@*": "1.0.9",
-    "jsr:@std/path@*": "1.0.8",
     "npm:@anthropic-ai/sdk@0.39": "0.39.0",
-    "npm:@hono/zod-validator@~0.4.3": "0.4.3_hono@4.7.6_zod@3.24.2",
-    "npm:@modelcontextprotocol/sdk@^1.9.0": "1.9.0_express@5.1.0_zod@3.24.2",
-    "npm:@types/node@*": "22.12.0",
+    "npm:@hono/zod-validator@~0.4.3": "0.4.3_hono@4.7.7_zod@3.24.3",
+    "npm:@modelcontextprotocol/sdk@^1.10.1": "1.10.1_express@5.1.0_zod@3.24.3",
     "npm:chalk@^5.4.1": "5.4.1",
-    "npm:hono@^4.7.6": "4.7.6",
-    "npm:zod-to-json-schema@^3.24.5": "3.24.5_zod@3.24.2",
-    "npm:zod@3": "3.24.2",
-    "npm:zod@^3.24.2": "3.24.2"
+    "npm:hono@^4.7.7": "4.7.7",
+    "npm:zod-to-json-schema@^3.24.5": "3.24.5_zod@3.24.3",
+    "npm:zod@3": "3.24.3",
+    "npm:zod@^3.24.3": "3.24.3"
   },
   "jsr": {
-    "@openai/openai@4.94.0": {
-      "integrity": "42f65be0602fbb339714586f950dbc6483430c9323ccad4eccfeb2b6a8b46de5",
+    "@openai/openai@4.95.1": {
+      "integrity": "2f4e88862e5613b7c166051ff5ebcce49c871f78b6dc5c24fa388172e277b701",
       "dependencies": [
         "npm:zod@3"
       ]
@@ -30,12 +25,6 @@
     },
     "@std/dotenv@0.225.3": {
       "integrity": "a95e5b812c27b0854c52acbae215856d9cce9d4bbf774d938c51d212711e8d4a"
-    },
-    "@std/encoding@1.0.9": {
-      "integrity": "025b8f18eb1749bc30d1353bf48b77d1eb5e35610220fa226f5a046b9240c5d7"
-    },
-    "@std/path@1.0.8": {
-      "integrity": "548fa456bb6a04d3c1a1e7477986b6cffbce95102d0bb447c67c4ee70e0364be"
     }
   },
   "npm": {
@@ -51,15 +40,15 @@
         "node-fetch"
       ]
     },
-    "@hono/zod-validator@0.4.3_hono@4.7.6_zod@3.24.2": {
+    "@hono/zod-validator@0.4.3_hono@4.7.7_zod@3.24.3": {
       "integrity": "sha512-xIgMYXDyJ4Hj6ekm9T9Y27s080Nl9NXHcJkOvkXPhubOLj8hZkOL8pDnnXfvCf5xEE8Q4oMFenQUZZREUY2gqQ==",
       "dependencies": [
         "hono",
         "zod"
       ]
     },
-    "@modelcontextprotocol/sdk@1.9.0_express@5.1.0_zod@3.24.2": {
-      "integrity": "sha512-Jq2EUCQpe0iyO5FGpzVYDNFR6oR53AIrwph9yWl7uSc7IWUMsrmpmSaTGra5hQNunXpM+9oit85p924jWuHzUA==",
+    "@modelcontextprotocol/sdk@1.10.1_express@5.1.0_zod@3.24.3": {
+      "integrity": "sha512-xNYdFdkJqEfIaTVP1gPKoEvluACHZsHZegIoICX8DM1o6Qf3G5u2BQJHmgd0n4YgRPqqK/u1ujQvrgAxxSJT9w==",
       "dependencies": [
         "content-type",
         "cors",
@@ -366,8 +355,8 @@
         "function-bind"
       ]
     },
-    "hono@4.7.6": {
-      "integrity": "sha512-564rVzELU+9BRqqx5k8sT2NFwGD3I3Vifdb6P7CmM6FiarOSY+fDC+6B+k9wcCb86ReoayteZP2ki0cRLN1jbw=="
+    "hono@4.7.7": {
+      "integrity": "sha512-2PCpQRbN87Crty8/L/7akZN3UyZIAopSoRxCwRbJgUuV1+MHNFHzYFxZTg4v/03cXUm+jce/qa2VSBZpKBm3Qw=="
     },
     "http-errors@2.0.0": {
       "integrity": "sha512-FtwrG/euBzaEjYeRqOgly7G0qviiXoJWnvEH2Z1plBdXgbyjv34pHTSb9zoeHMyDy33+DWy5Wt9Wo+TURtOYSQ==",
@@ -640,14 +629,14 @@
     "wrappy@1.0.2": {
       "integrity": "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="
     },
-    "zod-to-json-schema@3.24.5_zod@3.24.2": {
+    "zod-to-json-schema@3.24.5_zod@3.24.3": {
       "integrity": "sha512-/AuWwMP+YqiPbsJx5D6TfgRTc4kTLjsh5SOcd4bLsfUg2RcEXrFMJl1DGgdHy2aCfsIA/cr/1JM0xcB2GZji8g==",
       "dependencies": [
         "zod"
       ]
     },
-    "zod@3.24.2": {
-      "integrity": "sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ=="
+    "zod@3.24.3": {
+      "integrity": "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="
     }
   },
   "remote": {
@@ -688,16 +677,16 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@openai/openai@^4.94.0",
+      "jsr:@openai/openai@^4.95.1",
       "jsr:@std/cli@^1.0.16",
       "jsr:@std/dotenv@~0.225.3",
       "npm:@anthropic-ai/sdk@0.39",
       "npm:@hono/zod-validator@~0.4.3",
-      "npm:@modelcontextprotocol/sdk@^1.9.0",
+      "npm:@modelcontextprotocol/sdk@^1.10.1",
       "npm:chalk@^5.4.1",
-      "npm:hono@^4.7.6",
+      "npm:hono@^4.7.7",
       "npm:zod-to-json-schema@^3.24.5",
-      "npm:zod@^3.24.2"
+      "npm:zod@^3.24.3"
     ]
   }
 }
