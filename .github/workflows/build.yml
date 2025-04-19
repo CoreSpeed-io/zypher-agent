@@ -31,8 +31,3 @@ jobs:
       - name: Run formatter check
         run: deno fmt --check
 
-      - name: Build CLI
-        run: deno task build:cli
-
-      - name: Build API Server
-        run: deno task build:api
