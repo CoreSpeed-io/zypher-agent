@@ -199,33 +199,43 @@ export class ZypherAgent {
    */
   cancelTask(reason: "user" | "timeout" = "user"): boolean {
     if (!this._isTaskRunning || !this._currentAbortController) {
+      // Task is not running or already completed
       return false;
     }
 
-    // Set cancellation reason
+    // Set cancellation in progress state
+    const wasTaskRunning = this._isTaskRunning;
+    this._isTaskRunning = false;
     this._cancellationReason = reason;
 
-    // Abort any pending fetch requests
-    this._currentAbortController.abort();
+    try {
+      // Abort any pending fetch requests
+      this._currentAbortController.abort();
 
-    // Notify via stream handler if available
-    if (this._currentStreamHandler?.onCancelled) {
-      this._currentStreamHandler.onCancelled(reason);
+      // Notify via stream handler if available
+      if (this._currentStreamHandler?.onCancelled) {
+        this._currentStreamHandler.onCancelled(reason);
+      }
+
+      // Clear task timeout if it exists
+      if (this._taskTimeoutId !== null) {
+        clearTimeout(this._taskTimeoutId);
+        this._taskTimeoutId = null;
+      }
+
+      // Clean up other resources
+      this._currentAbortController = null;
+      this._currentStreamHandler = undefined;
+
+      console.log(`🛑 Task cancelled (reason: ${reason})`);
+      return wasTaskRunning;
+    } catch (error) {
+      // If something fails during cancellation, restore running state but keep cancellation reason
+      // This ensures we still know a cancellation was attempted even if it failed
+      this._isTaskRunning = wasTaskRunning;
+      console.error(`Error during task cancellation: ${formatError(error)}`);
+      return false;
     }
-
-    // Clear task timeout if it exists
-    if (this._taskTimeoutId !== null) {
-      clearTimeout(this._taskTimeoutId);
-      this._taskTimeoutId = null;
-    }
-
-    // Reset task state
-    this._isTaskRunning = false;
-    this._currentAbortController = null;
-    this._currentStreamHandler = undefined;
-
-    console.log(`🛑 Task cancelled (reason: ${reason})`);
-    return true;
   }
 
   /**
@@ -414,11 +424,9 @@ export class ZypherAgent {
       );
     }
 
-    // Reset cancellation reason
-    this._cancellationReason = null;
-
-    // Set task running flag and create a new abort controller
+    // Reset task state including cancellation reason
     this._isTaskRunning = true;
+    this._cancellationReason = null;
     this._currentAbortController = new AbortController();
     this._currentStreamHandler = streamHandler;
 
@@ -678,15 +686,18 @@ export class ZypherAgent {
 
       return this.messages;
     } finally {
-      // Clean up resources
-      this._isTaskRunning = false;
-      this._currentAbortController = null;
-      this._currentStreamHandler = undefined;
+      // Guard against race conditions by checking if we're still the active task
+      if (this._currentAbortController !== null) {
+        // Clean up resources
+        this._isTaskRunning = false;
+        this._currentAbortController = null;
+        this._currentStreamHandler = undefined;
 
-      // Clear task timeout if it exists
-      if (this._taskTimeoutId !== null) {
-        clearTimeout(this._taskTimeoutId);
-        this._taskTimeoutId = null;
+        // Clear task timeout if it exists
+        if (this._taskTimeoutId !== null) {
+          clearTimeout(this._taskTimeoutId);
+          this._taskTimeoutId = null;
+        }
       }
     }
   }
