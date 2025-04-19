@@ -3,7 +3,8 @@
     "start": "deno run -A bin/cli.ts",
     "start:api": "deno run -A bin/api-server.ts",
     "build:cli": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
-    "build:api": "deno compile --allow-all --frozen=true --output dist/api-server bin/api-server.ts"
+    "build:api": "deno compile --allow-all --frozen=true --output dist/api-server bin/api-server.ts",
+    "test": "deno test -A --trace-leaks test/unit/"
   },
   "imports": {
     "@std/dotenv": "jsr:@std/dotenv@^0.225.3",
