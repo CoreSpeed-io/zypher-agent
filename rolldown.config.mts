@@ -16,7 +16,6 @@ export default defineConfig({
   })],
   platform: "node",
   input: "bin/api-server.ts",
-  external: ["node-fetch"],
   treeshake: true,
   output: {
     minify: true,
