@@ -30,3 +30,9 @@ jobs:
 
       - name: Run formatter check
         run: deno fmt --check
+
+      - name: Run type check
+        run: deno check **/*.{js,ts}
+
+      - name: Run bundler
+        run: deno task bundle:api
