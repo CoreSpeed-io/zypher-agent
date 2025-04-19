@@ -53,6 +53,12 @@ export interface StreamHandler {
    * @param partialInput Partial input data (JSON string fragment)
    */
   onToolUse?: (name: string, partialInput: string) => void;
+
+  /**
+   * Called when a task is cancelled
+   * @param reason The reason for cancellation
+   */
+  onCancelled?: (reason: "user" | "timeout") => void;
 }
 
 export interface ImageAttachment {
@@ -78,6 +84,8 @@ export interface ZypherAgentConfig {
   enablePromptCaching?: boolean;
   /** Unique identifier for tracking user-specific usage history */
   userId?: string;
+  /** Maximum allowed time for a task in milliseconds before it's automatically cancelled. Default is 1 minute (60000ms). Set to 0 to disable. */
+  taskTimeoutMs?: number;
 }
 
 export class ZypherAgent {
@@ -91,6 +99,14 @@ export class ZypherAgent {
   private readonly userId?: string;
   private readonly _model: string;
   private readonly mcpServerManager: McpServerManager;
+  private readonly _taskTimeoutMs: number;
+
+  // Task execution state
+  private _isTaskRunning = false;
+  private _currentAbortController: AbortController | null = null;
+  private _currentStreamHandler: StreamHandler | undefined;
+  private _taskTimeoutId: number | null = null;
+  private _cancellationReason: "user" | "timeout" | null = null;
 
   constructor(
     config: ZypherAgentConfig = {},
@@ -119,6 +135,8 @@ export class ZypherAgent {
     this.userId = userId;
     this._model = config.model ?? DEFAULT_MODEL;
     this.mcpServerManager = mcpServerManager;
+    // Default timeout is 1 minute, 0 = disabled
+    this._taskTimeoutMs = config.taskTimeoutMs ?? 60000;
   }
 
   async init(): Promise<void> {
@@ -151,6 +169,63 @@ export class ZypherAgent {
    */
   get model(): string {
     return this._model;
+  }
+
+  /**
+   * Get the configured task timeout in milliseconds
+   */
+  get taskTimeoutMs(): number {
+    return this._taskTimeoutMs;
+  }
+
+  /**
+   * Check if a task is currently running
+   */
+  get isTaskRunning(): boolean {
+    return this._isTaskRunning;
+  }
+
+  /**
+   * Get the reason why the task was cancelled, if available
+   */
+  get cancellationReason(): "user" | "timeout" | null {
+    return this._cancellationReason;
+  }
+
+  /**
+   * Cancel the current running task, if any
+   * @param reason The reason for cancellation, defaults to "user"
+   * @returns True if a task was cancelled, false if no task was running
+   */
+  cancelTask(reason: "user" | "timeout" = "user"): boolean {
+    if (!this._isTaskRunning || !this._currentAbortController) {
+      return false;
+    }
+
+    // Set cancellation reason
+    this._cancellationReason = reason;
+
+    // Abort any pending fetch requests
+    this._currentAbortController.abort();
+
+    // Notify via stream handler if available
+    if (this._currentStreamHandler?.onCancelled) {
+      this._currentStreamHandler.onCancelled(reason);
+    }
+
+    // Clear task timeout if it exists
+    if (this._taskTimeoutId !== null) {
+      clearTimeout(this._taskTimeoutId);
+      this._taskTimeoutId = null;
+    }
+
+    // Reset task state
+    this._isTaskRunning = false;
+    this._currentAbortController = null;
+    this._currentStreamHandler = undefined;
+
+    console.log(`🛑 Task cancelled (reason: ${reason})`);
+    return true;
   }
 
   /**
@@ -233,6 +308,11 @@ export class ZypherAgent {
     name: string;
     parameters: Record<string, unknown>;
   }): Promise<string> {
+    // Check if task has been cancelled
+    if (!this._isTaskRunning) {
+      return "Task was cancelled";
+    }
+
     const tool = this.mcpServerManager.getTool(toolCall.name);
     if (!tool) {
       return `Error: Tool '${toolCall.name}' not found`;
@@ -310,11 +390,16 @@ export class ZypherAgent {
    * - Complete messages are delivered when available
    * - Errors and code fixes are handled automatically
    *
+   * Cancellation:
+   * - Tasks can be cancelled at any time using cancelTask()
+   * - Cancellation will properly clean up resources and stop API requests
+   * - StreamHandler will be notified of cancellation via onCancelled
+   *
    * @param taskDescription The text description of the task to perform
    * @param streamHandler Handler for real-time content updates and complete messages
    * @param imageAttachments Optional array of image attachments in Claude's format
    * @param maxIterations Maximum number of iterations to run (default: 25)
-   * @returns Array of messages after task completion
+   * @returns Array of messages after task completion, or empty array if cancelled
    */
   async runTaskWithStreaming(
     taskDescription: string,
@@ -322,204 +407,288 @@ export class ZypherAgent {
     imageAttachments?: ImageAttachment[],
     maxIterations = 25,
   ): Promise<Message[]> {
-    // Ensure system prompt is initialized
-    if (!this.system.length) {
-      await this.init();
+    // Check if a task is already running
+    if (this._isTaskRunning) {
+      throw new Error(
+        "A task is already running. Cancel it first or wait for it to complete.",
+      );
     }
 
-    let iterations = 0;
-    const messages: Message[] = [...this._messages];
+    // Reset cancellation reason
+    this._cancellationReason = null;
 
-    // Always create a checkpoint before executing the task
-    const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${
-      taskDescription.length > 50 ? "..." : ""
-    }`;
-    const checkpointId = await createCheckpoint(checkpointName);
-    const checkpoint = checkpointId
-      ? await getCheckpointDetails(checkpointId)
-      : undefined;
+    // Set task running flag and create a new abort controller
+    this._isTaskRunning = true;
+    this._currentAbortController = new AbortController();
+    this._currentStreamHandler = streamHandler;
 
-    // Prepare message content
-    const imageBlocks = imageAttachments
-      ? imageAttachments.map((img) => {
-        return {
-          type: "image",
-          source: img.source,
-        } as Anthropic.ImageBlockParam;
-      })
-      : [];
-
-    const messageContent: Anthropic.ContentBlockParam[] = [
-      ...imageBlocks,
-      {
-        type: "text",
-        text: `<user_query>\n${taskDescription}\n</user_query>`,
-      } as Anthropic.TextBlockParam,
-    ];
-
-    // Add user message with checkpoint reference
-    const userMessage: Message = {
-      role: "user",
-      content: messageContent,
-      checkpointId,
-      checkpoint,
-      timestamp: new Date(), // current timestamp
-    };
-    this.processMessage(userMessage, messages, streamHandler?.onMessage);
-
-    const toolCalls = Array.from(
-      this.mcpServerManager.getAllTools().values(),
-    ).map(
-      (tool, index, tools): Anthropic.ToolUnion => ({
-        name: tool.name,
-        description: tool.description,
-        input_schema: tool.parameters,
-        // Only add cache control to the last tool as it acts as a breakpoint
-        ...(this.enablePromptCaching &&
-          index === tools.length - 1 && {
-          cache_control: { type: "ephemeral" },
-        }),
-      }),
-    );
-
-    while (iterations < maxIterations) {
-      let isFirstChunk = true;
-      let currentToolName: string | null = null;
-
-      // Create a stream with event handlers
-      const stream = this.client.messages
-        .stream({
-          model: this._model,
-          max_tokens: this.maxTokens,
-          system: this.system,
-          messages: messages.map((msg, index) =>
-            this.formatMessageForApi(msg, index === messages.length - 1)
-          ),
-          tools: toolCalls,
-          ...(this.userId && { metadata: { user_id: this.userId } }),
-        })
-        .on("text", (textDelta) => {
-          // Call stream handler for content
-          if (streamHandler?.onContent && textDelta) {
-            streamHandler.onContent(textDelta, isFirstChunk);
-            isFirstChunk = false;
-          }
-        })
-        .on("streamEvent", (event: Anthropic.MessageStreamEvent) => {
-          // Detect tool use at the start of a content block
-          if (
-            event.type === "content_block_start" &&
-            event.content_block?.type === "tool_use" &&
-            streamHandler?.onToolUse
-          ) {
-            // Store the tool name for subsequent inputJson events
-            currentToolName = event.content_block.name;
-            // Send the initial tool use notification with the tool name
-            streamHandler.onToolUse(currentToolName, "");
-          }
-        })
-        .on("inputJson", (partialJson) => {
-          // Send updates whenever we have new partial JSON for a tool
-          if (partialJson && streamHandler?.onToolUse && currentToolName) {
-            streamHandler.onToolUse(currentToolName, partialJson);
-          }
-        });
-
-      // Wait for the final message
-      const finalMessage = await stream.finalMessage();
-
-      // Create the assistant message using the complete content from finalMessage
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: finalMessage.content,
-        timestamp: new Date(),
-      };
-      this.processMessage(assistantMessage, messages, streamHandler?.onMessage);
-
-      // Process tool calls if any
-      if (finalMessage.stop_reason === "tool_use") {
-        // Execute tool calls
-        for (const block of finalMessage.content) {
-          if (block.type === "tool_use") {
-            const result = await this.executeToolCall({
-              name: block.name,
-              parameters: block.input as Record<string, unknown>,
-            });
-
-            // Add tool response
-            const toolMessage: Message = {
-              role: "user",
-              content: [
-                {
-                  type: "tool_result",
-                  tool_use_id: block.id,
-                  content: result,
-                } as Anthropic.ToolResultBlockParam,
-              ],
-              timestamp: new Date(),
-            };
-            this.processMessage(
-              toolMessage,
-              messages,
-              streamHandler?.onMessage,
-            );
-          }
+    // Set up task timeout if enabled
+    if (this._taskTimeoutMs > 0) {
+      this._taskTimeoutId = setTimeout(() => {
+        console.log(`🕒 Task timed out after ${this._taskTimeoutMs}ms`);
+        if (this._isTaskRunning) {
+          this.cancelTask("timeout");
         }
-      } else if (finalMessage.stop_reason === "max_tokens") {
-        // auto continue
-        const continueMessage: Message = {
-          role: "user",
-          content: "Continue",
-          timestamp: new Date(),
-        };
-        this.processMessage(
-          continueMessage,
-          messages,
-          streamHandler?.onMessage,
-        );
-      } else {
-        // Check for code errors if enabled and this is the end of the conversation
-        if (this.autoErrorCheck) {
-          const errors = await detectErrors();
-          if (errors) {
-            console.log(
-              "\n🔍 Detected code errors. Asking the agent to fix them...",
-            );
+      }, this._taskTimeoutMs) as unknown as number;
+    }
 
-            // Add errors as a user message
-            const errorMessage: Message = {
-              role: "user",
-              content:
-                `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
-              timestamp: new Date(),
-            };
-            this.processMessage(
-              errorMessage,
-              messages,
-              streamHandler?.onMessage,
-            );
-
-            // Continue the loop to let the agent fix the errors
-            iterations++;
-            continue;
-          }
-        }
-
-        // No errors or error check disabled, exit the loop
-        break;
+    try {
+      // Ensure system prompt is initialized
+      if (!this.system.length) {
+        await this.init();
       }
 
-      iterations++;
+      let iterations = 0;
+      const messages: Message[] = [...this._messages];
+
+      // Always create a checkpoint before executing the task
+      const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${
+        taskDescription.length > 50 ? "..." : ""
+      }`;
+      const checkpointId = await createCheckpoint(checkpointName);
+      const checkpoint = checkpointId
+        ? await getCheckpointDetails(checkpointId)
+        : undefined;
+
+      // Prepare message content
+      const imageBlocks = imageAttachments
+        ? imageAttachments.map((img) => {
+          return {
+            type: "image",
+            source: img.source,
+          } as Anthropic.ImageBlockParam;
+        })
+        : [];
+
+      const messageContent: Anthropic.ContentBlockParam[] = [
+        ...imageBlocks,
+        {
+          type: "text",
+          text: `<user_query>\n${taskDescription}\n</user_query>`,
+        } as Anthropic.TextBlockParam,
+      ];
+
+      // Add user message with checkpoint reference
+      const userMessage: Message = {
+        role: "user",
+        content: messageContent,
+        checkpointId,
+        checkpoint,
+        timestamp: new Date(), // current timestamp
+      };
+      this.processMessage(userMessage, messages, streamHandler?.onMessage);
+
+      const toolCalls = Array.from(
+        this.mcpServerManager.getAllTools().values(),
+      ).map(
+        (tool, index, tools): Anthropic.ToolUnion => ({
+          name: tool.name,
+          description: tool.description,
+          input_schema: tool.parameters,
+          // Only add cache control to the last tool as it acts as a breakpoint
+          ...(this.enablePromptCaching &&
+            index === tools.length - 1 && {
+            cache_control: { type: "ephemeral" },
+          }),
+        }),
+      );
+
+      while (iterations < maxIterations && this._isTaskRunning) {
+        // Check for cancellation
+        if (!this._isTaskRunning) {
+          return [];
+        }
+
+        let isFirstChunk = true;
+        let currentToolName: string | null = null;
+
+        // Create a stream with event handlers and pass the abort signal for cancellation
+        const signal = this._currentAbortController.signal;
+        const stream = this.client.messages
+          .stream({
+            model: this._model,
+            max_tokens: this.maxTokens,
+            system: this.system,
+            messages: messages.map((msg, index) =>
+              this.formatMessageForApi(msg, index === messages.length - 1)
+            ),
+            tools: toolCalls,
+            ...(this.userId && { metadata: { user_id: this.userId } }),
+          }, { signal })
+          .on("text", (textDelta) => {
+            // Call stream handler for content
+            if (streamHandler?.onContent && textDelta) {
+              streamHandler.onContent(textDelta, isFirstChunk);
+              isFirstChunk = false;
+            }
+          })
+          .on("streamEvent", (event: Anthropic.MessageStreamEvent) => {
+            // Detect tool use at the start of a content block
+            if (
+              event.type === "content_block_start" &&
+              event.content_block?.type === "tool_use" &&
+              streamHandler?.onToolUse
+            ) {
+              // Store the tool name for subsequent inputJson events
+              currentToolName = event.content_block.name;
+              // Send the initial tool use notification with the tool name
+              streamHandler.onToolUse(currentToolName, "");
+            }
+          })
+          .on("inputJson", (partialJson) => {
+            // Send updates whenever we have new partial JSON for a tool
+            if (partialJson && streamHandler?.onToolUse && currentToolName) {
+              streamHandler.onToolUse(currentToolName, partialJson);
+            }
+          });
+
+        try {
+          // Check if the task was cancelled during stream setup
+          if (!this._isTaskRunning) {
+            return [];
+          }
+
+          // Wait for the final message
+          const finalMessage = await stream.finalMessage();
+
+          // Create the assistant message using the complete content from finalMessage
+          const assistantMessage: Message = {
+            role: "assistant",
+            content: finalMessage.content,
+            timestamp: new Date(),
+          };
+          this.processMessage(
+            assistantMessage,
+            messages,
+            streamHandler?.onMessage,
+          );
+
+          // Process tool calls if any
+          if (finalMessage.stop_reason === "tool_use") {
+            // Execute tool calls
+            for (const block of finalMessage.content) {
+              // Check for cancellation before processing each tool call
+              if (!this._isTaskRunning) {
+                return [];
+              }
+
+              if (block.type === "tool_use") {
+                const result = await this.executeToolCall({
+                  name: block.name,
+                  parameters: block.input as Record<string, unknown>,
+                });
+
+                // Add tool response
+                const toolMessage: Message = {
+                  role: "user",
+                  content: [
+                    {
+                      type: "tool_result",
+                      tool_use_id: block.id,
+                      content: result,
+                    } as Anthropic.ToolResultBlockParam,
+                  ],
+                  timestamp: new Date(),
+                };
+                this.processMessage(
+                  toolMessage,
+                  messages,
+                  streamHandler?.onMessage,
+                );
+              }
+            }
+          } else if (finalMessage.stop_reason === "max_tokens") {
+            // auto continue
+            const continueMessage: Message = {
+              role: "user",
+              content: "Continue",
+              timestamp: new Date(),
+            };
+            this.processMessage(
+              continueMessage,
+              messages,
+              streamHandler?.onMessage,
+            );
+          } else {
+            // Check for code errors if enabled and this is the end of the conversation
+            if (this.autoErrorCheck) {
+              // Check for cancellation before error detection
+              if (!this._isTaskRunning) {
+                return [];
+              }
+
+              const errors = await detectErrors();
+              if (errors) {
+                console.log(
+                  "\n🔍 Detected code errors. Asking the agent to fix them...",
+                );
+
+                // Add errors as a user message
+                const errorMessage: Message = {
+                  role: "user",
+                  content:
+                    `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
+                  timestamp: new Date(),
+                };
+                this.processMessage(
+                  errorMessage,
+                  messages,
+                  streamHandler?.onMessage,
+                );
+
+                // Continue the loop to let the agent fix the errors
+                iterations++;
+                continue;
+              }
+            }
+
+            // No errors or error check disabled, exit the loop
+            break;
+          }
+        } catch (error) {
+          // If the task was cancelled (aborted), just return
+          if (
+            this._cancellationReason !== null ||
+            (error instanceof Error &&
+              (error.name === "AbortError" ||
+                error.message.includes("aborted") ||
+                error.message.includes("abort")))
+          ) {
+            return [];
+          }
+
+          // For other errors, rethrow
+          throw error;
+        }
+
+        iterations++;
+      }
+
+      // If we've been cancelled during processing, return empty array
+      if (!this._isTaskRunning) {
+        return [];
+      }
+
+      this._messages = messages;
+
+      // Save updated message history if enabled
+      if (this.persistHistory) {
+        await saveMessageHistory(this._messages);
+      }
+
+      return this.messages;
+    } finally {
+      // Clean up resources
+      this._isTaskRunning = false;
+      this._currentAbortController = null;
+      this._currentStreamHandler = undefined;
+
+      // Clear task timeout if it exists
+      if (this._taskTimeoutId !== null) {
+        clearTimeout(this._taskTimeoutId);
+        this._taskTimeoutId = null;
+      }
     }
-
-    this._messages = messages;
-
-    // Save updated message history if enabled
-    if (this.persistHistory) {
-      await saveMessageHistory(this._messages);
-    }
-
-    return this.messages;
   }
 
   /**
