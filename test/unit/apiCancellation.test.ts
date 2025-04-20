@@ -49,7 +49,7 @@ function createTestApp() {
   });
 
   // Cancel endpoint
-  app.post("/agent/task/cancel", (c) => {
+  app.get("/agent/task/cancel", (c) => {
     if (!agent.isTaskRunning) {
       throw new ApiError(
         404,
@@ -83,7 +83,7 @@ Deno.test("API Task Cancellation - should return 404 when no task is running", a
   try {
     // Send request with controlled signal
     const req = new Request("http://localhost/agent/task/cancel", {
-      method: "POST",
+      method: "GET",
       signal,
     });
 
@@ -113,7 +113,7 @@ Deno.test("API Task Cancellation - should cancel a running task successfully", a
   try {
     // Send request with controlled signal
     const req = new Request("http://localhost/agent/task/cancel", {
-      method: "POST",
+      method: "GET",
       signal,
     });
 

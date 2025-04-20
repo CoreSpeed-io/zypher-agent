@@ -249,8 +249,8 @@ app.delete("/agent/messages", (c) => {
   return c.body(null, 204);
 });
 
-// Cancel current running task
-app.post("/agent/task/cancel", (c) => {
+// Cancel the current task
+app.get("/agent/task/cancel", (c) => {
   // Check if a task is running
   if (!agent.isTaskRunning) {
     throw new ApiError(
