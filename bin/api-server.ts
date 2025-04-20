@@ -348,7 +348,6 @@ async function runAgentTask(
       event: "error",
       data: {
         error: formatError(error),
-        stack: error instanceof Error ? error.stack : undefined,
       },
     });
   }
