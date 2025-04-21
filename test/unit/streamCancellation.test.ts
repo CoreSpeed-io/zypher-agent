@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { assertSpyCall, assertSpyCalls, spy } from "jsr:@std/testing/mock";
 
 // Test utility class for agent state
