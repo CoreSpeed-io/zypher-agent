@@ -483,7 +483,11 @@ export class ZypherAgent {
         checkpoint,
         timestamp: new Date(), // current timestamp
       };
-      this.processMessage(userMessage, this._messages, streamHandler?.onMessage);
+      this.processMessage(
+        userMessage,
+        this._messages,
+        streamHandler?.onMessage,
+      );
 
       const toolCalls = Array.from(
         this.mcpServerManager.getAllTools().values(),
