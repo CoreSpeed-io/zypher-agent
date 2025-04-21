@@ -1,9 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import {
-  assertSpyCall,
-  assertSpyCalls,
-  spy,
-} from "jsr:@std/testing/mock";
+import { assertSpyCall, assertSpyCalls, spy } from "jsr:@std/testing/mock";
 
 // Mock implementation of ZypherAgent for testing
 class MockZypherAgent {
