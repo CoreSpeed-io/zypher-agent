@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { spy } from "jsr:@std/testing/mock";
 import { Hono } from "hono";
 import type { StatusCode } from "hono/utils/http-status";

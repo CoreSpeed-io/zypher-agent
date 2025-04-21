@@ -409,7 +409,7 @@ export class ZypherAgent {
    * @param streamHandler Handler for real-time content updates and complete messages
    * @param imageAttachments Optional array of image attachments in Claude's format
    * @param maxIterations Maximum number of iterations to run (default: 25)
-   * @returns Array of messages after task completion, or empty array if cancelled
+   * @returns Array of messages after task completion, or return as is if cancelled
    */
   async runTaskWithStreaming(
     taskDescription: string,
@@ -447,7 +447,6 @@ export class ZypherAgent {
       }
 
       let iterations = 0;
-      const messages: Message[] = [...this._messages];
 
       // Always create a checkpoint before executing the task
       const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${
@@ -484,7 +483,7 @@ export class ZypherAgent {
         checkpoint,
         timestamp: new Date(), // current timestamp
       };
-      this.processMessage(userMessage, messages, streamHandler?.onMessage);
+      this.processMessage(userMessage, this._messages, streamHandler?.onMessage);
 
       const toolCalls = Array.from(
         this.mcpServerManager.getAllTools().values(),
@@ -504,7 +503,7 @@ export class ZypherAgent {
       while (iterations < maxIterations && this._isTaskRunning) {
         // Check for cancellation
         if (!this._isTaskRunning) {
-          return [];
+          return this._messages;
         }
 
         let isFirstChunk = true;
@@ -517,8 +516,8 @@ export class ZypherAgent {
             model: this._model,
             max_tokens: this.maxTokens,
             system: this.system,
-            messages: messages.map((msg, index) =>
-              this.formatMessageForApi(msg, index === messages.length - 1)
+            messages: this._messages.map((msg: Message, index: number) =>
+              this.formatMessageForApi(msg, index === this._messages.length - 1)
             ),
             tools: toolCalls,
             ...(this.userId && { metadata: { user_id: this.userId } }),
@@ -553,7 +552,7 @@ export class ZypherAgent {
         try {
           // Check if the task was cancelled during stream setup
           if (!this._isTaskRunning) {
-            return [];
+            return this._messages;
           }
 
           // Wait for the final message
@@ -567,7 +566,7 @@ export class ZypherAgent {
           };
           this.processMessage(
             assistantMessage,
-            messages,
+            this._messages,
             streamHandler?.onMessage,
           );
 
@@ -577,7 +576,7 @@ export class ZypherAgent {
             for (const block of finalMessage.content) {
               // Check for cancellation before processing each tool call
               if (!this._isTaskRunning) {
-                return [];
+                return this._messages;
               }
 
               if (block.type === "tool_use") {
@@ -600,7 +599,7 @@ export class ZypherAgent {
                 };
                 this.processMessage(
                   toolMessage,
-                  messages,
+                  this._messages,
                   streamHandler?.onMessage,
                 );
               }
@@ -614,7 +613,7 @@ export class ZypherAgent {
             };
             this.processMessage(
               continueMessage,
-              messages,
+              this._messages,
               streamHandler?.onMessage,
             );
           } else {
@@ -622,7 +621,7 @@ export class ZypherAgent {
             if (this.autoErrorCheck) {
               // Check for cancellation before error detection
               if (!this._isTaskRunning) {
-                return [];
+                return this._messages;
               }
 
               const errors = await detectErrors();
@@ -640,7 +639,7 @@ export class ZypherAgent {
                 };
                 this.processMessage(
                   errorMessage,
-                  messages,
+                  this._messages,
                   streamHandler?.onMessage,
                 );
 
@@ -662,7 +661,7 @@ export class ZypherAgent {
                 error.message.includes("aborted") ||
                 error.message.includes("abort")))
           ) {
-            return [];
+            return this._messages;
           }
 
           // For other errors, rethrow
@@ -674,10 +673,8 @@ export class ZypherAgent {
 
       // If we've been cancelled during processing, return empty array
       if (!this._isTaskRunning) {
-        return [];
+        return this._messages;
       }
-
-      this._messages = messages;
 
       // Save updated message history if enabled
       if (this.persistHistory) {
