@@ -1,5 +1,5 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { spy } from "https://deno.land/std@0.224.0/testing/mock.ts";
+import { assertEquals } from "jsr:@std/assert";
+import { spy } from "jsr:@std/testing/mock";
 import { Hono } from "hono";
 import type { StatusCode } from "hono/utils/http-status";
 import { ApiError } from "../../bin/api-server.ts";

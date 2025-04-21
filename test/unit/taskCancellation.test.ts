@@ -1,9 +1,9 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals } from "jsr:@std/assert";
 import {
   assertSpyCall,
   assertSpyCalls,
   spy,
-} from "https://deno.land/std@0.224.0/testing/mock.ts";
+} from "jsr:@std/testing/mock";
 
 // Mock implementation of ZypherAgent for testing
 class MockZypherAgent {

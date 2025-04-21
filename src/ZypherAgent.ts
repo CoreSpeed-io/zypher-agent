@@ -437,7 +437,7 @@ export class ZypherAgent {
         if (this._isTaskRunning) {
           this.cancelTask("timeout");
         }
-      }, this._taskTimeoutMs) as unknown as number;
+      }, this._taskTimeoutMs);
     }
 
     try {
