@@ -395,12 +395,11 @@ app.post("/agent/task/sse", zValidator("json", taskSchema), (c) => {
         }
         void stream.writeSSE({
           event: event.event,
-          data: JSON.stringify({
-            ...(typeof event.data === "object"
-              ? event.data
-              : { value: event.data }),
-            reason: event.reason,
-          }),
+          data: JSON.stringify(
+            typeof event.data === "object"
+              ? { ...event.data, reason: event.reason }
+              : { value: event.data, reason: event.reason }
+          ),
         });
       });
 
