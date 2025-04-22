@@ -395,8 +395,10 @@ app.post("/agent/task/sse", zValidator("json", taskSchema), (c) => {
         }
         void stream.writeSSE({
           event: event.event,
-          data: JSON.stringify(event.data),
-          ...(event.reason && { id: event.reason }), // Use the id field to pass the reason
+          data: JSON.stringify({
+            ...(typeof event.data === 'object' ? event.data : { value: event.data }),
+            reason: event.reason,
+          }),
         });
       });
 
@@ -464,8 +466,6 @@ app.get(
     };
   }),
 );
-
-// Add
 
 // List checkpoints
 app.get("/agent/checkpoints", async (c) => {
