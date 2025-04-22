@@ -135,8 +135,8 @@ export class ZypherAgent {
     this.userId = userId;
     this._model = config.model ?? DEFAULT_MODEL;
     this.mcpServerManager = mcpServerManager;
-    // Default timeout is 1 minute, 0 = disabled
-    this._taskTimeoutMs = config.taskTimeoutMs ?? 60000;
+    // Default timeout is 5 minutes, 0 = disabled
+    this._taskTimeoutMs = config.taskTimeoutMs ?? 300000;
   }
 
   async init(): Promise<void> {
