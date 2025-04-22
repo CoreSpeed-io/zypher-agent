@@ -397,7 +397,7 @@ app.post("/agent/task/sse", zValidator("json", taskSchema), (c) => {
           data: JSON.stringify(
             typeof event.data === "object"
               ? { ...event.data, reason: event.reason }
-              : { value: event.data, reason: event.reason }
+              : { value: event.data, reason: event.reason },
           ),
         });
       });
