@@ -33,7 +33,7 @@ import {
 import { McpServerConfigSchema, McpServerIdSchema } from "../src/mcp/types.ts";
 import process from "node:process";
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly type: string,
@@ -249,9 +249,38 @@ app.delete("/agent/messages", (c) => {
   return c.body(null, 204);
 });
 
+// Cancel the current task
+app.get("/agent/task/cancel", (c) => {
+  // Check if a task is running
+  if (!agent.isTaskRunning) {
+    throw new ApiError(
+      404,
+      "task_not_running",
+      "No task was running to cancel",
+    );
+  }
+
+  // Task is running, cancel it
+  agent.cancelTask("user");
+  console.log("Task cancellation requested by user via API");
+
+  return c.json({
+    success: true,
+    message: "Task cancelled successfully",
+    status: "idle",
+  });
+});
+
 type TaskEvent = {
-  event: "content_delta" | "tool_use_delta" | "message" | "error" | "complete";
+  event:
+    | "content_delta"
+    | "tool_use_delta"
+    | "message"
+    | "error"
+    | "complete"
+    | "cancelled";
   data: unknown;
+  reason?: "user" | "timeout";
 };
 
 async function runAgentTask(
@@ -270,13 +299,56 @@ async function runAgentTask(
     onMessage: (message) => {
       onEvent({ event: "message", data: message });
     },
+    onCancelled: (reason) => {
+      // Create a user-friendly message based on the reason
+      let message: string;
+      switch (reason) {
+        case "user":
+          message = "Task was cancelled by user";
+          break;
+        case "timeout":
+          message = `Task was cancelled due to timeout (${
+            agent.taskTimeoutMs / 1000
+          }s limit)`;
+          break;
+        default:
+          message = "Task was cancelled";
+      }
+
+      onEvent({
+        event: "cancelled",
+        data: { message, reason },
+      });
+
+      console.log(`Task cancelled: ${message} (reason: ${reason})`);
+    },
   };
 
   try {
-    await agent.runTaskWithStreaming(task, streamHandler, imageAttachments);
+    const messages = await agent.runTaskWithStreaming(
+      task,
+      streamHandler,
+      imageAttachments,
+    );
+
+    // Empty messages array means task was cancelled
+    if (messages.length === 0 && agent.cancellationReason) {
+      // Cancellation was already handled by onCancelled
+      return;
+    }
+
+    // Otherwise, task completed successfully
     onEvent({ event: "complete", data: {} });
   } catch (error) {
-    onEvent({ event: "error", data: { error: formatError(error) } });
+    // For any other errors, provide detailed error info for debugging
+    console.error("Error running agent task:", formatError(error));
+
+    onEvent({
+      event: "error",
+      data: {
+        error: formatError(error),
+      },
+    });
   }
 }
 
@@ -306,14 +378,27 @@ app.post("/agent/task/sse", zValidator("json", taskSchema), (c) => {
       // TODO: Find a better solution.
       let taskCompleted = false;
 
+      // Handle SSE connection closure
+      c.req.raw.signal.addEventListener("abort", () => {
+        console.log("SSE connection aborted");
+        if (agent.isTaskRunning) {
+          console.log("Cancelling task due to SSE connection closure");
+          agent.cancelTask("user");
+        }
+      });
+
       // Pass event handlers during initialization
       await runAgentTask(task, processedImages, (event) => {
-        if (event.event === "complete") {
+        if (event.event === "complete" || event.event === "cancelled") {
           taskCompleted = true;
         }
         void stream.writeSSE({
           event: event.event,
-          data: JSON.stringify(event.data),
+          data: JSON.stringify(
+            typeof event.data === "object"
+              ? { ...event.data, reason: event.reason }
+              : { value: event.data, reason: event.reason },
+          ),
         });
       });
 
@@ -356,14 +441,27 @@ app.get(
           : [];
 
         runAgentTask(task, processedImages, (event) => {
-          ws.send(JSON.stringify(event));
+          // Only send if the WebSocket is still open
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(event));
+          }
         });
       },
       onClose() {
         console.log("WebSocket connection closed");
+        // Cancel running task if WebSocket connection is closed
+        if (agent.isTaskRunning) {
+          console.log("Cancelling task due to WebSocket closure");
+          agent.cancelTask("user");
+        }
       },
       onError(error) {
         console.error("WebSocket error:", error);
+        // Also cancel task on WebSocket error
+        if (agent.isTaskRunning) {
+          console.log("Cancelling task due to WebSocket error");
+          agent.cancelTask("user");
+        }
       },
     };
   }),
