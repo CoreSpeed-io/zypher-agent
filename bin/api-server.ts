@@ -317,8 +317,7 @@ async function runAgentTask(
 
       onEvent({
         event: "cancelled",
-        data: { message },
-        reason,
+        data: { message, reason },
       });
 
       console.log(`Task cancelled: ${message} (reason: ${reason})`);
