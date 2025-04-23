@@ -174,7 +174,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           error: formatError(error),
         },
       });
-    } 
+    }
   }
 
   function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
@@ -202,7 +202,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
         "message": "A task is already running"
       }
      */
-    
+
     if (!agent.checkAndSetTaskRunning()) {
       return c.json({
         code: 409,
@@ -283,8 +283,8 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
               data: {
                 code: 409,
                 type: "task_in_progress",
-                message: "A task is already running"
-              }
+                message: "A task is already running",
+              },
             }));
             return;
           }

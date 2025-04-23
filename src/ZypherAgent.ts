@@ -202,7 +202,7 @@ export class ZypherAgent {
       // Task is not running or already completed
       return false;
     }
-    
+
     this._cancellationReason = reason;
 
     try {
@@ -414,7 +414,6 @@ export class ZypherAgent {
     imageAttachments?: ImageAttachment[],
     maxIterations = 25,
   ): Promise<Message[]> {
-
     this._cancellationReason = null;
     this._currentAbortController = new AbortController();
     this._currentStreamHandler = streamHandler;
@@ -769,5 +768,4 @@ export class ZypherAgent {
   public clearTaskRunning(): void {
     this._isTaskRunning = false;
   }
-
 }
