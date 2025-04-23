@@ -9,7 +9,7 @@ import {
   McpServerSchema,
 } from "./types.ts";
 import { formatError, getWorkspaceDataDir } from "../utils/index.ts";
-import { join } from "jsr:@std/path";
+import { join } from "@std/path";
 
 export class McpServerError extends Error {
   constructor(

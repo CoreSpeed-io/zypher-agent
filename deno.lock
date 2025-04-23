@@ -1,17 +1,24 @@
 {
   "version": "4",
   "specifiers": {
+    "jsr:@bureaudouble-forks/importmap@~0.2.1": "0.2.1",
     "jsr:@openai/openai@^4.95.1": "4.95.1",
     "jsr:@std/assert@*": "1.0.12",
     "jsr:@std/assert@^1.0.12": "1.0.12",
+    "jsr:@std/async@^1.0.12": "1.0.12",
     "jsr:@std/cli@*": "1.0.16",
     "jsr:@std/cli@^1.0.16": "1.0.16",
+    "jsr:@std/data-structures@^1.0.6": "1.0.6",
     "jsr:@std/dotenv@*": "0.225.3",
     "jsr:@std/dotenv@~0.225.3": "0.225.3",
     "jsr:@std/encoding@*": "1.0.9",
+    "jsr:@std/encoding@^1.0.9": "1.0.9",
+    "jsr:@std/fs@^1.0.16": "1.0.16",
     "jsr:@std/internal@^1.0.6": "1.0.6",
     "jsr:@std/path@*": "1.0.8",
+    "jsr:@std/path@^1.0.8": "1.0.8",
     "jsr:@std/testing@*": "1.0.11",
+    "jsr:@std/testing@^1.0.11": "1.0.11",
     "npm:@anthropic-ai/sdk@0.39": "0.39.0",
     "npm:@hono/zod-validator@~0.4.3": "0.4.3_hono@4.7.7_zod@3.24.3",
     "npm:@modelcontextprotocol/sdk@^1.10.1": "1.10.1_express@5.1.0_zod@3.24.3",
@@ -24,6 +31,9 @@
     "npm:zod@^3.24.3": "3.24.3"
   },
   "jsr": {
+    "@bureaudouble-forks/importmap@0.2.1": {
+      "integrity": "ba78361d289f946e9c2488066b339553576392c5780b151cdd4c01da0c58f131"
+    },
     "@openai/openai@4.95.1": {
       "integrity": "2f4e88862e5613b7c166051ff5ebcce49c871f78b6dc5c24fa388172e277b701",
       "dependencies": [
@@ -36,14 +46,26 @@
         "jsr:@std/internal"
       ]
     },
+    "@std/async@1.0.12": {
+      "integrity": "d1bfcec459e8012846fe4e38dfc4241ab23240ecda3d8d6dfcf6d81a632e803d"
+    },
     "@std/cli@1.0.16": {
       "integrity": "02df293099c35b9e97d8ca05f57f54bd1ee08134f25d19a4756b3924695f4b00"
+    },
+    "@std/data-structures@1.0.6": {
+      "integrity": "76a7fd8080c66604c0496220a791860492ab21a04a63a969c0b9a0609bbbb760"
     },
     "@std/dotenv@0.225.3": {
       "integrity": "a95e5b812c27b0854c52acbae215856d9cce9d4bbf774d938c51d212711e8d4a"
     },
     "@std/encoding@1.0.9": {
       "integrity": "025b8f18eb1749bc30d1353bf48b77d1eb5e35610220fa226f5a046b9240c5d7"
+    },
+    "@std/fs@1.0.16": {
+      "integrity": "81878f62b6eeda0bf546197fc3daa5327c132fee1273f6113f940784a468b036",
+      "dependencies": [
+        "jsr:@std/path@^1.0.8"
+      ]
     },
     "@std/internal@1.0.6": {
       "integrity": "9533b128f230f73bd209408bb07a4b12f8d4255ab2a4d22a1fd6d87304aca9a4"
@@ -54,7 +76,12 @@
     "@std/testing@1.0.11": {
       "integrity": "12b3db12d34f0f385a26248933bde766c0f8c5ad8b6ab34d4d38f528ab852f48",
       "dependencies": [
-        "jsr:@std/assert@^1.0.12"
+        "jsr:@std/assert@^1.0.12",
+        "jsr:@std/async",
+        "jsr:@std/data-structures",
+        "jsr:@std/fs",
+        "jsr:@std/internal",
+        "jsr:@std/path@^1.0.8"
       ]
     }
   },
@@ -62,8 +89,8 @@
     "@anthropic-ai/sdk@0.39.0": {
       "integrity": "sha512-eMyDIPRZbt1CCLErRCi3exlAvNkBtRe+kW5vvJyef93PmNr/clstYgHhtvmkxN82nlKgzyGPCyGxrm0JQ1ZIdg==",
       "dependencies": [
-        "@types/node@18.19.86",
         "@types/node-fetch",
+        "@types/node@18.19.86",
         "abort-controller",
         "agentkeepalive",
         "form-data-encoder",
@@ -811,7 +838,8 @@
     "https://deno.land/std@0.224.0/internal/diff.ts": "6234a4b493ebe65dc67a18a0eb97ef683626a1166a1906232ce186ae9f65f4e6",
     "https://deno.land/std@0.224.0/internal/format.ts": "0a98ee226fd3d43450245b1844b47003419d34d210fa989900861c79820d21c2",
     "https://deno.land/std@0.224.0/internal/mod.ts": "534125398c8e7426183e12dc255bb635d94e06d0f93c60a297723abe69d3b22e",
-    "https://deno.land/std@0.224.0/testing/mock.ts": "a963181c2860b6ba3eb60e08b62c164d33cf5da7cd445893499b2efda20074db"
+    "https://deno.land/std@0.224.0/testing/mock.ts": "a963181c2860b6ba3eb60e08b62c164d33cf5da7cd445893499b2efda20074db",
+    "https://raw.githubusercontent.com/CoreSpeed-io/rolldown-deno-loader-plugin/refs/heads/main/mod.ts": "acb71a40a2ca64137e26ca44e9c5956a02c5c9fe829e377921c974ac94e09e95"
   },
   "workspace": {
     "dependencies": [
@@ -819,6 +847,9 @@
       "jsr:@std/assert@^1.0.12",
       "jsr:@std/cli@^1.0.16",
       "jsr:@std/dotenv@~0.225.3",
+      "jsr:@std/encoding@^1.0.9",
+      "jsr:@std/path@^1.0.8",
+      "jsr:@std/testing@^1.0.11",
       "npm:@anthropic-ai/sdk@0.39",
       "npm:@hono/zod-validator@~0.4.3",
       "npm:@modelcontextprotocol/sdk@^1.10.1",

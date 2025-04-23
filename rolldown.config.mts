@@ -15,7 +15,7 @@ export default defineConfig({
     importMapBaseUrl: `file://${process.cwd()}`,
   })],
   platform: "node",
-  input: "bin/api-server.ts",
+  input: "bin/api-server/src/index.ts",
   treeshake: true,
   output: {
     minify: true,

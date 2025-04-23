@@ -1,4 +1,4 @@
-import "jsr:@std/dotenv/load";
+import "@std/dotenv/load";
 import { ZypherAgent } from "../src/ZypherAgent.ts";
 import type { StreamHandler } from "../src/ZypherAgent.ts";
 import {
@@ -11,7 +11,7 @@ import {
   ReadFileTool,
   RunTerminalCmdTool,
 } from "../src/tools/index.ts";
-import { parseArgs } from "jsr:@std/cli";
+import { parseArgs } from "@std/cli";
 import readline from "node:readline";
 import { stdin as input, stdout as output } from "node:process";
 import { formatError } from "../src/utils/error.ts";
