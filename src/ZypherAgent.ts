@@ -102,7 +102,7 @@ export class ZypherAgent {
   private readonly _taskTimeoutMs: number;
 
   // Task execution state
-  private _isTaskRunning = false;
+  private _isTaskRunning: boolean = false;
   private _currentAbortController: AbortController | null = null;
   private _currentStreamHandler: StreamHandler | undefined;
   private _taskTimeoutId: number | null = null;
@@ -202,10 +202,7 @@ export class ZypherAgent {
       // Task is not running or already completed
       return false;
     }
-
-    // Set cancellation in progress state
-    const wasTaskRunning = this._isTaskRunning;
-    this._isTaskRunning = false;
+    
     this._cancellationReason = reason;
 
     try {
@@ -228,11 +225,11 @@ export class ZypherAgent {
       this._currentStreamHandler = undefined;
 
       console.log(`🛑 Task cancelled (reason: ${reason})`);
-      return wasTaskRunning;
+      this._isTaskRunning = false;
+      return true;
     } catch (error) {
       // If something fails during cancellation, restore running state but keep cancellation reason
       // This ensures we still know a cancellation was attempted even if it failed
-      this._isTaskRunning = wasTaskRunning;
       console.error(`Error during task cancellation: ${formatError(error)}`);
       return false;
     }
@@ -745,5 +742,73 @@ export class ZypherAgent {
       undefined,
       maxIterations,
     );
+  }
+  /**
+   * Checks if a task is already running
+   * @returns true if a task is running, false otherwise
+   */
+  public checkTaskRunning(): boolean {
+    return this._isTaskRunning;
+  }
+
+  /**
+   * Atomically checks if a task is running and sets the flag if it's not
+   * This is a critical section that must be executed synchronously (not async)
+   * to ensure atomic "check-and-set" semantics
+   *
+   * @returns true if the flag was successfully set (no task was running),
+   *          false if a task is already running
+   */
+  public checkAndSetTaskRunning(): boolean {
+    // This critical section is atomic because JavaScript is single-threaded
+    // and this method contains no async operations
+    if (this._isTaskRunning) {
+      return false;
+    }
+
+    // Set the flag
+    this._isTaskRunning = true;
+    return true;
+  }
+
+  /**
+   * Clears the task running flag
+   */
+  public clearTaskRunning(): void {
+    this._isTaskRunning = false;
+  }
+
+  /**
+   * Runs a task with concurrency control
+   * This ensures only one task can run at a time
+   *
+   * @param task The task description
+   * @param streamHandler The stream handler for real-time updates
+   * @param imageAttachments Optional image attachments
+   * @returns A promise that resolves when the task completes
+   * @throws Error with status 409 if a task is already running
+   */
+  public async runTaskWithConcurrencyControl(
+    task: string,
+    streamHandler: StreamHandler = {},
+    imageAttachments: ImageAttachment[] = [],
+  ): Promise<void> {
+    // Atomically check and set the task running flag
+    // This ensures no race condition between checking and setting
+    if (!this.checkAndSetTaskRunning()) {
+      throw new Error(JSON.stringify({
+        code: 409,
+        type: "task_in_progress",
+        message: "A task is already running",
+      }));
+    }
+
+    try {
+      // Run the task
+      await this.runTaskWithStreaming(task, streamHandler, imageAttachments);
+    } finally {
+      // Always mark the task as completed when finished, even if an error occurred
+      this.clearTaskRunning();
+    }
   }
 }
