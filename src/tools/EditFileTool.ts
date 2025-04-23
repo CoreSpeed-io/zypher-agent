@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineTool } from "./index.ts";
-import * as path from "jsr:@std/path";
+import * as path from "@std/path";
 
 export const EditFileTool = defineTool({
   name: "edit_file",

@@ -1,8 +1,8 @@
 import { assertEquals } from "@std/assert";
-import { spy } from "jsr:@std/testing/mock";
+import { spy } from "@std/testing/mock";
 import { Hono } from "hono";
 import type { StatusCode } from "hono/utils/http-status";
-import { ApiError } from "../../bin/api-server.ts";
+import { ApiError } from "../src/error.ts";
 
 // Create a minimal version of the API server for testing
 function createTestApp() {

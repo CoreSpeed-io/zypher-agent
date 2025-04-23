@@ -1,4 +1,4 @@
-import * as path from "jsr:@std/path";
+import * as path from "@std/path";
 import { encodeBase64 } from "jsr:@std/encoding/base64";
 import type { Message } from "../message.ts";
 import { isMessage } from "../message.ts";
