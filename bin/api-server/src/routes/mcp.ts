@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { McpServerError, McpServerManager } from "#src/mcp/McpServerManager.ts";
-import { McpServerConfigSchema, McpServerIdSchema } from "#src/mcp/types.ts";
+import { McpServerError, McpServerManager } from "../../../../src/mcp/McpServerManager.ts";
+import { McpServerConfigSchema, McpServerIdSchema } from "../../../../src/mcp/types.ts";
 import { z } from "zod";
 import { ApiError } from "../error.ts";
 
