@@ -1,9 +1,15 @@
 import { Anthropic } from "@anthropic-ai/sdk";
 
+export type ContentBlock = Anthropic.ContentBlockParam | ImageAttachment;
+
 /**
  * Extended message parameter type that includes checkpoint information
  */
-export interface Message extends Anthropic.MessageParam {
+export interface Message {
+  content: string | Array<ContentBlock>;
+
+  role: "user" | "assistant";
+
   /**
    * Timestamp indicating when the message was created
    */
@@ -22,6 +28,17 @@ export interface Message extends Anthropic.MessageParam {
     name: string;
     timestamp: string;
   };
+}
+
+/**
+ * Represents an image attachment in the message history
+ */
+export interface ImageAttachment {
+  type: "image_attachment";
+  /** The ID of the file in storage */
+  fileId: string;
+  /** The content type must be an image type */
+  contentType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 }
 
 /**
@@ -49,4 +66,11 @@ export function isMessage(value: unknown): value is Message {
   }
 
   return true;
+}
+
+export function isImageAttachment(value: unknown): value is ImageAttachment {
+  return typeof value === "object" && value !== null &&
+    "type" in value && value.type === "image_attachment" &&
+    "fileId" in value && typeof value.fileId === "string" &&
+    "contentType" in value && typeof value.contentType === "string";
 }

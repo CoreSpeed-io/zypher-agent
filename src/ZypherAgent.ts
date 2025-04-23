@@ -18,9 +18,15 @@ import {
   createCheckpoint,
   getCheckpointDetails,
 } from "./checkpoints.ts";
-import type { Message } from "./message.ts";
+import {
+  type ContentBlock,
+  type ImageAttachment,
+  isImageAttachment,
+  type Message,
+} from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
 import { Anthropic } from "@anthropic-ai/sdk";
+import type { StorageService } from "./storage/StorageService.ts";
 
 const DEFAULT_MODEL = "claude-3-7-sonnet-20250219";
 const DEFAULT_MAX_TOKENS = 8192;
@@ -61,12 +67,15 @@ export interface StreamHandler {
   onCancelled?: (reason: "user" | "timeout") => void;
 }
 
-export interface ImageAttachment {
+/**
+ * Represents an image attachment formatted for the Anthropic API
+ */
+export interface AnthropicImageAttachment {
   type: "image";
   source: {
-    type: "base64";
+    type: "url";
     media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-    data: string;
+    url: string;
   };
 }
 
@@ -100,6 +109,7 @@ export class ZypherAgent {
   private readonly _model: string;
   private readonly mcpServerManager: McpServerManager;
   private readonly _taskTimeoutMs: number;
+  private readonly storageService: StorageService;
 
   // Task execution state
   private _isTaskRunning = false;
@@ -111,6 +121,7 @@ export class ZypherAgent {
   constructor(
     config: ZypherAgentConfig = {},
     mcpServerManager: McpServerManager,
+    storageService: StorageService,
   ) {
     const apiKey = config.anthropicApiKey ?? Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
@@ -135,6 +146,7 @@ export class ZypherAgent {
     this.userId = userId;
     this._model = config.model ?? DEFAULT_MODEL;
     this.mcpServerManager = mcpServerManager;
+    this.storageService = storageService;
     // Default timeout is 5 minutes, 0 = disabled
     this._taskTimeoutMs = config.taskTimeoutMs ?? 300000;
   }
@@ -346,17 +358,42 @@ export class ZypherAgent {
    * @param isLastMessage - Whether this is the last message in the turn
    * @returns A clean message parameter for the Anthropic API
    */
-  private formatMessageForApi = (
+  private async formatMessageForApi(
     message: Message,
     isLastMessage: boolean,
-  ): Anthropic.MessageParam => {
-    // Destructure to get only the standard fields
+  ): Promise<Anthropic.MessageParam> {
     const { role, content } = message;
 
     // For string content, convert to array format
     let contentArray = typeof content === "string"
       ? [{ type: "text" as const, text: content } as Anthropic.TextBlockParam]
-      : content; // Use original array for non-last messages
+      : (
+        await Promise.all(
+          content.map(async (block) => {
+            if (isImageAttachment(block)) {
+              const fileUrl = await this.storageService.getFileUrl(
+                block.fileId,
+              );
+              if (!fileUrl) {
+                // file not found, it might have been expired and deleted
+                return null;
+              }
+              return {
+                type: "image" as const,
+                source: {
+                  type: "url" as const,
+                  media_type: block.contentType,
+                  url: fileUrl,
+                },
+              } as Anthropic.ImageBlockParam;
+            }
+            return block;
+          }),
+        )
+      )
+        .filter((block): block is Anthropic.ContentBlockParam =>
+          block !== null
+        );
 
     // Add cache control to the last block of the last message
     if (isLastMessage && this.enablePromptCaching && contentArray.length > 0) {
@@ -373,7 +410,7 @@ export class ZypherAgent {
     }
 
     return { role, content: contentArray };
-  };
+  }
 
   /**
    * Run a task with streaming support (primary implementation)
@@ -389,8 +426,9 @@ export class ZypherAgent {
    * - Supports image attachments in Claude's native format
    *
    * Image handling:
-   * - Images are passed as an array of base64-encoded data with proper MIME types
-   * - Each image should follow Claude's format: { type: "image", source: { type: "base64", media_type: string, data: string } }
+   * - Images are stored as fileIds in the message history
+   * - Before sending to the Anthropic API, fileIds are converted to URLs
+   * - Each image follows Claude's format: { type: "image", source: { type: "url", media_type: string, url: string } }
    * - Images are automatically included in the message content along with the text
    * - The API will optimize images to stay within Claude's token limits
    *
@@ -407,7 +445,7 @@ export class ZypherAgent {
    *
    * @param taskDescription The text description of the task to perform
    * @param streamHandler Handler for real-time content updates and complete messages
-   * @param imageAttachments Optional array of image attachments in Claude's format
+   * @param imageAttachments Optional array of image attachments
    * @param maxIterations Maximum number of iterations to run (default: 25)
    * @returns Array of messages after task completion, or return as is if cancelled
    */
@@ -457,18 +495,8 @@ export class ZypherAgent {
         ? await getCheckpointDetails(checkpointId)
         : undefined;
 
-      // Prepare message content
-      const imageBlocks = imageAttachments
-        ? imageAttachments.map((img) => {
-          return {
-            type: "image",
-            source: img.source,
-          } as Anthropic.ImageBlockParam;
-        })
-        : [];
-
-      const messageContent: Anthropic.ContentBlockParam[] = [
-        ...imageBlocks,
+      const messageContent: ContentBlock[] = [
+        ...(imageAttachments ? imageAttachments : []),
         {
           type: "text",
           text: `<user_query>\n${taskDescription}\n</user_query>`,
@@ -520,8 +548,13 @@ export class ZypherAgent {
             model: this._model,
             max_tokens: this.maxTokens,
             system: this.system,
-            messages: this._messages.map((msg: Message, index: number) =>
-              this.formatMessageForApi(msg, index === this._messages.length - 1)
+            messages: await Promise.all(
+              this._messages.map((msg: Message, index: number) =>
+                this.formatMessageForApi(
+                  msg,
+                  index === this._messages.length - 1,
+                )
+              ),
             ),
             tools: toolCalls,
             ...(this.userId && { metadata: { user_id: this.userId } }),

@@ -71,9 +71,9 @@ export class S3StorageService implements StorageService {
   /**
    * Generate a unique key for S3 storage
    */
-  private generateKey(options: UploadOptions): string {
+  private async generateKey(options: UploadOptions): Promise<string> {
     const name = new TextEncoder().encode("usercontent.deckspeed.com");
-    const id = uuid.v5.generate(uuid.NAMESPACE_DNS, name);
+    const id = await uuid.v5.generate(uuid.NAMESPACE_DNS, name);
     const basePath = options.path ?? "";
     return path.join(basePath, id);
   }
@@ -105,7 +105,7 @@ export class S3StorageService implements StorageService {
     options: UploadOptions,
   ): Promise<UploadResult> {
     // Stream the file directly to S3 without loading it fully into memory
-    const key = this.generateKey(options);
+    const key = await this.generateKey(options);
 
     // Prepare metadata (S3 only supports string values)
     const metadata: Record<string, string> = {
@@ -159,7 +159,7 @@ export class S3StorageService implements StorageService {
     buffer: Uint8Array,
     options: UploadOptions,
   ): Promise<UploadResult> {
-    const key = this.generateKey(options);
+    const key = await this.generateKey(options);
 
     // Prepare metadata
     const metadata: Record<string, string> = {
