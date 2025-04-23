@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineTool } from "./index.ts";
-import * as path from "jsr:@std/path";
+import * as path from "@std/path";
 
 export const ListDirTool = defineTool({
   name: "list_dir",

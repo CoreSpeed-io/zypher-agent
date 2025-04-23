@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineTool } from "./index.ts";
 import OpenAI from "@openai/openai";
-import * as path from "jsr:@std/path";
+import * as path from "@std/path";
 import { APIError } from "@openai/openai";
 
 // Initialize OpenAI client
