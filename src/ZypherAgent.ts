@@ -414,15 +414,7 @@ export class ZypherAgent {
     imageAttachments?: ImageAttachment[],
     maxIterations = 25,
   ): Promise<Message[]> {
-    // Check if a task is already running
-    if (this._isTaskRunning) {
-      throw new Error(
-        "A task is already running. Cancel it first or wait for it to complete.",
-      );
-    }
 
-    // Reset task state including cancellation reason
-    this._isTaskRunning = true;
     this._cancellationReason = null;
     this._currentAbortController = new AbortController();
     this._currentStreamHandler = streamHandler;
@@ -778,37 +770,4 @@ export class ZypherAgent {
     this._isTaskRunning = false;
   }
 
-  /**
-   * Runs a task with concurrency control
-   * This ensures only one task can run at a time
-   *
-   * @param task The task description
-   * @param streamHandler The stream handler for real-time updates
-   * @param imageAttachments Optional image attachments
-   * @returns A promise that resolves when the task completes
-   * @throws Error with status 409 if a task is already running
-   */
-  public async runTaskWithConcurrencyControl(
-    task: string,
-    streamHandler: StreamHandler = {},
-    imageAttachments: ImageAttachment[] = [],
-  ): Promise<void> {
-    // Atomically check and set the task running flag
-    // This ensures no race condition between checking and setting
-    if (!this.checkAndSetTaskRunning()) {
-      throw new Error(JSON.stringify({
-        code: 409,
-        type: "task_in_progress",
-        message: "A task is already running",
-      }));
-    }
-
-    try {
-      // Run the task
-      await this.runTaskWithStreaming(task, streamHandler, imageAttachments);
-    } finally {
-      // Always mark the task as completed when finished, even if an error occurred
-      this.clearTaskRunning();
-    }
-  }
 }
