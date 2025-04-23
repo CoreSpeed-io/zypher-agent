@@ -1,4 +1,4 @@
-import * as path from "jsr:@std/path";
+import * as path from "@std/path";
 import { getWorkspaceDataDir } from "./utils/index.ts";
 import { fileExists as pathExists } from "./utils/index.ts";
 

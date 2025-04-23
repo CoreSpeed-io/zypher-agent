@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { spy } from "jsr:@std/testing/mock";
+import { spy } from "@std/testing/mock";
 import { Hono } from "hono";
 import type { StatusCode } from "hono/utils/http-status";
 import { ApiError } from "../src/error.ts";
