@@ -3,13 +3,13 @@ import { streamSSE } from "hono/streaming";
 import { upgradeWebSocket } from "hono/deno";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { listCheckpoints } from "#src/checkpoints.ts";
+import { listCheckpoints } from "../../../../src/checkpoints.ts";
 import {
   type ImageAttachment as ZypherImageAttachment,
   type StreamHandler,
   ZypherAgent,
-} from "#src/ZypherAgent.ts";
-import { formatError } from "#src/utils/index.ts";
+} from "../../../../src/ZypherAgent.ts";
+import { formatError } from "../../../../src/utils/index.ts";
 import { ApiError } from "../error.ts";
 
 const agentRouter = new Hono();

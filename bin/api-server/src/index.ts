@@ -1,8 +1,8 @@
-import "@std/dotenv/load";
+import "jsr:@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { prettyJSON } from "hono/pretty-json";
-import { ZypherAgent } from "#src/ZypherAgent.ts";
+import { ZypherAgent } from "../../../src/ZypherAgent.ts";
 import { parseArgs } from "@std/cli";
 
 import {
@@ -14,9 +14,9 @@ import {
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
-} from "#src/tools/index.ts";
-import { formatError } from "#src/utils/error.ts";
-import { McpServerManager } from "#src/mcp/McpServerManager.ts";
+} from "../../../src/tools/index.ts";
+import { formatError } from "../../../src/utils/error.ts";
+import { McpServerManager } from "../../../src/mcp/McpServerManager.ts";
 import process from "node:process";
 import { createMcpRouter } from "./routes/mcp.ts";
 import { createAgentRouter } from "./routes/agent.ts";
