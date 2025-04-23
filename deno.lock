@@ -6,12 +6,16 @@
     "jsr:@std/assert@^1.0.12": "1.0.12",
     "jsr:@std/cli@*": "1.0.16",
     "jsr:@std/cli@^1.0.16": "1.0.16",
+    "jsr:@std/data-structures@^1.0.6": "1.0.6",
     "jsr:@std/dotenv@*": "0.225.3",
     "jsr:@std/dotenv@~0.225.3": "0.225.3",
     "jsr:@std/encoding@*": "1.0.9",
+    "jsr:@std/fs@^1.0.16": "1.0.16",
     "jsr:@std/internal@^1.0.6": "1.0.6",
     "jsr:@std/path@*": "1.0.8",
+    "jsr:@std/path@^1.0.8": "1.0.8",
     "jsr:@std/testing@*": "1.0.11",
+    "jsr:@std/testing@^1.0.11": "1.0.11",
     "npm:@anthropic-ai/sdk@0.39": "0.39.0",
     "npm:@hono/zod-validator@~0.4.3": "0.4.3_hono@4.7.7_zod@3.24.3",
     "npm:@modelcontextprotocol/sdk@^1.10.1": "1.10.1_express@5.1.0_zod@3.24.3",
@@ -39,11 +43,20 @@
     "@std/cli@1.0.16": {
       "integrity": "02df293099c35b9e97d8ca05f57f54bd1ee08134f25d19a4756b3924695f4b00"
     },
+    "@std/data-structures@1.0.6": {
+      "integrity": "76a7fd8080c66604c0496220a791860492ab21a04a63a969c0b9a0609bbbb760"
+    },
     "@std/dotenv@0.225.3": {
       "integrity": "a95e5b812c27b0854c52acbae215856d9cce9d4bbf774d938c51d212711e8d4a"
     },
     "@std/encoding@1.0.9": {
       "integrity": "025b8f18eb1749bc30d1353bf48b77d1eb5e35610220fa226f5a046b9240c5d7"
+    },
+    "@std/fs@1.0.16": {
+      "integrity": "81878f62b6eeda0bf546197fc3daa5327c132fee1273f6113f940784a468b036",
+      "dependencies": [
+        "jsr:@std/path@^1.0.8"
+      ]
     },
     "@std/internal@1.0.6": {
       "integrity": "9533b128f230f73bd209408bb07a4b12f8d4255ab2a4d22a1fd6d87304aca9a4"
@@ -54,7 +67,11 @@
     "@std/testing@1.0.11": {
       "integrity": "12b3db12d34f0f385a26248933bde766c0f8c5ad8b6ab34d4d38f528ab852f48",
       "dependencies": [
-        "jsr:@std/assert@^1.0.12"
+        "jsr:@std/assert@^1.0.12",
+        "jsr:@std/data-structures",
+        "jsr:@std/fs",
+        "jsr:@std/internal",
+        "jsr:@std/path@^1.0.8"
       ]
     }
   },
@@ -62,8 +79,8 @@
     "@anthropic-ai/sdk@0.39.0": {
       "integrity": "sha512-eMyDIPRZbt1CCLErRCi3exlAvNkBtRe+kW5vvJyef93PmNr/clstYgHhtvmkxN82nlKgzyGPCyGxrm0JQ1ZIdg==",
       "dependencies": [
-        "@types/node@18.19.86",
         "@types/node-fetch",
+        "@types/node@18.19.86",
         "abort-controller",
         "agentkeepalive",
         "form-data-encoder",
@@ -819,6 +836,7 @@
       "jsr:@std/assert@^1.0.12",
       "jsr:@std/cli@^1.0.16",
       "jsr:@std/dotenv@~0.225.3",
+      "jsr:@std/testing@^1.0.11",
       "npm:@anthropic-ai/sdk@0.39",
       "npm:@hono/zod-validator@~0.4.3",
       "npm:@modelcontextprotocol/sdk@^1.10.1",
