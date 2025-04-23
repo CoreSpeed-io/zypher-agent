@@ -174,7 +174,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           error: formatError(error),
         },
       });
-    }
+    } 
   }
 
   function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
@@ -194,6 +194,22 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     const processedImages: ZypherImageAttachment[] = imageAttachments
       ? processImages(imageAttachments)
       : [];
+    // If the task is already running, return a 409 error
+    /**
+     * Sample response: {
+        "code": 409,
+        "type": "task_in_progress",
+        "message": "A task is already running"
+      }
+     */
+    
+    if (!agent.checkAndSetTaskRunning()) {
+      return c.json({
+        code: 409,
+        type: "task_in_progress",
+        message: "A task is already running",
+      }, 409);
+    }
 
     return streamSSE(
       c,
@@ -256,6 +272,19 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
                 error: "Invalid request format",
                 details: result.error.format(),
               },
+            }));
+            return;
+          }
+
+          // If the task is already running, return a 409 error
+          if (!agent.checkAndSetTaskRunning()) {
+            ws.send(JSON.stringify({
+              event: "error",
+              data: {
+                code: 409,
+                type: "task_in_progress",
+                message: "A task is already running"
+              }
             }));
             return;
           }
