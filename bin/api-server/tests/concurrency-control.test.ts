@@ -146,7 +146,7 @@ class MockSSEClient {
   }
   
   // 模拟SSE连接
-  async connect(): Promise<number> {
+  connect(): number {
     try {
       console.log(`模拟SSE请求: ${JSON.stringify(this.taskInfo)}`);
       
@@ -167,7 +167,7 @@ class MockSSEClient {
       
       // 创建事件接收处理器
       const streamHandler: MockStreamHandler = {
-        onContent: (content, isFirstChunk) => {
+        onContent: (content, _isFirstChunk) => {
           if (this.aborted) return;
           
           this.events.push({
@@ -235,7 +235,7 @@ class MockSSEClient {
   private async runTask(streamHandler: MockStreamHandler): Promise<void> {
     try {
       // 直接调用agent的runTaskWithStreaming方法
-      const messages = await this.agent.runTaskWithStreaming(
+      const _messages = await this.agent.runTaskWithStreaming(
         this.taskInfo.task,
         streamHandler,
         []
@@ -276,7 +276,7 @@ class MockSSEClient {
   }
   
   // 等待任务完成
-  async waitForCompletion(): Promise<void> {
+  waitForCompletion(): Promise<void> {
     return this.taskCompletePromise || Promise.resolve();
   }
   
@@ -351,7 +351,7 @@ class MockWebSocketClient {
     
     // 创建事件接收处理器
     const streamHandler: MockStreamHandler = {
-      onContent: (content, isFirstChunk) => {
+      onContent: (content, _isFirstChunk) => {
         if (this.aborted) return;
         
         this.events.push({
@@ -405,7 +405,7 @@ class MockWebSocketClient {
   private async runTask(task: string, streamHandler: MockStreamHandler): Promise<void> {
     try {
       // 直接调用agent的runTaskWithStreaming方法
-      const messages = await this.agent.runTaskWithStreaming(
+      const _messages = await this.agent.runTaskWithStreaming(
         task,
         streamHandler,
         []
@@ -445,7 +445,7 @@ class MockWebSocketClient {
   }
   
   // 等待任务完成
-  async waitForCompletion(): Promise<void> {
+  waitForCompletion(): Promise<void> {
     return this.taskCompletePromise || Promise.resolve();
   }
   
