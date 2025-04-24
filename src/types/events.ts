@@ -10,6 +10,5 @@ export type TaskEvent = {
     | "complete"
     | "cancelled"
     | "heartbeat";
-  data: unknown;
-  reason?: "user" | "timeout";
+  data: unknown; // reason?: "user" | "timeout"; eventId?: string;
 };

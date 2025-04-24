@@ -163,7 +163,6 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
         const event = taskStreamManager.addEvent({
           event: "cancelled",
           data: { message, reason },
-          reason,
         });
 
         // Use the event with eventId
@@ -270,8 +269,8 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
             event: event.event,
             data: JSON.stringify(
               typeof event.data === "object" && event.data
-                ? { ...event.data, reason: event.reason }
-                : { value: event.data, reason: event.reason },
+                ? { ...event.data }
+                : { value: event.data },
             ),
           });
         });
@@ -301,10 +300,13 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     "/task/sse",
     zValidator("query", streamReconnectSchema),
     (c) => {
-      const { lastEventId } = c.req.valid("query");
+      // First try to get lastEventId from standard Last-Event-ID header, then fallback to query param
+      const headerLastEventId = c.req.header("Last-Event-ID");
+      const queryLastEventId = c.req.valid("query").lastEventId;
+      const lastEventId = headerLastEventId || queryLastEventId;
 
-      // If no task is running, return 204 No Content
-      if (!taskStreamManager.isTaskRunning()) {
+      // If no event stream is available, return 204 No Content
+      if (!taskStreamManager.hasEventStream()) {
         return c.body(null, 204);
       }
 
@@ -328,8 +330,8 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
                     event: event.event,
                     data: JSON.stringify(
                       typeof event.data === "object" && event.data
-                        ? { ...event.data, reason: event.reason }
-                        : { value: event.data, reason: event.reason },
+                        ? event.data
+                        : { value: event.data },
                     ),
                   });
                 }
@@ -358,9 +360,9 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
 
           // Keep the stream open until the task completes
           await new Promise<void>((resolve) => {
-            // Timer to check if the task has completed
+            // Timer to check if the task stream has ended
             const checkInterval = setInterval(() => {
-              if (!taskStreamManager.isTaskRunning()) {
+              if (!taskStreamManager.hasEventStream()) {
                 clearInterval(checkInterval);
                 subscription.unsubscribe();
                 resolve();
