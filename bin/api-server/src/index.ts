@@ -22,9 +22,8 @@ import { createMcpRouter } from "./routes/mcp.ts";
 import { createAgentRouter } from "./routes/agent.ts";
 import { errorHandler } from "./error.ts";
 import { parsePort } from "./utils.ts";
-
-// Initialize MCP Server Manager
-const mcpServerManager = new McpServerManager();
+import { S3StorageService } from "../../../src/storage/S3StorageService.ts";
+import { StorageService } from "../../../src/storage/StorageService.ts";
 
 interface ServerOptions {
   port: string;
@@ -60,6 +59,25 @@ const options: ServerOptions = {
 
 // Initialize Hono app
 const app = new Hono();
+const mcpServerManager = new McpServerManager();
+const storageService: StorageService = new S3StorageService({
+  bucket: Deno.env.get("S3_BUCKET") ?? "zypher-storage",
+  region: Deno.env.get("S3_REGION") ?? "us-east-1",
+  credentials: {
+    accessKeyId: Deno.env.get("S3_ACCESS_KEY_ID") ?? "",
+    secretAccessKey: Deno.env.get("S3_SECRET_ACCESS_KEY") ?? "",
+  },
+  endpoint: Deno.env.get("S3_ENDPOINT"),
+});
+
+// Validate S3 credentials are provided
+if (
+  !Deno.env.get("S3_ACCESS_KEY_ID") || !Deno.env.get("S3_SECRET_ACCESS_KEY")
+) {
+  console.warn(
+    "⚠️ S3 credentials not provided. Storage service may not function correctly.",
+  );
+}
 
 // Middleware (prettyJSON)
 app.use("*", prettyJSON());
@@ -87,6 +105,7 @@ async function initializeAgent(): Promise<ZypherAgent> {
         anthropicApiKey: options.apiKey,
       },
       mcpServerManager,
+      storageService,
     );
 
     // Register all available tools
