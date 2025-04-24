@@ -5,12 +5,12 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { listCheckpoints } from "../../../../src/checkpoints.ts";
 import {
-  type ImageAttachment as ZypherImageAttachment,
   type StreamHandler,
   ZypherAgent,
 } from "../../../../src/ZypherAgent.ts";
 import { formatError } from "../../../../src/utils/index.ts";
 import { ApiError } from "../error.ts";
+import { ImageAttachment } from "../../../../src/message.ts";
 
 const agentRouter = new Hono();
 
@@ -22,39 +22,24 @@ const SUPPORTED_IMAGE_TYPES = [
   "image/gif",
   "image/webp",
 ] as const;
-type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
 
-// Zod schema for base64 image validation
-const base64ImageSchema = z
-  .string()
-  .regex(/^data:image\/[a-zA-Z+]+;base64,/, "Invalid base64 image format")
-  .refine(
-    (data) => {
-      const [header] = data.split(",");
-      const mimeType = header?.split(":")[1]?.split(";")[0];
-      return (
-        mimeType &&
-        SUPPORTED_IMAGE_TYPES.includes(mimeType as SupportedImageType)
-      );
-    },
-    {
-      message: `Image must be one of the following types: ${
+// Image attachment validation schema
+const imageAttachmentSchema = z.object({
+  type: z.literal("image_attachment"),
+  fileId: z.string().min(1, "File ID cannot be empty"),
+  contentType: z.enum(SUPPORTED_IMAGE_TYPES, {
+    errorMap: () => ({
+      message: `Image must be one of the supported types: ${
         SUPPORTED_IMAGE_TYPES.join(", ")
       }`,
-    },
-  );
-
-// Zod schema for image validation
-const imageSchema = z.object({
-  name: z.string(),
-  data: base64ImageSchema,
+    }),
+  }),
 });
-type ImageAttachment = z.infer<typeof imageSchema>;
 
 // Zod schema for task
 const taskSchema = z.object({
   task: z.string(),
-  imageAttachments: z.array(imageSchema).optional(),
+  imageAttachments: z.array(imageAttachmentSchema).optional(),
 });
 
 const checkpointParamsSchema = z.object({
@@ -110,8 +95,8 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
 
   async function runAgentTask(
     task: string,
-    imageAttachments: ZypherImageAttachment[],
     onEvent: (event: TaskEvent) => void,
+    imageAttachments?: ImageAttachment[],
   ): Promise<void> {
     // Set up streaming handler for the agent
     const streamHandler: StreamHandler = {
@@ -177,23 +162,9 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     }
   }
 
-  function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
-    return images.map((img) => ({
-      type: "image" as const,
-      source: {
-        type: "base64" as const,
-        media_type: img.data.split(":")[1].split(";")[0] as SupportedImageType,
-        data: img.data.split(",")[1],
-      },
-    }));
-  }
-
   // Run a task
   agentRouter.post("/task/sse", zValidator("json", taskSchema), (c) => {
     const { task, imageAttachments } = c.req.valid("json");
-    const processedImages: ZypherImageAttachment[] = imageAttachments
-      ? processImages(imageAttachments)
-      : [];
 
     return streamSSE(
       c,
@@ -213,19 +184,23 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
         });
 
         // Pass event handlers during initialization
-        await runAgentTask(task, processedImages, (event) => {
-          if (event.event === "complete" || event.event === "cancelled") {
-            taskCompleted = true;
-          }
-          void stream.writeSSE({
-            event: event.event,
-            data: JSON.stringify(
-              typeof event.data === "object"
-                ? { ...event.data, reason: event.reason }
-                : { value: event.data, reason: event.reason },
-            ),
-          });
-        });
+        await runAgentTask(
+          task,
+          (event) => {
+            if (event.event === "complete" || event.event === "cancelled") {
+              taskCompleted = true;
+            }
+            void stream.writeSSE({
+              event: event.event,
+              data: JSON.stringify(
+                typeof event.data === "object"
+                  ? { ...event.data, reason: event.reason }
+                  : { value: event.data, reason: event.reason },
+              ),
+            });
+          },
+          imageAttachments,
+        );
 
         // If the complete event wasn't sent through the normal flow, send it now
         if (!taskCompleted) {
@@ -261,16 +236,17 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           }
 
           const { task, imageAttachments } = result.data;
-          const processedImages: ZypherImageAttachment[] = imageAttachments
-            ? processImages(imageAttachments)
-            : [];
 
-          runAgentTask(task, processedImages, (event) => {
-            // Only send if the WebSocket is still open
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(event));
-            }
-          });
+          runAgentTask(
+            task,
+            (event) => {
+              // Only send if the WebSocket is still open
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(event));
+              }
+            },
+            imageAttachments,
+          );
         },
         onClose() {
           console.log("WebSocket connection closed");

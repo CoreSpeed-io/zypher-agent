@@ -109,7 +109,7 @@ export class ZypherAgent {
   private readonly _model: string;
   private readonly mcpServerManager: McpServerManager;
   private readonly _taskTimeoutMs: number;
-  private readonly storageService: StorageService;
+  private readonly storageService?: StorageService;
 
   // Task execution state
   private _isTaskRunning = false;
@@ -121,7 +121,7 @@ export class ZypherAgent {
   constructor(
     config: ZypherAgentConfig = {},
     mcpServerManager: McpServerManager,
-    storageService: StorageService,
+    storageService?: StorageService,
   ) {
     const apiKey = config.anthropicApiKey ?? Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
@@ -371,11 +371,22 @@ export class ZypherAgent {
         await Promise.all(
           content.map(async (block) => {
             if (isImageAttachment(block)) {
+              if (!this.storageService) {
+                // skip attachment if storage service is not configured
+                console.warn(
+                  "Skipping image attachment as storage service is not configured.",
+                );
+                return null;
+              }
+
               const fileUrl = await this.storageService.getFileUrl(
                 block.fileId,
               );
               if (!fileUrl) {
                 // file not found, it might have been expired and deleted
+                console.warn(
+                  `Skipping image attachment as file not found or expired. File ID: ${block.fileId}`,
+                );
                 return null;
               }
               return {
