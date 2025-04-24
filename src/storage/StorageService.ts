@@ -81,6 +81,13 @@ export interface StorageService {
   getFileUrl(fileId: string, expirySeconds?: number): Promise<string | null>;
 
   /**
+   * Generate a pre-signed URL for directly uploading a file to storage
+   * @param options Upload options
+   * @returns Promise resolving to a pre-signed URL that can be used to upload a file directly to storage
+   */
+  generateUploadUrl(options: UploadOptions): Promise<string>;
+
+  /**
    * Get metadata for a file
    * @param fileId ID of the file to get metadata for
    * @returns Promise resolving to file metadata, or null if the file ID does not exist

@@ -20,6 +20,7 @@ import { McpServerManager } from "../../../src/mcp/McpServerManager.ts";
 import process from "node:process";
 import { createMcpRouter } from "./routes/mcp.ts";
 import { createAgentRouter } from "./routes/agent.ts";
+import { createFilesRouter } from "./routes/files.ts";
 import { errorHandler } from "./error.ts";
 import { parsePort } from "./utils.ts";
 import { S3StorageService } from "../../../src/storage/S3StorageService.ts";
@@ -151,6 +152,7 @@ app.get("/health", (c) => {
 
 // API Routes
 app.route("/agent", createAgentRouter(agent));
+app.route("/files", createFilesRouter(storageService));
 app.route("/mcp", createMcpRouter(mcpServerManager));
 
 // Middleware (CORS)

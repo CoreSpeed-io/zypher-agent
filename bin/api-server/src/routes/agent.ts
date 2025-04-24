@@ -10,27 +10,18 @@ import {
 } from "../../../../src/ZypherAgent.ts";
 import { formatError } from "../../../../src/utils/index.ts";
 import { ApiError } from "../error.ts";
-import { ImageAttachment } from "../../../../src/message.ts";
+import { FileAttachment } from "../../../../src/message.ts";
+import { SUPPORTED_ATTACHMENT_TYPES } from "../constants.ts";
 
 const agentRouter = new Hono();
 
 // Zod Schemas
-// Define supported image MIME types with more precise validation
-const SUPPORTED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-] as const;
-
-// Image attachment validation schema
-const imageAttachmentSchema = z.object({
-  type: z.literal("image_attachment"),
+const fileAttachmentSchema = z.object({
   fileId: z.string().min(1, "File ID cannot be empty"),
-  contentType: z.enum(SUPPORTED_IMAGE_TYPES, {
+  contentType: z.enum(SUPPORTED_ATTACHMENT_TYPES, {
     errorMap: () => ({
-      message: `Image must be one of the supported types: ${
-        SUPPORTED_IMAGE_TYPES.join(", ")
+      message: `Attachment must be one of the supported types: ${
+        SUPPORTED_ATTACHMENT_TYPES.join(", ")
       }`,
     }),
   }),
@@ -39,7 +30,7 @@ const imageAttachmentSchema = z.object({
 // Zod schema for task
 const taskSchema = z.object({
   task: z.string(),
-  imageAttachments: z.array(imageAttachmentSchema).optional(),
+  fileAttachments: z.array(fileAttachmentSchema).optional(),
 });
 
 const checkpointParamsSchema = z.object({
@@ -96,7 +87,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   async function runAgentTask(
     task: string,
     onEvent: (event: TaskEvent) => void,
-    imageAttachments?: ImageAttachment[],
+    fileAttachments?: FileAttachment[],
   ): Promise<void> {
     // Set up streaming handler for the agent
     const streamHandler: StreamHandler = {
@@ -138,7 +129,10 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       const messages = await agent.runTaskWithStreaming(
         task,
         streamHandler,
-        imageAttachments,
+        fileAttachments?.map((attachment) => ({
+          ...attachment,
+          type: "file_attachment",
+        })),
       );
 
       // Empty messages array means task was cancelled
@@ -164,7 +158,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
 
   // Run a task
   agentRouter.post("/task/sse", zValidator("json", taskSchema), (c) => {
-    const { task, imageAttachments } = c.req.valid("json");
+    const { task, fileAttachments } = c.req.valid("json");
 
     return streamSSE(
       c,
@@ -199,7 +193,10 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
               ),
             });
           },
-          imageAttachments,
+          fileAttachments?.map((attachment) => ({
+            ...attachment,
+            type: "file_attachment",
+          })),
         );
 
         // If the complete event wasn't sent through the normal flow, send it now
@@ -235,7 +232,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
             return;
           }
 
-          const { task, imageAttachments } = result.data;
+          const { task, fileAttachments } = result.data;
 
           runAgentTask(
             task,
@@ -245,7 +242,10 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
                 ws.send(JSON.stringify(event));
               }
             },
-            imageAttachments,
+            fileAttachments?.map((attachment) => ({
+              ...attachment,
+              type: "file_attachment",
+            })),
           );
         },
         onClose() {

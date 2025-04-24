@@ -79,6 +79,41 @@ export class S3StorageService implements StorageService {
   }
 
   /**
+   * Generate a pre-signed URL for direct file upload to S3
+   */
+  async generateUploadUrl(options: UploadOptions): Promise<string> {
+    // Generate a unique key for this upload
+    const key = await this.generateKey(options);
+
+    // Prepare metadata
+    const metadata: Record<string, string> = {
+      "original-filename": options.filename,
+    };
+
+    if (options.metadata) {
+      Object.entries(options.metadata).forEach(([k, v]) => {
+        metadata[k] = String(v);
+      });
+    }
+
+    // Create a PutObject command
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: options.contentType,
+      Metadata: metadata,
+    });
+
+    // Generate a pre-signed URL for PUT operation
+    const signedUrl = await getSignedUrl(this.s3Client, command, {
+      expiresIn: options.urlExpirySeconds ?? 3600, // Default to 1 hour
+    });
+
+    // Return the pre-signed URL
+    return signedUrl;
+  }
+
+  /**
    * Convert S3 object metadata to attachment metadata
    */
   private objectToMetadata(

@@ -16,7 +16,7 @@
     "@std/encoding": "jsr:@std/encoding@^1.0.9",
     "@std/path": "jsr:@std/path@^1.0.8",
     "@std/testing": "jsr:@std/testing@^1.0.11",
-    "@std/uuid": "jsr:@std/uuid@^1.0.6",
+    "@std/uuid": "jsr:@std/uuid@^1.0.7",
     "hono": "npm:hono@^4.7.7",
     "@hono/zod-validator": "npm:@hono/zod-validator@^0.4.3",
     "@openai/openai": "jsr:@openai/openai@^4.95.1",
