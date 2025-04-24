@@ -16,7 +16,7 @@
     "jsr:@std/internal@^1.0.6": "1.0.6",
     "jsr:@std/path@^1.0.8": "1.0.8",
     "jsr:@std/testing@^1.0.11": "1.0.11",
-    "jsr:@std/uuid@^1.0.6": "1.0.6",
+    "jsr:@std/uuid@^1.0.7": "1.0.7",
     "npm:@anthropic-ai/sdk@0.39": "0.39.0",
     "npm:@aws-sdk/client-s3@^3.787.0": "3.787.0",
     "npm:@aws-sdk/s3-request-presigner@^3.787.0": "3.787.0",
@@ -85,8 +85,8 @@
         "jsr:@std/path"
       ]
     },
-    "@std/uuid@1.0.6": {
-      "integrity": "f3ca728cad488a4bed271974e43721c379ad25a0ae17be7967edee036beba9c5",
+    "@std/uuid@1.0.7": {
+      "integrity": "6885db5cd60794049d1661b5cf06b1e1ed65b2affd054ec8b06da7d2efd421ca",
       "dependencies": [
         "jsr:@std/bytes",
         "jsr:@std/crypto"
@@ -1709,7 +1709,7 @@
       "jsr:@std/encoding@^1.0.9",
       "jsr:@std/path@^1.0.8",
       "jsr:@std/testing@^1.0.11",
-      "jsr:@std/uuid@^1.0.6",
+      "jsr:@std/uuid@^1.0.7",
       "npm:@anthropic-ai/sdk@0.39",
       "npm:@aws-sdk/client-s3@^3.787.0",
       "npm:@aws-sdk/s3-request-presigner@^3.787.0",

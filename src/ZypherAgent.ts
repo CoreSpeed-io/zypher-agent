@@ -20,8 +20,8 @@ import {
 } from "./checkpoints.ts";
 import {
   type ContentBlock,
-  type ImageAttachment,
-  isImageAttachment,
+  type FileAttachment,
+  isFileAttachment,
   type Message,
 } from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
@@ -370,11 +370,11 @@ export class ZypherAgent {
       : (
         await Promise.all(
           content.map(async (block) => {
-            if (isImageAttachment(block)) {
+            if (isFileAttachment(block)) {
               if (!this.storageService) {
                 // skip attachment if storage service is not configured
                 console.warn(
-                  "Skipping image attachment as storage service is not configured.",
+                  "Skipping file attachment as storage service is not configured.",
                 );
                 return null;
               }
@@ -385,12 +385,12 @@ export class ZypherAgent {
               if (!fileUrl) {
                 // file not found, it might have been expired and deleted
                 console.warn(
-                  `Skipping image attachment as file not found or expired. File ID: ${block.fileId}`,
+                  `Skipping file attachment as file not found or expired. File ID: ${block.fileId}`,
                 );
                 return null;
               }
               return {
-                type: "image" as const,
+                type: "image" as const, // TODO: hard code as image for now as we only support image files
                 source: {
                   type: "url" as const,
                   media_type: block.contentType,
@@ -434,14 +434,6 @@ export class ZypherAgent {
    * - Streams individual text fragments as they become available (not just complete messages)
    * - Provides real-time updates via onContent callback
    * - Still delivers complete messages via onMessage when they're done
-   * - Supports image attachments in Claude's native format
-   *
-   * Image handling:
-   * - Images are stored as fileIds in the message history
-   * - Before sending to the Anthropic API, fileIds are converted to URLs
-   * - Each image follows Claude's format: { type: "image", source: { type: "url", media_type: string, url: string } }
-   * - Images are automatically included in the message content along with the text
-   * - The API will optimize images to stay within Claude's token limits
    *
    * Streaming behavior:
    * - Content is streamed in real-time as it's generated
@@ -456,14 +448,14 @@ export class ZypherAgent {
    *
    * @param taskDescription The text description of the task to perform
    * @param streamHandler Handler for real-time content updates and complete messages
-   * @param imageAttachments Optional array of image attachments
+   * @param fileAttachments Optional array of file attachments
    * @param maxIterations Maximum number of iterations to run (default: 25)
    * @returns Array of messages after task completion, or return as is if cancelled
    */
   async runTaskWithStreaming(
     taskDescription: string,
     streamHandler?: StreamHandler,
-    imageAttachments?: ImageAttachment[],
+    fileAttachments?: FileAttachment[],
     maxIterations = 25,
   ): Promise<Message[]> {
     // Check if a task is already running
@@ -507,7 +499,7 @@ export class ZypherAgent {
         : undefined;
 
       const messageContent: ContentBlock[] = [
-        ...(imageAttachments ? imageAttachments : []),
+        ...(fileAttachments ? fileAttachments : []),
         {
           type: "text",
           text: `<user_query>\n${taskDescription}\n</user_query>`,
@@ -769,6 +761,7 @@ export class ZypherAgent {
   runTaskLoop(
     taskDescription: string,
     messageHandler?: MessageHandler,
+    fileAttachments?: FileAttachment[],
     maxIterations = 25,
   ): Promise<Message[]> {
     // Create a streamHandler adapter that delegates to the messageHandler
@@ -786,7 +779,7 @@ export class ZypherAgent {
     return this.runTaskWithStreaming(
       taskDescription,
       streamHandler,
-      undefined,
+      fileAttachments,
       maxIterations,
     );
   }
