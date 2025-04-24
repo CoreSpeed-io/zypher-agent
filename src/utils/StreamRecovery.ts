@@ -13,6 +13,7 @@ export class TaskStreamManager {
   private eventSubject: ReplaySubject<TaskEvent> | null = null;
   private taskEndSubject: Subject<void> = new Subject<void>();
   private heartbeatInterval: number | null = null;
+  private taskInProgress: boolean = false; // Flag to track if task is still in progress
 
   /**
    * Start tracking a new task with the given ID.
@@ -28,14 +29,54 @@ export class TaskStreamManager {
     this.currentTaskId = taskId;
     // Create a ReplaySubject without buffer size limit to store all events
     this.eventSubject = new ReplaySubject<TaskEvent>();
+    // Create a new taskEndSubject for this task
+    this.taskEndSubject = new Subject<void>();
+    // Set task as in progress
+    this.taskInProgress = true;
 
-    // Start heartbeat
+    // Start heartbeat only if task is in progress
+    this.startHeartbeat();
+  }
+
+  /**
+   * Start the heartbeat mechanism to keep the connection alive
+   */
+  private startHeartbeat(): void {
+    // Clear any existing heartbeat
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+
+    // Only start if task is in progress
+    if (!this.taskInProgress) return;
+
     this.heartbeatInterval = setInterval(() => {
-      this.addEvent({
-        event: "heartbeat",
-        data: { timestamp: Date.now() },
-      } as TaskEvent);
-    }, 15000) as unknown as number;
+      if (this.taskInProgress) {
+        this.addEvent({
+          event: "heartbeat",
+          data: { timestamp: Date.now() },
+        } as TaskEvent);
+      } else if (this.heartbeatInterval) {
+        // Stop heartbeat if task is no longer in progress
+        clearInterval(this.heartbeatInterval);
+        this.heartbeatInterval = null;
+      }
+    }, 15000);
+  }
+
+  /**
+   * Mark the task as completed or cancelled, but keep the event stream available for reconnections.
+   * Stops sending heartbeats but maintains the event subject for retrieval.
+   */
+  markTaskComplete(): void {
+    this.taskInProgress = false;
+
+    // Stop heartbeat but keep event stream
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
   }
 
   /**
@@ -44,8 +85,11 @@ export class TaskStreamManager {
    * This should be called when starting a new task or when the manager is no longer needed.
    */
   endTask(): void {
+    this.taskInProgress = false;
+
     if (this.eventSubject) {
       this.taskEndSubject.next();
+      this.taskEndSubject.complete();
 
       if (this.heartbeatInterval) {
         clearInterval(this.heartbeatInterval);
@@ -62,6 +106,14 @@ export class TaskStreamManager {
    * @returns true if a task is running, false otherwise
    */
   isTaskRunning(): boolean {
+    return this.taskInProgress;
+  }
+
+  /**
+   * Check if a task event stream is available (even if task is complete).
+   * @returns true if event stream exists, false otherwise
+   */
+  hasEventStream(): boolean {
     return this.currentTaskId !== null && this.eventSubject !== null;
   }
 
@@ -69,7 +121,7 @@ export class TaskStreamManager {
    * Add an event to the current task's event stream.
    * Automatically adds an eventId to the data field.
    * @param event The task event to add
-   * @returns The same event with eventId added to data, or null if no task is running
+   * @returns The same event with eventId added to data, or null if no task stream is available
    */
   addEvent(event: TaskEvent): TaskEvent | null {
     if (!this.eventSubject) return null;
@@ -91,8 +143,10 @@ export class TaskStreamManager {
     // Add the event to the subject
     this.eventSubject.next(eventCopy);
 
-    // Note: We no longer auto-end task on complete or cancelled events
-    // Tasks will be ended when a new task starts or when manually ended
+    // If this is a complete or cancelled event, mark task as complete
+    if (event.event === "complete" || event.event === "cancelled") {
+      this.markTaskComplete();
+    }
 
     // Return the event with the added eventId
     return eventCopy;
@@ -120,8 +174,12 @@ export class TaskStreamManager {
           ? String(event.data.eventId)
           : "";
 
-        // Compare with lastEventId (if eventId is present)
-        return eventId !== "" && eventId > lastEventId;
+        // Convert to numbers for proper comparison
+        const currentId = Number(eventId);
+        const lastId = Number(lastEventId);
+
+        // Compare numerically (not lexicographically)
+        return !isNaN(currentId) && !isNaN(lastId) && currentId > lastId;
       }),
       takeUntil(this.taskEndSubject),
     );
