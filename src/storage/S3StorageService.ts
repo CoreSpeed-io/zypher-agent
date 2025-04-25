@@ -130,7 +130,7 @@ export class S3StorageService implements StorageService {
   }
 
   async uploadFile(
-    data: ReadableStream<Uint8Array>,
+    data: ReadableStream<Uint8Array> | Uint8Array,
     options: UploadOptions,
   ): Promise<UploadResult> {
     // Stream the file directly to S3 without loading it fully into memory
@@ -164,7 +164,7 @@ export class S3StorageService implements StorageService {
     const url = await this.getSignedUrl(key, options.urlExpirySeconds);
     if (!url) {
       throw new Error(
-        "Failed to generate pre‑signed URL. File should have been uploaded successfully but not found in S3.",
+        "Failed to generate pre-signed URL. File should have been uploaded successfully but not found in S3.",
       );
     }
 
