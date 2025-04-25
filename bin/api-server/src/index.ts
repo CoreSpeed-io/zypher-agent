@@ -1,4 +1,4 @@
-import "jsr:@std/dotenv/load";
+import "@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { prettyJSON } from "hono/pretty-json";
