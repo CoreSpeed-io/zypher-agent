@@ -3,6 +3,7 @@ import { defineTool } from "./index.ts";
 import OpenAI from "@openai/openai";
 import * as path from "@std/path";
 import { APIError } from "@openai/openai";
+import { formatError } from "../utils/error.ts";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -15,19 +16,13 @@ export const ImageGenTool = defineTool({
     "Generate an image using DALL-E-3 API based on a text description.\n\n" +
     "Features:\n" +
     "- Generates high-quality images from text descriptions\n" +
-    "- Supports sizes: 1024x1024 (square), 1024x1792 (portrait), 1792x1024 (landscape)\n" +
-    "- Quality options: standard (default) or hd (2x credits)\n" +
     "- Saves images to the specified file path\n\n" +
     "Best Practices for Prompts:\n" +
     "- Be specific and detailed in descriptions\n" +
     "- Mention style, lighting, perspective if relevant\n" +
     "- Avoid prohibited content (violence, adult content, etc)\n\n" +
     "Size/Quality Trade-offs:\n" +
-    "- Standard quality: Good for most uses (4 credits)\n" +
-    "- HD quality: Better details but 2x credits (8 credits)\n" +
-    "- Larger sizes may be better for detailed scenes\n\n" +
-    "Note: Requires OPENAI_API_KEY environment variable to be set.",
-
+    "- Standard quality: Good for most uses. Use standard quality unless you need better details to save tokens.\n",
   parameters: z.object({
     prompt: z
       .string()
@@ -42,15 +37,21 @@ export const ImageGenTool = defineTool({
       .describe("Natural language description for image generation"),
 
     size: z
-      .enum(["1024x1024", "1024x1792", "1792x1024"])
-      .default("1024x1024")
+      .enum(["auto", "1024x1024", "1536x1024", "1024x1536"])
+      .default("auto")
       .describe("The size of the generated image"),
 
     imageQuality: z
-      .enum(["standard", "hd"])
-      .default("standard")
+      .enum(["auto", "low", "medium", "high"])
+      .default("auto")
       .describe(
-        "Image quality setting. 'hd' for DALL-E 3 provides higher quality but uses more credits",
+        "The quality of the image that will be generated.",
+      ),
+
+    background: z.enum(["auto", "transparent", "opaque"])
+      .default("auto")
+      .describe(
+        "Allows to set transparency for the background of the generated image(s).",
       ),
 
     destinationPath: z
@@ -69,6 +70,7 @@ export const ImageGenTool = defineTool({
     prompt,
     size,
     imageQuality,
+    background,
     destinationPath,
   }): Promise<string> => {
     try {
@@ -86,33 +88,61 @@ export const ImageGenTool = defineTool({
 
       // Generate image using DALL-E
       const response = await openai.images.generate({
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt: prompt,
         size: size,
         quality: imageQuality,
+        background: background,
         n: 1,
       });
 
-      if (!response.data[0]?.url) {
+      if (!response.data) {
         throw new Error(
           "OpenAI didn't return an image URL. This is unusual - please try again.",
         );
       }
 
-      // Download the image
-      const imageResponse = await fetch(response.data[0].url);
-      if (!imageResponse.ok) {
-        throw new Error(
-          `We couldn't download the image from OpenAI's servers. This might be a temporary issue. Please try again in a few minutes. (Error: ${imageResponse.statusText})`,
-        );
+      // Track generated files
+      const generatedFiles: string[] = [];
+
+      // when the API returns multiple images, we will save them all
+      // In that case, the first image will be saved to exact destinationPath,
+      // and the rest will be saved to destinationPath with suffixes
+      for (let i = 0; i < response.data.length; i++) {
+        const image = response.data[i];
+        let currentDestination = destinationPath;
+
+        // Add a suffix for additional images
+        if (i > 0) {
+          const extName = path.extname(destinationPath);
+          const baseName = path.basename(destinationPath, extName);
+          const dirName = path.dirname(destinationPath);
+          currentDestination = path.join(dirName, `${baseName}_${i}${extName}`);
+        }
+
+        // Process base64 JSON data
+        if (image.b64_json) {
+          // Decode base64 data to Uint8Array
+          const binaryData = Uint8Array.from(
+            atob(image.b64_json),
+            (c) => c.charCodeAt(0),
+          );
+
+          // Write the data to the file
+          await Deno.writeFile(currentDestination, binaryData);
+
+          // Add to list of generated files
+          generatedFiles.push(currentDestination);
+        } else {
+          throw new Error("OpenAI returned an image without base64 JSON data.");
+        }
       }
 
-      const imageBuffer = await imageResponse.arrayBuffer();
+      // Build success message including all generated files
+      const fileCount = generatedFiles.length;
+      const fileList = generatedFiles.map((file) => `- ${file}`).join("\n");
 
-      // Save the image
-      await Deno.writeFile(destinationPath, new Uint8Array(imageBuffer));
-
-      return `Your image has been created successfully!`;
+      return `${fileCount} images successfully generated and saved to:\n${fileList}`;
     } catch (error: unknown) {
       // Handle OpenAI API specific errors
       if (error instanceof APIError) {
@@ -128,15 +158,10 @@ export const ImageGenTool = defineTool({
         }
       }
 
-      // Handle network errors
-      if (error instanceof TypeError && error.message.includes("fetch")) {
-        return `We couldn't connect to OpenAI's servers. Please check your internet connection and try again. (Error: ${error.message})`;
-      }
-
       // Handle other errors
-      return `Something went wrong while creating your image. Please try again. (Error: ${
-        error instanceof Error ? error.message : "Unknown error"
-      })`;
+      return `Something went wrong while creating your image. Please try again. ${
+        formatError(error)
+      }`;
     }
   },
 });
