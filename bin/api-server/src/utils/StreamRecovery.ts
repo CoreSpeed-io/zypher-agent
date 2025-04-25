@@ -12,7 +12,7 @@ export class TaskStreamManager {
   private currentTaskId: string | null = null;
   private eventSubject: ReplaySubject<TaskEvent> | null = null;
   private taskEndSubject: Subject<void> = new Subject<void>();
-  private heartbeatInterval: number | null = null;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private taskInProgress: boolean = false; // Flag to track if task is still in progress
 
   /**
@@ -185,6 +185,3 @@ export class TaskStreamManager {
     );
   }
 }
-
-// Global singleton instance
-export const taskStreamManager = new TaskStreamManager();

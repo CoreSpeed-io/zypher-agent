@@ -228,8 +228,6 @@ export class ZypherAgent {
       this._isTaskRunning = false;
       return true;
     } catch (error) {
-      // If something fails during cancellation, restore running state but keep cancellation reason
-      // This ensures we still know a cancellation was attempted even if it failed
       console.error(`Error during task cancellation: ${formatError(error)}`);
       return false;
     }
