@@ -37,8 +37,6 @@ export interface FileAttachment {
   type: "file_attachment";
   /** The ID of the file in storage */
   fileId: string;
-  /** The content type must be an image type */
-  contentType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 }
 
 /**
@@ -71,6 +69,5 @@ export function isMessage(value: unknown): value is Message {
 export function isFileAttachment(value: unknown): value is FileAttachment {
   return typeof value === "object" && value !== null &&
     "type" in value && value.type === "file_attachment" &&
-    "fileId" in value && typeof value.fileId === "string" &&
-    "contentType" in value && typeof value.contentType === "string";
+    "fileId" in value && typeof value.fileId === "string";
 }

@@ -1,5 +1,6 @@
 import {
   AttachmentMetadata,
+  GenerateUploadUrlResult,
   StorageService,
   UploadOptions,
   UploadResult,
@@ -15,8 +16,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import * as uuid from "@std/uuid";
-import * as path from "@std/path";
+import { generateFileId } from "./utils.ts";
 
 /**
  * S3-specific provider options
@@ -69,21 +69,13 @@ export class S3StorageService implements StorageService {
   }
 
   /**
-   * Generate a unique key for S3 storage
-   */
-  private async generateKey(options: UploadOptions): Promise<string> {
-    const name = new TextEncoder().encode("usercontent.deckspeed.com");
-    const id = await uuid.v5.generate(uuid.NAMESPACE_DNS, name);
-    const basePath = options.path ?? "";
-    return path.join(basePath, id);
-  }
-
-  /**
    * Generate a pre-signed URL for direct file upload to S3
    */
-  async generateUploadUrl(options: UploadOptions): Promise<string> {
+  async generateUploadUrl(
+    options: UploadOptions,
+  ): Promise<GenerateUploadUrlResult> {
     // Generate a unique key for this upload
-    const key = await this.generateKey(options);
+    const key = await generateFileId();
 
     // Prepare metadata
     const metadata: Record<string, string> = {
@@ -109,8 +101,10 @@ export class S3StorageService implements StorageService {
       expiresIn: options.urlExpirySeconds ?? 3600, // Default to 1 hour
     });
 
-    // Return the pre-signed URL
-    return signedUrl;
+    return {
+      url: signedUrl,
+      fileId: key,
+    };
   }
 
   /**
@@ -140,7 +134,7 @@ export class S3StorageService implements StorageService {
     options: UploadOptions,
   ): Promise<UploadResult> {
     // Stream the file directly to S3 without loading it fully into memory
-    const key = await this.generateKey(options);
+    const key = await generateFileId();
 
     // Prepare metadata (S3 only supports string values)
     const metadata: Record<string, string> = {
@@ -167,7 +161,7 @@ export class S3StorageService implements StorageService {
     await this.s3Client.send(command);
 
     // Generate a pre‑signed URL so the caller can access the file
-    const url = await this.getFileUrl(key, options.urlExpirySeconds);
+    const url = await this.getSignedUrl(key, options.urlExpirySeconds);
     if (!url) {
       throw new Error(
         "Failed to generate pre‑signed URL. File should have been uploaded successfully but not found in S3.",
@@ -194,7 +188,7 @@ export class S3StorageService implements StorageService {
     buffer: Uint8Array,
     options: UploadOptions,
   ): Promise<UploadResult> {
-    const key = await this.generateKey(options);
+    const key = await generateFileId();
 
     // Prepare metadata
     const metadata: Record<string, string> = {
@@ -221,7 +215,7 @@ export class S3StorageService implements StorageService {
     await this.s3Client.send(command);
 
     // Generate URL
-    const url = await this.getFileUrl(key, options.urlExpirySeconds);
+    const url = await this.getSignedUrl(key, options.urlExpirySeconds);
     if (!url) {
       throw new Error(
         "Failed to generate pre‑signed URL. File should have been uploaded successfully but not found in S3.",
@@ -244,7 +238,7 @@ export class S3StorageService implements StorageService {
     };
   }
 
-  async getFileUrl(
+  async getSignedUrl(
     fileId: string,
     expirySeconds = 3600,
   ): Promise<string | null> {
@@ -282,7 +276,7 @@ export class S3StorageService implements StorageService {
       });
 
       const response = await this.s3Client.send(command);
-      return await this.objectToMetadata(fileId, response);
+      return this.objectToMetadata(fileId, response);
     } catch (error) {
       if (error instanceof NoSuchKey || error instanceof NotFound) {
         return null;

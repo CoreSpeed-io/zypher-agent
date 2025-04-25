@@ -10,7 +10,8 @@
       "request": "launch",
       "program": "${workspaceFolder}/bin/cli.ts",
       "runtimeExecutable": "deno",
-      "args": ["run", "bin/cli.ts", "-w", "${input:workspace}"],
+      "runtimeArgs": ["run", "--unstable-node-globals"],
+      "args": ["bin/cli.ts", "-w", "${input:workspace}"],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": [
@@ -22,9 +23,10 @@
       "name": "api-server",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/bin/api-server.ts",
+      "program": "${workspaceFolder}/bin/api-server/src/index.ts",
       "runtimeExecutable": "deno",
-      "args": ["run", "bin/api-server.ts", "-w", "${input:workspace}"],
+      "runtimeArgs": ["run", "--unstable-node-globals"],
+      "args": ["bin/api-server/src/index.ts", "-w", "${input:workspace}"],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": [
