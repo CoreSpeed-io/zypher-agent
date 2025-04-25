@@ -1,5 +1,5 @@
 import * as path from "@std/path";
-import { encodeBase64 } from "jsr:@std/encoding/base64";
+import { encodeBase64 } from "@std/encoding/base64";
 import type { Message } from "../message.ts";
 import { isMessage } from "../message.ts";
 import { formatError } from "./error.ts";

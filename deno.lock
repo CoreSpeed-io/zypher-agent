@@ -1,25 +1,25 @@
 {
   "version": "4",
   "specifiers": {
-    "jsr:@openai/openai@^4.95.1": "4.95.1",
-    "jsr:@std/assert@^1.0.12": "1.0.12",
+    "jsr:@openai/openai@^4.96.0": "4.96.0",
+    "jsr:@std/assert@^1.0.12": "1.0.13",
     "jsr:@std/async@^1.0.12": "1.0.12",
     "jsr:@std/bytes@^1.0.5": "1.0.5",
-    "jsr:@std/cli@^1.0.16": "1.0.16",
+    "jsr:@std/cli@^1.0.17": "1.0.17",
     "jsr:@std/crypto@^1.0.4": "1.0.4",
     "jsr:@std/data-structures@^1.0.6": "1.0.6",
-    "jsr:@std/dotenv@*": "0.225.3",
     "jsr:@std/dotenv@~0.225.3": "0.225.3",
-    "jsr:@std/encoding@*": "1.0.9",
-    "jsr:@std/encoding@^1.0.9": "1.0.9",
+    "jsr:@std/encoding@^1.0.10": "1.0.10",
+    "jsr:@std/expect@^1.0.15": "1.0.15",
     "jsr:@std/fs@^1.0.16": "1.0.16",
     "jsr:@std/internal@^1.0.6": "1.0.6",
-    "jsr:@std/path@^1.0.8": "1.0.8",
+    "jsr:@std/path@^1.0.8": "1.0.9",
+    "jsr:@std/path@^1.0.9": "1.0.9",
     "jsr:@std/testing@^1.0.11": "1.0.11",
     "jsr:@std/uuid@^1.0.7": "1.0.7",
     "npm:@anthropic-ai/sdk@0.39": "0.39.0",
-    "npm:@aws-sdk/client-s3@^3.787.0": "3.787.0",
-    "npm:@aws-sdk/s3-request-presigner@^3.787.0": "3.787.0",
+    "npm:@aws-sdk/client-s3@^3.787.0": "3.796.0",
+    "npm:@aws-sdk/s3-request-presigner@^3.787.0": "3.796.0",
     "npm:@hono/zod-validator@~0.4.3": "0.4.3_hono@4.7.7_zod@3.24.3",
     "npm:@modelcontextprotocol/sdk@^1.10.1": "1.10.2_express@5.1.0_zod@3.24.3",
     "npm:chalk@^5.4.1": "5.4.1",
@@ -29,14 +29,14 @@
     "npm:zod@^3.24.3": "3.24.3"
   },
   "jsr": {
-    "@openai/openai@4.95.1": {
-      "integrity": "2f4e88862e5613b7c166051ff5ebcce49c871f78b6dc5c24fa388172e277b701",
+    "@openai/openai@4.96.0": {
+      "integrity": "51eac6d9f0ce55f5c84d99a1073492ef118d645d0383cda0eb1263d7612e23ed",
       "dependencies": [
         "npm:zod@3"
       ]
     },
-    "@std/assert@1.0.12": {
-      "integrity": "08009f0926dda9cbd8bef3a35d3b6a4b964b0ab5c3e140a4e0351fbf34af5b9a",
+    "@std/assert@1.0.13": {
+      "integrity": "ae0d31e41919b12c656c742b22522c32fb26ed0cba32975cb0de2a273cb68b29",
       "dependencies": [
         "jsr:@std/internal"
       ]
@@ -47,8 +47,8 @@
     "@std/bytes@1.0.5": {
       "integrity": "4465dd739d7963d964c809202ebea6d5c6b8e3829ef25c6a224290fbb8a1021e"
     },
-    "@std/cli@1.0.16": {
-      "integrity": "02df293099c35b9e97d8ca05f57f54bd1ee08134f25d19a4756b3924695f4b00"
+    "@std/cli@1.0.17": {
+      "integrity": "e15b9abe629e17be90cc6216327f03a29eae613365f1353837fa749aad29ce7b"
     },
     "@std/crypto@1.0.4": {
       "integrity": "cee245c453bd5366207f4d8aa25ea3e9c86cecad2be3fefcaa6cb17203d79340"
@@ -59,20 +59,27 @@
     "@std/dotenv@0.225.3": {
       "integrity": "a95e5b812c27b0854c52acbae215856d9cce9d4bbf774d938c51d212711e8d4a"
     },
-    "@std/encoding@1.0.9": {
-      "integrity": "025b8f18eb1749bc30d1353bf48b77d1eb5e35610220fa226f5a046b9240c5d7"
+    "@std/encoding@1.0.10": {
+      "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
+    },
+    "@std/expect@1.0.15": {
+      "integrity": "eca360007b5a7f13dbfa1294224baee7fb98dcd460d8461fe64eeae302902945",
+      "dependencies": [
+        "jsr:@std/assert",
+        "jsr:@std/internal"
+      ]
     },
     "@std/fs@1.0.16": {
       "integrity": "81878f62b6eeda0bf546197fc3daa5327c132fee1273f6113f940784a468b036",
       "dependencies": [
-        "jsr:@std/path"
+        "jsr:@std/path@^1.0.8"
       ]
     },
     "@std/internal@1.0.6": {
       "integrity": "9533b128f230f73bd209408bb07a4b12f8d4255ab2a4d22a1fd6d87304aca9a4"
     },
-    "@std/path@1.0.8": {
-      "integrity": "548fa456bb6a04d3c1a1e7477986b6cffbce95102d0bb447c67c4ee70e0364be"
+    "@std/path@1.0.9": {
+      "integrity": "260a49f11edd3db93dd38350bf9cd1b4d1366afa98e81b86167b4e3dd750129e"
     },
     "@std/testing@1.0.11": {
       "integrity": "12b3db12d34f0f385a26248933bde766c0f8c5ad8b6ab34d4d38f528ab852f48",
@@ -82,7 +89,7 @@
         "jsr:@std/data-structures",
         "jsr:@std/fs",
         "jsr:@std/internal",
-        "jsr:@std/path"
+        "jsr:@std/path@^1.0.8"
       ]
     },
     "@std/uuid@1.0.7": {
@@ -98,7 +105,7 @@
       "integrity": "sha512-eMyDIPRZbt1CCLErRCi3exlAvNkBtRe+kW5vvJyef93PmNr/clstYgHhtvmkxN82nlKgzyGPCyGxrm0JQ1ZIdg==",
       "dependencies": [
         "@types/node-fetch",
-        "@types/node@18.19.86",
+        "@types/node@18.19.87",
         "abort-controller",
         "agentkeepalive",
         "form-data-encoder",
@@ -167,8 +174,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/client-s3@3.787.0": {
-      "integrity": "sha512-eGLCWkN0NlntJ9yPU6OKUggVS4cFvuZJog+cFg1KD5hniLqz7Y0YRtB4uBxW212fK3XCfddgyscEOEeHaTQQTw==",
+    "@aws-sdk/client-s3@3.796.0": {
+      "integrity": "sha512-zRQhrj80atJX5mxC6MPH261iIMIc+RQmkDe+rZVm/61waUm/1ZFn1hSyi5i2Azor/2V2FnS9WVeWp57Sd0TahQ==",
       "dependencies": [
         "@aws-crypto/sha1-browser",
         "@aws-crypto/sha256-browser",
@@ -228,8 +235,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/client-sso@3.787.0": {
-      "integrity": "sha512-L8R+Mh258G0DC73ktpSVrG4TT9i2vmDLecARTDR/4q5sRivdDQSL5bUp3LKcK80Bx+FRw3UETIlX6mYMLL9PJQ==",
+    "@aws-sdk/client-sso@3.796.0": {
+      "integrity": "sha512-EJExg8mbwqP0VG+RNFV4ZPuUo7QsDsUfTnuFQY51V8iXrbOdV+PDLRr4psXj2fxvrLxc9AlGUMNqd/j4VZtQzA==",
       "dependencies": [
         "@aws-crypto/sha256-browser",
         "@aws-crypto/sha256-js",
@@ -271,8 +278,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/core@3.775.0": {
-      "integrity": "sha512-8vpW4WihVfz0DX+7WnnLGm3GuQER++b0IwQG35JlQMlgqnc44M//KbJPsIHA0aJUJVwJAEShgfr5dUbY8WUzaA==",
+    "@aws-sdk/core@3.796.0": {
+      "integrity": "sha512-tH8Sp7lCxISVoLnkyv4AouuXs2CDlMhTuesWa0lq2NX1f+DXsMwSBtN37ttZdpFMw3F8mWdsJt27X9h2Oq868A==",
       "dependencies": [
         "@aws-sdk/types",
         "@smithy/core",
@@ -287,8 +294,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/credential-provider-env@3.775.0": {
-      "integrity": "sha512-6ESVxwCbGm7WZ17kY1fjmxQud43vzJFoLd4bmlR+idQSWdqlzGDYdcfzpjDKTcivdtNrVYmFvcH1JBUwCRAZhw==",
+    "@aws-sdk/credential-provider-env@3.796.0": {
+      "integrity": "sha512-kQzGKm4IOYYO6vUrai2JocNwhJm4Aml2BsAV+tBhFhhkutE7khf9PUucoVjB78b0J48nF+kdSacqzY+gB81/Uw==",
       "dependencies": [
         "@aws-sdk/core",
         "@aws-sdk/types",
@@ -297,8 +304,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/credential-provider-http@3.775.0": {
-      "integrity": "sha512-PjDQeDH/J1S0yWV32wCj2k5liRo0ssXMseCBEkCsD3SqsU8o5cU82b0hMX4sAib/RkglCSZqGO0xMiN0/7ndww==",
+    "@aws-sdk/credential-provider-http@3.796.0": {
+      "integrity": "sha512-wWOT6VAHIKOuHdKFGm1iyKvx7f6+Kc/YTzFWJPuT+l+CPlXR6ylP1UMIDsHHLKpMzsrh3CH77QDsjkhQrnKkfg==",
       "dependencies": [
         "@aws-sdk/core",
         "@aws-sdk/types",
@@ -312,8 +319,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/credential-provider-ini@3.787.0": {
-      "integrity": "sha512-hc2taRoDlXn2uuNuHWDJljVWYrp3r9JF1a/8XmOAZhVUNY+ImeeStylHXhXXKEA4JOjW+5PdJj0f1UDkVCHJiQ==",
+    "@aws-sdk/credential-provider-ini@3.796.0": {
+      "integrity": "sha512-qGWBDn9aO8avFfYU7daps7Sy6OglF1x0q0w48slt0KMXbHd2/LvKVIiYwyofYCXed0yzcEOF2IYm9FjXdcn+ug==",
       "dependencies": [
         "@aws-sdk/core",
         "@aws-sdk/credential-provider-env",
@@ -330,8 +337,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/credential-provider-node@3.787.0": {
-      "integrity": "sha512-JioVi44B1vDMaK2CdzqimwvJD3uzvzbQhaEWXsGMBcMcNHajXAXf08EF50JG3ZhLrhhUsT1ObXpbTaPINOhh+g==",
+    "@aws-sdk/credential-provider-node@3.796.0": {
+      "integrity": "sha512-WeNK7OWPrsOvhO3DAgpUO0FtmVghMaZ/IpPJHJ4Y0nBIsWOBXLrbZ2Y1mdT8N2bGGUaM91tJaV8Yf8COc3gvmA==",
       "dependencies": [
         "@aws-sdk/credential-provider-env",
         "@aws-sdk/credential-provider-http",
@@ -347,8 +354,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/credential-provider-process@3.775.0": {
-      "integrity": "sha512-A6k68H9rQp+2+7P7SGO90Csw6nrUEm0Qfjpn9Etc4EboZhhCLs9b66umUsTsSBHus4FDIe5JQxfCUyt1wgNogg==",
+    "@aws-sdk/credential-provider-process@3.796.0": {
+      "integrity": "sha512-r4e8/4AdKn/qQbRVocW7oXkpoiuXdTv0qty8AASNLnbQnT1vjD1bvmP6kp4fbHPWgwY8I9h0Dqjp49uy9Bqyuw==",
       "dependencies": [
         "@aws-sdk/core",
         "@aws-sdk/types",
@@ -358,8 +365,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/credential-provider-sso@3.787.0": {
-      "integrity": "sha512-fHc08bsvwm4+dEMEQKnQ7c1irEQmmxbgS+Fq41y09pPvPh31nAhoMcjBSTWAaPHvvsRbTYvmP4Mf12ZGr8/nfg==",
+    "@aws-sdk/credential-provider-sso@3.796.0": {
+      "integrity": "sha512-RUYsQ1t6UdzkpZ7pocUt1l/9l9GCYCaopIhv0DU6CipA8rkWtoweKsLHKdv+8wE4p6gqDfDIHGam1ivswiCIzg==",
       "dependencies": [
         "@aws-sdk/client-sso",
         "@aws-sdk/core",
@@ -371,8 +378,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/credential-provider-web-identity@3.787.0": {
-      "integrity": "sha512-SobmCwNbk6TfEsF283mZPQEI5vV2j6eY5tOCj8Er4Lzraxu9fBPADV+Bib2A8F6jlB1lMPJzOuDCbEasSt/RIw==",
+    "@aws-sdk/credential-provider-web-identity@3.796.0": {
+      "integrity": "sha512-dpmFJT4IyjT09vruvMu/rWQQjVreqdxAe8pLPpGhoeKyA1O6+PS73b+VNXKvD31rQT8e4g6dVpA6KMxNW63aag==",
       "dependencies": [
         "@aws-sdk/core",
         "@aws-sdk/nested-clients",
@@ -403,8 +410,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/middleware-flexible-checksums@3.787.0": {
-      "integrity": "sha512-X71qEwWoixFmwowWzlPoZUR3u1CWJ7iAzU0EzIxqmPhQpQJLFmdL1+SRjqATynDPZQzLs1a5HBtPT++EnZ+Quw==",
+    "@aws-sdk/middleware-flexible-checksums@3.796.0": {
+      "integrity": "sha512-JTqnyzGlbvXDcEnBtd5LFNrCFKUHnGyp/V9+BkvzNP02WXABLWzYvj1TCaf5pQySwK/b4kVn5lvbpTi0rXqjZw==",
       "dependencies": [
         "@aws-crypto/crc32",
         "@aws-crypto/crc32c",
@@ -455,8 +462,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/middleware-sdk-s3@3.775.0": {
-      "integrity": "sha512-zsvcu7cWB28JJ60gVvjxPCI7ZU7jWGcpNACPiZGyVtjYXwcxyhXbYEVDSWKsSA6ERpz9XrpLYod8INQWfW3ECg==",
+    "@aws-sdk/middleware-sdk-s3@3.796.0": {
+      "integrity": "sha512-5o78oE79sGOtYkL7Up02h2nmr9UhGQZJgxE29EBdTw4dZ1EaA46L+C8oA+fBCmAB5xPQsjQqvhRrsr4Lcp+jZQ==",
       "dependencies": [
         "@aws-sdk/core",
         "@aws-sdk/types",
@@ -482,8 +489,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/middleware-user-agent@3.787.0": {
-      "integrity": "sha512-Lnfj8SmPLYtrDFthNIaNj66zZsBCam+E4XiUDr55DIHTGstH6qZ/q6vg0GfbukxwSmUcGMwSR4Qbn8rb8yd77g==",
+    "@aws-sdk/middleware-user-agent@3.796.0": {
+      "integrity": "sha512-IeNg+3jNWT37J45opi5Jx89hGF0lOnZjiNwlMp3rKq7PlOqy8kWq5J1Gxk0W3tIkPpuf68CtBs/QFrRXWOjsZw==",
       "dependencies": [
         "@aws-sdk/core",
         "@aws-sdk/types",
@@ -494,8 +501,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/nested-clients@3.787.0": {
-      "integrity": "sha512-xk03q1xpKNHgbuo+trEf1dFrI239kuMmjKKsqLEsHlAZbuFq4yRGMlHBrVMnKYOPBhVFDS/VineM991XI52fKg==",
+    "@aws-sdk/nested-clients@3.796.0": {
+      "integrity": "sha512-jJ8a0ldWtXh/ice7nldUjTqja7KYlSYk1pwfIIvJLIqEn2SvQHK/pyCINTmmOmFAWXMKBQBeWUMxo1pPYNytzQ==",
       "dependencies": [
         "@aws-crypto/sha256-browser",
         "@aws-crypto/sha256-js",
@@ -548,8 +555,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/s3-request-presigner@3.787.0": {
-      "integrity": "sha512-WBm0AS3RRURNN0yjYXHaiI692boVwWXGt3RLdI7tYBX58E1Zb5nzC8rlk81O9Xe7ZTgTC1KCr8y4+jcBD+zwJg==",
+    "@aws-sdk/s3-request-presigner@3.796.0": {
+      "integrity": "sha512-+zlUDOwi+PGmk9VYFbbujIsUzqzLjI6oz4pAAATs5qMjd+ihsUVv2fGzmFfphmaGk6u4r/UQDe0tmrySgTr6JA==",
       "dependencies": [
         "@aws-sdk/signature-v4-multi-region",
         "@aws-sdk/types",
@@ -561,8 +568,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/signature-v4-multi-region@3.775.0": {
-      "integrity": "sha512-cnGk8GDfTMJ8p7+qSk92QlIk2bmTmFJqhYxcXZ9PysjZtx0xmfCMxnG3Hjy1oU2mt5boPCVSOptqtWixayM17g==",
+    "@aws-sdk/signature-v4-multi-region@3.796.0": {
+      "integrity": "sha512-JAOLdvazTc9HlTFslSrIOrKRMuOruuM3FeGw0hyfLP/RIbjd9bqe/xLIzDSJr3wpCpJs0sXoofwJgXtgTipvjA==",
       "dependencies": [
         "@aws-sdk/middleware-sdk-s3",
         "@aws-sdk/types",
@@ -572,8 +579,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/token-providers@3.787.0": {
-      "integrity": "sha512-d7/NIqxq308Zg0RPMNrmn0QvzniL4Hx8Qdwzr6YZWLYAbUSvZYS2ppLR3BFWSkV6SsTJUx8BuDaj3P8vttkrog==",
+    "@aws-sdk/token-providers@3.796.0": {
+      "integrity": "sha512-Sxr/EqJBxOwLsXHv8C91N/Aao8Rgjn5bcpzplrTZ7wrfDrzqQfSCvjh7apCxdLYMKPBV+an75blCAd7JD4/bAg==",
       "dependencies": [
         "@aws-sdk/nested-clients",
         "@aws-sdk/types",
@@ -629,8 +636,8 @@
         "tslib"
       ]
     },
-    "@aws-sdk/util-user-agent-node@3.787.0": {
-      "integrity": "sha512-mG7Lz8ydfG4SF9e8WSXiPQ/Lsn3n8A5B5jtPROidafi06I3ckV2WxyMLdwG14m919NoS6IOfWHyRGSqWIwbVKA==",
+    "@aws-sdk/util-user-agent-node@3.796.0": {
+      "integrity": "sha512-9fQpNcHgVFitf1tbTT8V1xGRoRHSmOAWjrhevo6Tc0WoINMAKz+4JNqfVGWRE5Tmtpq0oHKo1RmvxXQQtJYciA==",
       "dependencies": [
         "@aws-sdk/middleware-user-agent",
         "@aws-sdk/types",
@@ -934,8 +941,8 @@
         "tslib"
       ]
     },
-    "@smithy/signature-v4@5.0.2": {
-      "integrity": "sha512-Mz+mc7okA73Lyz8zQKJNyr7lIcHLiPYp0+oiqiMNc/t7/Kf2BENs5d63pEj7oPqdjaum6g0Fc8wC78dY1TgtXw==",
+    "@smithy/signature-v4@5.1.0": {
+      "integrity": "sha512-4t5WX60sL3zGJF/CtZsUQTs3UrZEDO2P7pEaElrekbLqkWPYkgqNW1oeiNYC6xXifBnT9dVBOnNQRvOE9riU9w==",
       "dependencies": [
         "@smithy/is-array-buffer@4.0.0",
         "@smithy/protocol-http",
@@ -1112,8 +1119,8 @@
         "form-data"
       ]
     },
-    "@types/node@18.19.86": {
-      "integrity": "sha512-fifKayi175wLyKyc5qUfyENhQ1dCNI1UNjp653d8kuYcPQN5JhX3dGuP/XmvPTg/xRBn1VTLpbmi+H/Mr7tLfQ==",
+    "@types/node@18.19.87": {
+      "integrity": "sha512-OIAAu6ypnVZHmsHCeJ+7CCSub38QNBS9uceMQeg7K5Ur0Jr+wG9wEOEvvMbhp09pxD5czIUy/jND7s7Tb6Nw7A==",
       "dependencies": [
         "undici-types@5.26.5"
       ]
@@ -1702,12 +1709,13 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@openai/openai@^4.95.1",
+      "jsr:@openai/openai@^4.96.0",
       "jsr:@std/assert@^1.0.12",
-      "jsr:@std/cli@^1.0.16",
+      "jsr:@std/cli@^1.0.17",
       "jsr:@std/dotenv@~0.225.3",
-      "jsr:@std/encoding@^1.0.9",
-      "jsr:@std/path@^1.0.8",
+      "jsr:@std/encoding@^1.0.10",
+      "jsr:@std/expect@^1.0.15",
+      "jsr:@std/path@^1.0.9",
       "jsr:@std/testing@^1.0.11",
       "jsr:@std/uuid@^1.0.7",
       "npm:@anthropic-ai/sdk@0.39",
