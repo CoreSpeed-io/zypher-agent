@@ -11,10 +11,12 @@ import {
 } from "../../../../src/ZypherAgent.ts";
 import { formatError } from "../../../../src/utils/index.ts";
 import { ApiError } from "../error.ts";
-import type { TaskEvent } from "../../../../src/types/events.ts";
-import { taskStreamManager } from "../../../../src/utils/StreamRecovery.ts";
+import type { TaskEvent } from "../types/events.ts";
+import { TaskStreamManager } from "../utils/StreamRecovery.ts";
 
 const agentRouter = new Hono();
+// Create an instance of TaskStreamManager
+const taskStreamManager = new TaskStreamManager();
 
 // Zod Schemas
 // Define supported image MIME types with more precise validation
