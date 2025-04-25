@@ -40,10 +40,18 @@ export interface UploadOptions {
   size?: number;
   /** How long the URL should be valid for (in seconds) */
   urlExpirySeconds?: number;
-  /** Custom path or prefix within the storage */
-  path?: string;
   /** Additional metadata to store with the file */
   metadata?: Record<string, unknown>;
+}
+
+/**
+ * Result of generating a pre-signed upload URL
+ */
+export interface GenerateUploadUrlResult {
+  /** The pre-signed URL for uploading */
+  url: string;
+  /** The file ID that will be assigned to the uploaded file */
+  fileId: string;
 }
 
 /**
@@ -78,14 +86,14 @@ export interface StorageService {
    * @param expirySeconds How long the URL should be valid (in seconds)
    * @returns Promise resolving to a pre-signed URL that is publicly accessible from the **internet** for the specified duration, or null if the file ID does not exist
    */
-  getFileUrl(fileId: string, expirySeconds?: number): Promise<string | null>;
+  getSignedUrl(fileId: string, expirySeconds?: number): Promise<string | null>;
 
   /**
    * Generate a pre-signed URL for directly uploading a file to storage
    * @param options Upload options
-   * @returns Promise resolving to a pre-signed URL that can be used to upload a file directly to storage
+   * @returns Promise resolving to a pre-signed URL and file ID that can be used to upload and later reference the file
    */
-  generateUploadUrl(options: UploadOptions): Promise<string>;
+  generateUploadUrl(options: UploadOptions): Promise<GenerateUploadUrlResult>;
 
   /**
    * Get metadata for a file

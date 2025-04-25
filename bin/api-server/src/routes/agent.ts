@@ -5,32 +5,20 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { listCheckpoints } from "../../../../src/checkpoints.ts";
 import {
+  FileId,
   type StreamHandler,
   ZypherAgent,
 } from "../../../../src/ZypherAgent.ts";
 import { formatError } from "../../../../src/utils/index.ts";
 import { ApiError } from "../error.ts";
-import { FileAttachment } from "../../../../src/message.ts";
-import { SUPPORTED_ATTACHMENT_TYPES } from "../constants.ts";
 
 const agentRouter = new Hono();
 
 // Zod Schemas
-const fileAttachmentSchema = z.object({
-  fileId: z.string().min(1, "File ID cannot be empty"),
-  contentType: z.enum(SUPPORTED_ATTACHMENT_TYPES, {
-    errorMap: () => ({
-      message: `Attachment must be one of the supported types: ${
-        SUPPORTED_ATTACHMENT_TYPES.join(", ")
-      }`,
-    }),
-  }),
-});
-
-// Zod schema for task
+const fileIdSchema = z.string().min(1, "File ID cannot be empty");
 const taskSchema = z.object({
   task: z.string(),
-  fileAttachments: z.array(fileAttachmentSchema).optional(),
+  fileAttachments: z.array(fileIdSchema).optional(),
 });
 
 const checkpointParamsSchema = z.object({
@@ -87,7 +75,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   async function runAgentTask(
     task: string,
     onEvent: (event: TaskEvent) => void,
-    fileAttachments?: FileAttachment[],
+    fileAttachments?: FileId[],
   ): Promise<void> {
     // Set up streaming handler for the agent
     const streamHandler: StreamHandler = {
@@ -129,10 +117,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       const messages = await agent.runTaskWithStreaming(
         task,
         streamHandler,
-        fileAttachments?.map((attachment) => ({
-          ...attachment,
-          type: "file_attachment",
-        })),
+        fileAttachments,
       );
 
       // Empty messages array means task was cancelled
@@ -193,10 +178,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
               ),
             });
           },
-          fileAttachments?.map((attachment) => ({
-            ...attachment,
-            type: "file_attachment",
-          })),
+          fileAttachments,
         );
 
         // If the complete event wasn't sent through the normal flow, send it now
@@ -242,10 +224,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
                 ws.send(JSON.stringify(event));
               }
             },
-            fileAttachments?.map((attachment) => ({
-              ...attachment,
-              type: "file_attachment",
-            })),
+            fileAttachments,
           );
         },
         onClose() {

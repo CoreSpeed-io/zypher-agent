@@ -20,7 +20,6 @@ import {
 } from "./checkpoints.ts";
 import {
   type ContentBlock,
-  type FileAttachment,
   isFileAttachment,
   type Message,
 } from "./message.ts";
@@ -67,16 +66,19 @@ export interface StreamHandler {
   onCancelled?: (reason: "user" | "timeout") => void;
 }
 
-/**
- * Represents an image attachment formatted for the Anthropic API
- */
-export interface AnthropicImageAttachment {
-  type: "image";
-  source: {
-    type: "url";
-    media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-    url: string;
-  };
+export type FileId = string;
+
+export const SUPPORTED_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+
+export type SupportedFileTypes = typeof SUPPORTED_FILE_TYPES[number];
+
+export function isFileTypeSupported(type: string): type is SupportedFileTypes {
+  return SUPPORTED_FILE_TYPES.includes(type as SupportedFileTypes);
 }
 
 export interface ZypherAgentConfig {
@@ -379,22 +381,43 @@ export class ZypherAgent {
                 return null;
               }
 
-              const fileUrl = await this.storageService.getFileUrl(
+              const metadata = await this.storageService.getFileMetadata(
                 block.fileId,
               );
-              if (!fileUrl) {
+              if (!metadata) {
                 // file not found, it might have been expired and deleted
                 console.warn(
                   `Skipping file attachment as file not found or expired. File ID: ${block.fileId}`,
                 );
                 return null;
               }
+
+              const signedUrl = await this.storageService.getSignedUrl(
+                block.fileId,
+              );
+              if (!signedUrl) {
+                // file not found, it might have been expired and deleted
+                console.warn(
+                  `Skipping file attachment as file not found or expired. File ID: ${block.fileId}`,
+                );
+                return null;
+              }
+
+              if (!isFileTypeSupported(metadata.contentType)) {
+                console.warn(
+                  `Skipping file attachment as file is not an image. File type must be one of ${
+                    SUPPORTED_FILE_TYPES.join(", ")
+                  }. File ID: ${block.fileId}`,
+                );
+                return null;
+              }
+
               return {
                 type: "image" as const, // TODO: hard code as image for now as we only support image files
                 source: {
                   type: "url" as const,
-                  media_type: block.contentType,
-                  url: fileUrl,
+                  media_type: metadata.contentType,
+                  url: signedUrl,
                 },
               } as Anthropic.ImageBlockParam;
             }
@@ -455,7 +478,7 @@ export class ZypherAgent {
   async runTaskWithStreaming(
     taskDescription: string,
     streamHandler?: StreamHandler,
-    fileAttachments?: FileAttachment[],
+    fileAttachments?: FileId[],
     maxIterations = 25,
   ): Promise<Message[]> {
     // Check if a task is already running
@@ -499,7 +522,12 @@ export class ZypherAgent {
         : undefined;
 
       const messageContent: ContentBlock[] = [
-        ...(fileAttachments ? fileAttachments : []),
+        ...(fileAttachments
+          ? fileAttachments.map((fileId) => ({
+            type: "file_attachment" as const,
+            fileId,
+          }))
+          : []),
         {
           type: "text",
           text: `<user_query>\n${taskDescription}\n</user_query>`,
@@ -761,7 +789,7 @@ export class ZypherAgent {
   runTaskLoop(
     taskDescription: string,
     messageHandler?: MessageHandler,
-    fileAttachments?: FileAttachment[],
+    fileAttachments?: FileId[],
     maxIterations = 25,
   ): Promise<Message[]> {
     // Create a streamHandler adapter that delegates to the messageHandler
