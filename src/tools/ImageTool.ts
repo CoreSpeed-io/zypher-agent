@@ -12,6 +12,85 @@ const openai = new OpenAI({
   apiKey: Deno.env.get("OPENAI_API_KEY"),
 });
 
+// Common parameter schemas
+const sizeSchema = z
+  .enum(["auto", "1024x1024", "1536x1024", "1024x1536"])
+  .default("auto")
+  .describe("The size of the generated image");
+
+const qualitySchema = z
+  .enum(["auto", "low", "medium", "high"])
+  .default("auto")
+  .describe("The quality of the image that will be generated.");
+
+const backgroundSchema = z
+  .enum(["auto", "transparent", "opaque"])
+  .default("auto")
+  .describe(
+    "Allows to set transparency for the background of the generated image(s).",
+  );
+
+const destinationPathSchema = z
+  .string()
+  .describe(
+    "The full file path where the image should be saved (e.g., public/images/zypher-agent-sota.png)",
+  );
+
+const explanationSchema = z
+  .string()
+  .optional()
+  .describe("One sentence explanation as to why this tool is being used");
+
+/**
+ * Format success message for image operations
+ *
+ * @param generatedFiles - Array of generated image file paths
+ * @param successMessage - Message to include in the success response
+ * @returns Formatted success message string
+ */
+function formatSuccessMessage(
+  generatedFiles: string[],
+  successMessage: string,
+): string {
+  const fileCount = generatedFiles.length;
+  const fileList = generatedFiles.map((file) => `- ${file}`).join("\n");
+  return `${fileCount} ${successMessage} and saved to:\n${fileList}`;
+}
+
+/**
+ * Handle common error cases for image tools
+ *
+ * @param error - The error that was thrown
+ * @param operation - The operation being performed ("creating" or "editing")
+ * @returns Formatted error message
+ */
+function handleImageToolError(error: unknown, operation: string): string {
+  // Handle OpenAI API specific errors
+  if (error instanceof APIError) {
+    switch (error.status) {
+      case 429:
+        return `OpenAI's servers are busy right now. Please wait a few minutes before trying again. (Error: ${error.message})`;
+      case 400:
+        return `OpenAI couldn't process your request. This might be because your description contains content they don't allow${
+          operation === "editing"
+            ? " or there's an issue with the image format"
+            : ""
+        }. Please try a different description${
+          operation === "editing" ? " or image" : ""
+        }. (Error: ${error.message})`;
+      case 401:
+        return `There's an issue with the OpenAI API key. Please check if your API key is set correctly in the environment variables. (Error: ${error.message})`;
+      default:
+        return `OpenAI encountered an error while processing your request. This is on their end - please try again in a few minutes. (Error: ${error.message})`;
+    }
+  }
+
+  // Handle other errors
+  return `Something went wrong while ${operation} your image. Please try again. ${
+    formatError(error)
+  }`;
+}
+
 /**
  * Save images to the specified destination path.
  *
@@ -71,9 +150,7 @@ export const ImageGenTool = defineTool({
     "Best Practices for Prompts:\n" +
     "- Be specific and detailed in descriptions\n" +
     "- Mention style, lighting, perspective if relevant\n" +
-    "- Avoid prohibited content (violence, adult content, etc)\n\n" +
-    "Size/Quality Trade-offs:\n" +
-    "- Standard quality: Good for most uses. Use standard quality unless you need better details to save tokens.\n",
+    "- Avoid prohibited content (violence, adult content, etc)\n\n",
   parameters: z.object({
     prompt: z
       .string()
@@ -87,40 +164,17 @@ export const ImageGenTool = defineTool({
       )
       .describe("Natural language description for image generation"),
 
-    size: z
-      .enum(["auto", "1024x1024", "1536x1024", "1024x1536"])
-      .default("auto")
-      .describe("The size of the generated image"),
-
-    imageQuality: z
-      .enum(["auto", "low", "medium", "high"])
-      .default("auto")
-      .describe(
-        "The quality of the image that will be generated.",
-      ),
-
-    background: z.enum(["auto", "transparent", "opaque"])
-      .default("auto")
-      .describe(
-        "Allows to set transparency for the background of the generated image(s).",
-      ),
-
-    destinationPath: z
-      .string()
-      .describe(
-        "The full file path where the image should be saved (e.g., public/images/zypher-agent-sota.png)",
-      ),
-
-    explanation: z
-      .string()
-      .optional()
-      .describe("One sentence explanation as to why this tool is being used"),
+    size: sizeSchema,
+    quality: qualitySchema,
+    background: backgroundSchema,
+    destinationPath: destinationPathSchema,
+    explanation: explanationSchema,
   }),
 
   execute: async ({
     prompt,
     size,
-    imageQuality,
+    quality,
     background,
     destinationPath,
   }): Promise<string> => {
@@ -134,7 +188,7 @@ export const ImageGenTool = defineTool({
         model: "gpt-image-1",
         prompt: prompt,
         size: size,
-        quality: imageQuality,
+        quality,
         background: background,
         n: 1,
       });
@@ -145,36 +199,19 @@ export const ImageGenTool = defineTool({
         );
       }
 
-      // Track generated files
-      const generatedFiles: string[] = await saveImages(
+      // Save images to the destination path
+      const generatedFiles = await saveImages(
         destinationPath,
         response.data,
       );
 
-      // Build success message including all generated files
-      const fileCount = generatedFiles.length;
-      const fileList = generatedFiles.map((file) => `- ${file}`).join("\n");
-
-      return `${fileCount} images successfully generated and saved to:\n${fileList}`;
+      // Return success message
+      return formatSuccessMessage(
+        generatedFiles,
+        "images successfully generated",
+      );
     } catch (error: unknown) {
-      // Handle OpenAI API specific errors
-      if (error instanceof APIError) {
-        switch (error.status) {
-          case 429:
-            return `OpenAI's servers are busy right now. Please wait a few minutes before trying again. (Error: ${error.message})`;
-          case 400:
-            return `OpenAI couldn't process your request. This might be because your description contains content they don't allow. Please try a different description. (Error: ${error.message})`;
-          case 401:
-            return `There's an issue with the OpenAI API key. Please check if your API key is set correctly in the environment variables. (Error: ${error.message})`;
-          default:
-            return `OpenAI encountered an error while processing your request. This is on their end - please try again in a few minutes. (Error: ${error.message})`;
-        }
-      }
-
-      // Handle other errors
-      return `Something went wrong while creating your image. Please try again. ${
-        formatError(error)
-      }`;
+      return handleImageToolError(error, "creating");
     }
   },
 });
@@ -190,9 +227,7 @@ export const ImageEditTool = defineTool({
     "Best Practices for Edit Instructions:\n" +
     "- Be specific about what you want to change in the image\n" +
     "- Describe both what to change and how to change it\n" +
-    "- Avoid prohibited content (violence, adult content, etc)\n\n" +
-    "Size/Quality Trade-offs:\n" +
-    "- Standard quality: Good for most uses. Use standard quality unless you need better details to save tokens.\n",
+    "- Avoid prohibited content (violence, adult content, etc)\n\n",
   parameters: z.object({
     sourcePath: z
       .string()
@@ -215,34 +250,10 @@ export const ImageEditTool = defineTool({
       )
       .describe("Natural language instructions for how to edit the image"),
 
-    size: z
-      .enum(["auto", "1024x1024", "1536x1024", "1024x1536"])
-      .default("auto")
-      .describe("The size of the edited image"),
-
-    imageQuality: z
-      .enum(["auto", "low", "medium", "high"])
-      .default("auto")
-      .describe(
-        "The quality of the image that will be generated.",
-      ),
-
-    background: z.enum(["auto", "transparent", "opaque"])
-      .default("auto")
-      .describe(
-        "Allows to set transparency for the background of the edited image(s).",
-      ),
-
-    destinationPath: z
-      .string()
-      .describe(
-        "The full file path where the edited image should be saved (e.g., public/images/edited-image.png)",
-      ),
-
-    explanation: z
-      .string()
-      .optional()
-      .describe("One sentence explanation as to why this tool is being used"),
+    size: sizeSchema,
+    quality: qualitySchema,
+    destinationPath: destinationPathSchema,
+    explanation: explanationSchema,
   }),
 
   execute: async ({
@@ -250,11 +261,9 @@ export const ImageEditTool = defineTool({
     mimeType,
     prompt,
     size,
-    imageQuality,
-    background,
+    quality,
     destinationPath,
   }): Promise<string> => {
-    let fileStream: Deno.FsFile | null = null;
     try {
       // Validate source image exists
       if (!fileExists(sourcePath)) {
@@ -266,7 +275,7 @@ export const ImageEditTool = defineTool({
       await ensureDir(parentDir);
 
       // Create a file read stream using Deno's API
-      fileStream = await Deno.open(sourcePath, { read: true });
+      const fileStream = await Deno.open(sourcePath, { read: true });
 
       // Use OpenAI's toFile function to convert the stream to a file
       const imageFile = await toFile(
@@ -286,8 +295,7 @@ export const ImageEditTool = defineTool({
         // Disable type checking until the SDK fixes the issue
         //@ts-ignore-next-line
         size: size,
-        quality: imageQuality,
-        background: background,
+        quality: quality,
         n: 1,
       });
 
@@ -297,70 +305,16 @@ export const ImageEditTool = defineTool({
         );
       }
 
-      // Track generated files
-      const generatedFiles: string[] = [];
+      // Save edited images to the destination path
+      const generatedFiles = await saveImages(destinationPath, response.data);
 
-      // Process the edited images
-      for (let i = 0; i < response.data.length; i++) {
-        const image = response.data[i];
-        let currentDestination = destinationPath;
-
-        // Add a suffix for additional images
-        if (i > 0) {
-          const extName = path.extname(destinationPath);
-          const baseName = path.basename(destinationPath, extName);
-          const dirName = path.dirname(destinationPath);
-          currentDestination = path.join(dirName, `${baseName}_${i}${extName}`);
-        }
-
-        // Process base64 JSON data
-        if (image.b64_json) {
-          // Decode base64 data to Uint8Array
-          const binaryData = Uint8Array.from(
-            atob(image.b64_json),
-            (c) => c.charCodeAt(0),
-          );
-
-          // Write the data to the file
-          await Deno.writeFile(currentDestination, binaryData);
-
-          // Add to list of generated files
-          generatedFiles.push(currentDestination);
-        } else {
-          throw new Error("OpenAI returned an image without base64 JSON data.");
-        }
-      }
-
-      // Build success message including all generated files
-      const fileCount = generatedFiles.length;
-      const fileList = generatedFiles.map((file) => `- ${file}`).join("\n");
-
-      return `${fileCount} edited images successfully generated and saved to:\n${fileList}`;
+      // Return success message
+      return formatSuccessMessage(
+        generatedFiles,
+        "edited images successfully generated",
+      );
     } catch (error: unknown) {
-      // Handle OpenAI API specific errors
-      if (error instanceof APIError) {
-        switch (error.status) {
-          case 429:
-            return `OpenAI's servers are busy right now. Please wait a few minutes before trying again. (Error: ${error.message})`;
-          case 400:
-            return `OpenAI couldn't process your request. This might be because your description contains content they don't allow or there's an issue with the image format. Please try a different description or image. (Error: ${error.message})`;
-          case 401:
-            return `There's an issue with the OpenAI API key. Please check if your API key is set correctly in the environment variables. (Error: ${error.message})`;
-          default:
-            return `OpenAI encountered an error while processing your request. This is on their end - please try again in a few minutes. (Error: ${error.message})`;
-        }
-      }
-
-      // Handle other errors
-      return `Something went wrong while editing your image. Please try again. ${
-        formatError(error)
-      }`;
-    } finally {
-      // try {
-      //   fileStream?.close();
-      // } catch (error: unknown) {
-      //   console.log("Failed to close file stream", error);
-      // }
+      return handleImageToolError(error, "editing");
     }
   },
 });
