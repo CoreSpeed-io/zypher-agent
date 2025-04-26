@@ -71,10 +71,11 @@ const streamReconnectSchema = z.object({
 });
 
 export function createAgentRouter(agent: ZypherAgent): Hono {
+  let taskAbortController: AbortController | null = null;
+
   // Get agent messages
   agentRouter.get("/messages", (c) => {
-    const messages = agent.getMessages();
-    return c.json(messages);
+    return c.json(agent.messages);
   });
 
   // Clear agent messages
@@ -94,9 +95,17 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       );
     }
 
-    // Task is running, cancel it
-    agent.cancelTask("user");
+    if (!taskAbortController) {
+      throw new Error("Agent is running, but no abort controller found");
+    }
+
+    // Task is running, cancel it by aborting the controller
+    taskAbortController.abort();
+    taskAbortController = null;
     console.log("Task cancellation requested by user via API");
+
+    // TODO: abort signal does not guarantee the task will be cancelled immediately,
+    //       so we need to wait until the task is actually cancelled
 
     return c.json({
       success: true,
@@ -110,6 +119,8 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     imageAttachments: ZypherImageAttachment[],
     onEvent: (event: TaskEvent) => void,
   ): Promise<void> {
+    // Create a new abort controller for this task
+    taskAbortController = new AbortController();
     // Generate a unique task ID
     const taskId = `task_${Date.now()}`;
 
@@ -175,17 +186,14 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     };
 
     try {
-      const messages = await agent.runTaskWithStreaming(
+      await agent.runTaskWithStreaming(
         task,
         streamHandler,
         imageAttachments,
+        {
+          signal: taskAbortController.signal,
+        },
       );
-
-      // Empty messages array means task was cancelled
-      if (messages.length === 0 && agent.cancellationReason) {
-        // Cancellation was already handled by onCancelled
-        return;
-      }
 
       // Otherwise, task completed successfully
       const event = taskStreamManager.addEvent({
@@ -198,6 +206,8 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       // For any other errors, provide detailed error info for debugging
       console.error("Error running agent task:", formatError(error));
 
+      // TODO: handle TaskConcurrencyError with 409 status
+
       const event = taskStreamManager.addEvent({
         event: "error",
         data: {
@@ -207,6 +217,11 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
 
       // Use the event with eventId
       if (event) onEvent(event);
+    } finally {
+      // Task is done one way or another
+      taskStreamManager.endTask();
+      // Clear the abort controller
+      taskAbortController = null;
     }
   }
 
@@ -227,46 +242,11 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     const processedImages: ZypherImageAttachment[] = imageAttachments
       ? processImages(imageAttachments)
       : [];
-    // If the task is already running, return a 409 error
-    /**
-     * Sample response: {
-        "code": 409,
-        "type": "task_in_progress",
-        "message": "A task is already running"
-      }
-     */
-
-    if (!agent.checkAndSetTaskRunning()) {
-      return c.json({
-        code: 409,
-        type: "task_in_progress",
-        message: "A task is already running",
-      }, 409);
-    }
-
     return streamSSE(
       c,
       async (stream) => {
-        // Below contains a workaround to ensure the complete event is sent.
-        // This is needed because the connection might close before the complete event is sent.
-        // TODO: Find a better solution.
-        let taskCompleted = false;
-
-        // Handle SSE connection closure
-        c.req.raw.signal.addEventListener("abort", () => {
-          console.log("SSE connection aborted");
-          if (agent.isTaskRunning) {
-            console.log("Cancelling task due to SSE connection closure");
-            agent.cancelTask("user");
-          }
-        });
-
         // Pass event handlers during initialization
         await runAgentTask(task, processedImages, (event) => {
-          if (event.event === "complete" || event.event === "cancelled") {
-            taskCompleted = true;
-          }
-
           void stream.writeSSE({
             event: event.event,
             data: JSON.stringify(
@@ -276,23 +256,6 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
             ),
           });
         });
-
-        // If the complete event wasn't sent through the normal flow, send it now
-        if (!taskCompleted) {
-          // Create a complete event with ID through StreamRecovery
-          const event = taskStreamManager.addEvent({
-            event: "complete",
-            data: {},
-          });
-
-          void stream.writeSSE({
-            event: "complete",
-            data: JSON.stringify(event && event.data ? event.data : {}),
-          });
-        }
-
-        // Add a small delay to ensure the event is sent before the stream closes
-        await new Promise((resolve) => setTimeout(resolve, 100));
       },
     );
   });
@@ -315,44 +278,32 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       return streamSSE(
         c,
         async (stream) => {
-          let isAborted = false;
-
-          // Handle SSE connection closure
-          c.req.raw.signal.addEventListener("abort", () => {
-            console.log("SSE reconnection aborted");
-            isAborted = true;
-          });
-
           // Create a subscription that will continue until the task completes
           const subscription = taskStreamManager.getEventStream(lastEventId)
             .subscribe({
               next: (event) => {
-                if (!isAborted) {
-                  void stream.writeSSE({
-                    event: event.event,
-                    data: JSON.stringify(
-                      typeof event.data === "object" && event.data
-                        ? event.data
-                        : { value: event.data },
-                    ),
-                  });
-                }
+                void stream.writeSSE({
+                  event: event.event,
+                  data: JSON.stringify(
+                    typeof event.data === "object" && event.data
+                      ? event.data
+                      : { value: event.data },
+                  ),
+                });
               },
               error: (err) => {
                 console.error("Error in SSE stream:", err);
-                if (!isAborted) {
-                  // Log error event through StreamRecovery to get an eventId
-                  const errorEvent = taskStreamManager.addEvent({
-                    event: "error",
-                    data: { error: formatError(err) },
-                  });
+                // Log error event through StreamRecovery to get an eventId
+                const errorEvent = taskStreamManager.addEvent({
+                  event: "error",
+                  data: { error: formatError(err) },
+                });
 
-                  if (errorEvent && errorEvent.data) {
-                    void stream.writeSSE({
-                      event: "error",
-                      data: JSON.stringify(errorEvent.data),
-                    });
-                  }
+                if (errorEvent && errorEvent.data) {
+                  void stream.writeSSE({
+                    event: "error",
+                    data: JSON.stringify(errorEvent.data),
+                  });
                 }
               },
               complete: () => {
@@ -402,19 +353,6 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
             return;
           }
 
-          // If the task is already running, return a 409 error
-          if (!agent.checkAndSetTaskRunning()) {
-            ws.send(JSON.stringify({
-              event: "error",
-              data: {
-                code: 409,
-                type: "task_in_progress",
-                message: "A task is already running",
-              },
-            }));
-            return;
-          }
-
           const { task, imageAttachments } = result.data;
           const processedImages: ZypherImageAttachment[] = imageAttachments
             ? processImages(imageAttachments)
@@ -427,21 +365,8 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
             }
           });
         },
-        onClose() {
-          console.log("WebSocket connection closed");
-          // Cancel running task if WebSocket connection is closed
-          if (agent.isTaskRunning) {
-            console.log("Cancelling task due to WebSocket closure");
-            agent.cancelTask("user");
-          }
-        },
         onError(error) {
           console.error("WebSocket error:", error);
-          // Also cancel task on WebSocket error
-          if (agent.isTaskRunning) {
-            console.log("Cancelling task due to WebSocket error");
-            agent.cancelTask("user");
-          }
         },
       };
     }),
