@@ -12,6 +12,7 @@
     "@std/dotenv": "jsr:@std/dotenv@^0.225.3",
     "@std/cli": "jsr:@std/cli@^1.0.17",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
+    "@std/fs": "jsr:@std/fs@^1.0.17",
     "@std/path": "jsr:@std/path@^1.0.9",
     "@std/testing": "jsr:@std/testing@^1.0.11",
     "hono": "npm:hono@^4.7.7",

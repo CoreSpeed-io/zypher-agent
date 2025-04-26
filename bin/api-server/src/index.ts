@@ -10,6 +10,7 @@ import {
   EditFileTool,
   FileSearchTool,
   GrepSearchTool,
+  ImageEditTool,
   ImageGenTool,
   ListDirTool,
   ReadFileTool,
@@ -98,6 +99,7 @@ async function initializeAgent(): Promise<ZypherAgent> {
     mcpServerManager.registerTool(FileSearchTool);
     mcpServerManager.registerTool(DeleteFileTool);
     mcpServerManager.registerTool(ImageGenTool);
+    mcpServerManager.registerTool(ImageEditTool);
 
     console.log(
       "🔧 Registered tools:",
