@@ -5,6 +5,7 @@ export type TaskEvent = {
   event:
     | "content_delta"
     | "tool_use_delta"
+    | "tool_approval_pending"
     | "message"
     | "error"
     | "complete"

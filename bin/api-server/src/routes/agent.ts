@@ -74,23 +74,25 @@ const checkpointParamsSchema = z.object({
 const toolApproveSchema = z.object({
   approved: z.boolean(),
 });
-
-type TaskEvent = {
-  event:
-    | "content_delta"
-    | "tool_use_delta"
-    | "message"
-    | "error"
-    | "complete"
-    | "tool_approval_pending"
-    | "cancelled";
-  data: unknown;
-  reason?: "user" | "timeout";
-};
 // Add Zod schema for stream reconnection
 const streamReconnectSchema = z.object({
   lastEventId: z.string().optional(),
 });
+
+// Helper function to format event data as JSON string
+function formatEventData(event: TaskEvent): string {
+  const data = typeof event.data === "object" && event.data
+    ? { ...event.data }
+    : { value: event.data };
+
+  // @ts-ignore - Some events may include a reason field
+  if (event.reason) {
+    // @ts-ignore - Some events may include a reason field
+    return JSON.stringify({ ...data, reason: event.reason });
+  }
+
+  return JSON.stringify(data);
+}
 
 export function createAgentRouter(agent: ZypherAgent): Hono {
   // Get agent messages
@@ -167,9 +169,6 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
         // Use the event with eventId
         if (event) onEvent(event);
       },
-      onApprovalPending: (toolName) => {
-        onEvent({ event: "tool_approval_pending", data: { toolName } });
-      },
       onCancelled: (reason) => {
         // Create a user-friendly message based on the reason
         let message: string;
@@ -196,6 +195,19 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
         if (event) onEvent(event);
 
         console.log(`Task cancelled: ${message} (reason: ${reason})`);
+      },
+      onApprovalPending: (toolName) => {
+        // Create event through stream manager to ensure it gets an event ID
+        const event = taskStreamManager.addEvent({
+          event: "tool_approval_pending" as const,
+          data: { toolName, reconnectRequired: true },
+        });
+
+        // Use the event with eventId
+        if (event) onEvent(event);
+
+        // Since SSE and WebSocket have different handling mechanics,
+        // we'll implement disconnection differently in each handler
       },
     };
 
@@ -304,12 +316,23 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
 
           void stream.writeSSE({
             event: event.event,
-            data: JSON.stringify(
-              typeof event.data === "object" && event.data
-                ? { ...event.data }
-                : { value: event.data },
-            ),
+            data: formatEventData(event),
           });
+
+          // For tool_approval_pending events, forcibly close the SSE connection after sending
+          if (event.event === "tool_approval_pending") {
+            console.log(
+              "Tool approval pending, closing SSE connection intentionally.",
+            );
+            // This triggers the client's end event but doesn't cancel the task
+            setTimeout(() => {
+              try {
+                stream.close();
+              } catch (err) {
+                console.error("Error closing SSE stream:", err);
+              }
+            }, 100); // Allow some time for the event to be sent
+          }
         });
 
         // If the complete event wasn't sent through the normal flow, send it now
@@ -320,10 +343,12 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
             data: {},
           });
 
-          void stream.writeSSE({
-            event: "complete",
-            data: JSON.stringify(event && event.data ? event.data : {}),
-          });
+          if (event) {
+            void stream.writeSSE({
+              event: "complete",
+              data: formatEventData(event),
+            });
+          }
         }
 
         // Add a small delay to ensure the event is sent before the stream closes
@@ -361,19 +386,15 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           // Create a subscription that will continue until the task completes
           const subscription = taskStreamManager.getEventStream(lastEventId)
             .subscribe({
-              next: (event) => {
+              next: (event: TaskEvent) => {
                 if (!isAborted) {
                   void stream.writeSSE({
                     event: event.event,
-                    data: JSON.stringify(
-                      typeof event.data === "object" && event.data
-                        ? event.data
-                        : { value: event.data },
-                    ),
+                    data: formatEventData(event),
                   });
                 }
               },
-              error: (err) => {
+              error: (err: Error) => {
                 console.error("Error in SSE stream:", err);
                 if (!isAborted) {
                   // Log error event through StreamRecovery to get an eventId
@@ -385,7 +406,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
                   if (errorEvent && errorEvent.data) {
                     void stream.writeSSE({
                       event: "error",
-                      data: JSON.stringify(errorEvent.data),
+                      data: formatEventData(errorEvent),
                     });
                   }
                 }
@@ -458,7 +479,25 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           runAgentTask(task, processedImages, (event) => {
             // Only send if the WebSocket is still open
             if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(event));
+              ws.send(JSON.stringify({
+                event: event.event,
+                data: JSON.parse(formatEventData(event)),
+              }));
+
+              // For tool_approval_pending events, close the WebSocket connection after sending
+              if (event.event === "tool_approval_pending") {
+                console.log(
+                  "Tool approval pending, closing WebSocket connection intentionally.",
+                );
+                // Allow some time for the event to be sent, then close
+                setTimeout(() => {
+                  try {
+                    ws.close();
+                  } catch (err) {
+                    console.error("Error closing WebSocket:", err);
+                  }
+                }, 100);
+              }
             }
           });
         },
@@ -532,8 +571,20 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           "No tool approval pending",
         );
       }
+      // Log user decision - frontend can use this decision to reconnect
+      console.log(
+        `Tool approval decision received: ${
+          approved ? "approved" : "rejected"
+        }`,
+      );
       resolveToolApproval(approved);
-      return c.json({ success: true });
+      return c.json({
+        success: true,
+        approved,
+        message: `Tool ${
+          approved ? "approved" : "rejected"
+        }. Please reconnect to continue receiving events.`,
+      });
     },
   );
 
