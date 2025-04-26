@@ -55,6 +55,12 @@ export interface StreamHandler {
   onToolUse?: (name: string, partialInput: string) => void;
 
   /**
+   * Called *before* the agent pauses to wait for tool approval.
+   * @param toolName The name of the tool requiring approval.
+   */
+  onApprovalPending?: (toolName: string) => void;
+
+  /**
    * Called when a task is cancelled
    * @param reason The reason for cancellation
    */
@@ -329,6 +335,11 @@ export class ZypherAgent {
     const tool = await this.mcpServerManager.getTool(toolCall.name);
     if (!tool) {
       return `Error: Tool '${toolCall.name}' not found`;
+    }
+
+    // Signal that we are about to wait for approval
+    if (this._currentStreamHandler?.onApprovalPending) {
+      this._currentStreamHandler.onApprovalPending(tool.name);
     }
 
     const approved = await this.handleToolApproval();

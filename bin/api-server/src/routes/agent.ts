@@ -11,6 +11,11 @@ import {
 } from "../../../../src/ZypherAgent.ts";
 import { formatError } from "../../../../src/utils/index.ts";
 import { ApiError } from "../error.ts";
+import {
+  hasPendingToolApproval,
+  isWaitingForToolApproval,
+  resolveToolApproval,
+} from "../toolApproval.ts";
 
 const agentRouter = new Hono();
 
@@ -61,6 +66,11 @@ const checkpointParamsSchema = z.object({
   checkpointId: z.string().min(1, "Checkpoint ID cannot be empty"),
 });
 
+// Schema for tool approval
+const toolApproveSchema = z.object({
+  approved: z.boolean(),
+});
+
 type TaskEvent = {
   event:
     | "content_delta"
@@ -68,6 +78,7 @@ type TaskEvent = {
     | "message"
     | "error"
     | "complete"
+    | "tool_approval_pending"
     | "cancelled";
   data: unknown;
   reason?: "user" | "timeout";
@@ -123,6 +134,9 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       },
       onMessage: (message) => {
         onEvent({ event: "message", data: message });
+      },
+      onApprovalPending: (toolName) => {
+        onEvent({ event: "tool_approval_pending", data: { toolName } });
       },
       onCancelled: (reason) => {
         // Create a user-friendly message based on the reason
@@ -206,6 +220,16 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
         // Handle SSE connection closure
         c.req.raw.signal.addEventListener("abort", () => {
           console.log("SSE connection aborted");
+
+          // If waiting for approval, don't cancel the task, just log
+          if (isWaitingForToolApproval()) {
+            console.log(
+              "SSE connection closed while waiting for tool approval. Task remains active.",
+            );
+            return; // Exit early
+          }
+
+          // Otherwise, cancel if a task is running
           if (agent.isTaskRunning) {
             console.log("Cancelling task due to SSE connection closure");
             agent.cancelTask("user");
@@ -274,7 +298,16 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
         },
         onClose() {
           console.log("WebSocket connection closed");
-          // Cancel running task if WebSocket connection is closed
+
+          // If waiting for approval, don't cancel the task, just log
+          if (isWaitingForToolApproval()) {
+            console.log(
+              "WS connection closed while waiting for tool approval. Task remains active.",
+            );
+            return; // Exit early
+          }
+
+          // Otherwise, cancel if a task is running
           if (agent.isTaskRunning) {
             console.log("Cancelling task due to WebSocket closure");
             agent.cancelTask("user");
@@ -282,7 +315,16 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
         },
         onError(error) {
           console.error("WebSocket error:", error);
-          // Also cancel task on WebSocket error
+
+          // If waiting for approval, don't cancel the task, just log
+          if (isWaitingForToolApproval()) {
+            console.log(
+              "WS error occurred while waiting for tool approval. Task remains active.",
+            );
+            return; // Exit early
+          }
+
+          // Otherwise, cancel if a task is running
           if (agent.isTaskRunning) {
             console.log("Cancelling task due to WebSocket error");
             agent.cancelTask("user");
@@ -308,6 +350,24 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       // Use the agent's applyCheckpoint method to update both filesystem and message history
       await agent.applyCheckpoint(checkpointId);
       return c.json({ success: true, id: checkpointId });
+    },
+  );
+
+  // Approve or reject a pending tool call via API
+  agentRouter.post(
+    "/tool-approve",
+    zValidator("json", toolApproveSchema),
+    (c) => {
+      const { approved } = c.req.valid("json");
+      if (!hasPendingToolApproval()) {
+        throw new ApiError(
+          400,
+          "no_tool_approval_pending",
+          "No tool approval pending",
+        );
+      }
+      resolveToolApproval(approved);
+      return c.json({ success: true });
     },
   );
 
