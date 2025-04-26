@@ -78,4 +78,4 @@ export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
 export { GrepSearchTool } from "./GrepSearchTool.ts";
 export { FileSearchTool } from "./FileSearchTool.ts";
 export { DeleteFileTool } from "./DeleteFileTool.ts";
-export { ImageGenTool } from "./ImageGenTool.ts";
+export { ImageEditTool, ImageGenTool } from "./ImageTool.ts";
