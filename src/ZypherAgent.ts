@@ -5,8 +5,10 @@
 // To provide a better experience (faster responses from the Anthropic API), we MUST use the global fetch for HTTP/2.
 import "@anthropic-ai/sdk/shims/web";
 import {
+  AbortError,
   formatError,
   getCurrentUserInfo,
+  isAbortError,
   loadMessageHistory,
   saveMessageHistory,
 } from "./utils/index.ts";
@@ -110,7 +112,6 @@ export class ZypherAgent {
 
   // Task execution state
   #isTaskRunning: boolean = false;
-  #currentStreamHandler: StreamHandler | undefined;
 
   constructor(
     config: ZypherAgentConfig = {},
@@ -242,24 +243,18 @@ export class ZypherAgent {
   async #executeToolCall(toolCall: {
     name: string;
     parameters: Record<string, unknown>;
+    options: { signal?: AbortSignal };
   }): Promise<string> {
-    // Check if task has been cancelled
-    if (!this.#isTaskRunning) {
-      return "Task was cancelled";
-    }
-
     const tool = this.#mcpServerManager.getTool(toolCall.name);
     if (!tool) {
       return `Error: Tool '${toolCall.name}' not found`;
     }
 
     try {
+      // TODO: support abort signal in tool execution
       return await tool.execute(toolCall.parameters);
     } catch (error) {
-      if (error instanceof Error) {
-        return `Error executing tool '${toolCall.name}': ${error.message}`;
-      }
-      return `Error executing tool '${toolCall.name}': Unknown error`;
+      return `Error executing tool '${toolCall.name}': ${formatError(error)}`;
     }
   }
 
@@ -360,7 +355,7 @@ export class ZypherAgent {
     streamHandler?: StreamHandler,
     imageAttachments?: ImageAttachment[],
     options?: {
-      maxIterations: number;
+      maxIterations?: number;
       signal?: AbortSignal;
     },
   ): Promise<Message[]> {
@@ -373,32 +368,22 @@ export class ZypherAgent {
     }
 
     const timeoutController = new AbortController();
-    this.#currentStreamHandler = streamHandler;
 
     // Create a composite signal that aborts if either the caller's signal or our timeout signal aborts
     const signal = options?.signal
       ? AbortSignal.any([options.signal, timeoutController.signal])
       : timeoutController.signal;
 
-    // Set up listener for the caller's abort signal if provided
-    if (options?.signal) {
-      options.signal.addEventListener("abort", () => {
-        // User-initiated cancellation through the provided signal
-        console.log(`🛑 Task cancelled (reason: user)`);
-        // Our composite signal will take care of aborting the internal controller
-      }, { once: true });
-    }
-
     // Set up task timeout if enabled
     let timeoutId: number | null = null;
     if (this.#taskTimeoutMs > 0) {
-      timeoutId = setTimeout(() => {
-        console.log(`🕒 Task timed out after ${this.#taskTimeoutMs}ms`);
-        if (this.#isTaskRunning) {
-          console.log(`🛑 Task cancelled (reason: timeout)`);
+      timeoutId = setTimeout(
+        () => {
+          console.log(`🕒 Task timed out after ${this.#taskTimeoutMs}ms`);
           timeoutController.abort();
-        }
-      }, this.#taskTimeoutMs);
+        },
+        this.#taskTimeoutMs,
+      );
     }
 
     try {
@@ -462,12 +447,11 @@ export class ZypherAgent {
         }),
       );
 
-      while (iterations < maxIterations && this.#isTaskRunning) {
-        // Check for cancellation
-        if (!this.#isTaskRunning) {
-          return this.#messages;
+      while (iterations < maxIterations) {
+        // Check for abort signal early
+        if (signal.aborted) {
+          throw new AbortError("Task aborted");
         }
-
         let isFirstChunk = true;
         let currentToolName: string | null = null;
 
@@ -513,118 +497,89 @@ export class ZypherAgent {
             }
           });
 
-        try {
-          // Check if the task was cancelled during stream setup
-          if (!this.#isTaskRunning) {
-            return this.#messages;
+        // Wait for the final message
+        const finalMessage = await stream.finalMessage();
+
+        // Create the assistant message using the complete content from finalMessage
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: finalMessage.content,
+          timestamp: new Date(),
+        };
+        this.#messages.push(assistantMessage);
+        streamHandler?.onMessage?.(assistantMessage);
+
+        // Check for cancellation
+        if (signal.aborted) {
+          throw new AbortError("Task aborted");
+        }
+
+        // Process tool calls if any
+        if (finalMessage.stop_reason === "tool_use") {
+          // Execute tool calls
+          for (const block of finalMessage.content) {
+            if (block.type === "tool_use") {
+              const result = await this.#executeToolCall({
+                name: block.name,
+                parameters: block.input as Record<string, unknown>,
+                options: { signal },
+              });
+
+              // Add tool response
+              const toolMessage: Message = {
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: block.id,
+                    content: result,
+                  } as Anthropic.ToolResultBlockParam,
+                ],
+                timestamp: new Date(),
+              };
+              this.#messages.push(toolMessage);
+              streamHandler?.onMessage?.(toolMessage);
+            }
           }
-
-          // Wait for the final message
-          const finalMessage = await stream.finalMessage();
-
-          // Create the assistant message using the complete content from finalMessage
-          const assistantMessage: Message = {
-            role: "assistant",
-            content: finalMessage.content,
+        } else if (finalMessage.stop_reason === "max_tokens") {
+          // auto continue
+          const continueMessage: Message = {
+            role: "user",
+            content: "Continue",
             timestamp: new Date(),
           };
-          this.#messages.push(assistantMessage);
-          streamHandler?.onMessage?.(assistantMessage);
+          this.#messages.push(continueMessage);
+          streamHandler?.onMessage?.(continueMessage);
+        } else {
+          // Check for code errors if enabled and this is the end of the conversation
+          if (this.#autoErrorCheck) {
+            const errors = await detectErrors({ signal });
+            if (errors) {
+              console.log(
+                "\n🔍 Detected code errors. Asking the agent to fix them...",
+              );
 
-          // Process tool calls if any
-          if (finalMessage.stop_reason === "tool_use") {
-            // Execute tool calls
-            for (const block of finalMessage.content) {
-              // Check for cancellation before processing each tool call
-              if (!this.#isTaskRunning) {
-                return this.#messages;
-              }
+              // Add errors as a user message
+              const errorMessage: Message = {
+                role: "user",
+                content:
+                  `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
+                timestamp: new Date(),
+              };
+              this.#messages.push(errorMessage);
+              streamHandler?.onMessage?.(errorMessage);
 
-              if (block.type === "tool_use") {
-                const result = await this.#executeToolCall({
-                  name: block.name,
-                  parameters: block.input as Record<string, unknown>,
-                });
-
-                // Add tool response
-                const toolMessage: Message = {
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: block.id,
-                      content: result,
-                    } as Anthropic.ToolResultBlockParam,
-                  ],
-                  timestamp: new Date(),
-                };
-                this.#messages.push(toolMessage);
-                streamHandler?.onMessage?.(toolMessage);
-              }
+              // Continue the loop to let the agent fix the errors
+              iterations++;
+              continue;
             }
-          } else if (finalMessage.stop_reason === "max_tokens") {
-            // auto continue
-            const continueMessage: Message = {
-              role: "user",
-              content: "Continue",
-              timestamp: new Date(),
-            };
-            this.#messages.push(continueMessage);
-            streamHandler?.onMessage?.(continueMessage);
-          } else {
-            // Check for code errors if enabled and this is the end of the conversation
-            if (this.#autoErrorCheck) {
-              // Check for cancellation before error detection
-              if (!this.#isTaskRunning) {
-                return this.#messages;
-              }
-
-              const errors = await detectErrors();
-              if (errors) {
-                console.log(
-                  "\n🔍 Detected code errors. Asking the agent to fix them...",
-                );
-
-                // Add errors as a user message
-                const errorMessage: Message = {
-                  role: "user",
-                  content:
-                    `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
-                  timestamp: new Date(),
-                };
-                this.#messages.push(errorMessage);
-                streamHandler?.onMessage?.(errorMessage);
-
-                // Continue the loop to let the agent fix the errors
-                iterations++;
-                continue;
-              }
-            }
-
-            // No errors or error check disabled, exit the loop
-            break;
-          }
-        } catch (error) {
-          // If the task was cancelled (aborted), just return
-          if (
-            (error instanceof Error &&
-              (error.name === "AbortError" ||
-                error.message.includes("aborted") ||
-                error.message.includes("abort")))
-          ) {
-            return this.#messages;
           }
 
-          // For other errors, rethrow
-          throw error;
+          // No errors or error check disabled, exit the loop
+          break;
         }
 
         iterations++;
-      }
-
-      // If we've been cancelled during processing, return empty array
-      if (!this.#isTaskRunning) {
-        return this.#messages;
       }
 
       // Save updated message history if enabled
@@ -633,10 +588,24 @@ export class ZypherAgent {
       }
 
       return this.messages;
+    } catch (error) {
+      if (isAbortError(error)) {
+        console.log(formatError(error));
+        console.log("🛑 Task aborted.");
+
+        if (this.#persistHistory) {
+          await saveMessageHistory(this.#messages);
+        }
+
+        return this.messages;
+      }
+
+      console.error(formatError(error));
+
+      throw error;
     } finally {
       // Clean up resources
       this.#isTaskRunning = false;
-      this.#currentStreamHandler = undefined;
 
       // Clear task timeout if it exists
       if (timeoutId !== null) {
