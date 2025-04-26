@@ -159,7 +159,7 @@ export const ImageGenTool = defineTool({
         "Your description is too short. Please provide more details about the image you want.",
       )
       .max(
-        2000,
+        32000,
         "Your description is too long. Please keep it under 2000 characters.",
       )
       .describe("Natural language description for image generation"),
