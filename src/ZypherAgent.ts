@@ -8,7 +8,6 @@ import {
   formatError,
   getCurrentUserInfo,
   loadMessageHistory,
-  printMessage,
   saveMessageHistory,
 } from "./utils/index.ts";
 import { detectErrors } from "./errorDetection/index.ts";
@@ -35,11 +34,7 @@ export class TaskConcurrencyError extends Error {
 
 const DEFAULT_MODEL = "claude-3-7-sonnet-20250219";
 const DEFAULT_MAX_TOKENS = 8192;
-
-/**
- * Handler for receiving complete messages
- */
-export type MessageHandler = (message: Message) => void;
+const DEFAULT_MAX_ITERATIONS = 25;
 
 /**
  * Handler for streaming content and events
@@ -244,28 +239,6 @@ export class ZypherAgent {
     }
   }
 
-  /**
-   * Process a message by adding it to the messages array and notifying handlers
-   * @param message The message to process
-   * @param messages The messages array to add to
-   * @param messageHandler Optional message handler to notify
-   */
-  #processMessage(
-    message: Message,
-    messages: Message[],
-    messageHandler?: MessageHandler,
-  ): void {
-    // Add message to the array
-    messages.push(message);
-
-    // Notify message handler or print to console
-    if (messageHandler) {
-      messageHandler(message);
-    } else {
-      printMessage(message);
-    }
-  }
-
   async #executeToolCall(toolCall: {
     name: string;
     parameters: Record<string, unknown>;
@@ -387,12 +360,12 @@ export class ZypherAgent {
     streamHandler?: StreamHandler,
     imageAttachments?: ImageAttachment[],
     options?: {
-      maxIterations?: number;
+      maxIterations: number;
       signal?: AbortSignal;
     },
   ): Promise<Message[]> {
     // Use default maxIterations if not provided
-    const maxIterations = options?.maxIterations ?? 25;
+    const maxIterations = options?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     if (!this.#checkAndSetTaskRunning()) {
       throw new TaskConcurrencyError(
         "Cannot run multiple tasks concurrently. A task is already running.",
@@ -471,11 +444,8 @@ export class ZypherAgent {
         checkpoint,
         timestamp: new Date(), // current timestamp
       };
-      this.#processMessage(
-        userMessage,
-        this.#messages,
-        streamHandler?.onMessage,
-      );
+      this.#messages.push(userMessage);
+      streamHandler?.onMessage?.(userMessage);
 
       const toolCalls = Array.from(
         this.#mcpServerManager.getAllTools().values(),
@@ -558,11 +528,8 @@ export class ZypherAgent {
             content: finalMessage.content,
             timestamp: new Date(),
           };
-          this.#processMessage(
-            assistantMessage,
-            this.#messages,
-            streamHandler?.onMessage,
-          );
+          this.#messages.push(assistantMessage);
+          streamHandler?.onMessage?.(assistantMessage);
 
           // Process tool calls if any
           if (finalMessage.stop_reason === "tool_use") {
@@ -591,11 +558,8 @@ export class ZypherAgent {
                   ],
                   timestamp: new Date(),
                 };
-                this.#processMessage(
-                  toolMessage,
-                  this.#messages,
-                  streamHandler?.onMessage,
-                );
+                this.#messages.push(toolMessage);
+                streamHandler?.onMessage?.(toolMessage);
               }
             }
           } else if (finalMessage.stop_reason === "max_tokens") {
@@ -605,11 +569,8 @@ export class ZypherAgent {
               content: "Continue",
               timestamp: new Date(),
             };
-            this.#processMessage(
-              continueMessage,
-              this.#messages,
-              streamHandler?.onMessage,
-            );
+            this.#messages.push(continueMessage);
+            streamHandler?.onMessage?.(continueMessage);
           } else {
             // Check for code errors if enabled and this is the end of the conversation
             if (this.#autoErrorCheck) {
@@ -631,11 +592,8 @@ export class ZypherAgent {
                     `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
                   timestamp: new Date(),
                 };
-                this.#processMessage(
-                  errorMessage,
-                  this.#messages,
-                  streamHandler?.onMessage,
-                );
+                this.#messages.push(errorMessage);
+                streamHandler?.onMessage?.(errorMessage);
 
                 // Continue the loop to let the agent fix the errors
                 iterations++;
