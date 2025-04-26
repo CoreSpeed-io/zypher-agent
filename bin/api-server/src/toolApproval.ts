@@ -29,6 +29,30 @@ export function resolveToolApproval(approved: boolean): void {
 }
 
 /**
+ * Cancel any pending approval and reset the state
+ * Call this when connections are closed unexpectedly
+ * @returns true if there was a pending approval that was cancelled, false otherwise
+ */
+export function cancelPendingApproval(): boolean {
+  const wasPending = _isWaiting;
+
+  // If there's a pending approval, resolve it with false (reject)
+  if (pendingApprovalRequest) {
+    pendingApprovalRequest(false);
+    pendingApprovalRequest = null;
+  }
+
+  // Reset the waiting flag
+  _isWaiting = false;
+
+  if (wasPending) {
+    console.log("Cancelled pending tool approval due to connection issues");
+  }
+
+  return wasPending;
+}
+
+/**
  * Check if a tool approval is currently pending
  */
 export function isWaitingForToolApproval(): boolean {
