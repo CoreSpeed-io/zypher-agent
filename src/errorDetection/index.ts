@@ -8,6 +8,7 @@ import {
   PythonMypyErrorDetector,
 } from "./python.ts";
 import { GoLintErrorDetector, GoVetErrorDetector } from "./go.ts";
+import { AbortError } from "../utils/error.ts";
 
 // Export all interfaces and types
 export * from "./interface.ts";
@@ -39,12 +40,18 @@ const errorDetectors: ErrorDetector[] = [
  *
  * @returns {Promise<string | null>} Combined error messages if errors are found, null otherwise
  */
-export async function detectErrors(): Promise<string | null> {
+export async function detectErrors(
+  options: { signal?: AbortSignal },
+): Promise<string | null> {
   try {
     const applicableDetectors = [];
 
     // Find applicable detectors
     for (const detector of errorDetectors) {
+      if (options.signal?.aborted) {
+        throw new AbortError("Aborted while checking detectors");
+      }
+
       try {
         if (await detector.isApplicable()) {
           applicableDetectors.push(detector);
@@ -65,6 +72,10 @@ export async function detectErrors(): Promise<string | null> {
     const errorMessages = [];
 
     for (const detector of applicableDetectors) {
+      if (options.signal?.aborted) {
+        throw new AbortError("Aborted while running detectors");
+      }
+
       try {
         const result = await detector.detect();
         if (result) {
