@@ -100,6 +100,7 @@ export class ZypherAgent {
   private readonly _model: string;
   private readonly mcpServerManager: McpServerManager;
   private readonly _taskTimeoutMs: number;
+  private readonly handleToolApproval: () => Promise<boolean>;
 
   // Task execution state
   private _isTaskRunning = false;
@@ -111,6 +112,7 @@ export class ZypherAgent {
   constructor(
     config: ZypherAgentConfig = {},
     mcpServerManager: McpServerManager,
+    handleToolApproval: () => Promise<boolean>,
   ) {
     const apiKey = config.anthropicApiKey ?? Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
@@ -137,6 +139,7 @@ export class ZypherAgent {
     this.mcpServerManager = mcpServerManager;
     // Default timeout is 5 minutes, 0 = disabled
     this._taskTimeoutMs = config.taskTimeoutMs ?? 300000;
+    this.handleToolApproval = handleToolApproval;
   }
 
   async init(): Promise<void> {
@@ -323,9 +326,19 @@ export class ZypherAgent {
       return "Task was cancelled";
     }
 
-    const tool = this.mcpServerManager.getTool(toolCall.name);
+    const tool = await this.mcpServerManager.getTool(toolCall.name);
     if (!tool) {
       return `Error: Tool '${toolCall.name}' not found`;
+    }
+
+    const approved = await this.handleToolApproval();
+    console.log(`Tool call approved: ${approved}`);
+    if (!approved) {
+      return "Tool call rejected by user";
+    }
+
+    if (tool.name === "run_terminal_cmd") {
+      toolCall.parameters.requireUserApproval = false;
     }
 
     try {
