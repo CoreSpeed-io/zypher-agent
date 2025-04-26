@@ -11,8 +11,12 @@ import {
 } from "../../../../src/ZypherAgent.ts";
 import { formatError } from "../../../../src/utils/index.ts";
 import { ApiError } from "../error.ts";
+import type { TaskEvent } from "../types/events.ts";
+import { TaskStreamManager } from "../utils/StreamRecovery.ts";
 
 const agentRouter = new Hono();
+// Create an instance of TaskStreamManager
+const taskStreamManager = new TaskStreamManager();
 
 // Zod Schemas
 // Define supported image MIME types with more precise validation
@@ -61,17 +65,10 @@ const checkpointParamsSchema = z.object({
   checkpointId: z.string().min(1, "Checkpoint ID cannot be empty"),
 });
 
-type TaskEvent = {
-  event:
-    | "content_delta"
-    | "tool_use_delta"
-    | "message"
-    | "error"
-    | "complete"
-    | "cancelled";
-  data: unknown;
-  reason?: "user" | "timeout";
-};
+// Add Zod schema for stream reconnection
+const streamReconnectSchema = z.object({
+  lastEventId: z.string().optional(),
+});
 
 export function createAgentRouter(agent: ZypherAgent): Hono {
   // Get agent messages
@@ -113,16 +110,40 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     imageAttachments: ZypherImageAttachment[],
     onEvent: (event: TaskEvent) => void,
   ): Promise<void> {
+    // Generate a unique task ID
+    const taskId = `task_${Date.now()}`;
+
+    // Start tracking this task in the stream manager
+    taskStreamManager.startTask(taskId);
+
     // Set up streaming handler for the agent
     const streamHandler: StreamHandler = {
       onContent: (content, _isFirstChunk) => {
-        onEvent({ event: "content_delta", data: { content } });
+        // Create basic event and send to StreamRecovery to add eventId
+        const event = taskStreamManager.addEvent({
+          event: "content_delta",
+          data: { content },
+        });
+        // Use the event with eventId
+        if (event) onEvent(event);
       },
       onToolUse: (name, partialInput) => {
-        onEvent({ event: "tool_use_delta", data: { name, partialInput } });
+        // Create basic event and send to StreamRecovery to add eventId
+        const event = taskStreamManager.addEvent({
+          event: "tool_use_delta",
+          data: { name, partialInput },
+        });
+        // Use the event with eventId
+        if (event) onEvent(event);
       },
       onMessage: (message) => {
-        onEvent({ event: "message", data: message });
+        // Create basic event and send to StreamRecovery to add eventId
+        const event = taskStreamManager.addEvent({
+          event: "message",
+          data: message,
+        });
+        // Use the event with eventId
+        if (event) onEvent(event);
       },
       onCancelled: (reason) => {
         // Create a user-friendly message based on the reason
@@ -140,10 +161,14 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
             message = "Task was cancelled";
         }
 
-        onEvent({
+        // Create basic event and send to StreamRecovery to add eventId
+        const event = taskStreamManager.addEvent({
           event: "cancelled",
           data: { message, reason },
         });
+
+        // Use the event with eventId
+        if (event) onEvent(event);
 
         console.log(`Task cancelled: ${message} (reason: ${reason})`);
       },
@@ -163,17 +188,25 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       }
 
       // Otherwise, task completed successfully
-      onEvent({ event: "complete", data: {} });
+      const event = taskStreamManager.addEvent({
+        event: "complete",
+        data: {},
+      });
+      // Use the event with eventId
+      if (event) onEvent(event);
     } catch (error) {
       // For any other errors, provide detailed error info for debugging
       console.error("Error running agent task:", formatError(error));
 
-      onEvent({
+      const event = taskStreamManager.addEvent({
         event: "error",
         data: {
           error: formatError(error),
         },
       });
+
+      // Use the event with eventId
+      if (event) onEvent(event);
     }
   }
 
@@ -194,6 +227,22 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     const processedImages: ZypherImageAttachment[] = imageAttachments
       ? processImages(imageAttachments)
       : [];
+    // If the task is already running, return a 409 error
+    /**
+     * Sample response: {
+        "code": 409,
+        "type": "task_in_progress",
+        "message": "A task is already running"
+      }
+     */
+
+    if (!agent.checkAndSetTaskRunning()) {
+      return c.json({
+        code: 409,
+        type: "task_in_progress",
+        message: "A task is already running",
+      }, 409);
+    }
 
     return streamSSE(
       c,
@@ -217,21 +266,28 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           if (event.event === "complete" || event.event === "cancelled") {
             taskCompleted = true;
           }
+
           void stream.writeSSE({
             event: event.event,
             data: JSON.stringify(
-              typeof event.data === "object"
-                ? { ...event.data, reason: event.reason }
-                : { value: event.data, reason: event.reason },
+              typeof event.data === "object" && event.data
+                ? { ...event.data }
+                : { value: event.data },
             ),
           });
         });
 
         // If the complete event wasn't sent through the normal flow, send it now
         if (!taskCompleted) {
+          // Create a complete event with ID through StreamRecovery
+          const event = taskStreamManager.addEvent({
+            event: "complete",
+            data: {},
+          });
+
           void stream.writeSSE({
             event: "complete",
-            data: JSON.stringify({}),
+            data: JSON.stringify(event && event.data ? event.data : {}),
           });
         }
 
@@ -240,6 +296,92 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       },
     );
   });
+
+  // Add a new GET endpoint for stream reconnection
+  agentRouter.get(
+    "/task/sse",
+    zValidator("query", streamReconnectSchema),
+    (c) => {
+      // First try to get lastEventId from standard Last-Event-ID header, then fallback to query param
+      const headerLastEventId = c.req.header("Last-Event-ID");
+      const queryLastEventId = c.req.valid("query").lastEventId;
+      const lastEventId = headerLastEventId || queryLastEventId;
+
+      // If no event stream is available, return 204 No Content
+      if (!taskStreamManager.hasEventStream()) {
+        return c.body(null, 204);
+      }
+
+      return streamSSE(
+        c,
+        async (stream) => {
+          let isAborted = false;
+
+          // Handle SSE connection closure
+          c.req.raw.signal.addEventListener("abort", () => {
+            console.log("SSE reconnection aborted");
+            isAborted = true;
+          });
+
+          // Create a subscription that will continue until the task completes
+          const subscription = taskStreamManager.getEventStream(lastEventId)
+            .subscribe({
+              next: (event) => {
+                if (!isAborted) {
+                  void stream.writeSSE({
+                    event: event.event,
+                    data: JSON.stringify(
+                      typeof event.data === "object" && event.data
+                        ? event.data
+                        : { value: event.data },
+                    ),
+                  });
+                }
+              },
+              error: (err) => {
+                console.error("Error in SSE stream:", err);
+                if (!isAborted) {
+                  // Log error event through StreamRecovery to get an eventId
+                  const errorEvent = taskStreamManager.addEvent({
+                    event: "error",
+                    data: { error: formatError(err) },
+                  });
+
+                  if (errorEvent && errorEvent.data) {
+                    void stream.writeSSE({
+                      event: "error",
+                      data: JSON.stringify(errorEvent.data),
+                    });
+                  }
+                }
+              },
+              complete: () => {
+                console.log("Task stream completed");
+              },
+            });
+
+          // Keep the stream open until the task completes
+          await new Promise<void>((resolve) => {
+            // Timer to check if the task stream has ended
+            const checkInterval = setInterval(() => {
+              if (!taskStreamManager.hasEventStream()) {
+                clearInterval(checkInterval);
+                subscription.unsubscribe();
+                resolve();
+              }
+            }, 1000);
+
+            // Clean up resources when connection closes
+            c.req.raw.signal.addEventListener("abort", () => {
+              clearInterval(checkInterval);
+              subscription.unsubscribe();
+              resolve();
+            });
+          });
+        },
+      );
+    },
+  );
 
   // Run a task (websocket)
   agentRouter.get(
@@ -255,6 +397,19 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
               data: {
                 error: "Invalid request format",
                 details: result.error.format(),
+              },
+            }));
+            return;
+          }
+
+          // If the task is already running, return a 409 error
+          if (!agent.checkAndSetTaskRunning()) {
+            ws.send(JSON.stringify({
+              event: "error",
+              data: {
+                code: 409,
+                type: "task_in_progress",
+                message: "A task is already running",
               },
             }));
             return;
