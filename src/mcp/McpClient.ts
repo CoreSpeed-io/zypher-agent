@@ -16,7 +16,7 @@
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { createTool, type Tool } from "../tools/index.ts";
+import { createTool, type Tool } from "../tools/mod.ts";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { z } from "zod";
 import type { IMcpServerConfig } from "./types.ts";

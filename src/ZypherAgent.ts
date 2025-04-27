@@ -5,13 +5,14 @@
 // To provide a better experience (faster responses from the Anthropic API), we MUST use the global fetch for HTTP/2.
 import "@anthropic-ai/sdk/shims/web";
 import {
+  AbortError,
   formatError,
   getCurrentUserInfo,
+  isAbortError,
   loadMessageHistory,
-  printMessage,
   saveMessageHistory,
-} from "./utils/index.ts";
-import { detectErrors } from "./errorDetection/index.ts";
+} from "./utils/mod.ts";
+import { detectErrors } from "./errorDetection/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
 import {
   applyCheckpoint,
@@ -27,13 +28,20 @@ import { McpServerManager } from "./mcp/McpServerManager.ts";
 import { Anthropic } from "@anthropic-ai/sdk";
 import type { StorageService } from "./storage/StorageService.ts";
 
+/**
+ * Custom error class for task concurrency issues
+ * Thrown when attempting to run a new task while another task is already running
+ */
+export class TaskConcurrencyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TaskConcurrencyError";
+  }
+}
+
 const DEFAULT_MODEL = "claude-3-7-sonnet-20250219";
 const DEFAULT_MAX_TOKENS = 8192;
-
-/**
- * Handler for receiving complete messages
- */
-export type MessageHandler = (message: Message) => void;
+const DEFAULT_MAX_ITERATIONS = 25;
 
 /**
  * Handler for streaming content and events
@@ -100,25 +108,22 @@ export interface ZypherAgentConfig {
 }
 
 export class ZypherAgent {
-  private readonly client: Anthropic;
-  private system: Anthropic.TextBlockParam[];
-  private readonly maxTokens: number;
-  private _messages: Message[];
-  private readonly persistHistory: boolean;
-  private readonly autoErrorCheck: boolean;
-  private readonly enablePromptCaching: boolean;
-  private readonly userId?: string;
-  private readonly _model: string;
-  private readonly mcpServerManager: McpServerManager;
-  private readonly _taskTimeoutMs: number;
-  private readonly storageService?: StorageService;
+  readonly #client: Anthropic;
+  readonly #maxTokens: number;
+  readonly #persistHistory: boolean;
+  readonly #autoErrorCheck: boolean;
+  readonly #enablePromptCaching: boolean;
+  readonly #userId?: string;
+  readonly #model: string;
+  readonly #mcpServerManager: McpServerManager;
+  readonly #taskTimeoutMs: number;
+  readonly #storageService?: StorageService;
+
+  #messages: Message[];
+  #system: Anthropic.TextBlockParam[];
 
   // Task execution state
-  private _isTaskRunning = false;
-  private _currentAbortController: AbortController | null = null;
-  private _currentStreamHandler: StreamHandler | undefined;
-  private _taskTimeoutId: number | null = null;
-  private _cancellationReason: "user" | "timeout" | null = null;
+  #isTaskRunning: boolean = false;
 
   constructor(
     config: ZypherAgentConfig = {},
@@ -135,22 +140,22 @@ export class ZypherAgent {
     const baseUrl = config.baseUrl ?? Deno.env.get("ANTHROPIC_BASE_URL");
     const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
 
-    this.client = new Anthropic({
+    this.#client = new Anthropic({
       apiKey,
       ...(baseUrl && { baseURL: baseUrl }),
     });
-    this._messages = [];
-    this.system = []; // Will be initialized in init()
-    this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
-    this.persistHistory = config.persistHistory ?? true;
-    this.autoErrorCheck = config.autoErrorCheck ?? true;
-    this.enablePromptCaching = config.enablePromptCaching ?? true;
-    this.userId = userId;
-    this._model = config.model ?? DEFAULT_MODEL;
-    this.mcpServerManager = mcpServerManager;
-    this.storageService = storageService;
+    this.#messages = [];
+    this.#system = []; // Will be initialized in init()
+    this.#maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
+    this.#persistHistory = config.persistHistory ?? true;
+    this.#autoErrorCheck = config.autoErrorCheck ?? true;
+    this.#enablePromptCaching = config.enablePromptCaching ?? true;
+    this.#userId = userId;
+    this.#model = config.model ?? DEFAULT_MODEL;
+    this.#mcpServerManager = mcpServerManager;
+    this.#storageService = storageService;
     // Default timeout is 5 minutes, 0 = disabled
-    this._taskTimeoutMs = config.taskTimeoutMs ?? 300000;
+    this.#taskTimeoutMs = config.taskTimeoutMs ?? 300000;
   }
 
   async init(): Promise<void> {
@@ -158,109 +163,19 @@ export class ZypherAgent {
     const systemPromptText = await getSystemPrompt(userInfo);
     // Convert system prompt to content blocks
     // cache the main system prompt as it's large and reusable
-    this.system = [
+    this.#system = [
       {
         type: "text",
         text: systemPromptText,
-        ...(this.enablePromptCaching && {
+        ...(this.#enablePromptCaching && {
           cache_control: { type: "ephemeral" },
         }),
       },
     ];
 
     // Load message history if enabled
-    if (this.persistHistory) {
-      this._messages = await loadMessageHistory();
-    }
-  }
-
-  get messages(): Message[] {
-    return [...this._messages];
-  }
-
-  /**
-   * Get the current model being used by the agent
-   */
-  get model(): string {
-    return this._model;
-  }
-
-  /**
-   * Get the configured task timeout in milliseconds
-   */
-  get taskTimeoutMs(): number {
-    return this._taskTimeoutMs;
-  }
-
-  /**
-   * Check if a task is currently running
-   */
-  get isTaskRunning(): boolean {
-    return this._isTaskRunning;
-  }
-
-  /**
-   * Get the reason why the task was cancelled, if available
-   */
-  get cancellationReason(): "user" | "timeout" | null {
-    return this._cancellationReason;
-  }
-
-  /**
-   * Cancel the current running task, if any
-   * @param reason The reason for cancellation, defaults to "user"
-   * @returns True if a task was cancelled, false if no task was running
-   */
-  cancelTask(reason: "user" | "timeout" = "user"): boolean {
-    if (!this._isTaskRunning || !this._currentAbortController) {
-      // Task is not running or already completed
-      return false;
-    }
-
-    // Set cancellation in progress state
-    const wasTaskRunning = this._isTaskRunning;
-    this._isTaskRunning = false;
-    this._cancellationReason = reason;
-
-    try {
-      // Abort any pending fetch requests
-      this._currentAbortController.abort();
-
-      // Notify via stream handler if available
-      if (this._currentStreamHandler?.onCancelled) {
-        this._currentStreamHandler.onCancelled(reason);
-      }
-
-      // Clear task timeout if it exists
-      if (this._taskTimeoutId !== null) {
-        clearTimeout(this._taskTimeoutId);
-        this._taskTimeoutId = null;
-      }
-
-      // Clean up other resources
-      this._currentAbortController = null;
-      this._currentStreamHandler = undefined;
-
-      console.log(`🛑 Task cancelled (reason: ${reason})`);
-      return wasTaskRunning;
-    } catch (error) {
-      // If something fails during cancellation, restore running state but keep cancellation reason
-      // This ensures we still know a cancellation was attempted even if it failed
-      this._isTaskRunning = wasTaskRunning;
-      console.error(`Error during task cancellation: ${formatError(error)}`);
-      return false;
-    }
-  }
-
-  /**
-   * Clear all messages from the agent's history
-   */
-  clearMessages(): void {
-    this._messages = [];
-
-    // Save updated message history if enabled
-    if (this.persistHistory) {
-      void saveMessageHistory(this._messages);
+    if (this.#persistHistory) {
+      this.#messages = await loadMessageHistory();
     }
   }
 
@@ -268,8 +183,41 @@ export class ZypherAgent {
    * Get all messages from the agent's history
    * @returns Array of messages
    */
-  getMessages(): Message[] {
-    return [...this._messages];
+  get messages(): Message[] {
+    return [...this.#messages];
+  }
+
+  /**
+   * Get the current model being used by the agent
+   */
+  get model(): string {
+    return this.#model;
+  }
+
+  /**
+   * Get the configured task timeout in milliseconds
+   */
+  get taskTimeoutMs(): number {
+    return this.#taskTimeoutMs;
+  }
+
+  /**
+   * Check if a task is currently running
+   */
+  get isTaskRunning(): boolean {
+    return this.#isTaskRunning;
+  }
+
+  /**
+   * Clear all messages from the agent's history
+   */
+  clearMessages(): void {
+    this.#messages = [];
+
+    // Save updated message history if enabled
+    if (this.#persistHistory) {
+      void saveMessageHistory(this.#messages);
+    }
   }
 
   /**
@@ -285,17 +233,17 @@ export class ZypherAgent {
       await applyCheckpoint(checkpointId);
 
       // Update message history to discard messages beyond the checkpoint
-      const checkpointIndex = this._messages.findIndex(
+      const checkpointIndex = this.#messages.findIndex(
         (msg) => msg.checkpointId === checkpointId,
       );
 
       if (checkpointIndex !== -1) {
         // Keep messages up to but excluding the checkpoint message
-        this._messages = this._messages.slice(0, checkpointIndex);
+        this.#messages = this.#messages.slice(0, checkpointIndex);
 
         // Save updated message history if enabled
-        if (this.persistHistory) {
-          await saveMessageHistory(this._messages);
+        if (this.#persistHistory) {
+          await saveMessageHistory(this.#messages);
         }
       }
 
@@ -306,49 +254,21 @@ export class ZypherAgent {
     }
   }
 
-  /**
-   * Process a message by adding it to the messages array and notifying handlers
-   * @param message The message to process
-   * @param messages The messages array to add to
-   * @param messageHandler Optional message handler to notify
-   */
-  private processMessage(
-    message: Message,
-    messages: Message[],
-    messageHandler?: MessageHandler,
-  ): void {
-    // Add message to the array
-    messages.push(message);
-
-    // Notify message handler or print to console
-    if (messageHandler) {
-      messageHandler(message);
-    } else {
-      printMessage(message);
-    }
-  }
-
-  private async executeToolCall(toolCall: {
+  async #executeToolCall(toolCall: {
     name: string;
     parameters: Record<string, unknown>;
+    options: { signal?: AbortSignal };
   }): Promise<string> {
-    // Check if task has been cancelled
-    if (!this._isTaskRunning) {
-      return "Task was cancelled";
-    }
-
-    const tool = this.mcpServerManager.getTool(toolCall.name);
+    const tool = this.#mcpServerManager.getTool(toolCall.name);
     if (!tool) {
       return `Error: Tool '${toolCall.name}' not found`;
     }
 
     try {
+      // TODO: support abort signal in tool execution
       return await tool.execute(toolCall.parameters);
     } catch (error) {
-      if (error instanceof Error) {
-        return `Error executing tool '${toolCall.name}': ${error.message}`;
-      }
-      return `Error executing tool '${toolCall.name}': Unknown error`;
+      return `Error executing tool '${toolCall.name}': ${formatError(error)}`;
     }
   }
 
@@ -360,7 +280,7 @@ export class ZypherAgent {
    * @param isLastMessage - Whether this is the last message in the turn
    * @returns A clean message parameter for the Anthropic API
    */
-  private async formatMessageForApi(
+  async #formatMessageForApi(
     message: Message,
     isLastMessage: boolean,
   ): Promise<Anthropic.MessageParam> {
@@ -373,7 +293,7 @@ export class ZypherAgent {
         await Promise.all(
           content.map(async (block) => {
             if (isFileAttachment(block)) {
-              if (!this.storageService) {
+              if (!this.#storageService) {
                 // skip attachment if storage service is not configured
                 console.warn(
                   "Skipping file attachment as storage service is not configured.",
@@ -381,7 +301,7 @@ export class ZypherAgent {
                 return null;
               }
 
-              const metadata = await this.storageService.getFileMetadata(
+              const metadata = await this.#storageService.getFileMetadata(
                 block.fileId,
               );
               if (!metadata) {
@@ -392,7 +312,7 @@ export class ZypherAgent {
                 return null;
               }
 
-              const signedUrl = await this.storageService.getSignedUrl(
+              const signedUrl = await this.#storageService.getSignedUrl(
                 block.fileId,
               );
               if (!signedUrl) {
@@ -430,7 +350,7 @@ export class ZypherAgent {
         );
 
     // Add cache control to the last block of the last message
-    if (isLastMessage && this.enablePromptCaching && contentArray.length > 0) {
+    if (isLastMessage && this.#enablePromptCaching && contentArray.length > 0) {
       // Only create new array for the last message to avoid mutating the original array
       contentArray = [
         ...contentArray.slice(0, -1), // Keep all but the last block
@@ -447,7 +367,29 @@ export class ZypherAgent {
   }
 
   /**
-   * Run a task with streaming support (primary implementation)
+   * Atomically checks if a task is running and sets the flag if it's not
+   * This is a critical section that must be executed synchronously (not async)
+   * to ensure atomic "check-and-set" semantics
+   *
+   * This method should only be called by runTaskWithStreaming
+   *
+   * @returns true if the flag was successfully set (no task was running),
+   *          false if a task is already running
+   */
+  #checkAndSetTaskRunning(): boolean {
+    // This critical section is atomic because JavaScript is single-threaded
+    // and this method contains no async operations
+    if (this.#isTaskRunning) {
+      return false;
+    }
+
+    // Set the flag
+    this.#isTaskRunning = true;
+    return true;
+  }
+
+  /**
+   * Run a task with real time progress updates
    *
    * This method provides real-time streaming of incremental content updates as they're generated,
    * allowing for character-by-character updates as Claude produces them. This enables
@@ -457,6 +399,13 @@ export class ZypherAgent {
    * - Streams individual text fragments as they become available (not just complete messages)
    * - Provides real-time updates via onContent callback
    * - Still delivers complete messages via onMessage when they're done
+   * - Supports image attachments in Claude's native format
+   *
+   * Image handling:
+   * - Images are passed as an array of base64-encoded data with proper MIME types
+   * - Each image should follow Claude's format: { type: "image", source: { type: "base64", media_type: string, data: string } }
+   * - Images are automatically included in the message content along with the text
+   * - The API will optimize images to stay within Claude's token limits
    *
    * Streaming behavior:
    * - Content is streamed in real-time as it's generated
@@ -472,41 +421,51 @@ export class ZypherAgent {
    * @param taskDescription The text description of the task to perform
    * @param streamHandler Handler for real-time content updates and complete messages
    * @param fileAttachments Optional array of file attachments
-   * @param maxIterations Maximum number of iterations to run (default: 25)
+   * @param options Additional options:
+   *   - maxIterations: Maximum number of iterations to run (default: 25)
+   *   - signal: AbortSignal for cancellation from the caller
    * @returns Array of messages after task completion, or return as is if cancelled
+   * @throws {TaskConcurrencyError} If a task is already running
    */
   async runTaskWithStreaming(
     taskDescription: string,
     streamHandler?: StreamHandler,
     fileAttachments?: FileId[],
-    maxIterations = 25,
+    options?: {
+      maxIterations?: number;
+      signal?: AbortSignal;
+    },
   ): Promise<Message[]> {
-    // Check if a task is already running
-    if (this._isTaskRunning) {
-      throw new Error(
-        "A task is already running. Cancel it first or wait for it to complete.",
+    // Use default maxIterations if not provided
+    const maxIterations = options?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+    if (!this.#checkAndSetTaskRunning()) {
+      throw new TaskConcurrencyError(
+        "Cannot run multiple tasks concurrently. A task is already running.",
       );
     }
 
-    // Reset task state including cancellation reason
-    this._isTaskRunning = true;
-    this._cancellationReason = null;
-    this._currentAbortController = new AbortController();
-    this._currentStreamHandler = streamHandler;
+    const timeoutController = new AbortController();
+
+    // Create a composite signal that aborts if either the caller's signal or our timeout signal aborts
+    const mergedSignal = options?.signal
+      ? AbortSignal.any([options.signal, timeoutController.signal])
+      : timeoutController.signal;
 
     // Set up task timeout if enabled
-    if (this._taskTimeoutMs > 0) {
-      this._taskTimeoutId = setTimeout(() => {
-        console.log(`🕒 Task timed out after ${this._taskTimeoutMs}ms`);
-        if (this._isTaskRunning) {
-          this.cancelTask("timeout");
-        }
-      }, this._taskTimeoutMs);
+    let timeoutId: number | null = null;
+    if (this.#taskTimeoutMs > 0) {
+      timeoutId = setTimeout(
+        () => {
+          console.log(`🕒 Task timed out after ${this.#taskTimeoutMs}ms`);
+          timeoutController.abort();
+        },
+        this.#taskTimeoutMs,
+      );
     }
 
     try {
       // Ensure system prompt is initialized
-      if (!this.system.length) {
+      if (!this.#system.length) {
         await this.init();
       }
 
@@ -542,54 +501,49 @@ export class ZypherAgent {
         checkpoint,
         timestamp: new Date(), // current timestamp
       };
-      this.processMessage(
-        userMessage,
-        this._messages,
-        streamHandler?.onMessage,
-      );
+      this.#messages.push(userMessage);
+      streamHandler?.onMessage?.(userMessage);
 
       const toolCalls = Array.from(
-        this.mcpServerManager.getAllTools().values(),
+        this.#mcpServerManager.getAllTools().values(),
       ).map(
         (tool, index, tools): Anthropic.ToolUnion => ({
           name: tool.name,
           description: tool.description,
           input_schema: tool.parameters,
           // Only add cache control to the last tool as it acts as a breakpoint
-          ...(this.enablePromptCaching &&
+          ...(this.#enablePromptCaching &&
             index === tools.length - 1 && {
             cache_control: { type: "ephemeral" },
           }),
         }),
       );
 
-      while (iterations < maxIterations && this._isTaskRunning) {
-        // Check for cancellation
-        if (!this._isTaskRunning) {
-          return this._messages;
+      while (iterations < maxIterations) {
+        // Check for abort signal early
+        if (mergedSignal.aborted) {
+          throw new AbortError("Task aborted");
         }
-
         let isFirstChunk = true;
         let currentToolName: string | null = null;
 
-        // Create a stream with event handlers and pass the abort signal for cancellation
-        const signal = this._currentAbortController.signal;
-        const stream = this.client.messages
+        // Create a stream with event handlers and pass the composite abort signal for cancellation
+        const stream = this.#client.messages
           .stream({
-            model: this._model,
-            max_tokens: this.maxTokens,
-            system: this.system,
+            model: this.#model,
+            max_tokens: this.#maxTokens,
+            system: this.#system,
             messages: await Promise.all(
-              this._messages.map((msg: Message, index: number) =>
-                this.formatMessageForApi(
+              this.#messages.map((msg: Message, index: number) =>
+                this.#formatMessageForApi(
                   msg,
-                  index === this._messages.length - 1,
+                  index === this.#messages.length - 1,
                 )
               ),
             ),
             tools: toolCalls,
-            ...(this.userId && { metadata: { user_id: this.userId } }),
-          }, { signal })
+            ...(this.#userId && { metadata: { user_id: this.#userId } }),
+          }, { signal: mergedSignal })
           .on("text", (textDelta) => {
             // Call stream handler for content
             if (streamHandler?.onContent && textDelta) {
@@ -617,198 +571,124 @@ export class ZypherAgent {
             }
           });
 
-        try {
-          // Check if the task was cancelled during stream setup
-          if (!this._isTaskRunning) {
-            return this._messages;
+        // Wait for the final message
+        const finalMessage = await stream.finalMessage();
+
+        // Create the assistant message using the complete content from finalMessage
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: finalMessage.content,
+          timestamp: new Date(),
+        };
+        this.#messages.push(assistantMessage);
+        streamHandler?.onMessage?.(assistantMessage);
+
+        // Check for cancellation
+        if (mergedSignal.aborted) {
+          throw new AbortError("Task aborted");
+        }
+
+        // Process tool calls if any
+        if (finalMessage.stop_reason === "tool_use") {
+          // Execute tool calls
+          for (const block of finalMessage.content) {
+            if (block.type === "tool_use") {
+              const result = await this.#executeToolCall({
+                name: block.name,
+                parameters: block.input as Record<string, unknown>,
+                options: { signal: mergedSignal },
+              });
+
+              // Add tool response
+              const toolMessage: Message = {
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: block.id,
+                    content: result,
+                  } as Anthropic.ToolResultBlockParam,
+                ],
+                timestamp: new Date(),
+              };
+              this.#messages.push(toolMessage);
+              streamHandler?.onMessage?.(toolMessage);
+            }
           }
-
-          // Wait for the final message
-          const finalMessage = await stream.finalMessage();
-
-          // Create the assistant message using the complete content from finalMessage
-          const assistantMessage: Message = {
-            role: "assistant",
-            content: finalMessage.content,
+        } else if (finalMessage.stop_reason === "max_tokens") {
+          // auto continue
+          const continueMessage: Message = {
+            role: "user",
+            content: "Continue",
             timestamp: new Date(),
           };
-          this.processMessage(
-            assistantMessage,
-            this._messages,
-            streamHandler?.onMessage,
-          );
+          this.#messages.push(continueMessage);
+          streamHandler?.onMessage?.(continueMessage);
+        } else {
+          // Check for code errors if enabled and this is the end of the conversation
+          if (this.#autoErrorCheck) {
+            const errors = await detectErrors({ signal: mergedSignal });
+            if (errors) {
+              console.log(
+                "\n🔍 Detected code errors. Asking the agent to fix them...",
+              );
 
-          // Process tool calls if any
-          if (finalMessage.stop_reason === "tool_use") {
-            // Execute tool calls
-            for (const block of finalMessage.content) {
-              // Check for cancellation before processing each tool call
-              if (!this._isTaskRunning) {
-                return this._messages;
-              }
+              // Add errors as a user message
+              const errorMessage: Message = {
+                role: "user",
+                content:
+                  `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
+                timestamp: new Date(),
+              };
+              this.#messages.push(errorMessage);
+              streamHandler?.onMessage?.(errorMessage);
 
-              if (block.type === "tool_use") {
-                const result = await this.executeToolCall({
-                  name: block.name,
-                  parameters: block.input as Record<string, unknown>,
-                });
-
-                // Add tool response
-                const toolMessage: Message = {
-                  role: "user",
-                  content: [
-                    {
-                      type: "tool_result",
-                      tool_use_id: block.id,
-                      content: result,
-                    } as Anthropic.ToolResultBlockParam,
-                  ],
-                  timestamp: new Date(),
-                };
-                this.processMessage(
-                  toolMessage,
-                  this._messages,
-                  streamHandler?.onMessage,
-                );
-              }
+              // Continue the loop to let the agent fix the errors
+              iterations++;
+              continue;
             }
-          } else if (finalMessage.stop_reason === "max_tokens") {
-            // auto continue
-            const continueMessage: Message = {
-              role: "user",
-              content: "Continue",
-              timestamp: new Date(),
-            };
-            this.processMessage(
-              continueMessage,
-              this._messages,
-              streamHandler?.onMessage,
-            );
-          } else {
-            // Check for code errors if enabled and this is the end of the conversation
-            if (this.autoErrorCheck) {
-              // Check for cancellation before error detection
-              if (!this._isTaskRunning) {
-                return this._messages;
-              }
-
-              const errors = await detectErrors();
-              if (errors) {
-                console.log(
-                  "\n🔍 Detected code errors. Asking the agent to fix them...",
-                );
-
-                // Add errors as a user message
-                const errorMessage: Message = {
-                  role: "user",
-                  content:
-                    `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
-                  timestamp: new Date(),
-                };
-                this.processMessage(
-                  errorMessage,
-                  this._messages,
-                  streamHandler?.onMessage,
-                );
-
-                // Continue the loop to let the agent fix the errors
-                iterations++;
-                continue;
-              }
-            }
-
-            // No errors or error check disabled, exit the loop
-            break;
-          }
-        } catch (error) {
-          // If the task was cancelled (aborted), just return
-          if (
-            this._cancellationReason !== null ||
-            (error instanceof Error &&
-              (error.name === "AbortError" ||
-                error.message.includes("aborted") ||
-                error.message.includes("abort")))
-          ) {
-            return this._messages;
           }
 
-          // For other errors, rethrow
-          throw error;
+          // No errors or error check disabled, exit the loop
+          break;
         }
 
         iterations++;
       }
 
-      // If we've been cancelled during processing, return empty array
-      if (!this._isTaskRunning) {
-        return this._messages;
-      }
-
       // Save updated message history if enabled
-      if (this.persistHistory) {
-        await saveMessageHistory(this._messages);
+      if (this.#persistHistory) {
+        await saveMessageHistory(this.#messages);
       }
 
       return this.messages;
-    } finally {
-      // Guard against race conditions by checking if we're still the active task
-      if (this._currentAbortController !== null) {
-        // Clean up resources
-        this._isTaskRunning = false;
-        this._currentAbortController = null;
-        this._currentStreamHandler = undefined;
+    } catch (error) {
+      if (isAbortError(error)) {
+        console.log(formatError(error));
+        console.log("🛑 Task aborted.");
 
-        // Clear task timeout if it exists
-        if (this._taskTimeoutId !== null) {
-          clearTimeout(this._taskTimeoutId);
-          this._taskTimeoutId = null;
+        streamHandler?.onCancelled?.(
+          options?.signal?.aborted ? "user" : "timeout",
+        );
+
+        if (this.#persistHistory) {
+          await saveMessageHistory(this.#messages);
         }
+
+        return this.messages;
+      }
+
+      console.error(formatError(error));
+
+      throw error;
+    } finally {
+      // Clean up resources
+      this.#isTaskRunning = false;
+
+      // Clear task timeout if it exists
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
       }
     }
-  }
-
-  /**
-   * Run a task with the agent (non-streaming version for backward compatibility)
-   *
-   * This method only provides completed messages, not real-time content updates.
-   * It's a compatibility wrapper around runTaskWithStreaming that adapts the older
-   * MessageHandler interface to the newer StreamHandler interface.
-   *
-   * Unlike runTaskWithStreaming, this method:
-   * - Does NOT stream individual text fragments as they become available
-   * - Only delivers complete messages once they're fully generated
-   * - Has no concept of partial content updates
-   *
-   * For new code that needs real-time content updates, use runTaskWithStreaming directly.
-   *
-   * @param taskDescription The task description
-   * @param messageHandler Handler for complete messages only
-   * @param maxIterations Maximum number of iterations to run
-   * @returns Array of messages after task completion
-   */
-  runTaskLoop(
-    taskDescription: string,
-    messageHandler?: MessageHandler,
-    fileAttachments?: FileId[],
-    maxIterations = 25,
-  ): Promise<Message[]> {
-    // Create a streamHandler adapter that delegates to the messageHandler
-    let streamHandler: StreamHandler | undefined;
-
-    if (messageHandler) {
-      // Create an adapter that forwards messages to the messageHandler
-      streamHandler = {
-        // We don't need content streaming for backward compatibility
-        onMessage: messageHandler,
-      };
-    }
-
-    // Call the streaming version with our adapter and return its messages
-    return this.runTaskWithStreaming(
-      taskDescription,
-      streamHandler,
-      fileAttachments,
-      maxIterations,
-    );
   }
 }
