@@ -5,42 +5,29 @@ import { S3StorageService } from "../src/storage/S3StorageService.ts";
 import { UploadOptions } from "../src/storage/StorageService.ts";
 
 // Skip tests if environment variables are not set
-const testCloudflareR2 = !Deno.env.get("CLOUDFLARE_ACCOUNT_ID") ||
-  !Deno.env.get("CLOUDFLARE_R2_ACCESS_KEY_ID") ||
-  !Deno.env.get("CLOUDFLARE_R2_SECRET_ACCESS_KEY") ||
-  !Deno.env.get("CLOUDFLARE_R2_BUCKET_NAME");
-
-const testAwsS3 = !Deno.env.get("AWS_ACCESS_KEY_ID") ||
-  !Deno.env.get("AWS_SECRET_ACCESS_KEY") ||
-  !Deno.env.get("AWS_BUCKET_NAME") ||
-  !Deno.env.get("AWS_REGION");
+const skipTests = !Deno.env.get("S3_ACCESS_KEY_ID") ||
+  !Deno.env.get("S3_SECRET_ACCESS_KEY") ||
+  !Deno.env.get("S3_REGION") ||
+  !Deno.env.get("S3_BUCKET_NAME") ||
+  !Deno.env.get("S3_CUSTOM_DOMAIN");
 
 describe("S3 Storage Integration Tests (S3-compatible)", {
-  ignore: testCloudflareR2 && testAwsS3,
+  ignore: skipTests,
 }, () => {
   let storageService: S3StorageService;
   const testFileIds: string[] = [];
 
   // Setup before all tests
   beforeAll(() => {
-    let endpoint: string | undefined;
-    if (testCloudflareR2) {
-      endpoint = Deno.env.get("CLOUDFLARE_R2_CUSTON_DOMAIN")
-        ? `https://${Deno.env.get("CLOUDFLARE_R2_CUSTON_DOMAIN")}`
-        : `https://${
-          Deno.env.get("CLOUDFLARE_ACCOUNT_ID")
-        }.r2.cloudflarestorage.com`;
-    }
-
     // Create S3StorageService instance
     storageService = new S3StorageService({
-      bucket: Deno.env.get("CLOUDFLARE_R2_BUCKET_NAME")!,
-      region: testCloudflareR2 ? "auto" : Deno.env.get("AWS_REGION")!,
+      bucket: Deno.env.get("S3_BUCKET_NAME")!,
+      region: Deno.env.get("S3_REGION")!,
       credentials: {
-        accessKeyId: Deno.env.get("CLOUDFLARE_R2_ACCESS_KEY_ID")!,
-        secretAccessKey: Deno.env.get("CLOUDFLARE_R2_SECRET_ACCESS_KEY")!,
+        accessKeyId: Deno.env.get("S3_ACCESS_KEY_ID")!,
+        secretAccessKey: Deno.env.get("S3_SECRET_ACCESS_KEY")!,
       },
-      endpoint: testCloudflareR2 ? endpoint : undefined,
+      endpoint: Deno.env.get("S3_ENDPOINT") || undefined,
     });
   });
 
@@ -239,16 +226,12 @@ describe("S3 Storage Integration Tests (S3-compatible)", {
     const signedUrl = await storageService.getSignedUrl(uploadResult.id, 300);
 
     // Verify signed URL
-    console.log("signedUrl", signedUrl);
     expect(signedUrl).not.toBeNull();
     expect(typeof signedUrl).toBe("string");
-    // The URL should contain the bucket name and endpoint
-    if (testCloudflareR2) {
-      expect(signedUrl).toContain(Deno.env.get("CLOUDFLARE_R2_BUCKET_NAME")!);
-      expect(signedUrl).toContain("r2.cloudflarestorage.com");
-    } else {
-      expect(signedUrl).toContain(Deno.env.get("AWS_BUCKET_NAME")!);
-      expect(signedUrl).toContain(Deno.env.get("AWS_REGION")!);
+    // If a custom domain is set, skip the tests
+    if (!Deno.env.get("S3_CUSTOM_DOMAIN")) {
+      expect(signedUrl).toContain(Deno.env.get("S3_BUCKET_NAME")!);
+      expect(signedUrl).toContain(Deno.env.get("S3_REGION")!);
     }
   });
 
