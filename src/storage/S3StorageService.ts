@@ -6,6 +6,9 @@ import {
   UploadResult,
 } from "./StorageService.ts";
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -14,6 +17,7 @@ import {
   NotFound,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateFileId } from "./utils.ts";
@@ -29,17 +33,27 @@ interface S3Options {
     secretAccessKey: string;
   };
   endpoint?: string;
+
+  /**
+   * Custom domain for the pre-signed URL
+   * This will not affect the actual file operations in S3 SDK
+   *
+   * After pre-signed URL is generated, the host will be replaced with this custom domain.
+   */
+  customDomain?: string;
 }
 
 /**
  * Implementation of StorageService that uses AWS S3 for storage
  */
 export class S3StorageService implements StorageService {
-  private readonly s3Client: S3Client;
-  private readonly bucket: string;
+  readonly #s3Client: S3Client;
+  readonly #bucket: string;
+  readonly #customDomain?: string;
 
   constructor(s3Options: S3Options) {
-    this.bucket = s3Options.bucket;
+    this.#bucket = s3Options.bucket;
+    this.#customDomain = s3Options.customDomain;
 
     // Validate required options
     if (!s3Options.bucket) {
@@ -58,7 +72,7 @@ export class S3StorageService implements StorageService {
     }
 
     // Initialize S3 client
-    this.s3Client = new S3Client({
+    this.#s3Client = new S3Client({
       region: s3Options.region,
       credentials: {
         accessKeyId: s3Options.credentials.accessKeyId,
@@ -69,48 +83,9 @@ export class S3StorageService implements StorageService {
   }
 
   /**
-   * Generate a pre-signed URL for direct file upload to S3
-   */
-  async generateUploadUrl(
-    options: UploadOptions,
-  ): Promise<GenerateUploadUrlResult> {
-    // Generate a unique key for this upload
-    const key = await generateFileId();
-
-    // Prepare metadata
-    const metadata: Record<string, string> = {
-      "original-filename": options.filename,
-    };
-
-    if (options.metadata) {
-      Object.entries(options.metadata).forEach(([k, v]) => {
-        metadata[k] = String(v);
-      });
-    }
-
-    // Create a PutObject command
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: key,
-      ContentType: options.contentType,
-      Metadata: metadata,
-    });
-
-    // Generate a pre-signed URL for PUT operation
-    const signedUrl = await getSignedUrl(this.s3Client, command, {
-      expiresIn: options.urlExpirySeconds ?? 3600, // Default to 1 hour
-    });
-
-    return {
-      url: signedUrl,
-      fileId: key,
-    };
-  }
-
-  /**
    * Convert S3 object metadata to attachment metadata
    */
-  private objectToMetadata(
+  #objectToMetadata(
     key: string,
     headOutput: HeadObjectCommandOutput,
   ): AttachmentMetadata {
@@ -130,10 +105,10 @@ export class S3StorageService implements StorageService {
   }
 
   async uploadFile(
-    data: ReadableStream<Uint8Array> | Uint8Array,
+    data: ReadableStream<Uint8Array>,
     options: UploadOptions,
   ): Promise<UploadResult> {
-    // Stream the file directly to S3 without loading it fully into memory
+    // Generate a unique key for this upload
     const key = await generateFileId();
 
     // Prepare metadata (S3 only supports string values)
@@ -147,18 +122,18 @@ export class S3StorageService implements StorageService {
       });
     }
 
-    // Prepare the command with the stream as the Body
-    // If the caller knows the size up‑front, pass it so S3 can use Content‑Length.
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: key,
-      Body: data,
-      ContentType: options.contentType,
-      ContentLength: options.size, // may be undefined – S3 will fall back to chunked transfer
-      Metadata: metadata,
+    let size: number | undefined = options.size;
+
+    // For streams, use the size provided in options if available, then do multipart upload
+    // This ensures we maintain the correct size from the original buffer
+    const streamSize = await this.#uploadStreamMultipart(data, {
+      key,
+      contentType: options.contentType,
+      metadata,
     });
 
-    await this.s3Client.send(command);
+    // Prefer the size from options if provided, otherwise use calculated size from stream
+    size = options.size ?? streamSize;
 
     // Generate a pre‑signed URL so the caller can access the file
     const url = await this.getSignedUrl(key, options.urlExpirySeconds);
@@ -177,11 +152,115 @@ export class S3StorageService implements StorageService {
       metadata: {
         filename: options.filename,
         contentType: options.contentType,
-        size: options.size,
+        size,
         uploadedAt: new Date(),
         additionalMetadata: options.metadata,
       },
     };
+  }
+
+  /**
+   * Upload a ReadableStream using S3 multipart upload
+   * @private
+   */
+  async #uploadStreamMultipart(
+    stream: ReadableStream<Uint8Array>,
+    options: {
+      key: string;
+      contentType?: string;
+      metadata?: Record<string, string>;
+    },
+  ): Promise<number> {
+    // Step 1: Create a multipart upload
+    const createMultipartResponse = await this.#s3Client.send(
+      new CreateMultipartUploadCommand({
+        Bucket: this.#bucket,
+        Key: options.key,
+        ContentType: options.contentType,
+        Metadata: options.metadata,
+      }),
+    );
+
+    const uploadId = createMultipartResponse.UploadId;
+    if (!uploadId) {
+      throw new Error("Failed to initiate multipart upload");
+    }
+
+    try {
+      // Step 2: Upload parts - 5MB minimum part size for S3
+      const PART_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+      const reader = stream.getReader();
+      const parts: { ETag: string; PartNumber: number }[] = [];
+      let partNumber = 1;
+      let currentBuffer = new Uint8Array(0);
+      let totalSize = 0;
+
+      let done = false;
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+
+        if (value) {
+          // Append the new chunk to our buffer
+          const newBuffer = new Uint8Array(currentBuffer.length + value.length);
+          newBuffer.set(currentBuffer);
+          newBuffer.set(value, currentBuffer.length);
+          currentBuffer = newBuffer;
+          totalSize += value.length;
+        }
+
+        // Upload a part when we reach the minimum part size or when stream is done
+        if (
+          currentBuffer.length >= PART_SIZE ||
+          (done && currentBuffer.length > 0)
+        ) {
+          const uploadPartResponse = await this.#s3Client.send(
+            new UploadPartCommand({
+              Bucket: this.#bucket,
+              Key: options.key,
+              UploadId: uploadId,
+              PartNumber: partNumber,
+              Body: currentBuffer,
+              ContentLength: currentBuffer.length,
+            }),
+          );
+
+          if (!uploadPartResponse.ETag) {
+            throw new Error(`Failed to upload part ${partNumber}`);
+          }
+
+          parts.push({
+            ETag: uploadPartResponse.ETag,
+            PartNumber: partNumber,
+          });
+
+          partNumber++;
+          currentBuffer = new Uint8Array(0);
+        }
+      }
+
+      // Step 3: Complete the multipart upload
+      await this.#s3Client.send(
+        new CompleteMultipartUploadCommand({
+          Bucket: this.#bucket,
+          Key: options.key,
+          UploadId: uploadId,
+          MultipartUpload: { Parts: parts },
+        }),
+      );
+
+      return totalSize;
+    } catch (error) {
+      // Abort the multipart upload on failure
+      await this.#s3Client.send(
+        new AbortMultipartUploadCommand({
+          Bucket: this.#bucket,
+          Key: options.key,
+          UploadId: uploadId,
+        }),
+      );
+      throw error;
+    }
   }
 
   async uploadFromBuffer(
@@ -204,7 +283,7 @@ export class S3StorageService implements StorageService {
 
     // Upload to S3
     const command = new PutObjectCommand({
-      Bucket: this.bucket,
+      Bucket: this.#bucket,
       Key: key,
       Body: buffer,
       ContentType: options.contentType,
@@ -212,7 +291,7 @@ export class S3StorageService implements StorageService {
       Metadata: metadata,
     });
 
-    await this.s3Client.send(command);
+    await this.#s3Client.send(command);
 
     // Generate URL
     const url = await this.getSignedUrl(key, options.urlExpirySeconds);
@@ -238,6 +317,30 @@ export class S3StorageService implements StorageService {
     };
   }
 
+  /**
+   * Generate a pre-signed URL for an S3 command and apply custom domain if configured
+   * @private
+   */
+  async #generateSignedUrl(
+    command: GetObjectCommand | PutObjectCommand,
+    expirySeconds = 3600,
+  ): Promise<string> {
+    // Generate a pre-signed URL that is valid for the specified duration
+    let signedUrl = await getSignedUrl(this.#s3Client, command, {
+      expiresIn: expirySeconds,
+    });
+
+    // Apply custom domain if configured
+    if (this.#customDomain) {
+      // Replace the host part of the URL with the custom domain
+      const urlObj = new URL(signedUrl);
+      urlObj.host = this.#customDomain;
+      signedUrl = urlObj.toString();
+    }
+
+    return signedUrl;
+  }
+
   async getSignedUrl(
     fileId: string,
     expirySeconds = 3600,
@@ -250,16 +353,11 @@ export class S3StorageService implements StorageService {
       }
 
       const command = new GetObjectCommand({
-        Bucket: this.bucket,
+        Bucket: this.#bucket,
         Key: fileId,
       });
 
-      // Generate a pre-signed URL that is valid for the specified duration
-      const signedUrl = await getSignedUrl(this.s3Client, command, {
-        expiresIn: expirySeconds,
-      });
-
-      return signedUrl;
+      return await this.#generateSignedUrl(command, expirySeconds);
     } catch (error) {
       if (error instanceof NoSuchKey || error instanceof NotFound) {
         return null;
@@ -268,15 +366,55 @@ export class S3StorageService implements StorageService {
     }
   }
 
+  /**
+   * Generate a pre-signed URL for direct file upload to S3
+   */
+  async generateUploadUrl(
+    options: UploadOptions,
+  ): Promise<GenerateUploadUrlResult> {
+    // Generate a unique key for this upload
+    const key = await generateFileId();
+
+    // Prepare metadata
+    const metadata: Record<string, string> = {
+      "original-filename": options.filename,
+    };
+
+    if (options.metadata) {
+      Object.entries(options.metadata).forEach(([k, v]) => {
+        metadata[k] = String(v);
+      });
+    }
+
+    // Create a PutObject command
+    const command = new PutObjectCommand({
+      Bucket: this.#bucket,
+      Key: key,
+      ContentType: options.contentType,
+      Metadata: metadata,
+    });
+
+    // Generate a pre-signed URL for PUT operation
+    const signedUrl = await this.#generateSignedUrl(
+      command,
+      options.urlExpirySeconds ?? 3600,
+    );
+
+    return {
+      url: signedUrl,
+      fileId: key,
+    };
+  }
+
   async getFileMetadata(fileId: string): Promise<AttachmentMetadata | null> {
     try {
       const command = new HeadObjectCommand({
-        Bucket: this.bucket,
+        Bucket: this.#bucket,
         Key: fileId,
       });
 
-      const response = await this.s3Client.send(command);
-      return this.objectToMetadata(fileId, response);
+      const response = await this.#s3Client.send(command);
+      return this.#objectToMetadata(fileId, response);
     } catch (error) {
       if (error instanceof NoSuchKey || error instanceof NotFound) {
         return null;
@@ -287,21 +425,21 @@ export class S3StorageService implements StorageService {
 
   async deleteFile(fileId: string): Promise<void> {
     const command = new DeleteObjectCommand({
-      Bucket: this.bucket,
+      Bucket: this.#bucket,
       Key: fileId,
     });
 
-    await this.s3Client.send(command);
+    await this.#s3Client.send(command);
   }
 
   async fileExists(fileId: string): Promise<boolean> {
     try {
       const command = new HeadObjectCommand({
-        Bucket: this.bucket,
+        Bucket: this.#bucket,
         Key: fileId,
       });
 
-      await this.s3Client.send(command);
+      await this.#s3Client.send(command);
       return true;
     } catch (error) {
       if (error instanceof NoSuchKey || error instanceof NotFound) {

@@ -8,8 +8,7 @@ import { UploadOptions } from "../src/storage/StorageService.ts";
 const skipTests = !Deno.env.get("S3_ACCESS_KEY_ID") ||
   !Deno.env.get("S3_SECRET_ACCESS_KEY") ||
   !Deno.env.get("S3_REGION") ||
-  !Deno.env.get("S3_BUCKET_NAME") ||
-  !Deno.env.get("S3_CUSTOM_DOMAIN");
+  !Deno.env.get("S3_BUCKET_NAME");
 
 describe("S3 Storage Integration Tests (S3-compatible)", {
   ignore: skipTests,
@@ -103,31 +102,62 @@ describe("S3 Storage Integration Tests (S3-compatible)", {
   });
 
   test("should generate pre-signed upload URL and verify file existence", async () => {
+    // Prepare test content to upload
+    const testContent = JSON.stringify({ test: "data", value: 123 });
+
     const uploadOptions: UploadOptions = {
       contentType: "application/json",
       filename: "test-data.json",
       urlExpirySeconds: 600, // 10 minutes
     };
 
-    // Generate upload URL
+    // Generate pre-signed upload URL
     const result = await storageService.generateUploadUrl(uploadOptions);
 
     // Keep track of file ID for cleanup
     testFileIds.push(result.fileId);
 
-    // Verify result
+    // Verify result format
     expect(result.url).toBeDefined();
     expect(result.fileId).toBeDefined();
-
-    // For a complete test, you would use fetch to upload to this URL
-    // but that's beyond the scope of this integration test
 
     // Initially the file should not exist yet (since we only generated the URL)
     const existsBefore = await storageService.fileExists(result.fileId);
     expect(existsBefore).toBe(false);
 
-    // We'd need to actually PUT to the URL to make the file exist
-    // This is a limitation of the integration test without actually uploading
+    // Actually upload to the pre-signed URL using PUT
+    const putResponse = await fetch(result.url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": uploadOptions.contentType,
+      },
+      body: testContent,
+    });
+
+    // Verify upload was successful
+    expect(putResponse.ok).toBe(true);
+
+    // Now the file should exist
+    const existsAfter = await storageService.fileExists(result.fileId);
+    expect(existsAfter).toBe(true);
+
+    // Verify we can access the uploaded content
+    const signedUrl = await storageService.getSignedUrl(result.fileId);
+    const getResponse = await fetch(signedUrl!);
+    expect(getResponse.ok).toBe(true);
+
+    // Verify the content is what we uploaded
+    const retrievedContent = await getResponse.text();
+    expect(retrievedContent).toBe(testContent);
+
+    // Create an unsigned URL to verify access control is working
+    const unsignedUrl = new URL(signedUrl!);
+    unsignedUrl.search = "";
+
+    // Verify that the unsigned URL results in access denial
+    const unsignedResponse = await fetch(unsignedUrl.toString());
+    expect(unsignedResponse.ok).toBe(false);
+    expect(unsignedResponse.status).toBe(403); // Access Denied
   });
 
   test("should upload a file from stream", async () => {
@@ -225,14 +255,102 @@ describe("S3 Storage Integration Tests (S3-compatible)", {
     // Generate a signed URL with 5 minute expiry
     const signedUrl = await storageService.getSignedUrl(uploadResult.id, 300);
 
-    // Verify signed URL
+    // Verify signed URL format
     expect(signedUrl).not.toBeNull();
     expect(typeof signedUrl).toBe("string");
-    // If a custom domain is set, skip the tests
+
+    // Verify that the properly signed URL grants access
+    const response = await fetch(signedUrl!);
+    expect(response.ok).toBe(true);
+    expect(await response.text()).toBe(testContent);
+
+    // Create an unsigned URL by removing the query parameters that contain signing information
+    const unsignedUrl = new URL(signedUrl!);
+    unsignedUrl.search = "";
+
+    // Verify that the unsigned URL results in access denial (without pre-signed params)
+    const unsignedResponse = await fetch(unsignedUrl.toString());
+    // AWS S3 returns 403 Forbidden for unsigned URLs
+    expect(unsignedResponse.ok).toBe(false);
+    expect(unsignedResponse.status).toBe(403);
+  });
+
+  test("should use custom domain for signed URL when configured", async () => {
+    // Only run this test if custom domain is configured
     if (!Deno.env.get("S3_CUSTOM_DOMAIN")) {
-      expect(signedUrl).toContain(Deno.env.get("S3_BUCKET_NAME")!);
-      expect(signedUrl).toContain(Deno.env.get("S3_REGION")!);
+      console.log("Skipping custom domain test - S3_CUSTOM_DOMAIN not set");
+      return;
     }
+
+    const customDomain = Deno.env.get("S3_CUSTOM_DOMAIN")!;
+
+    // Create a separate S3StorageService instance with custom domain
+    const customDomainStorage = new S3StorageService({
+      bucket: Deno.env.get("S3_BUCKET_NAME")!,
+      region: Deno.env.get("S3_REGION")!,
+      credentials: {
+        accessKeyId: Deno.env.get("S3_ACCESS_KEY_ID")!,
+        secretAccessKey: Deno.env.get("S3_SECRET_ACCESS_KEY")!,
+      },
+      endpoint: Deno.env.get("S3_ENDPOINT") || undefined,
+      customDomain,
+    });
+
+    // Create and upload a test file
+    const testContent = "Custom domain test content";
+    const encoder = new TextEncoder();
+    const testBuffer = encoder.encode(testContent);
+
+    const uploadOptions: UploadOptions = {
+      contentType: "text/plain",
+      filename: "custom-domain-test.txt",
+    };
+
+    // Upload the file using the custom domain service
+    const uploadResult = await customDomainStorage.uploadFromBuffer(
+      testBuffer,
+      uploadOptions,
+    );
+
+    // Keep track for cleanup
+    testFileIds.push(uploadResult.id);
+
+    // Verify the upload result has a URL with custom domain
+    expect(uploadResult.url).toBeDefined();
+    expect(uploadResult.url).toContain(customDomain);
+
+    // Also test generateUploadUrl functionality
+    const presignedUploadResult = await customDomainStorage.generateUploadUrl(
+      uploadOptions,
+    );
+    expect(presignedUploadResult.url).toContain(customDomain);
+    testFileIds.push(presignedUploadResult.fileId); // track for cleanup
+
+    // Generate a signed URL for an existing file with 5 minute expiry
+    const signedUrl = await customDomainStorage.getSignedUrl(
+      uploadResult.id,
+      300,
+    );
+
+    // Verify signed URL uses custom domain
+    expect(signedUrl).not.toBeNull();
+    expect(typeof signedUrl).toBe("string");
+    expect(signedUrl).toContain(customDomain);
+
+    // Verify that the signed URL grants access
+    const response = await fetch(signedUrl!);
+    expect(response.ok).toBe(true);
+    expect(await response.text()).toBe(testContent);
+
+    // Create an unsigned URL by removing the query parameters that contain signing information
+    const unsignedUrl = new URL(signedUrl!);
+    unsignedUrl.search = "";
+
+    // Verify that the unsigned URL results in access denial (without pre-signed params)
+    const unsignedResponse = await fetch(unsignedUrl.toString());
+    // AWS S3 returns 403 Forbidden for unsigned URLs
+    expect(unsignedResponse.ok).toBe(false);
+    expect(unsignedResponse.status).toBe(403);
   });
 
   test("should return null for non-existent file operations", async () => {
