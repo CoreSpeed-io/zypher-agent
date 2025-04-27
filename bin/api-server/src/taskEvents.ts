@@ -1,17 +1,73 @@
+import type { Message } from "../../../src/message.ts";
+
 /**
- * Event types for task execution events
+ * Base event data that all event types must include
  */
-export type TaskEvent = {
-  event:
-    | "content_delta"
-    | "tool_use_delta"
-    | "message"
-    | "error"
-    | "complete"
-    | "cancelled"
-    | "heartbeat";
-  data: { eventId: string } & Record<string, unknown>;
-};
+export interface BaseEventData {
+  eventId: string;
+}
+
+/**
+ * Content delta event data
+ */
+export interface ContentDeltaEventData extends BaseEventData {
+  content: string;
+}
+
+/**
+ * Tool use delta event data
+ */
+export interface ToolUseDeltaEventData extends BaseEventData {
+  name: string;
+  partialInput: string;
+}
+
+/**
+ * Message event data
+ */
+export interface MessageEventData extends BaseEventData {
+  message: Message;
+}
+
+/**
+ * Error event data
+ */
+export interface ErrorEventData extends BaseEventData {
+  error: string;
+}
+
+/**
+ * Complete event data
+ */
+export interface CompleteEventData extends BaseEventData {
+  // No additional fields for complete events
+}
+
+/**
+ * Cancelled event data
+ */
+export interface CancelledEventData extends BaseEventData {
+  // No additional fields for cancelled events
+}
+
+/**
+ * Heartbeat event data
+ */
+export interface HeartbeatEventData extends BaseEventData {
+  timestamp: number;
+}
+
+/**
+ * Event types for task execution events using discriminated union types
+ */
+export type TaskEvent =
+  | { event: "content_delta"; data: ContentDeltaEventData }
+  | { event: "tool_use_delta"; data: ToolUseDeltaEventData }
+  | { event: "message"; data: MessageEventData }
+  | { event: "error"; data: ErrorEventData }
+  | { event: "complete"; data: CompleteEventData }
+  | { event: "cancelled"; data: CancelledEventData }
+  | { event: "heartbeat"; data: HeartbeatEventData };
 
 /**
  * Represents a unique identifier for task events with timestamp and sequence components.
