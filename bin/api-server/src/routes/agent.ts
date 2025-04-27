@@ -65,8 +65,21 @@ const checkpointParamsSchema = z.object({
   checkpointId: z.string().min(1, "Checkpoint ID cannot be empty"),
 });
 
-const streamReconnectSchema = z.object({
-  lastEventId: z.string().optional(),
+// Schema for validating task event IDs
+const taskEventIdSchema = z.string()
+  .regex(
+    /^task_\d+_\d+$/,
+    "Invalid task event ID format. Expected format: task_<timestamp>_<sequence>",
+  );
+
+// Schema for query parameters in reconnection
+const streamReconnectQuerySchema = z.object({
+  lastEventId: taskEventIdSchema.optional(),
+});
+
+// Schema for headers in reconnection
+const streamReconnectHeaderSchema = z.object({
+  "last-event-id": taskEventIdSchema.optional(),
 });
 
 /**
@@ -257,12 +270,12 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   // Add a new GET endpoint for stream reconnection
   agentRouter.get(
     "/task/sse",
-    zValidator("query", streamReconnectSchema),
+    zValidator("query", streamReconnectQuerySchema),
+    zValidator("header", streamReconnectHeaderSchema),
     (c) => {
-      // First try to get lastEventId from standard Last-Event-ID header, then fallback to query param
-      const headerLastEventId = c.req.header("last-event-id");
-      const queryLastEventId = c.req.valid("query").lastEventId;
-      const lastEventId = headerLastEventId ?? queryLastEventId;
+      // First try to get lastEventId from standard Last-Event-ID header (now validated), then fallback to query param
+      const lastEventId = c.req.valid("header")["last-event-id"] ??
+        c.req.valid("query").lastEventId;
 
       // If task is not running, return 204 No Content
       if (!taskEventSubject || !taskAbortController) {
