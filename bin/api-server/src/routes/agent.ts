@@ -10,8 +10,12 @@ import {
 } from "../../../../src/ZypherAgent.ts";
 import { formatError } from "../../../../src/utils/mod.ts";
 import { ApiError } from "../error.ts";
-import { type TaskEvent, TaskEventId } from "../taskEvents.ts";
-import { ReplaySubject } from "rxjs";
+import {
+  type TaskEvent,
+  TaskEventId,
+  withReplayAndHeartbeat,
+} from "../taskEvents.ts";
+import { Observable, ReplaySubject } from "rxjs";
 import { filter } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
 
@@ -89,64 +93,74 @@ function runAgentTask(
   imageAttachments: ZypherImageAttachment[],
   options: { signal?: AbortSignal },
 ): ReplaySubject<TaskEvent> {
-  const eventSubject = new ReplaySubject<TaskEvent>();
-
-  // Set up streaming handler for the agent
-  const streamHandler: StreamHandler = {
-    onContent: (content, _isFirstChunk) => {
-      eventSubject.next({
-        event: "content_delta",
-        data: {
-          eventId: TaskEventId.generate().toString(),
-          content,
-        },
-      });
-    },
-    onToolUse: (name, partialInput) => {
-      eventSubject.next({
-        event: "tool_use_delta",
-        data: {
-          eventId: TaskEventId.generate().toString(),
-          name,
-          partialInput,
-        },
-      });
-    },
-    onMessage: (message) => {
-      eventSubject.next({
-        event: "message",
-        data: {
-          eventId: TaskEventId.generate().toString(),
-          message,
-        },
-      });
-    },
-  };
-
-  agent
-    .runTaskWithStreaming(
-      taskPrompt,
-      streamHandler,
-      imageAttachments,
-      {
-        signal: options.signal,
+  const taskEvent$ = new Observable<TaskEvent>((subscriber) => {
+    // Set up streaming handler for the agent
+    const streamHandler: StreamHandler = {
+      onContent: (content, _isFirstChunk) => {
+        subscriber.next({
+          event: "content_delta",
+          data: {
+            eventId: TaskEventId.generate().toString(),
+            content,
+          },
+        });
       },
-    )
-    .then(() => {
-      eventSubject.complete();
-    })
-    .catch((error) => {
-      eventSubject.next({
-        event: "error",
-        data: {
-          eventId: TaskEventId.generate().toString(),
-          error: formatError(error),
-        },
-      });
-      eventSubject.complete();
-    });
+      onToolUse: (name, partialInput) => {
+        subscriber.next({
+          event: "tool_use_delta",
+          data: {
+            eventId: TaskEventId.generate().toString(),
+            name,
+            partialInput,
+          },
+        });
+      },
+      onMessage: (message) => {
+        subscriber.next({
+          event: "message",
+          data: {
+            eventId: TaskEventId.generate().toString(),
+            message,
+          },
+        });
+      },
+      onCancelled: (reason) => {
+        subscriber.next({
+          event: "cancelled",
+          data: {
+            eventId: TaskEventId.generate().toString(),
+            reason,
+          },
+        });
+      },
+    };
 
-  return eventSubject;
+    agent
+      .runTaskWithStreaming(
+        taskPrompt,
+        streamHandler,
+        imageAttachments,
+        {
+          signal: options.signal,
+        },
+      )
+      .then(() => {
+        subscriber.complete();
+      })
+      .catch((error) => {
+        subscriber.next({
+          event: "error",
+          data: {
+            eventId: TaskEventId.generate().toString(),
+            error: formatError(error),
+          },
+        });
+        subscriber.complete();
+      });
+  });
+
+  // 30 seconds heartbeat
+  return withReplayAndHeartbeat(taskEvent$, 30000);
 }
 
 function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
