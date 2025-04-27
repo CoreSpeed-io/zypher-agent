@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { upgradeWebSocket } from "hono/deno";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { listCheckpoints } from "../../../../src/checkpoints.ts";
@@ -11,12 +10,12 @@ import {
 } from "../../../../src/ZypherAgent.ts";
 import { formatError } from "../../../../src/utils/index.ts";
 import { ApiError } from "../error.ts";
-import type { TaskEvent } from "../types/events.ts";
-import { TaskStreamManager } from "../utils/StreamRecovery.ts";
+import { type TaskEvent, TaskEventId } from "../taskEvents.ts";
+import { ReplaySubject } from "rxjs";
+import { filter } from "rxjs/operators";
+import { eachValueFrom } from "rxjs-for-await";
 
 const agentRouter = new Hono();
-// Create an instance of TaskStreamManager
-const taskStreamManager = new TaskStreamManager();
 
 // Zod Schemas
 // Define supported image MIME types with more precise validation
@@ -28,7 +27,6 @@ const SUPPORTED_IMAGE_TYPES = [
 ] as const;
 type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
 
-// Zod schema for base64 image validation
 const base64ImageSchema = z
   .string()
   .regex(/^data:image\/[a-zA-Z+]+;base64,/, "Invalid base64 image format")
@@ -48,14 +46,12 @@ const base64ImageSchema = z
     },
   );
 
-// Zod schema for image validation
 const imageSchema = z.object({
   name: z.string(),
   data: base64ImageSchema,
 });
 type ImageAttachment = z.infer<typeof imageSchema>;
 
-// Zod schema for task
 const taskSchema = z.object({
   task: z.string(),
   imageAttachments: z.array(imageSchema).optional(),
@@ -65,13 +61,108 @@ const checkpointParamsSchema = z.object({
   checkpointId: z.string().min(1, "Checkpoint ID cannot be empty"),
 });
 
-// Add Zod schema for stream reconnection
 const streamReconnectSchema = z.object({
   lastEventId: z.string().optional(),
 });
 
+/**
+ * Determines if a given event occurred after another event with the specified ID
+ * by comparing their timestamps and sequence numbers.
+ *
+ * @param event The event to check
+ * @param eventId The reference event ID to compare against
+ * @returns true if the event occurred after the event with eventId, false otherwise
+ * @throws Error if either ID doesn't match the expected format task_<timestamp>_<sequence>
+ */
+function isEventAfterId(event: TaskEvent, eventId: string): boolean {
+  // Create TaskEventId objects from both IDs
+  const currentId = new TaskEventId(event.data.eventId);
+  const referenceId = new TaskEventId(eventId);
+
+  // Use the built-in comparison method
+  return currentId.isAfter(referenceId);
+}
+
+function runAgentTask(
+  agent: ZypherAgent,
+  taskPrompt: string,
+  imageAttachments: ZypherImageAttachment[],
+  options: { signal?: AbortSignal },
+): ReplaySubject<TaskEvent> {
+  const eventSubject = new ReplaySubject<TaskEvent>();
+
+  // Set up streaming handler for the agent
+  const streamHandler: StreamHandler = {
+    onContent: (content, _isFirstChunk) => {
+      eventSubject.next({
+        event: "content_delta",
+        data: {
+          eventId: TaskEventId.generate().toString(),
+          content,
+        },
+      });
+    },
+    onToolUse: (name, partialInput) => {
+      eventSubject.next({
+        event: "tool_use_delta",
+        data: {
+          eventId: TaskEventId.generate().toString(),
+          name,
+          partialInput,
+        },
+      });
+    },
+    onMessage: (message) => {
+      eventSubject.next({
+        event: "message",
+        data: {
+          eventId: TaskEventId.generate().toString(),
+          message,
+        },
+      });
+    },
+  };
+
+  agent
+    .runTaskWithStreaming(
+      taskPrompt,
+      streamHandler,
+      imageAttachments,
+      {
+        signal: options.signal,
+      },
+    )
+    .then(() => {
+      eventSubject.complete();
+    })
+    .catch((error) => {
+      eventSubject.next({
+        event: "error",
+        data: {
+          eventId: TaskEventId.generate().toString(),
+          error: formatError(error),
+        },
+      });
+      eventSubject.complete();
+    });
+
+  return eventSubject;
+}
+
+function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
+  return images.map((img) => ({
+    type: "image" as const,
+    source: {
+      type: "base64" as const,
+      media_type: img.data.split(":")[1].split(";")[0] as SupportedImageType,
+      data: img.data.split(",")[1],
+    },
+  }));
+}
+
 export function createAgentRouter(agent: ZypherAgent): Hono {
   let taskAbortController: AbortController | null = null;
+  let taskEventSubject: ReplaySubject<TaskEvent> | null = null;
 
   // Get agent messages
   agentRouter.get("/messages", (c) => {
@@ -114,148 +205,41 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     });
   });
 
-  async function runAgentTask(
-    task: string,
-    imageAttachments: ZypherImageAttachment[],
-    onEvent: (event: TaskEvent) => void,
-  ): Promise<void> {
-    // Create a new abort controller for this task
-    taskAbortController = new AbortController();
-    // Generate a unique task ID
-    const taskId = `task_${Date.now()}`;
-
-    // Start tracking this task in the stream manager
-    taskStreamManager.startTask(taskId);
-
-    // Set up streaming handler for the agent
-    const streamHandler: StreamHandler = {
-      onContent: (content, _isFirstChunk) => {
-        // Create basic event and send to StreamRecovery to add eventId
-        const event = taskStreamManager.addEvent({
-          event: "content_delta",
-          data: { content },
-        });
-        // Use the event with eventId
-        if (event) onEvent(event);
-      },
-      onToolUse: (name, partialInput) => {
-        // Create basic event and send to StreamRecovery to add eventId
-        const event = taskStreamManager.addEvent({
-          event: "tool_use_delta",
-          data: { name, partialInput },
-        });
-        // Use the event with eventId
-        if (event) onEvent(event);
-      },
-      onMessage: (message) => {
-        // Create basic event and send to StreamRecovery to add eventId
-        const event = taskStreamManager.addEvent({
-          event: "message",
-          data: message,
-        });
-        // Use the event with eventId
-        if (event) onEvent(event);
-      },
-      onCancelled: (reason) => {
-        // Create a user-friendly message based on the reason
-        let message: string;
-        switch (reason) {
-          case "user":
-            message = "Task was cancelled by user";
-            break;
-          case "timeout":
-            message = `Task was cancelled due to timeout (${
-              agent.taskTimeoutMs / 1000
-            }s limit)`;
-            break;
-          default:
-            message = "Task was cancelled";
-        }
-
-        // Create basic event and send to StreamRecovery to add eventId
-        const event = taskStreamManager.addEvent({
-          event: "cancelled",
-          data: { message, reason },
-        });
-
-        // Use the event with eventId
-        if (event) onEvent(event);
-
-        console.log(`Task cancelled: ${message} (reason: ${reason})`);
-      },
-    };
-
-    try {
-      await agent.runTaskWithStreaming(
-        task,
-        streamHandler,
-        imageAttachments,
-        {
-          signal: taskAbortController.signal,
-        },
-      );
-
-      // Otherwise, task completed successfully
-      const event = taskStreamManager.addEvent({
-        event: "complete",
-        data: {},
-      });
-      // Use the event with eventId
-      if (event) onEvent(event);
-    } catch (error) {
-      // For any other errors, provide detailed error info for debugging
-      console.error("Error running agent task:", formatError(error));
-
-      // TODO: handle TaskConcurrencyError with 409 status
-
-      const event = taskStreamManager.addEvent({
-        event: "error",
-        data: {
-          error: formatError(error),
-        },
-      });
-
-      // Use the event with eventId
-      if (event) onEvent(event);
-    } finally {
-      // Task is done one way or another
-      taskStreamManager.endTask();
-      // Clear the abort controller
-      taskAbortController = null;
-    }
-  }
-
-  function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
-    return images.map((img) => ({
-      type: "image" as const,
-      source: {
-        type: "base64" as const,
-        media_type: img.data.split(":")[1].split(";")[0] as SupportedImageType,
-        data: img.data.split(",")[1],
-      },
-    }));
-  }
-
   // Run a task
   agentRouter.post("/task/sse", zValidator("json", taskSchema), (c) => {
     const { task, imageAttachments } = c.req.valid("json");
     const processedImages: ZypherImageAttachment[] = imageAttachments
       ? processImages(imageAttachments)
       : [];
+
+    if (taskAbortController || taskEventSubject) {
+      throw new ApiError(
+        409,
+        "task_in_progress",
+        "A task is already running",
+      );
+    }
+
+    const abortController = taskAbortController ??= new AbortController();
+    const eventSubject = taskEventSubject ??= runAgentTask(
+      agent,
+      task,
+      processedImages,
+      { signal: abortController.signal },
+    );
+
     return streamSSE(
       c,
       async (stream) => {
-        // Pass event handlers during initialization
-        await runAgentTask(task, processedImages, (event) => {
-          void stream.writeSSE({
+        for await (const event of eachValueFrom(eventSubject)) {
+          await stream.writeSSE({
             event: event.event,
-            data: JSON.stringify(
-              typeof event.data === "object" && event.data
-                ? { ...event.data }
-                : { value: event.data },
-            ),
+            data: JSON.stringify(event.data),
           });
-        });
+        }
+
+        taskEventSubject = null;
+        taskAbortController = null;
       },
     );
   });
@@ -266,110 +250,37 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     zValidator("query", streamReconnectSchema),
     (c) => {
       // First try to get lastEventId from standard Last-Event-ID header, then fallback to query param
-      const headerLastEventId = c.req.header("Last-Event-ID");
+      const headerLastEventId = c.req.header("last-event-id");
       const queryLastEventId = c.req.valid("query").lastEventId;
-      const lastEventId = headerLastEventId || queryLastEventId;
+      const lastEventId = headerLastEventId ?? queryLastEventId;
 
-      // If no event stream is available, return 204 No Content
-      if (!taskStreamManager.hasEventStream()) {
+      // If task is not running, return 204 No Content
+      if (!taskEventSubject || !taskAbortController) {
         return c.body(null, 204);
       }
+
+      const eventSubject = taskEventSubject;
 
       return streamSSE(
         c,
         async (stream) => {
-          // Create a subscription that will continue until the task completes
-          const subscription = taskStreamManager.getEventStream(lastEventId)
-            .subscribe({
-              next: (event) => {
-                void stream.writeSSE({
-                  event: event.event,
-                  data: JSON.stringify(
-                    typeof event.data === "object" && event.data
-                      ? event.data
-                      : { value: event.data },
-                  ),
-                });
-              },
-              error: (err) => {
-                console.error("Error in SSE stream:", err);
-                // Log error event through StreamRecovery to get an eventId
-                const errorEvent = taskStreamManager.addEvent({
-                  event: "error",
-                  data: { error: formatError(err) },
-                });
+          const events = eventSubject
+            .asObservable()
+            .pipe(
+              filter((event) =>
+                lastEventId ? isEventAfterId(event, lastEventId) : true
+              ),
+            );
 
-                if (errorEvent && errorEvent.data) {
-                  void stream.writeSSE({
-                    event: "error",
-                    data: JSON.stringify(errorEvent.data),
-                  });
-                }
-              },
-              complete: () => {
-                console.log("Task stream completed");
-              },
+          for await (const event of eachValueFrom(events)) {
+            await stream.writeSSE({
+              event: event.event,
+              data: JSON.stringify(event.data),
             });
-
-          // Keep the stream open until the task completes
-          await new Promise<void>((resolve) => {
-            // Timer to check if the task stream has ended
-            const checkInterval = setInterval(() => {
-              if (!taskStreamManager.hasEventStream()) {
-                clearInterval(checkInterval);
-                subscription.unsubscribe();
-                resolve();
-              }
-            }, 1000);
-
-            // Clean up resources when connection closes
-            c.req.raw.signal.addEventListener("abort", () => {
-              clearInterval(checkInterval);
-              subscription.unsubscribe();
-              resolve();
-            });
-          });
+          }
         },
       );
     },
-  );
-
-  // Run a task (websocket)
-  agentRouter.get(
-    "/task/ws",
-    upgradeWebSocket((_c) => {
-      return {
-        onMessage(event, ws) {
-          const messageData = JSON.parse(event.data as string);
-          const result = taskSchema.safeParse(messageData);
-          if (!result.success) {
-            ws.send(JSON.stringify({
-              event: "error",
-              data: {
-                error: "Invalid request format",
-                details: result.error.format(),
-              },
-            }));
-            return;
-          }
-
-          const { task, imageAttachments } = result.data;
-          const processedImages: ZypherImageAttachment[] = imageAttachments
-            ? processImages(imageAttachments)
-            : [];
-
-          runAgentTask(task, processedImages, (event) => {
-            // Only send if the WebSocket is still open
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(event));
-            }
-          });
-        },
-        onError(error) {
-          console.error("WebSocket error:", error);
-        },
-      };
-    }),
   );
 
   // List checkpoints
