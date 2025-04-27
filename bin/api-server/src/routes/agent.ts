@@ -8,7 +8,7 @@ import {
   type StreamHandler,
   ZypherAgent,
 } from "../../../../src/ZypherAgent.ts";
-import { formatError } from "../../../../src/utils/index.ts";
+import { formatError } from "../../../../src/utils/mod.ts";
 import { ApiError } from "../error.ts";
 import { type TaskEvent, TaskEventId } from "../taskEvents.ts";
 import { ReplaySubject } from "rxjs";
