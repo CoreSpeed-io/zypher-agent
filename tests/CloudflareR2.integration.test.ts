@@ -1,8 +1,8 @@
 import { afterEach, beforeAll, describe, test } from "@std/testing/bdd";
 import { expect } from "@std/expect";
 import "@std/dotenv/load";
-import { S3StorageService } from "../S3StorageService.ts";
-import { UploadOptions } from "../StorageService.ts";
+import { S3StorageService } from "../src/storage/S3StorageService.ts";
+import { UploadOptions } from "../src/storage/StorageService.ts";
 
 // Skip tests if environment variables are not set
 const skipTests = !Deno.env.get("CLOUDFLARE_ACCOUNT_ID") ||
@@ -18,17 +18,21 @@ describe("Cloudflare R2 Storage Integration Tests (S3-compatible)", {
 
   // Setup before all tests
   beforeAll(() => {
+    const endpoint = Deno.env.get("CLOUDFLARE_R2_CUSTON_DOMAIN")
+      ? `https://${Deno.env.get("CLOUDFLARE_R2_CUSTON_DOMAIN")}`
+      : `https://${
+        Deno.env.get("CLOUDFLARE_ACCOUNT_ID")
+      }.r2.cloudflarestorage.com`;
+
     // Create S3StorageService instance with R2 config
     storageService = new S3StorageService({
       bucket: Deno.env.get("CLOUDFLARE_R2_BUCKET_NAME")!,
-      region: "auto",
+      region: "us-west-1",
       credentials: {
         accessKeyId: Deno.env.get("CLOUDFLARE_R2_ACCESS_KEY_ID")!,
         secretAccessKey: Deno.env.get("CLOUDFLARE_R2_SECRET_ACCESS_KEY")!,
       },
-      endpoint: `https://${
-        Deno.env.get("CLOUDFLARE_ACCOUNT_ID")
-      }.r2.cloudflarestorage.com`,
+      endpoint: endpoint,
     });
   });
 
@@ -96,9 +100,7 @@ describe("Cloudflare R2 Storage Integration Tests (S3-compatible)", {
         uploadOptions.metadata?.test,
       );
       // We have `testNumber` in the uploadOptions, but it gets converted (lowercase) to `testnumber` in the received metadata
-      // Not sure if this is a R2 behavior or an AWS S3 expected behavior
-      // This only happens when retrieving the metadata, not for `uploadResult`
-      // Also, the additionalMetadata will be stringified, so 123 will become "123"
+      // This is by design of the S3 protocol, as S3 metadata keys are case-insensitive
       expect(metadata.additionalMetadata?.testnumber).toBe(
         String(uploadOptions.metadata?.testNumber),
       );
@@ -139,14 +141,14 @@ describe("Cloudflare R2 Storage Integration Tests (S3-compatible)", {
     const encoder = new TextEncoder();
     const testBuffer = encoder.encode(testContent);
 
-    // // Create a ReadableStream from the buffer
-    // const stream = new ReadableStream({
-    //   start(controller) {
-    //     controller.enqueue(testBuffer);
-    //     controller.close();
-    //   },
-    //   type: "bytes",
-    // });
+    // Create a ReadableStream from the buffer
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(testBuffer);
+        controller.close();
+      },
+      type: "bytes",
+    });
 
     const uploadOptions: UploadOptions = {
       contentType: "text/plain",
@@ -156,7 +158,7 @@ describe("Cloudflare R2 Storage Integration Tests (S3-compatible)", {
 
     // Upload from stream
     const uploadResult = await storageService.uploadFile(
-      testBuffer,
+      stream,
       uploadOptions,
     );
 
@@ -229,6 +231,7 @@ describe("Cloudflare R2 Storage Integration Tests (S3-compatible)", {
     const signedUrl = await storageService.getSignedUrl(uploadResult.id, 300);
 
     // Verify signed URL
+    console.log("signedUrl", signedUrl);
     expect(signedUrl).not.toBeNull();
     expect(typeof signedUrl).toBe("string");
     // The URL should contain the bucket name and endpoint
