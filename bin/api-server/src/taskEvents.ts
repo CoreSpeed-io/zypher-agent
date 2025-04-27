@@ -1,4 +1,5 @@
 import type { Message } from "../../../src/message.ts";
+import { Observable, ReplaySubject } from "rxjs";
 
 /**
  * Base event data that all event types must include
@@ -157,4 +158,118 @@ export class TaskEventId {
   get sequence(): number {
     return this.#sequence;
   }
+}
+
+/**
+ * Adds heartbeat events to an Observable during periods of inactivity
+ * @template T The type of events in the source Observable
+ * @param source The source Observable
+ * @param heartbeatInterval The interval in milliseconds to wait before emitting a heartbeat
+ * @param createHeartbeatFn Function to create a heartbeat event
+ * @returns An Observable that includes the original events plus heartbeat events
+ */
+export function withHeartbeat<T>(
+  source: Observable<T>,
+  heartbeatInterval: number,
+  createHeartbeatFn: () => T,
+): Observable<T> {
+  return new Observable<T>((observer) => {
+    let heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    // Function to schedule the next heartbeat
+    const scheduleHeartbeat = () => {
+      // Clear any existing timeout
+      if (heartbeatTimeout !== null) {
+        clearTimeout(heartbeatTimeout);
+      }
+
+      // Schedule a new heartbeat
+      heartbeatTimeout = setTimeout(() => {
+        const heartbeatEvent = createHeartbeatFn();
+        observer.next(heartbeatEvent);
+
+        // Schedule the next heartbeat
+        scheduleHeartbeat();
+      }, heartbeatInterval);
+    };
+
+    // Start the heartbeat scheduling
+    scheduleHeartbeat();
+
+    // Subscribe to the source and forward events
+    const subscription = source.subscribe({
+      next: (event) => {
+        // Forward the event
+        observer.next(event);
+
+        // Reset the heartbeat timer
+        scheduleHeartbeat();
+      },
+      error: (err) => {
+        if (heartbeatTimeout !== null) {
+          clearTimeout(heartbeatTimeout);
+        }
+        observer.error(err);
+      },
+      complete: () => {
+        if (heartbeatTimeout !== null) {
+          clearTimeout(heartbeatTimeout);
+        }
+        observer.complete();
+      },
+    });
+
+    // Return cleanup function
+    return () => {
+      subscription.unsubscribe();
+      if (heartbeatTimeout !== null) {
+        clearTimeout(heartbeatTimeout);
+      }
+    };
+  });
+}
+
+/**
+ * Converts an Observable to a ReplaySubject that will replay all events to new subscribers
+ * @template T The type of events in the source Observable
+ * @param source The source Observable
+ * @returns A ReplaySubject that replays all events to new subscribers
+ */
+export function withReplay<T>(source: Observable<T>): ReplaySubject<T> {
+  const subject = new ReplaySubject<T>();
+
+  // Subscribe the subject directly to the source
+  source.subscribe(subject);
+
+  return subject;
+}
+
+/**
+ * Creates a task heartbeat event
+ * @returns A heartbeat TaskEvent
+ */
+export function createTaskHeartbeat(): TaskEvent {
+  return {
+    event: "heartbeat",
+    data: {
+      eventId: TaskEventId.generate().toString(),
+      timestamp: Date.now(),
+    },
+  };
+}
+
+/**
+ * Creates a ReplaySubject from an Observable that emits heartbeat events during periods of inactivity
+ * @param source The source Observable of TaskEvent objects
+ * @param heartbeatInterval The interval in milliseconds to wait before emitting a heartbeat
+ * @returns A ReplaySubject that replays all events including added heartbeats
+ */
+export function withReplayAndHeartbeat(
+  source: Observable<TaskEvent>,
+  heartbeatInterval: number,
+): ReplaySubject<TaskEvent> {
+  // First add heartbeat events, then convert to a ReplaySubject
+  return withReplay(
+    withHeartbeat(source, heartbeatInterval, createTaskHeartbeat),
+  );
 }
