@@ -64,10 +64,10 @@ export type TaskEvent =
   | { event: "content_delta"; data: ContentDeltaEventData }
   | { event: "tool_use_delta"; data: ToolUseDeltaEventData }
   | { event: "message"; data: MessageEventData }
+  | { event: "heartbeat"; data: HeartbeatEventData }
   | { event: "error"; data: ErrorEventData }
   | { event: "complete"; data: CompleteEventData }
-  | { event: "cancelled"; data: CancelledEventData }
-  | { event: "heartbeat"; data: HeartbeatEventData };
+  | { event: "cancelled"; data: CancelledEventData };
 
 /**
  * Represents a unique identifier for task events with timestamp and sequence components.

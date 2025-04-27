@@ -19,7 +19,7 @@
     "hono": "npm:hono@^4.7.7",
     "@hono/zod-validator": "npm:@hono/zod-validator@^0.4.3",
     "@openai/openai": "jsr:@openai/openai@^4.96.0",
-    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.39.0",
+    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.40.0",
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.10.2",
     "chalk": "npm:chalk@^5.4.1",
     "rxjs": "npm:rxjs@^7.8.2",

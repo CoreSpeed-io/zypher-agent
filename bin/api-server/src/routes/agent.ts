@@ -176,7 +176,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   });
 
   // Cancel the current task
-  agentRouter.get("/task/cancel", (c) => {
+  agentRouter.post("/task/cancel", (c) => {
     // Check if a task is running
     if (!agent.isTaskRunning) {
       throw new ApiError(
@@ -198,11 +198,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     // TODO: abort signal does not guarantee the task will be cancelled immediately,
     //       so we need to wait until the task is actually cancelled
 
-    return c.json({
-      success: true,
-      message: "Task cancelled successfully",
-      status: "idle",
-    });
+    return c.body(null, 204);
   });
 
   // Run a task
