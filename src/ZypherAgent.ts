@@ -370,7 +370,7 @@ export class ZypherAgent {
     const timeoutController = new AbortController();
 
     // Create a composite signal that aborts if either the caller's signal or our timeout signal aborts
-    const signal = options?.signal
+    const mergedSignal = options?.signal
       ? AbortSignal.any([options.signal, timeoutController.signal])
       : timeoutController.signal;
 
@@ -449,7 +449,7 @@ export class ZypherAgent {
 
       while (iterations < maxIterations) {
         // Check for abort signal early
-        if (signal.aborted) {
+        if (mergedSignal.aborted) {
           throw new AbortError("Task aborted");
         }
         let isFirstChunk = true;
@@ -469,7 +469,7 @@ export class ZypherAgent {
             ),
             tools: toolCalls,
             ...(this.#userId && { metadata: { user_id: this.#userId } }),
-          }, { signal })
+          }, { signal: mergedSignal })
           .on("text", (textDelta) => {
             // Call stream handler for content
             if (streamHandler?.onContent && textDelta) {
@@ -510,7 +510,7 @@ export class ZypherAgent {
         streamHandler?.onMessage?.(assistantMessage);
 
         // Check for cancellation
-        if (signal.aborted) {
+        if (mergedSignal.aborted) {
           throw new AbortError("Task aborted");
         }
 
@@ -522,7 +522,7 @@ export class ZypherAgent {
               const result = await this.#executeToolCall({
                 name: block.name,
                 parameters: block.input as Record<string, unknown>,
-                options: { signal },
+                options: { signal: mergedSignal },
               });
 
               // Add tool response
@@ -553,7 +553,7 @@ export class ZypherAgent {
         } else {
           // Check for code errors if enabled and this is the end of the conversation
           if (this.#autoErrorCheck) {
-            const errors = await detectErrors({ signal });
+            const errors = await detectErrors({ signal: mergedSignal });
             if (errors) {
               console.log(
                 "\n🔍 Detected code errors. Asking the agent to fix them...",
@@ -592,6 +592,10 @@ export class ZypherAgent {
       if (isAbortError(error)) {
         console.log(formatError(error));
         console.log("🛑 Task aborted.");
+
+        streamHandler?.onCancelled?.(
+          options?.signal?.aborted ? "user" : "timeout",
+        );
 
         if (this.#persistHistory) {
           await saveMessageHistory(this.#messages);

@@ -48,7 +48,7 @@ export interface CompleteEventData extends BaseEventData {
  * Cancelled event data
  */
 export interface CancelledEventData extends BaseEventData {
-  // No additional fields for cancelled events
+  reason: "user" | "timeout";
 }
 
 /**
