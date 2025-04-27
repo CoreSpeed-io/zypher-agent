@@ -11,8 +11,8 @@ import {
   isAbortError,
   loadMessageHistory,
   saveMessageHistory,
-} from "./utils/index.ts";
-import { detectErrors } from "./errorDetection/index.ts";
+} from "./utils/mod.ts";
+import { detectErrors } from "./errorDetection/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
 import {
   applyCheckpoint,

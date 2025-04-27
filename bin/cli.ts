@@ -10,13 +10,14 @@ import {
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
-} from "../src/tools/index.ts";
+} from "../src/tools/mod.ts";
 import { parseArgs } from "@std/cli";
 import readline from "node:readline";
 import { stdin as input, stdout as output } from "node:process";
-import { formatError, printMessage } from "../src/utils/index.ts";
+import { formatError } from "../src/utils/mod.ts";
 import chalk from "chalk";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
+import { printMessage } from "../src/message.ts";
 
 interface CliOptions {
   workspace?: string;

@@ -1,7 +1,7 @@
 import { Context } from "hono";
 import { StatusCode } from "hono/utils/http-status";
 import { z } from "zod";
-import { formatError } from "../../../src/utils/error.ts";
+import { formatError } from "../../../src/error.ts";
 
 export class ApiError extends Error {
   constructor(

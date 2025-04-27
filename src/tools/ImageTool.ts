@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { defineTool } from "./index.ts";
+import { defineTool } from "./mod.ts";
 import OpenAI, { toFile } from "@openai/openai";
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
 import { APIError } from "@openai/openai";
-import { formatError } from "../utils/error.ts";
-import { fileExists } from "../utils/index.ts";
+import { formatError } from "../error.ts";
+import { fileExists } from "../utils/mod.ts";
 
 // Initialize OpenAI client
 const openai = new OpenAI({

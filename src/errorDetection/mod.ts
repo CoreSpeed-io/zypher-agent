@@ -8,7 +8,7 @@ import {
   PythonMypyErrorDetector,
 } from "./python.ts";
 import { GoLintErrorDetector, GoVetErrorDetector } from "./go.ts";
-import { AbortError } from "../utils/error.ts";
+import { AbortError } from "../error.ts";
 
 // Export all interfaces and types
 export * from "./interface.ts";

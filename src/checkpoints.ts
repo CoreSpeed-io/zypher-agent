@@ -1,6 +1,6 @@
 import * as path from "@std/path";
-import { getWorkspaceDataDir } from "./utils/index.ts";
-import { fileExists as pathExists } from "./utils/index.ts";
+import { getWorkspaceDataDir } from "./utils/mod.ts";
+import { fileExists as pathExists } from "./utils/mod.ts";
 
 /**
  * Checkpoint information
