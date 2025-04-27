@@ -22,7 +22,7 @@ const filesRouter = new Hono();
 export function createFilesRouter(storageService: StorageService): Hono {
   // Generate upload URL for file attachments
   filesRouter.post(
-    "/upload-url",
+    "/upload",
     zValidator("json", fileUploadRequestSchema),
     async (c) => {
       const { filename, contentType, size } = c.req.valid("json");
