@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool } from "./index.ts";
+import { defineTool } from "./mod.ts";
 import * as path from "@std/path";
 
 export const ListDirTool = defineTool({

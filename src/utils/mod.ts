@@ -1,3 +1,6 @@
+export * from "../error.ts";
+export * from "./data.ts";
+
 /**
  * Information about the user's system environment.
  */

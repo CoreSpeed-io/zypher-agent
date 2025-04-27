@@ -1,5 +1,4 @@
-import type { UserInfo } from "./utils/system.ts";
-import { fileExists } from "./utils/index.ts";
+import { fileExists, type UserInfo } from "./utils/mod.ts";
 
 /**
  * Reads custom rules from either .zypherrules or .cursorrules file.
