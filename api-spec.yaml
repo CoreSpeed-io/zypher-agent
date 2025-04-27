@@ -151,7 +151,15 @@ components:
       properties:
         event:
           type: string
-          enum: [message, content_delta, tool_use_delta, complete, error]
+          enum: [
+            message,
+            content_delta,
+            tool_use_delta,
+            complete,
+            error,
+            heartbeat,
+            cancelled,
+          ]
           description: The type of event
         data:
           oneOf:
@@ -176,7 +184,20 @@ components:
                 error:
                   type: string
                   description: Error message
-              description: The event data
+              description: Error event data
+            - type: object
+              properties:
+                timestamp:
+                  type: number
+                  description: Heartbeat timestamp in milliseconds since epoch
+              description: Heartbeat event data
+            - type: object
+              properties:
+                reason:
+                  type: string
+                  enum: [user, timeout]
+                  description: The reason for cancellation
+              description: Cancelled event data
 
     McpServerConfig:
       type: object
@@ -257,7 +278,8 @@ paths:
       summary: Run a task with Server-Sent Events
       description: |
         Runs a task using the agent. This endpoint uses server-sent events (SSE) to stream
-        the agent's responses back to the client in real-time.
+        the agent's responses back to the client in real-time. The endpoint adds heartbeat events
+        every 30 seconds during periods of inactivity to help keep the connection alive and detect disconnections.
       operationId: runTaskSSE
       requestBody:
         description: Task request
@@ -275,18 +297,66 @@ paths:
                 description: Stream of server-sent events containing task progress
               example: |
                 event: content_delta
-                data: {"content":"I'll help you create a React component."}
+                data: {"eventId":"task_1650000000000_0","content":"I'll help you create a React component."}
 
                 event: tool_use_delta
-                data: {"name":"read_file","partialInput":{"target_file":"src/components/Example.tsx"}}
+                data: {"eventId":"task_1650000000000_1","name":"read_file","partialInput":{"target_file":"src/components/Example.tsx"}}
 
                 event: message
-                data: {"role":"assistant","content":[{"type":"text","text":"I'll help you create a React component."}]}
+                data: {"eventId":"task_1650000000000_2","role":"assistant","content":[{"type":"text","text":"I'll help you create a React component."}]}
+
+                event: heartbeat
+                data: {"eventId":"task_1650000000000_3","timestamp":1650000030000}
 
                 event: complete
-                data: {}
+                data: {"eventId":"task_1650000000000_4"}
         "400":
           $ref: "#/components/responses/ValidationError"
+        "409":
+          description: Another task is already running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      summary: Reconnect to a running task stream
+      description: |
+        Reconnects to an existing task stream. This endpoint allows clients to recover from connection
+        interruptions by requesting all events that occurred after their last received event ID.
+        The server will replay all events from the history that occurred after the specified event ID.
+        If no task is running, returns 204 No Content.
+      operationId: reconnectTaskSSE
+      parameters:
+        - name: lastEventId
+          in: query
+          schema:
+            type: string
+          description: The ID of the last event received by the client (format task_<timestamp>_<sequence>)
+      responses:
+        "200":
+          description: Connected to running task stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Stream of server-sent events containing task progress
+        "204":
+          description: No task is currently running
+
+  /agent/task/cancel:
+    post:
+      summary: Cancel the current task
+      description: Cancels the currently running task, if any
+      operationId: cancelTask
+      responses:
+        "204":
+          description: Task cancelled successfully
+        "404":
+          description: No task is running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /agent/task/ws:
     get:

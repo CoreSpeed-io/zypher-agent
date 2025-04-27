@@ -2,7 +2,7 @@ import * as path from "@std/path";
 import { encodeBase64 } from "@std/encoding/base64";
 import type { Message } from "../message.ts";
 import { isMessage } from "../message.ts";
-import { formatError } from "./error.ts";
+import { formatError } from "../error.ts";
 
 /**
  * Checks if a file exists and is readable.
@@ -25,7 +25,7 @@ export async function fileExists(path: string): Promise<boolean> {
  *
  * @returns {Promise<string>} Path to the Zypher data directory
  */
-export async function getDataDir(): Promise<string> {
+export async function getZypherDir(): Promise<string> {
   const homeDir = Deno.env.get("HOME");
   if (!homeDir) {
     throw new Error("Could not determine home directory");
@@ -48,7 +48,7 @@ export async function getDataDir(): Promise<string> {
  * @returns {Promise<string>} Path to the workspace-specific directory
  */
 export async function getWorkspaceDataDir(): Promise<string> {
-  const dataDir = await getDataDir();
+  const dataDir = await getZypherDir();
 
   // Create workspace-specific directory
   const workspaceHash = encodeBase64(Deno.cwd());
