@@ -8,7 +8,7 @@ import {
   readPackageJson,
 } from "./utils.ts";
 import { extractErrorOutput } from "../utils.ts";
-import { fileExists } from "../../utils/index.ts";
+import { fileExists } from "../../utils/mod.ts";
 
 // Workaround for Deno.Command not throwing an error when the command returns a non-zero exit code
 import { exec } from "node:child_process";

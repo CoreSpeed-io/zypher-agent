@@ -1,4 +1,4 @@
-import { fileExists } from "../../utils/index.ts";
+import { fileExists } from "../../utils/mod.ts";
 
 /**
  * Type definition for package.json structure

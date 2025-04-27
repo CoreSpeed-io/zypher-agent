@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool } from "./index.ts";
+import { defineTool } from "./mod.ts";
 import { exec, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
