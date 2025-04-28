@@ -7,7 +7,6 @@ import {
   type StreamHandler,
   ZypherAgent,
 } from "../../../../src/ZypherAgent.ts";
-import { formatError } from "../../../../src/utils/mod.ts";
 import { ApiError } from "../error.ts";
 import {
   type TaskEvent,
@@ -134,11 +133,12 @@ function runAgentTask(
         subscriber.complete();
       })
       .catch((error) => {
+        console.error("Error during agent task execution:", error);
         subscriber.next({
           event: "error",
           data: {
             eventId: TaskEventId.generate().toString(),
-            error: formatError(error),
+            error: "Internal server error during agent task execution.",
           },
         });
         subscriber.complete();
