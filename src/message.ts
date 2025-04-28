@@ -1,6 +1,9 @@
 import { Anthropic } from "@anthropic-ai/sdk";
 
-export type ContentBlock = Anthropic.ContentBlockParam | FileAttachment;
+export type ContentBlock =
+  | Anthropic.ContentBlockParam
+  | FileAttachment
+  | FileAttachmentWithSignedUrl;
 
 /**
  * Extended message parameter type that includes checkpoint information
@@ -54,6 +57,11 @@ export interface FileAttachment {
   mimeType: SupportedFileTypes;
 }
 
+export interface FileAttachmentWithSignedUrl extends FileAttachment {
+  /** The signed URL for the file */
+  url: string;
+}
+
 /**
  * Type guard to validate if an unknown value is a Message object.
  * Also handles converting string timestamps to Date objects.
@@ -86,6 +94,11 @@ export function isFileAttachment(value: unknown): value is FileAttachment {
     "type" in value && value.type === "file_attachment" &&
     "fileId" in value && typeof value.fileId === "string";
 }
+
+export function isImageAttachment(value: unknown): value is FileAttachment {
+  return isFileAttachment(value) && value.mimeType.startsWith("image/");
+}
+
 /**
  * Prints a message from the agent's conversation to the console with proper formatting.
  * Handles different types of message blocks including text, tool use, and tool results.
