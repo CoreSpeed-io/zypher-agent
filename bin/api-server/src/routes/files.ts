@@ -54,5 +54,38 @@ export function createFilesRouter(storageService: StorageService): Hono {
     },
   );
 
+  // FileId validation schema
+  const fileIdSchema = z
+    .string()
+    .min(1, "File ID is required")
+    .max(256, "File ID is too long");
+
+  // File access endpoint that redirects to a signed URL
+  // This follows the HTTP/2 Server Push deprecation lessons - let clients fetch what they need
+  // and properly cache the results rather than pushing everything
+  filesRouter.get(
+    "/:fileId",
+    zValidator("param", z.object({ fileId: fileIdSchema })),
+    async (c) => {
+      const { fileId } = c.req.valid("param");
+
+      // Check if the file exists and get its metadata
+      const metadata = await storageService.getFileMetadata(fileId);
+      if (!metadata) {
+        return c.json({ error: "File not found" }, 404);
+      }
+
+      // Generate a signed URL valid for 1 hour
+      const signedUrl = await storageService.getSignedUrl(fileId, 3600);
+
+      // Set cache headers to allow client-side caching but prevent intermediary caching
+      // Cache-Control: private allows browsers to cache but CDNs and proxies won't
+      c.header("Cache-Control", "private, max-age=3540"); // 59 minutes (slightly less than URL expiry)
+
+      // Redirect to the signed URL
+      return c.redirect(signedUrl, 302); // 302 Found - temporary redirect
+    },
+  );
+
   return filesRouter;
 }

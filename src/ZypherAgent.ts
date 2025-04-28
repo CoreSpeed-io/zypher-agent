@@ -321,12 +321,9 @@ export class ZypherAgent {
                 return null;
               }
 
-              if (!this.#storageService.fileExists(block.fileId)) {
-                console.warn(
-                  `Skipping file attachment as file not found or expired: ${block.fileId}`,
-                );
-                return null;
-              }
+              // we don't need to check if the file still exists here
+              // it is okay to return a signed URL that points to a non-existent or expired file
+              // so that the agent can tell the user to upload the file again
 
               const signedUrl = await this.#storageService.getSignedUrl(
                 block.fileId,
