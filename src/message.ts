@@ -30,6 +30,19 @@ export interface Message {
   };
 }
 
+export const SUPPORTED_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+
+export type SupportedFileTypes = typeof SUPPORTED_FILE_TYPES[number];
+
+export function isFileTypeSupported(type: string): type is SupportedFileTypes {
+  return SUPPORTED_FILE_TYPES.includes(type as SupportedFileTypes);
+}
+
 /**
  * Represents an image attachment in the message history
  */
@@ -37,6 +50,8 @@ export interface FileAttachment {
   type: "file_attachment";
   /** The ID of the file in storage */
   fileId: string;
+  /** The MIME type of the file */
+  mimeType: SupportedFileTypes;
 }
 
 /**

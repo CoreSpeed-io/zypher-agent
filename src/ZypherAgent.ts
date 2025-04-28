@@ -21,8 +21,12 @@ import {
 } from "./checkpoints.ts";
 import {
   type ContentBlock,
+  FileAttachment,
   isFileAttachment,
+  isFileTypeSupported,
   type Message,
+  SUPPORTED_FILE_TYPES,
+  type SupportedFileTypes,
 } from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
 import { Anthropic } from "@anthropic-ai/sdk";
@@ -72,21 +76,6 @@ export interface StreamHandler {
    * @param reason The reason for cancellation
    */
   onCancelled?: (reason: "user" | "timeout") => void;
-}
-
-export type FileId = string;
-
-export const SUPPORTED_FILE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-] as const;
-
-export type SupportedFileTypes = typeof SUPPORTED_FILE_TYPES[number];
-
-export function isFileTypeSupported(type: string): type is SupportedFileTypes {
-  return SUPPORTED_FILE_TYPES.includes(type as SupportedFileTypes);
 }
 
 export interface ZypherAgentConfig {
@@ -221,6 +210,37 @@ export class ZypherAgent {
   }
 
   /**
+   * Retrieves a file attachment from storage
+   * @param fileId ID of the file to retrieve
+   * @returns Promise resolving to a FileAttachment object or null if file doesn't exist or isn't supported
+   */
+  async getFileAttachment(fileId: string): Promise<FileAttachment | null> {
+    if (!this.#storageService) {
+      console.error("Storage service not initialized");
+      return null;
+    }
+
+    // Get metadata and check if the file exists
+    const metadata = await this.#storageService.getFileMetadata(fileId);
+    if (!metadata) {
+      console.error(`Metadata for file ${fileId} could not be retrieved`);
+      return null;
+    }
+
+    // Verify file type is supported
+    if (!isFileTypeSupported(metadata.contentType)) {
+      return null;
+    }
+
+    // Return formatted file attachment
+    return {
+      type: "file_attachment",
+      fileId,
+      mimeType: metadata.contentType as SupportedFileTypes,
+    };
+  }
+
+  /**
    * Apply a checkpoint and update the message history
    * This will discard messages beyond the checkpoint
    *
@@ -301,13 +321,9 @@ export class ZypherAgent {
                 return null;
               }
 
-              const metadata = await this.#storageService.getFileMetadata(
-                block.fileId,
-              );
-              if (!metadata) {
-                // file not found, it might have been expired and deleted
+              if (!this.#storageService.fileExists(block.fileId)) {
                 console.warn(
-                  `Skipping file attachment as file not found or expired. File ID: ${block.fileId}`,
+                  `Skipping file attachment as file not found or expired: ${block.fileId}`,
                 );
                 return null;
               }
@@ -315,15 +331,8 @@ export class ZypherAgent {
               const signedUrl = await this.#storageService.getSignedUrl(
                 block.fileId,
               );
-              if (!signedUrl) {
-                // file not found, it might have been expired and deleted
-                console.warn(
-                  `Skipping file attachment as file not found or expired. File ID: ${block.fileId}`,
-                );
-                return null;
-              }
 
-              if (!isFileTypeSupported(metadata.contentType)) {
+              if (!isFileTypeSupported(block.mimeType)) {
                 console.warn(
                   `Skipping file attachment as file is not an image. File type must be one of ${
                     SUPPORTED_FILE_TYPES.join(", ")
@@ -336,7 +345,7 @@ export class ZypherAgent {
                 type: "image" as const, // TODO: hard code as image for now as we only support image files
                 source: {
                   type: "url" as const,
-                  media_type: metadata.contentType,
+                  media_type: block.mimeType,
                   url: signedUrl,
                 },
               } as Anthropic.ImageBlockParam;
@@ -430,7 +439,7 @@ export class ZypherAgent {
   async runTaskWithStreaming(
     taskDescription: string,
     streamHandler?: StreamHandler,
-    fileAttachments?: FileId[],
+    fileAttachments?: FileAttachment[],
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
@@ -481,12 +490,7 @@ export class ZypherAgent {
         : undefined;
 
       const messageContent: ContentBlock[] = [
-        ...(fileAttachments
-          ? fileAttachments.map((fileId) => ({
-            type: "file_attachment" as const,
-            fileId,
-          }))
-          : []),
+        ...(fileAttachments ?? []),
         {
           type: "text",
           text: `<user_query>\n${taskDescription}\n</user_query>`,

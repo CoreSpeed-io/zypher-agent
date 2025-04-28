@@ -344,26 +344,13 @@ export class S3StorageService implements StorageService {
   async getSignedUrl(
     fileId: string,
     expirySeconds = 3600,
-  ): Promise<string | null> {
-    try {
-      // Check if file exists
-      const exists = await this.fileExists(fileId);
-      if (!exists) {
-        return null;
-      }
+  ): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.#bucket,
+      Key: fileId,
+    });
 
-      const command = new GetObjectCommand({
-        Bucket: this.#bucket,
-        Key: fileId,
-      });
-
-      return await this.#generateSignedUrl(command, expirySeconds);
-    } catch (error) {
-      if (error instanceof NoSuchKey || error instanceof NotFound) {
-        return null;
-      }
-      throw error;
-    }
+    return await this.#generateSignedUrl(command, expirySeconds);
   }
 
   /**
