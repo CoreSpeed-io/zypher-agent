@@ -18,7 +18,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   const mcpRouter = new Hono();
 
   // List registered MCP servers
-  mcpRouter.get("/mcp/servers", (c) => {
+  mcpRouter.get("/servers", (c) => {
     const servers = mcpServerManager.getAllServerWithTools();
     return c.json({ servers });
   });
@@ -37,7 +37,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
   // Register new MCP server
   mcpRouter.post(
-    "/mcp/register",
+    "/register",
     zValidator("json", McpServerApiSchema),
     async (c) => {
       const servers = c.req.valid("json");
@@ -61,7 +61,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   );
 
   // Deregister MCP server
-  mcpRouter.delete("/mcp/servers/:id", async (c) => {
+  mcpRouter.delete("/servers/:id", async (c) => {
     const id = McpServerIdSchema.parse(c.req.param("id"));
     await mcpServerManager.deregisterServer(id);
     return c.body(null, 204);
@@ -69,7 +69,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
   // Update MCP server configuration
   mcpRouter.put(
-    "/mcp/servers/:id",
+    "/servers/:id",
     zValidator("json", McpServerApiSchema),
     async (c) => {
       const id = c.req.param("id") ?? "";
@@ -87,19 +87,19 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   );
 
   // Query available tools from registered MCP servers
-  mcpRouter.get("/mcp/tools", (c) => {
+  mcpRouter.get("/tools", (c) => {
     const tools = Array.from(mcpServerManager.getAllTools().keys());
     return c.json({ tools });
   });
 
   // Reload MCP server configuration
-  mcpRouter.get("/mcp/reload", async (c) => {
+  mcpRouter.get("/reload", async (c) => {
     await mcpServerManager.reloadConfig();
     return c.body(null, 200);
   });
 
   // Get server config
-  mcpRouter.get("/mcp/servers/:id", (c) => {
+  mcpRouter.get("/servers/:id", (c) => {
     const id = McpServerIdSchema.parse(c.req.param("id"));
     const { enabled: _enabled, ...rest } = mcpServerManager.getServerConfig(id);
     return c.json({ [id]: rest });
