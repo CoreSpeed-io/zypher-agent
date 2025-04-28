@@ -18,6 +18,7 @@ import {
 import { Observable, ReplaySubject } from "rxjs";
 import { filter } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
+import { Completer } from "../completer.ts";
 
 const agentRouter = new Hono();
 
@@ -77,10 +78,6 @@ const taskEventIdSchema = z.string()
 // Schema for tool approval
 const toolApproveSchema = z.object({
   approved: z.boolean(),
-});
-// Add Zod schema for stream reconnection
-const streamReconnectSchema = z.object({
-  lastEventId: z.string().optional(),
 });
 
 // Schema for query parameters in reconnection
@@ -159,16 +156,13 @@ function runAgentTask(
       },
       onApprovalPending: (toolName) => {
         // Create event through stream manager to ensure it gets an event ID
-        const event = taskStreamManager.addEvent({
-          event: "tool_approval_pending" as const,
-          data: { toolName, reconnectRequired: true },
+        subscriber.next({
+          event: "tool_approval_pending",
+          data: {
+            eventId: TaskEventId.generate().toString(),
+            toolName,
+          },
         });
-
-        // Use the event with eventId
-        if (event) onEvent(event);
-
-        // Since SSE and WebSocket have different handling mechanics,
-        // we'll implement disconnection differently in each handler
       },
     };
 
@@ -214,7 +208,7 @@ function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
 export function createAgentRouter(agent: ZypherAgent): Hono {
   let taskAbortController: AbortController | null = null;
   let taskEventSubject: ReplaySubject<TaskEvent> | null = null;
-
+  const toolApprovalCompleter = new Completer<boolean>();
   // Get agent messages
   agentRouter.get("/messages", (c) => {
     return c.json(agent.messages);
@@ -353,9 +347,9 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   agentRouter.post(
     "/tool-approve",
     zValidator("json", toolApproveSchema),
-    (c) => {
+    async (c) => {
       const { approved } = c.req.valid("json");
-      if (!hasPendingToolApproval()) {
+      if (!toolApprovalCompleter) {
         throw new ApiError(
           400,
           "no_tool_approval_pending",
@@ -368,7 +362,8 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           approved ? "approved" : "rejected"
         }`,
       );
-      resolveToolApproval(approved);
+      const abortController = taskAbortController ??= new AbortController();
+      await toolApprovalCompleter.wait({ signal: abortController.signal });
       return c.json({
         success: true,
         approved,

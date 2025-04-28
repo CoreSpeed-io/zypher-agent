@@ -59,6 +59,12 @@ export interface HeartbeatEventData extends BaseEventData {
 }
 
 /**
+ * Tool approval pending event data
+ */
+export interface ToolApprovalPendingEventData extends BaseEventData {
+  toolName: string;
+}
+/**
  * Event types for task execution events using discriminated union types
  */
 export type TaskEvent =
@@ -68,7 +74,8 @@ export type TaskEvent =
   | { event: "heartbeat"; data: HeartbeatEventData }
   | { event: "error"; data: ErrorEventData }
   | { event: "complete"; data: CompleteEventData }
-  | { event: "cancelled"; data: CancelledEventData };
+  | { event: "cancelled"; data: CancelledEventData }
+  | { event: "tool_approval_pending"; data: ToolApprovalPendingEventData };
 
 /**
  * Represents a unique identifier for task events with timestamp and sequence components.
