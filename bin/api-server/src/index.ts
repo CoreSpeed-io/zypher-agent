@@ -63,7 +63,7 @@ const options: ServerOptions = {
 const app = new Hono();
 const mcpServerManager = new McpServerManager();
 const storageService: StorageService = new S3StorageService({
-  bucket: Deno.env.get("S3_BUCKET") ?? "zypher-storage",
+  bucket: Deno.env.get("S3_BUCKET_NAME") ?? "zypher-storage",
   region: Deno.env.get("S3_REGION") ?? "us-east-1",
   credentials: {
     accessKeyId: Deno.env.get("S3_ACCESS_KEY_ID") ?? "",

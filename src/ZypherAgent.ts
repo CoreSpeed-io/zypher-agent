@@ -360,7 +360,6 @@ export class ZypherAgent {
                 type: "image" as const, // TODO: hard code as image for now as we only support image files
                 source: {
                   type: "url" as const,
-                  media_type: block.mimeType,
                   url: signedUrl,
                 },
               } as Anthropic.ImageBlockParam;
