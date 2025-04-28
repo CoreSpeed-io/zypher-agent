@@ -1,9 +1,15 @@
 import { Anthropic } from "@anthropic-ai/sdk";
 
+export type ContentBlock = Anthropic.ContentBlockParam | FileAttachment;
+
 /**
  * Extended message parameter type that includes checkpoint information
  */
-export interface Message extends Anthropic.MessageParam {
+export interface Message {
+  content: string | Array<ContentBlock>;
+
+  role: "user" | "assistant";
+
   /**
    * Timestamp indicating when the message was created
    */
@@ -22,6 +28,30 @@ export interface Message extends Anthropic.MessageParam {
     name: string;
     timestamp: string;
   };
+}
+
+export const SUPPORTED_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+
+export type SupportedFileTypes = typeof SUPPORTED_FILE_TYPES[number];
+
+export function isFileTypeSupported(type: string): type is SupportedFileTypes {
+  return SUPPORTED_FILE_TYPES.includes(type as SupportedFileTypes);
+}
+
+/**
+ * Represents an image attachment in the message history
+ */
+export interface FileAttachment {
+  type: "file_attachment";
+  /** The ID of the file in storage */
+  fileId: string;
+  /** The MIME type of the file */
+  mimeType: SupportedFileTypes;
 }
 
 /**
@@ -51,6 +81,11 @@ export function isMessage(value: unknown): value is Message {
   return true;
 }
 
+export function isFileAttachment(value: unknown): value is FileAttachment {
+  return typeof value === "object" && value !== null &&
+    "type" in value && value.type === "file_attachment" &&
+    "fileId" in value && typeof value.fileId === "string";
+}
 /**
  * Prints a message from the agent's conversation to the console with proper formatting.
  * Handles different types of message blocks including text, tool use, and tool results.
