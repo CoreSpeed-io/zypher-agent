@@ -1,6 +1,6 @@
 import type { ErrorDetector } from "./interface.ts";
 import { extractErrorOutput } from "./utils.ts";
-import { fileExists } from "../utils/index.ts";
+import { fileExists } from "../utils/mod.ts";
 
 /**
  * Detector for Python linting errors using flake8

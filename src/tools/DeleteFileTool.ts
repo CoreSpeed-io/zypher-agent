@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool } from "./index.ts";
+import { defineTool } from "./mod.ts";
 
 export const DeleteFileTool = defineTool({
   name: "delete_file",
