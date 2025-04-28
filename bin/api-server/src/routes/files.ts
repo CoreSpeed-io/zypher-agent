@@ -17,6 +17,16 @@ const fileUploadRequestSchema = z.object({
   size: z.number().int().positive().optional(),
 });
 
+// File upload response schema
+const fileUploadResponseSchema = z.object({
+  fileId: z.string(),
+  url: z.string().url(),
+  contentType: z.enum(SUPPORTED_FILE_TYPES),
+  expiresAt: z.date(),
+});
+
+type FileUploadResponse = z.infer<typeof fileUploadResponseSchema>;
+
 const filesRouter = new Hono();
 
 export function createFilesRouter(storageService: StorageService): Hono {
@@ -35,9 +45,9 @@ export function createFilesRouter(storageService: StorageService): Hono {
         urlExpirySeconds: 15 * 60, // 15 minutes
       });
 
-      return c.json({
+      return c.json<FileUploadResponse>({
         fileId: uploadResult.fileId,
-        uploadUrl: uploadResult.url,
+        url: uploadResult.url,
         contentType,
         expiresAt: new Date(Date.now() + 15 * 60 * 1000),
       });
