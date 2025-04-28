@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { StorageService } from "../../../../src/storage/StorageService.ts";
 import { SUPPORTED_FILE_TYPES } from "../../../../src/message.ts";
+import { ApiError } from "../error.ts";
 
 // File upload request schema
 const fileUploadRequestSchema = z.object({
@@ -72,7 +73,11 @@ export function createFilesRouter(storageService: StorageService): Hono {
       // Check if the file exists and get its metadata
       const metadata = await storageService.getFileMetadata(fileId);
       if (!metadata) {
-        return c.json({ error: "File not found" }, 404);
+        throw new ApiError(
+          404,
+          "file_not_found",
+          "File not found, your file may have been deleted or already expired.",
+        );
       }
 
       // Generate a signed URL valid for 1 hour
