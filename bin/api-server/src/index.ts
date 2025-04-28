@@ -15,8 +15,8 @@ import {
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
-} from "../../../src/tools/index.ts";
-import { formatError } from "../../../src/utils/error.ts";
+} from "../../../src/tools/mod.ts";
+import { formatError } from "../../../src/error.ts";
 import { McpServerManager } from "../../../src/mcp/McpServerManager.ts";
 import process from "node:process";
 import { createMcpRouter } from "./routes/mcp.ts";

@@ -1,5 +1,5 @@
 import { ConnectionMode, McpClient } from "./McpClient.ts";
-import type { Tool } from "../tools/index.ts";
+import type { Tool } from "../tools/mod.ts";
 import { z } from "zod";
 import {
   type IMcpServer,
@@ -8,7 +8,7 @@ import {
   McpServerConfigSchema,
   McpServerSchema,
 } from "./types.ts";
-import { formatError, getWorkspaceDataDir } from "../utils/index.ts";
+import { formatError, getWorkspaceDataDir } from "../utils/mod.ts";
 import { join } from "@std/path";
 
 export class McpServerError extends Error {

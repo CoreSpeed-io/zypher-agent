@@ -7,7 +7,9 @@
     "jsr:@std/async@^1.0.12": "1.0.12",
     "jsr:@std/cli@^1.0.17": "1.0.17",
     "jsr:@std/data-structures@^1.0.6": "1.0.7",
+    "jsr:@std/dotenv@*": "0.225.3",
     "jsr:@std/dotenv@~0.225.3": "0.225.3",
+    "jsr:@std/encoding@*": "1.0.10",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/fs@^1.0.16": "1.0.17",
     "jsr:@std/fs@^1.0.17": "1.0.17",
@@ -15,11 +17,12 @@
     "jsr:@std/path@^1.0.8": "1.0.9",
     "jsr:@std/path@^1.0.9": "1.0.9",
     "jsr:@std/testing@^1.0.11": "1.0.11",
-    "npm:@anthropic-ai/sdk@0.39": "0.39.0",
+    "npm:@anthropic-ai/sdk@0.40": "0.40.0",
     "npm:@hono/zod-validator@~0.4.3": "0.4.3_hono@4.7.7_zod@3.24.3",
     "npm:@modelcontextprotocol/sdk@^1.10.2": "1.10.2_express@5.1.0_zod@3.24.3",
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.7": "4.7.7",
+    "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
     "npm:zod-to-json-schema@^3.24.5": "3.24.5_zod@3.24.3",
     "npm:zod@3": "3.24.3",
@@ -78,8 +81,8 @@
     }
   },
   "npm": {
-    "@anthropic-ai/sdk@0.39.0": {
-      "integrity": "sha512-eMyDIPRZbt1CCLErRCi3exlAvNkBtRe+kW5vvJyef93PmNr/clstYgHhtvmkxN82nlKgzyGPCyGxrm0JQ1ZIdg==",
+    "@anthropic-ai/sdk@0.40.0": {
+      "integrity": "sha512-NkIgtZxa4nWBzXtDuYe6Wumu1+cgEuEQtol8b1bVSjtS7Dvqex6iNdxaddV8PkRC8Z8mhbNw2m7j+9AD9uRRKw==",
       "dependencies": [
         "@types/node-fetch",
         "@types/node@18.19.87",
@@ -549,6 +552,12 @@
         "path-to-regexp"
       ]
     },
+    "rxjs-for-await@1.0.0_rxjs@7.8.2": {
+      "integrity": "sha512-MJhvf1vtQaljd5wlzsasvOjcohVogzkHkUI0gFE9nGhZ15/fT2vR1CjkLEh37oRqWwpv11vHo5D+sLM+Aw9Y8g==",
+      "dependencies": [
+        "rxjs"
+      ]
+    },
     "rxjs@7.8.2": {
       "integrity": "sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==",
       "dependencies": [
@@ -709,11 +718,12 @@
       "jsr:@std/fs@^1.0.17",
       "jsr:@std/path@^1.0.9",
       "jsr:@std/testing@^1.0.11",
-      "npm:@anthropic-ai/sdk@0.39",
+      "npm:@anthropic-ai/sdk@0.40",
       "npm:@hono/zod-validator@~0.4.3",
       "npm:@modelcontextprotocol/sdk@^1.10.2",
       "npm:chalk@^5.4.1",
       "npm:hono@^4.7.7",
+      "npm:rxjs-for-await@1",
       "npm:rxjs@^7.8.2",
       "npm:zod-to-json-schema@^3.24.5",
       "npm:zod@^3.24.3"
