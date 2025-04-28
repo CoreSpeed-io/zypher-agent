@@ -15,6 +15,11 @@ export class Completor<T> {
   wait(options: { signal?: AbortSignal }): Promise<T> {
     const { signal } = options;
     if (signal) {
+      if (signal.aborted) {
+        this.#reject(new AbortError("Operation aborted"));
+        return this.#promise;
+      }
+
       signal.addEventListener("abort", () => {
         this.#reject(new AbortError("Operation aborted"));
       });
