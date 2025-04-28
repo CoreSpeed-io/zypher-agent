@@ -4,11 +4,9 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { listCheckpoints } from "../../../../src/checkpoints.ts";
 import {
-  type ImageAttachment as ZypherImageAttachment,
   type StreamHandler,
   ZypherAgent,
 } from "../../../../src/ZypherAgent.ts";
-import { formatError } from "../../../../src/utils/mod.ts";
 import { ApiError } from "../error.ts";
 import {
   type TaskEvent,
@@ -18,47 +16,15 @@ import {
 import { Observable, ReplaySubject } from "rxjs";
 import { filter } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
+import { FileAttachment } from "../../../../src/message.ts";
 
 const agentRouter = new Hono();
 
 // Zod Schemas
-// Define supported image MIME types with more precise validation
-const SUPPORTED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-] as const;
-type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
-
-const base64ImageSchema = z
-  .string()
-  .regex(/^data:image\/[a-zA-Z+]+;base64,/, "Invalid base64 image format")
-  .refine(
-    (data) => {
-      const [header] = data.split(",");
-      const mimeType = header?.split(":")[1]?.split(";")[0];
-      return (
-        mimeType &&
-        SUPPORTED_IMAGE_TYPES.includes(mimeType as SupportedImageType)
-      );
-    },
-    {
-      message: `Image must be one of the following types: ${
-        SUPPORTED_IMAGE_TYPES.join(", ")
-      }`,
-    },
-  );
-
-const imageSchema = z.object({
-  name: z.string(),
-  data: base64ImageSchema,
-});
-type ImageAttachment = z.infer<typeof imageSchema>;
-
+const fileIdSchema = z.string().min(1, "File ID cannot be empty");
 const taskSchema = z.object({
   task: z.string(),
-  imageAttachments: z.array(imageSchema).optional(),
+  fileAttachments: z.array(fileIdSchema).optional(),
 });
 
 const checkpointParamsSchema = z.object({
@@ -103,8 +69,8 @@ function isEventAfterId(event: TaskEvent, eventId: string): boolean {
 function runAgentTask(
   agent: ZypherAgent,
   taskPrompt: string,
-  imageAttachments: ZypherImageAttachment[],
-  options: { signal?: AbortSignal },
+  fileAttachments?: FileAttachment[],
+  options?: { signal?: AbortSignal },
 ): ReplaySubject<TaskEvent> {
   const taskEvent$ = new Observable<TaskEvent>((subscriber) => {
     // Set up streaming handler for the agent
@@ -152,20 +118,21 @@ function runAgentTask(
       .runTaskWithStreaming(
         taskPrompt,
         streamHandler,
-        imageAttachments,
+        fileAttachments,
         {
-          signal: options.signal,
+          signal: options?.signal,
         },
       )
       .then(() => {
         subscriber.complete();
       })
       .catch((error) => {
+        console.error("Error during agent task execution:", error);
         subscriber.next({
           event: "error",
           data: {
             eventId: TaskEventId.generate().toString(),
-            error: formatError(error),
+            error: "Internal server error during agent task execution.",
           },
         });
         subscriber.complete();
@@ -174,17 +141,6 @@ function runAgentTask(
 
   // 30 seconds heartbeat
   return withReplayAndHeartbeat(taskEvent$, 30000);
-}
-
-function processImages(images: ImageAttachment[]): ZypherImageAttachment[] {
-  return images.map((img) => ({
-    type: "image" as const,
-    source: {
-      type: "base64" as const,
-      media_type: img.data.split(":")[1].split(";")[0] as SupportedImageType,
-      data: img.data.split(",")[1],
-    },
-  }));
 }
 
 export function createAgentRouter(agent: ZypherAgent): Hono {
@@ -229,11 +185,19 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   });
 
   // Run a task
-  agentRouter.post("/task/sse", zValidator("json", taskSchema), (c) => {
-    const { task, imageAttachments } = c.req.valid("json");
-    const processedImages: ZypherImageAttachment[] = imageAttachments
-      ? processImages(imageAttachments)
-      : [];
+  agentRouter.post("/task/sse", zValidator("json", taskSchema), async (c) => {
+    const { task, fileAttachments: fileAttachmentIds } = c.req.valid("json");
+
+    const fileAttachments: FileAttachment[] | undefined = fileAttachmentIds
+      ? (
+        await Promise.all(
+          fileAttachmentIds.map((id) => agent.getFileAttachment(id)),
+        )
+      )
+        .filter((attachment): attachment is FileAttachment =>
+          attachment !== null
+        )
+      : undefined;
 
     if (taskAbortController || taskEventSubject) {
       throw new ApiError(
@@ -247,7 +211,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     const eventSubject = taskEventSubject ??= runAgentTask(
       agent,
       task,
-      processedImages,
+      fileAttachments,
       { signal: abortController.signal },
     );
 
