@@ -23,7 +23,6 @@ import { createMcpRouter } from "./routes/mcp.ts";
 import { createAgentRouter } from "./routes/agent.ts";
 import { errorHandler } from "./error.ts";
 import { parsePort } from "./utils.ts";
-import { handleToolApproval } from "./toolApproval.ts";
 
 // Initialize MCP Server Manager
 const mcpServerManager = new McpServerManager();
@@ -89,7 +88,6 @@ async function initializeAgent(): Promise<ZypherAgent> {
         anthropicApiKey: options.apiKey,
       },
       mcpServerManager,
-      handleToolApproval,
     );
 
     // Register all available tools

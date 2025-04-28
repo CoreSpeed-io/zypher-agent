@@ -112,7 +112,6 @@ export class ZypherAgent {
   readonly #model: string;
   readonly #mcpServerManager: McpServerManager;
   readonly #taskTimeoutMs: number;
-  readonly #handleToolApproval: () => Promise<boolean>;
 
   #messages: Message[];
   #system: Anthropic.TextBlockParam[];
@@ -123,7 +122,6 @@ export class ZypherAgent {
   constructor(
     config: ZypherAgentConfig = {},
     mcpServerManager: McpServerManager,
-    handleToolApproval: () => Promise<boolean>,
   ) {
     const apiKey = config.anthropicApiKey ?? Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
@@ -150,7 +148,6 @@ export class ZypherAgent {
     this.#mcpServerManager = mcpServerManager;
     // Default timeout is 5 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 300000;
-    this.#handleToolApproval = handleToolApproval()
   }
 
   async init(): Promise<void> {
@@ -249,36 +246,40 @@ export class ZypherAgent {
     }
   }
 
-  async #executeToolCall(toolCall: {
-    name: string;
-    parameters: Record<string, unknown>;
-    options: { signal?: AbortSignal };
-  }): Promise<string> {
-    const tool = this.#mcpServerManager.getTool(toolCall.name);
+  async #executeToolCall(
+    name: string,
+    parameters: Record<string, unknown>,
+    options?: {
+      signal?: AbortSignal;
+      handleToolApproval?: (
+        name: string,
+        args: Record<string, unknown>,
+        options: { signal?: AbortSignal },
+      ) => Promise<boolean>;
+    },
+  ): Promise<string> {
+    const tool = this.#mcpServerManager.getTool(name);
     if (!tool) {
-      return `Error: Tool '${toolCall.name}' not found`;
+      return `Error: Tool '${name}' not found`;
     }
 
-    // Signal that we are about to wait for approval
-    if (this._currentStreamHandler?.onApprovalPending) {
-      this._currentStreamHandler.onApprovalPending(tool.name);
-    }
-
-    const approved = await this.handleToolApproval();
+    const approved = options?.handleToolApproval
+      ? await options.handleToolApproval(name, parameters, options)
+      : true;
     console.log(`Tool call approved: ${approved}`);
     if (!approved) {
       return "Tool call rejected by user";
     }
 
     if (tool.name === "run_terminal_cmd") {
-      toolCall.parameters.requireUserApproval = false;
+      parameters.requireUserApproval = false;
     }
 
     try {
       // TODO: support abort signal in tool execution
-      return await tool.execute(toolCall.parameters);
+      return await tool.execute(parameters);
     } catch (error) {
-      return `Error executing tool '${toolCall.name}': ${formatError(error)}`;
+      return `Error executing tool '${name}': ${formatError(error)}`;
     }
   }
 
@@ -381,6 +382,11 @@ export class ZypherAgent {
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
+      handleToolApproval?: (
+        name: string,
+        args: Record<string, unknown>,
+        options: { signal?: AbortSignal },
+      ) => Promise<boolean>;
     },
   ): Promise<Message[]> {
     // Use default maxIterations if not provided
@@ -543,11 +549,14 @@ export class ZypherAgent {
           // Execute tool calls
           for (const block of finalMessage.content) {
             if (block.type === "tool_use") {
-              const result = await this.#executeToolCall({
-                name: block.name,
-                parameters: block.input as Record<string, unknown>,
-                options: { signal: mergedSignal },
-              });
+              const result = await this.#executeToolCall(
+                block.name,
+                block.input as Record<string, unknown>,
+                {
+                  signal: mergedSignal,
+                  handleToolApproval: options?.handleToolApproval,
+                },
+              );
 
               // Add tool response
               const toolMessage: Message = {
