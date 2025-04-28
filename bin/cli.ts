@@ -101,7 +101,6 @@ async function main(): Promise<void> {
         model: options.model,
       },
       mcpServerManager,
-      handleToolApproval,
     );
 
     // Register all available tools
@@ -198,12 +197,6 @@ async function main(): Promise<void> {
   } finally {
     rl.close();
   }
-}
-
-// Handle tool approval using the prompt helper
-async function handleToolApproval(): Promise<boolean> {
-  const answer = await prompt("Do you approve of this command? (y/n) ");
-  return answer.toLowerCase().startsWith("y");
 }
 
 // Handle Ctrl+C
