@@ -147,6 +147,43 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   let taskAbortController: AbortController | null = null;
   let taskEventSubject: ReplaySubject<TaskEvent> | null = null;
 
+  // Get agent messages
+  agentRouter.get("/messages", (c) => {
+    return c.json(agent.messages);
+  });
+
+  // Clear agent messages
+  agentRouter.delete("/messages", (c) => {
+    agent.clearMessages();
+    return c.body(null, 204);
+  });
+
+  // Cancel the current task
+  agentRouter.post("/task/cancel", (c) => {
+    // Check if a task is running
+    if (!agent.isTaskRunning) {
+      throw new ApiError(
+        404,
+        "task_not_running",
+        "No task was running to cancel",
+      );
+    }
+
+    if (!taskAbortController) {
+      throw new Error("Agent is running, but no abort controller found");
+    }
+
+    // Task is running, cancel it by aborting the controller
+    taskAbortController.abort();
+    taskAbortController = null;
+    console.log("Task cancellation requested by user via API");
+
+    // TODO: abort signal does not guarantee the task will be cancelled immediately,
+    //       so we need to wait until the task is actually cancelled
+
+    return c.body(null, 204);
+  });
+
   // Run a task
   agentRouter.post("/task/sse", zValidator("json", taskSchema), async (c) => {
     const { task, fileAttachments: fileAttachmentIds } = c.req.valid("json");
