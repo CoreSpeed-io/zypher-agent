@@ -1,6 +1,6 @@
 import { AbortError } from "../../../src/error.ts";
 
-export class Completer<T> {
+export class Completor<T> {
   readonly #promise: Promise<T>;
   #resolve!: (value: T) => void;
   #reject!: (error?: Error) => void;
