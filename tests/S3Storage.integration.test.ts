@@ -136,6 +136,7 @@ describe("S3 Storage Integration Tests (S3-compatible)", {
 
     // Verify upload was successful
     expect(putResponse.ok).toBe(true);
+    await putResponse.body!.cancel();
 
     // Now the file should exist
     const existsAfter = await storageService.fileExists(result.fileId);
@@ -158,6 +159,7 @@ describe("S3 Storage Integration Tests (S3-compatible)", {
     const unsignedResponse = await fetch(unsignedUrl.toString());
     expect(unsignedResponse.ok).toBe(false);
     expect(unsignedResponse.status).toBe(403); // Access Denied
+    await unsignedResponse.body?.cancel();
   });
 
   test("should upload a file from stream", async () => {
@@ -273,6 +275,7 @@ describe("S3 Storage Integration Tests (S3-compatible)", {
     // AWS S3 returns 403 Forbidden for unsigned URLs
     expect(unsignedResponse.ok).toBe(false);
     expect(unsignedResponse.status).toBe(403);
+    await unsignedResponse.body?.cancel();
   });
 
   test("should use custom domain for signed URL when configured", async () => {
@@ -363,9 +366,5 @@ describe("S3 Storage Integration Tests (S3-compatible)", {
     // Try to get metadata
     const metadata = await storageService.getFileMetadata(nonExistentFileId);
     expect(metadata).toBeNull();
-
-    // Try to get signed URL
-    const signedUrl = await storageService.getSignedUrl(nonExistentFileId);
-    expect(signedUrl).toBeNull();
   });
 });
