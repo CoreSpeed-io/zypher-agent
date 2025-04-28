@@ -16,13 +16,7 @@ import {
 import { Observable, ReplaySubject } from "rxjs";
 import { filter } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
-import {
-  ContentBlock,
-  FileAttachment,
-  FileAttachmentWithSignedUrl,
-  isFileAttachment,
-  isImageAttachment,
-} from "../../../../src/message.ts";
+import { FileAttachment } from "../../../../src/message.ts";
 
 const agentRouter = new Hono();
 
@@ -154,58 +148,8 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   let taskEventSubject: ReplaySubject<TaskEvent> | null = null;
 
   // Get agent messages
-  agentRouter.get("/messages", async (c) => {
-    // Process messages to add URLs to file attachments
-    const processedMessages = await Promise.all(
-      agent.messages.map(async (message) => {
-        // Check if the message has any file attachments that need processing
-        const content = message.content;
-        if (
-          !content || !Array.isArray(content) || !content.some(isFileAttachment)
-        ) {
-          // No file attachments to process, return the original message
-          return message;
-        }
-
-        // Only create a new message object if we find file attachments to modify
-        // Process each content block
-        const processedContent = await Promise.all(
-          content.map(async (block: ContentBlock) => {
-            // If this is a image attachment, add the URL
-            if (isImageAttachment(block)) {
-              // Generate a signed URL that's valid for 1 hour
-              try {
-                const url = await agent.getSignedFileUrl(block.fileId, 3600);
-
-                // Return a new object with the URL added
-                return {
-                  ...block,
-                  url, // Add the URL to the response
-                } as FileAttachmentWithSignedUrl;
-              } catch (error) {
-                console.warn(
-                  `Failed to generate pre-signed URL for file ${block.fileId}, falling back to original block:`,
-                  error,
-                );
-                // Still return the original block if URL generation fails
-                return block;
-              }
-            }
-
-            // Return other content blocks unchanged
-            return block;
-          }),
-        );
-
-        // Only create a new message object if we actually modified the content
-        return {
-          ...message,
-          content: processedContent,
-        };
-      }),
-    );
-
-    return c.json(processedMessages);
+  agentRouter.get("/messages", (c) => {
+    return c.json(agent.messages);
   });
 
   // Clear agent messages

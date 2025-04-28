@@ -216,15 +216,14 @@ export class ZypherAgent {
    */
   async getFileAttachment(fileId: string): Promise<FileAttachment | null> {
     if (!this.#storageService) {
-      throw new Error("Storage service not initialized");
+      console.error("Storage service not initialized");
+      return null;
     }
 
     // Get metadata and check if the file exists
     const metadata = await this.#storageService.getFileMetadata(fileId);
     if (!metadata) {
-      console.warn(
-        `Metadata for file ${fileId} could not be retrieved. File may not exist or has been deleted or expired.`,
-      );
+      console.error(`Metadata for file ${fileId} could not be retrieved`);
       return null;
     }
 
@@ -239,21 +238,6 @@ export class ZypherAgent {
       fileId,
       mimeType: metadata.contentType as SupportedFileTypes,
     };
-  }
-
-  /**
-   * Generates a signed URL for accessing a file
-   * @param fileId ID of the file to generate URL for
-   * @param expirySeconds How long the URL should be valid for in seconds (default: 1 hour)
-   * @returns Promise resolving to a signed URL for accessing the file
-   * @throws Error if storage service is not initialized
-   */
-  getSignedFileUrl(fileId: string, expirySeconds = 3600): Promise<string> {
-    if (!this.#storageService) {
-      throw new Error("Storage service not initialized");
-    }
-
-    return this.#storageService.getSignedUrl(fileId, expirySeconds);
   }
 
   /**
@@ -337,12 +321,13 @@ export class ZypherAgent {
                 return null;
               }
 
-              // we don't need to check if the file exists here
-              // it is okay to return a pre-signed URL that points to a non-existent or expired file
-              // so that it can tell the user to upload the file again
-              // and we just need to pre-sign the URL here to make it more efficient
+              if (!this.#storageService.fileExists(block.fileId)) {
+                console.warn(
+                  `Skipping file attachment as file not found or expired: ${block.fileId}`,
+                );
+                return null;
+              }
 
-              // TODO: getSignedUrl should be synchronous since it doesn't require S3 API call
               const signedUrl = await this.#storageService.getSignedUrl(
                 block.fileId,
               );
