@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { StorageService } from "../../../../src/storage/StorageService.ts";
-import { SUPPORTED_FILE_TYPES } from "../../../../src/ZypherAgent.ts";
+import { SUPPORTED_FILE_TYPES } from "../../../../src/message.ts";
 
 // File upload request schema
 const fileUploadRequestSchema = z.object({

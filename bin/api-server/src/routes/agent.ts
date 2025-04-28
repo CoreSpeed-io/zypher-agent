@@ -4,7 +4,6 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { listCheckpoints } from "../../../../src/checkpoints.ts";
 import {
-  FileId,
   type StreamHandler,
   ZypherAgent,
 } from "../../../../src/ZypherAgent.ts";
@@ -18,6 +17,7 @@ import {
 import { Observable, ReplaySubject } from "rxjs";
 import { filter } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
+import { FileAttachment } from "../../../../src/message.ts";
 
 const agentRouter = new Hono();
 
@@ -70,7 +70,7 @@ function isEventAfterId(event: TaskEvent, eventId: string): boolean {
 function runAgentTask(
   agent: ZypherAgent,
   taskPrompt: string,
-  fileAttachments?: FileId[],
+  fileAttachments?: FileAttachment[],
   options?: { signal?: AbortSignal },
 ): ReplaySubject<TaskEvent> {
   const taskEvent$ = new Observable<TaskEvent>((subscriber) => {
@@ -148,8 +148,19 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   let taskEventSubject: ReplaySubject<TaskEvent> | null = null;
 
   // Run a task
-  agentRouter.post("/task/sse", zValidator("json", taskSchema), (c) => {
-    const { task, fileAttachments } = c.req.valid("json");
+  agentRouter.post("/task/sse", zValidator("json", taskSchema), async (c) => {
+    const { task, fileAttachments: fileAttachmentIds } = c.req.valid("json");
+
+    const fileAttachments: FileAttachment[] | undefined = fileAttachmentIds
+      ? (
+        await Promise.all(
+          fileAttachmentIds.map((id) => agent.getFileAttachment(id)),
+        )
+      )
+        .filter((attachment): attachment is FileAttachment =>
+          attachment !== null
+        )
+      : undefined;
 
     if (taskAbortController || taskEventSubject) {
       throw new ApiError(

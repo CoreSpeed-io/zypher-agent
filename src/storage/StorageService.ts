@@ -84,9 +84,9 @@ export interface StorageService {
    * Generate a pre-signed URL for accessing a previously uploaded file
    * @param fileId ID of the file to generate URL for
    * @param expirySeconds How long the URL should be valid (in seconds)
-   * @returns Promise resolving to a pre-signed URL that is publicly accessible from the **internet** for the specified duration, or null if the file ID does not exist
+   * @returns Promise resolving to a pre-signed URL that is publicly accessible from the **internet** for the specified duration.
    */
-  getSignedUrl(fileId: string, expirySeconds?: number): Promise<string | null>;
+  getSignedUrl(fileId: string, expirySeconds?: number): Promise<string>;
 
   /**
    * Generate a pre-signed URL for directly uploading a file to storage
