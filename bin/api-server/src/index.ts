@@ -1,4 +1,5 @@
-import "@std/dotenv/load";
+// The jsr specifier here is a workaround for deno rolldown plugin
+import "jsr:@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { prettyJSON } from "hono/pretty-json";

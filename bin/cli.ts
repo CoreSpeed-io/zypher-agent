@@ -1,4 +1,5 @@
-import "@std/dotenv/load";
+// The jsr specifier here is a workaround for deno rolldown plugin
+import "jsr:@std/dotenv/load";
 import { type StreamHandler, ZypherAgent } from "../src/ZypherAgent.ts";
 import {
   DeleteFileTool,
