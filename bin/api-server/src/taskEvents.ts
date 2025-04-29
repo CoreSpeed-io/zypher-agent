@@ -63,6 +63,7 @@ export interface HeartbeatEventData extends BaseEventData {
  */
 export interface ToolApprovalPendingEventData extends BaseEventData {
   toolName: string;
+  args: unknown;
 }
 /**
  * Event types for task execution events using discriminated union types

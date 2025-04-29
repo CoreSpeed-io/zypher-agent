@@ -132,14 +132,15 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           {
             signal: options?.signal,
             handleToolApproval: (_toolName, _args, options) => {
+              toolApprovalCompletor = new Completer<boolean>();
               subscriber.next({
                 event: "tool_approval_pending",
                 data: {
                   eventId: TaskEventId.generate().toString(),
                   toolName: _toolName,
+                  args: _args,
                 },
               });
-              toolApprovalCompletor = new Completer<boolean>();
               return toolApprovalCompletor.wait(options);
             },
           },
@@ -314,7 +315,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       const { approved } = c.req.valid("json");
       if (!toolApprovalCompletor) {
         throw new ApiError(
-          400,
+          409,
           "no_tool_approval_pending",
           "No tool approval pending",
         );
@@ -327,13 +328,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       );
       toolApprovalCompletor.resolve(approved);
       toolApprovalCompletor = null;
-      return c.json({
-        success: true,
-        approved,
-        message: `Tool ${
-          approved ? "approved" : "rejected"
-        }. Please reconnect to continue receiving events.`,
-      });
+      return c.body(null, 204);
     },
   );
 
