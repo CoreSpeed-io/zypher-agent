@@ -78,6 +78,12 @@ export interface StreamHandler {
   onCancelled?: (reason: "user" | "timeout") => void;
 }
 
+export type ToolApprovalHandler = (
+  name: string,
+  args: Record<string, unknown>,
+  options: { signal?: AbortSignal },
+) => Promise<boolean>;
+
 export interface ZypherAgentConfig {
   anthropicApiKey?: string;
   /** Base URL for the Anthropic API. Defaults to Anthropic's production API. */
@@ -279,11 +285,7 @@ export class ZypherAgent {
     parameters: Record<string, unknown>,
     options?: {
       signal?: AbortSignal;
-      handleToolApproval?: (
-        name: string,
-        args: Record<string, unknown>,
-        options: { signal?: AbortSignal },
-      ) => Promise<boolean>;
+      handleToolApproval?: ToolApprovalHandler;
     },
   ): Promise<string> {
     const tool = this.#mcpServerManager.getTool(name);
@@ -454,11 +456,7 @@ export class ZypherAgent {
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
-      handleToolApproval?: (
-        name: string,
-        args: Record<string, unknown>,
-        options: { signal?: AbortSignal },
-      ) => Promise<boolean>;
+      handleToolApproval?: ToolApprovalHandler;
     },
   ): Promise<Message[]> {
     // Use default maxIterations if not provided
