@@ -22,12 +22,8 @@ export const RunTerminalCmdTool = defineTool({
       .optional()
       .describe("One sentence explanation for tool usage"),
   }),
-  execute: async ({ command, isBackground, requireUserApproval }) => {
+  execute: async ({ command, isBackground }) => {
     try {
-      if (requireUserApproval) {
-        return `Command proposed: ${command}\nWaiting for user approval...`;
-      }
-
       if (isBackground) {
         // For background processes, use spawn
         const child = spawn(command, [], {
