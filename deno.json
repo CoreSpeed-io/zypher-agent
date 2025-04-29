@@ -28,6 +28,7 @@
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.40.1",
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.10.2",
     "chalk": "npm:chalk@^5.4.1",
+    "rolldown": "npm:rolldown@^1.0.0-beta.8",
     "rxjs": "npm:rxjs@^7.8.2",
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0",
     "zod": "npm:zod@^3.24.3",

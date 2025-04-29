@@ -1,6 +1,7 @@
 {
   "version": "4",
   "specifiers": {
+    "jsr:@bureaudouble-forks/importmap@~0.2.1": "0.2.1",
     "jsr:@openai/openai@^4.96.0": "4.96.0",
     "jsr:@std/assert@^1.0.12": "1.0.13",
     "jsr:@std/assert@^1.0.13": "1.0.13",
@@ -26,6 +27,8 @@
     "npm:@modelcontextprotocol/sdk@^1.10.2": "1.10.2_express@5.1.0_zod@3.24.3",
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.8": "4.7.8",
+    "npm:rolldown@*": "1.0.0-beta.8_valibot@1.0.0",
+    "npm:rolldown@^1.0.0-beta.8": "1.0.0-beta.8_valibot@1.0.0",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
     "npm:zod-to-json-schema@^3.24.5": "3.24.5_zod@3.24.3",
@@ -33,6 +36,9 @@
     "npm:zod@^3.24.3": "3.24.3"
   },
   "jsr": {
+    "@bureaudouble-forks/importmap@0.2.1": {
+      "integrity": "ba78361d289f946e9c2488066b339553576392c5780b151cdd4c01da0c58f131"
+    },
     "@openai/openai@4.96.0": {
       "integrity": "51eac6d9f0ce55f5c84d99a1073492ef118d645d0383cda0eb1263d7612e23ed",
       "dependencies": [
@@ -657,6 +663,25 @@
         "tslib"
       ]
     },
+    "@emnapi/core@1.4.3": {
+      "integrity": "sha512-4m62DuCE07lw01soJwPiBGC0nAww0Q+RY70VZ+n49yDIO13yyinhbWCeNnaob0lakDtWQzSdtNWzJeOJt2ma+g==",
+      "dependencies": [
+        "@emnapi/wasi-threads",
+        "tslib"
+      ]
+    },
+    "@emnapi/runtime@1.4.3": {
+      "integrity": "sha512-pBPWdu6MLKROBX05wSNKcNb++m5Er+KQ9QkB+WVM+pW2Kx9hoSrVTnu3BdkI5eBLZoKu/J6mW/B6i6bJB2ytXQ==",
+      "dependencies": [
+        "tslib"
+      ]
+    },
+    "@emnapi/wasi-threads@1.0.2": {
+      "integrity": "sha512-5n3nTJblwRi8LlXkJ9eBzu+kZR8Yxcc7ubakyQTFzPMtIhFpUBRbsnc2Dv88IZDIbCDlBiWrknhB4Lsz7mg6BA==",
+      "dependencies": [
+        "tslib"
+      ]
+    },
     "@hono/zod-validator@0.5.0_hono@4.7.8_zod@3.24.3": {
       "integrity": "sha512-ds5bW6DCgAnNHP33E3ieSbaZFd5dkV52ZjyaXtGoR06APFrCtzAsKZxTHwOrJNBdXsi0e5wNwo5L4nVEVnJUdg==",
       "dependencies": [
@@ -678,6 +703,56 @@
         "zod",
         "zod-to-json-schema"
       ]
+    },
+    "@napi-rs/wasm-runtime@0.2.9": {
+      "integrity": "sha512-OKRBiajrrxB9ATokgEQoG87Z25c67pCpYcCwmXYX8PBftC9pBfN18gnm/fh1wurSLEKIAt+QRFLFCQISrb66Jg==",
+      "dependencies": [
+        "@emnapi/core",
+        "@emnapi/runtime",
+        "@tybys/wasm-util"
+      ]
+    },
+    "@oxc-project/types@0.65.0": {
+      "integrity": "sha512-7MpMzyXCcwxrTxJ4L0siy63Ds/LA8LAM4szumTFiynxTJkfrIZEV4PyR4Th0CqFZQ+oNi8WvW3Dr1MLy7o9qPQ=="
+    },
+    "@rolldown/binding-darwin-arm64@1.0.0-beta.8": {
+      "integrity": "sha512-4cwzBnUvPUVdjUMo9uFkcTvj+Z6IXaN/YJSz1RuI/DG5+vlQ9wYfKeDkvb1nsrhi4ZJ99OInOw1Vh/n2ReX8rA=="
+    },
+    "@rolldown/binding-darwin-x64@1.0.0-beta.8": {
+      "integrity": "sha512-BYI7UXc0UqjdpmEyNpxulv8cYbTdL7zLzIr6GDdIvHH7fe/pKTmC9GpvkpF/j2cyP0SUKTd6ExX7nFDNDqKMBw=="
+    },
+    "@rolldown/binding-freebsd-x64@1.0.0-beta.8": {
+      "integrity": "sha512-KsX/nuGiuNugIeBelN7M7c/8kzcAW6IfH080z9IrIrlCaGa+xwjqMAf7JuYLZo82uokFq8nql0YpQIazFwFR0Q=="
+    },
+    "@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.8": {
+      "integrity": "sha512-IzmoAB9J9iOnoC2Nb6AlyIPPULcbLb0qtJDq21+95u/qiE2GYtI5M4aNudbAIdyv0MU4SAdhkG2sXjMo79H/Zg=="
+    },
+    "@rolldown/binding-linux-arm64-gnu@1.0.0-beta.8": {
+      "integrity": "sha512-nGtOvVKMywOlqoFiMJgILgCpdVcPe0psH1oCWtieMyFFU/v2h2ucjstAEeCOe+JfMVVA7OpdNoWKc54Y1V7gGw=="
+    },
+    "@rolldown/binding-linux-arm64-musl@1.0.0-beta.8": {
+      "integrity": "sha512-paTZphpweKHNwlIu0JTAJCddn/psFzNUaKeGEY4vTQEqDcewKp9SsxN7240ao1eqTYy6TMFJiX6Ej2ym93MkSQ=="
+    },
+    "@rolldown/binding-linux-x64-gnu@1.0.0-beta.8": {
+      "integrity": "sha512-Pdt5iaG/wlWTvEz1lZ3kDkmVXM7DxQXPFZUX/UjDnUyxf4vSgxszbSx1tiNdU0D9v1IISgBapANSwJOGtF1lWw=="
+    },
+    "@rolldown/binding-linux-x64-musl@1.0.0-beta.8": {
+      "integrity": "sha512-8LoLgKq+Wb030p+tzw0JrOrbJrR2wmqfARX1CHIhge8LBoxd2lfHtWfkg23qRa1S8So/nBZBhrQsg2kXUkpwxw=="
+    },
+    "@rolldown/binding-wasm32-wasi@1.0.0-beta.8": {
+      "integrity": "sha512-+2y9Omf9tZRR44Y4EYqm3/Zq2f4Tv+Gh8NsExFWM6WpQZI3HyIB07lrTNQfOJgKSsAiUisnbjiPVTkiH5miy1w==",
+      "dependencies": [
+        "@napi-rs/wasm-runtime"
+      ]
+    },
+    "@rolldown/binding-win32-arm64-msvc@1.0.0-beta.8": {
+      "integrity": "sha512-bt5AOleb2yp+Br9Yzew+jbSEGjLoqGwknH0xhK8QkhXKx31sJLseaP7nFXr6JaEbmL4DVmAVgrOcyLzLbR6+Mw=="
+    },
+    "@rolldown/binding-win32-ia32-msvc@1.0.0-beta.8": {
+      "integrity": "sha512-Fa1OH6eUWtjBNNkKiSSq1fHVMuiqQ+Bi9uMNJz7gBFgjNiAB9k9rQr0j9eF1k4H6lXFkuoN5P7pXty6aBh93Cw=="
+    },
+    "@rolldown/binding-win32-x64-msvc@1.0.0-beta.8": {
+      "integrity": "sha512-hR81d84Poe6oIxaz4PnWBLVF0VuqtRfISIyXQAgk2etu2udrKnWKr3A+xqXe9ELjbLlRYGvEm2dlw/cldO9Kxg=="
     },
     "@smithy/abort-controller@4.0.2": {
       "integrity": "sha512-Sl/78VDtgqKxN2+1qduaVE140XF+Xg+TafkncspwM4jFP/LHr76ZHmIY/y3V1M0mMLNk+Je6IGbzxy23RSToMw==",
@@ -1116,6 +1191,12 @@
         "tslib"
       ]
     },
+    "@tybys/wasm-util@0.9.0": {
+      "integrity": "sha512-6+7nlbMVX/PVDCwaIQ8nTOPveOcFLSt8GcXdx8hD0bt39uWxYT88uXzqTd4fTvqta7oeUJqudepapKNt2DYJFw==",
+      "dependencies": [
+        "tslib"
+      ]
+    },
     "@types/node-fetch@2.6.12": {
       "integrity": "sha512-8nneRWKCg3rMtF69nLQJnOYUcbafYeFSjqkw3jCRLsqkWFlHaoQrr5mXmofFGOx3DKn7UfmBMyov8ySvLRVldA==",
       "dependencies": [
@@ -1133,6 +1214,12 @@
       "integrity": "sha512-Fll2FZ1riMjNmlmJOdAyY5pUbkftXslB5DgEzlIuNaiWhXd00FhWxVC/r4yV/4wBb9JfImTu+jiSvXTkJ7F/gA==",
       "dependencies": [
         "undici-types@6.20.0"
+      ]
+    },
+    "@valibot/to-json-schema@1.0.0_valibot@1.0.0": {
+      "integrity": "sha512-/9crJgPptVsGCL6X+JPDQyaJwkalSZ/52WuF8DiRUxJgcmpNdzYRfZ+gqMEP8W3CTVfuMWPqqvIgfwJ97f9Etw==",
+      "dependencies": [
+        "valibot"
       ]
     },
     "abort-controller@3.0.0": {
@@ -1153,6 +1240,9 @@
       "dependencies": [
         "humanize-ms"
       ]
+    },
+    "ansis@3.17.0": {
+      "integrity": "sha512-0qWUglt9JEqLFr3w1I1pbrChn1grhaiAR2ocX1PP/flRmxgtwTzPFFFnfIlD6aMOLQZgSuCRlidD70lvx8yhzg=="
     },
     "asynckit@0.4.0": {
       "integrity": "sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q=="
@@ -1552,6 +1642,27 @@
         "unpipe"
       ]
     },
+    "rolldown@1.0.0-beta.8_valibot@1.0.0": {
+      "integrity": "sha512-lwctoQjonOosxGhVbuoIARk8TNO2roqAh/ArhNmT/e/INMN+fzO0++yCypVZLZczOdgTARrYmsOEnTgMOt9sSg==",
+      "dependencies": [
+        "@oxc-project/types",
+        "@rolldown/binding-darwin-arm64",
+        "@rolldown/binding-darwin-x64",
+        "@rolldown/binding-freebsd-x64",
+        "@rolldown/binding-linux-arm-gnueabihf",
+        "@rolldown/binding-linux-arm64-gnu",
+        "@rolldown/binding-linux-arm64-musl",
+        "@rolldown/binding-linux-x64-gnu",
+        "@rolldown/binding-linux-x64-musl",
+        "@rolldown/binding-wasm32-wasi",
+        "@rolldown/binding-win32-arm64-msvc",
+        "@rolldown/binding-win32-ia32-msvc",
+        "@rolldown/binding-win32-x64-msvc",
+        "@valibot/to-json-schema",
+        "ansis",
+        "valibot"
+      ]
+    },
     "router@2.2.0": {
       "integrity": "sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==",
       "dependencies": [
@@ -1688,6 +1799,9 @@
     "uuid@9.0.1": {
       "integrity": "sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA=="
     },
+    "valibot@1.0.0": {
+      "integrity": "sha512-1Hc0ihzWxBar6NGeZv7fPLY0QuxFMyxwYR2sF1Blu7Wq7EnremwY2W02tit2ij2VJT8HcSkHAQqmFfl77f73Yw=="
+    },
     "vary@1.1.2": {
       "integrity": "sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg=="
     },
@@ -1723,6 +1837,9 @@
       "integrity": "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="
     }
   },
+  "remote": {
+    "https://raw.githubusercontent.com/CoreSpeed-io/rolldown-deno-loader-plugin/refs/heads/main/mod.ts": "acb71a40a2ca64137e26ca44e9c5956a02c5c9fe829e377921c974ac94e09e95"
+  },
   "workspace": {
     "dependencies": [
       "jsr:@openai/openai@^4.96.0",
@@ -1743,6 +1860,7 @@
       "npm:@modelcontextprotocol/sdk@^1.10.2",
       "npm:chalk@^5.4.1",
       "npm:hono@^4.7.8",
+      "npm:rolldown@^1.0.0-beta.8",
       "npm:rxjs-for-await@1",
       "npm:rxjs@^7.8.2",
       "npm:zod-to-json-schema@^3.24.5",
