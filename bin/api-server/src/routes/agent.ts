@@ -17,7 +17,7 @@ import { Observable, ReplaySubject } from "rxjs";
 import { filter } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
 import { FileAttachment } from "../../../../src/message.ts";
-import { Completor } from "../completor.ts";
+import { Completer } from "../completer.ts";
 
 const agentRouter = new Hono();
 
@@ -74,7 +74,7 @@ function isEventAfterId(event: TaskEvent, eventId: string): boolean {
 export function createAgentRouter(agent: ZypherAgent): Hono {
   let taskAbortController: AbortController | null = null;
   let taskEventSubject: ReplaySubject<TaskEvent> | null = null;
-  let toolApprovalCompletor: Completor<boolean> | null = null;
+  let toolApprovalCompletor: Completer<boolean> | null = null;
 
   function runAgentTask(
     agent: ZypherAgent,
@@ -139,7 +139,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
                   toolName: _toolName,
                 },
               });
-              toolApprovalCompletor = new Completor<boolean>();
+              toolApprovalCompletor = new Completer<boolean>();
               return toolApprovalCompletor.wait(options);
             },
           },
