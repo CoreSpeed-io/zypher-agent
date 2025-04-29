@@ -1,11 +1,11 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { Completor } from "../src/completor.ts";
+import { Completer } from "../src/completer.ts";
 
 // Test that a completer can be resolved
 Deno.test(
   "testCompleter",
   async (_t) => {
-    const completer = new Completor<boolean>();
+    const completer = new Completer<boolean>();
     setTimeout(() => completer.resolve(true), 10); // Simulate async resolve
     const result = await completer.wait({});
     assertEquals(result, true);
@@ -16,7 +16,7 @@ Deno.test(
 Deno.test(
   "testCompleterReject",
   async (_t) => {
-    const completer = new Completor<boolean>();
+    const completer = new Completer<boolean>();
     completer.reject(new Error("Test error"));
     await assertRejects(
       () => completer.wait({}),
@@ -30,7 +30,7 @@ Deno.test(
 Deno.test(
   "testCompleterAbort",
   async (_t) => {
-    const completer = new Completor<boolean>();
+    const completer = new Completer<boolean>();
     const signal = AbortSignal.timeout(100); // Use a short timeout for the test
     await assertRejects(
       () => completer.wait({ signal }),
@@ -42,7 +42,7 @@ Deno.test(
 
 // Test that a completer can be resolved multiple times
 Deno.test("double resolve", async () => {
-  const completer = new Completor<number>();
+  const completer = new Completer<number>();
   completer.resolve(1);
   completer.resolve(2);
   const result = await completer.wait({});
@@ -51,7 +51,7 @@ Deno.test("double resolve", async () => {
 
 // Test that a completer can be rejected after being resolved
 Deno.test("resolve after reject", async () => {
-  const completer = new Completor<number>();
+  const completer = new Completer<number>();
   completer.reject(new Error("fail"));
   completer.resolve(1);
   await assertRejects(() => completer.wait({}), Error, "fail");
@@ -59,7 +59,7 @@ Deno.test("resolve after reject", async () => {
 
 // Test that a completer can be aborted after being resolved
 Deno.test("abort after resolve", async () => {
-  const completer = new Completor<number>();
+  const completer = new Completer<number>();
   const controller = new AbortController();
   completer.resolve(1);
   controller.abort();
@@ -69,7 +69,7 @@ Deno.test("abort after resolve", async () => {
 
 // Test that a completer can be aborted immediately
 Deno.test("immediate abort", async () => {
-  const completer = new Completor<number>();
+  const completer = new Completer<number>();
   const controller = new AbortController();
   controller.abort();
   await assertRejects(
@@ -81,7 +81,7 @@ Deno.test("immediate abort", async () => {
 
 // Test that a completer can be resolved multiple times
 Deno.test("multiple waiters", async () => {
-  const completer = new Completor<number>();
+  const completer = new Completer<number>();
   const p1 = completer.wait({});
   const p2 = completer.wait({});
   completer.resolve(42);
