@@ -299,10 +299,6 @@ export class ZypherAgent {
       return "Tool call rejected by user";
     }
 
-    if (tool.name === "run_terminal_cmd") {
-      parameters.requireUserApproval = false;
-    }
-
     try {
       // TODO: support abort signal in tool execution
       return await tool.execute(parameters);
