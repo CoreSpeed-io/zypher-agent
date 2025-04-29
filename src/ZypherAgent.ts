@@ -78,6 +78,12 @@ export interface StreamHandler {
   onCancelled?: (reason: "user" | "timeout") => void;
 }
 
+export type ToolApprovalHandler = (
+  name: string,
+  args: Record<string, unknown>,
+  options: { signal?: AbortSignal },
+) => Promise<boolean>;
+
 export interface ZypherAgentConfig {
   anthropicApiKey?: string;
   /** Base URL for the Anthropic API. Defaults to Anthropic's production API. */
@@ -274,21 +280,32 @@ export class ZypherAgent {
     }
   }
 
-  async #executeToolCall(toolCall: {
-    name: string;
-    parameters: Record<string, unknown>;
-    options: { signal?: AbortSignal };
-  }): Promise<string> {
-    const tool = this.#mcpServerManager.getTool(toolCall.name);
+  async #executeToolCall(
+    name: string,
+    parameters: Record<string, unknown>,
+    options?: {
+      signal?: AbortSignal;
+      handleToolApproval?: ToolApprovalHandler;
+    },
+  ): Promise<string> {
+    const tool = this.#mcpServerManager.getTool(name);
     if (!tool) {
-      return `Error: Tool '${toolCall.name}' not found`;
+      return `Error: Tool '${name}' not found`;
+    }
+
+    const approved = options?.handleToolApproval
+      ? await options.handleToolApproval(name, parameters, options)
+      : true;
+    console.log(`Tool call approved: ${approved}`);
+    if (!approved) {
+      return "Tool call rejected by user";
     }
 
     try {
       // TODO: support abort signal in tool execution
-      return await tool.execute(toolCall.parameters);
+      return await tool.execute(parameters);
     } catch (error) {
-      return `Error executing tool '${toolCall.name}': ${formatError(error)}`;
+      return `Error executing tool '${name}': ${formatError(error)}`;
     }
   }
 
@@ -439,6 +456,7 @@ export class ZypherAgent {
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
+      handleToolApproval?: ToolApprovalHandler;
     },
   ): Promise<Message[]> {
     // Use default maxIterations if not provided
@@ -593,11 +611,14 @@ export class ZypherAgent {
           // Execute tool calls
           for (const block of finalMessage.content) {
             if (block.type === "tool_use") {
-              const result = await this.#executeToolCall({
-                name: block.name,
-                parameters: block.input as Record<string, unknown>,
-                options: { signal: mergedSignal },
-              });
+              const result = await this.#executeToolCall(
+                block.name,
+                block.input as Record<string, unknown>,
+                {
+                  signal: mergedSignal,
+                  handleToolApproval: options?.handleToolApproval,
+                },
+              );
 
               // Add tool response
               const toolMessage: Message = {

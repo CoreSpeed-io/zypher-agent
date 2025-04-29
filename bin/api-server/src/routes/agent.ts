@@ -17,6 +17,7 @@ import { Observable, ReplaySubject } from "rxjs";
 import { filter } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
 import { FileAttachment } from "../../../../src/message.ts";
+import { Completer } from "../completer.ts";
 
 const agentRouter = new Hono();
 
@@ -37,6 +38,10 @@ const taskEventIdSchema = z.string()
     /^task_\d+_\d+$/,
     "Invalid task event ID format. Expected format: task_<timestamp>_<sequence>",
   );
+// Schema for tool approval
+const toolApproveSchema = z.object({
+  approved: z.boolean(),
+});
 
 // Schema for query parameters in reconnection
 const streamReconnectQuerySchema = z.object({
@@ -66,86 +71,99 @@ function isEventAfterId(event: TaskEvent, eventId: string): boolean {
   return currentId.isAfter(referenceId);
 }
 
-function runAgentTask(
-  agent: ZypherAgent,
-  taskPrompt: string,
-  fileAttachments?: FileAttachment[],
-  options?: { signal?: AbortSignal },
-): ReplaySubject<TaskEvent> {
-  const taskEvent$ = new Observable<TaskEvent>((subscriber) => {
-    // Set up streaming handler for the agent
-    const streamHandler: StreamHandler = {
-      onContent: (content, _isFirstChunk) => {
-        subscriber.next({
-          event: "content_delta",
-          data: {
-            eventId: TaskEventId.generate().toString(),
-            content,
-          },
-        });
-      },
-      onToolUse: (name, partialInput) => {
-        subscriber.next({
-          event: "tool_use_delta",
-          data: {
-            eventId: TaskEventId.generate().toString(),
-            name,
-            partialInput,
-          },
-        });
-      },
-      onMessage: (message) => {
-        subscriber.next({
-          event: "message",
-          data: {
-            eventId: TaskEventId.generate().toString(),
-            message,
-          },
-        });
-      },
-      onCancelled: (reason) => {
-        subscriber.next({
-          event: "cancelled",
-          data: {
-            eventId: TaskEventId.generate().toString(),
-            reason,
-          },
-        });
-      },
-    };
-
-    agent
-      .runTaskWithStreaming(
-        taskPrompt,
-        streamHandler,
-        fileAttachments,
-        {
-          signal: options?.signal,
-        },
-      )
-      .then(() => {
-        subscriber.complete();
-      })
-      .catch((error) => {
-        console.error("Error during agent task execution:", error);
-        subscriber.next({
-          event: "error",
-          data: {
-            eventId: TaskEventId.generate().toString(),
-            error: "Internal server error during agent task execution.",
-          },
-        });
-        subscriber.complete();
-      });
-  });
-
-  // 30 seconds heartbeat
-  return withReplayAndHeartbeat(taskEvent$, 30000);
-}
-
 export function createAgentRouter(agent: ZypherAgent): Hono {
   let taskAbortController: AbortController | null = null;
   let taskEventSubject: ReplaySubject<TaskEvent> | null = null;
+  let toolApprovalCompletor: Completer<boolean> | null = null;
+
+  function runAgentTask(
+    agent: ZypherAgent,
+    taskPrompt: string,
+    fileAttachments?: FileAttachment[],
+    options?: { signal?: AbortSignal },
+  ): ReplaySubject<TaskEvent> {
+    const taskEvent$ = new Observable<TaskEvent>((subscriber) => {
+      // Set up streaming handler for the agent
+      const streamHandler: StreamHandler = {
+        onContent: (content, _isFirstChunk) => {
+          subscriber.next({
+            event: "content_delta",
+            data: {
+              eventId: TaskEventId.generate().toString(),
+              content,
+            },
+          });
+        },
+        onToolUse: (name, partialInput) => {
+          subscriber.next({
+            event: "tool_use_delta",
+            data: {
+              eventId: TaskEventId.generate().toString(),
+              name,
+              partialInput,
+            },
+          });
+        },
+        onMessage: (message) => {
+          subscriber.next({
+            event: "message",
+            data: {
+              eventId: TaskEventId.generate().toString(),
+              message,
+            },
+          });
+        },
+        onCancelled: (reason) => {
+          subscriber.next({
+            event: "cancelled",
+            data: {
+              eventId: TaskEventId.generate().toString(),
+              reason,
+            },
+          });
+        },
+      };
+
+      agent
+        .runTaskWithStreaming(
+          taskPrompt,
+          streamHandler,
+          fileAttachments,
+          {
+            signal: options?.signal,
+            handleToolApproval: (_toolName, _args, options) => {
+              toolApprovalCompletor = new Completer<boolean>();
+              subscriber.next({
+                event: "tool_approval_pending",
+                data: {
+                  eventId: TaskEventId.generate().toString(),
+                  toolName: _toolName,
+                  args: _args,
+                },
+              });
+              return toolApprovalCompletor.wait(options);
+            },
+          },
+        )
+        .then(() => {
+          subscriber.complete();
+        })
+        .catch((error) => {
+          console.error("Error during agent task execution:", error);
+          subscriber.next({
+            event: "error",
+            data: {
+              eventId: TaskEventId.generate().toString(),
+              error: "Internal server error during agent task execution.",
+            },
+          });
+          subscriber.complete();
+        });
+    });
+
+    // 30 seconds heartbeat
+    return withReplayAndHeartbeat(taskEvent$, 30000);
+  }
 
   // Get agent messages
   agentRouter.get("/messages", (c) => {
@@ -286,6 +304,31 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       // Use the agent's applyCheckpoint method to update both filesystem and message history
       await agent.applyCheckpoint(checkpointId);
       return c.json({ success: true, id: checkpointId });
+    },
+  );
+
+  // Approve or reject a pending tool call via API
+  agentRouter.post(
+    "/tool-approve",
+    zValidator("json", toolApproveSchema),
+    (c) => {
+      const { approved } = c.req.valid("json");
+      if (!toolApprovalCompletor) {
+        throw new ApiError(
+          409,
+          "no_tool_approval_pending",
+          "No tool approval pending",
+        );
+      }
+      // Log user decision - frontend can use this decision to reconnect
+      console.log(
+        `Tool approval decision received: ${
+          approved ? "approved" : "rejected"
+        }`,
+      );
+      toolApprovalCompletor.resolve(approved);
+      toolApprovalCompletor = null;
+      return c.body(null, 204);
     },
   );
 
