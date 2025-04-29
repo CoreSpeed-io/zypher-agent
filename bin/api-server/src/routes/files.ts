@@ -61,7 +61,19 @@ export function createFilesRouter(storageService: StorageService): Hono {
     .min(1, "File ID is required")
     .max(256, "File ID is too long");
 
-  // File access endpoint that redirects to a signed URL
+  // File response schema for JSON responses
+  const fileResponseSchema = z.object({
+    fileId: z.string(),
+    url: z.string().url(),
+    contentType: z.string(),
+    filename: z.string(),
+    size: z.number().optional(),
+    uploadedAt: z.date().optional(),
+  });
+
+  type FileResponse = z.infer<typeof fileResponseSchema>;
+
+  // File access endpoint that returns JSON or redirects to a signed URL
   // This follows the HTTP/2 Server Push deprecation lessons - let clients fetch what they need
   // and properly cache the results rather than pushing everything
   filesRouter.get(
@@ -87,7 +99,21 @@ export function createFilesRouter(storageService: StorageService): Hono {
       // Cache-Control: private allows browsers to cache but CDNs and proxies won't
       c.header("Cache-Control", "private, max-age=3540"); // 59 minutes (slightly less than URL expiry)
 
-      // Redirect to the signed URL
+      // Check if client wants JSON response
+      const acceptHeader = c.req.header("accept") ?? "";
+      if (acceptHeader.includes("application/json")) {
+        // Return JSON response with file metadata and signed URL
+        return c.json<FileResponse>({
+          fileId,
+          url: signedUrl,
+          contentType: metadata.contentType,
+          filename: metadata.filename,
+          size: metadata.size,
+          uploadedAt: metadata.uploadedAt,
+        });
+      }
+
+      // Default behavior: redirect to the signed URL
       return c.redirect(signedUrl, 302); // 302 Found - temporary redirect
     },
   );
