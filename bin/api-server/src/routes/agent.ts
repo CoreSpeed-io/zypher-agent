@@ -9,10 +9,10 @@ import {
 } from "../../../../src/ZypherAgent.ts";
 import { ApiError } from "../error.ts";
 import {
-  replayEvents,
+  replayTaskEvents,
   type TaskEvent,
   TaskEventId,
-  withReplayAndHeartbeat,
+  withTaskEventReplayAndHeartbeat,
 } from "../taskEvents.ts";
 import { Observable, ReplaySubject } from "rxjs";
 import { map } from "rxjs/operators";
@@ -165,7 +165,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       );
 
     // 30 seconds heartbeat
-    return withReplayAndHeartbeat(taskEvent$, 30000);
+    return withTaskEventReplayAndHeartbeat(taskEvent$, 30000);
   }
 
   // Get agent messages
@@ -275,7 +275,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       return streamSSE(
         c,
         async (stream) => {
-          const events = replayEvents(
+          const events = replayTaskEvents(
             eventSubject,
             serverLatestEventId,
             lastEventId ? new TaskEventId(lastEventId) : undefined,

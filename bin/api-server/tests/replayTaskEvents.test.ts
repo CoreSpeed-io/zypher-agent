@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import { Observable, ReplaySubject } from "rxjs";
 import {
   ContentDeltaEventData,
-  replayEvents,
+  replayTaskEvents,
   TaskEvent,
   TaskEventId,
   ToolApprovalPendingEventData,
@@ -71,13 +71,13 @@ Deno.test("replayEvents - should filter events based on clientLastEventId", asyn
 
   // Test with no clientLastEventId - should return all events
   const allEvents = await collectEvents(
-    replayEvents(subject, id3, undefined),
+    replayTaskEvents(subject, id3, undefined),
   );
   assertEquals(allEvents.length, 3);
 
   // Test with clientLastEventId = id1 - should return events after id1
   const eventsAfterId1 = await collectEvents(
-    replayEvents(subject, id3, id1),
+    replayTaskEvents(subject, id3, id1),
   );
   assertEquals(eventsAfterId1.length, 2);
   assertEquals(
@@ -91,7 +91,7 @@ Deno.test("replayEvents - should filter events based on clientLastEventId", asyn
 
   // Test with clientLastEventId = id2 - should return events after id2
   const eventsAfterId2 = await collectEvents(
-    replayEvents(subject, id3, id2),
+    replayTaskEvents(subject, id3, id2),
   );
   assertEquals(eventsAfterId2.length, 1);
   assertEquals(
@@ -127,7 +127,7 @@ Deno.test("replayEvents - should filter out stale pending approval events", asyn
   // Test filtering with serverLatestEventId = id2
   // Should include all regular events but only tool approval events >= id2
   const filteredEvents = await collectEvents(
-    replayEvents(subject, id2, undefined),
+    replayTaskEvents(subject, id2, undefined),
   );
 
   // Should have 5 events: 3 regular events + 2 non-stale tool approval events
@@ -189,7 +189,7 @@ Deno.test("replayEvents - should handle both filters together", async () => {
   // - clientLastEventId = id2 (only events after id2)
   // - serverLatestEventId = id3 (only tool approval events >= id3)
   const filteredEvents = await collectEvents(
-    replayEvents(subject, id3, id2),
+    replayTaskEvents(subject, id3, id2),
   );
 
   // Should have 4 events: 2 regular events (after id2) + 2 non-stale tool approval events (id3 and id4)
