@@ -272,7 +272,7 @@ export function createTaskHeartbeat(): TaskEvent {
  * @param heartbeatInterval The interval in milliseconds to wait before emitting a heartbeat
  * @returns A ReplaySubject that replays all events including added heartbeats
  */
-export function withReplayAndHeartbeat(
+export function withTaskEventReplayAndHeartbeat(
   source: Observable<TaskEvent>,
   heartbeatInterval: number,
 ): ReplaySubject<TaskEvent> {
@@ -293,7 +293,7 @@ export function withReplayAndHeartbeat(
  * @param clientLastEventId The ID of the last event that was received by the client
  * @returns An Observable that emits only events that occurred after the specified event ID
  */
-export function replayEvents(
+export function replayTaskEvents(
   source: ReplaySubject<TaskEvent>,
   serverLatestEventId?: TaskEventId,
   clientLastEventId?: TaskEventId,
