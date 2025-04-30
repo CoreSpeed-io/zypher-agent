@@ -135,6 +135,12 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           },
         )
         .then(() => {
+          subscriber.next({
+            event: "complete",
+            data: {
+              eventId: TaskEventId.generate().toString(),
+            },
+          });
           subscriber.complete();
         })
         .catch((error) => {
