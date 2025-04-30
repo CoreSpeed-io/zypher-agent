@@ -9,15 +9,16 @@ import {
 } from "../../../../src/ZypherAgent.ts";
 import { ApiError } from "../error.ts";
 import {
+  replayTaskEvents,
   type TaskEvent,
   TaskEventId,
-  withReplayAndHeartbeat,
+  withTaskEventReplayAndHeartbeat,
 } from "../taskEvents.ts";
 import { Observable, ReplaySubject } from "rxjs";
-import { filter } from "rxjs/operators";
+import { map } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
 import { FileAttachment } from "../../../../src/message.ts";
-import { Completer } from "../completer.ts";
+import { Completer } from "../../../../src/utils/mod.ts";
 
 const agentRouter = new Hono();
 
@@ -53,28 +54,11 @@ const streamReconnectHeaderSchema = z.object({
   "last-event-id": taskEventIdSchema.optional(),
 });
 
-/**
- * Determines if a given event occurred after another event with the specified ID
- * by comparing their timestamps and sequence numbers.
- *
- * @param event The event to check
- * @param eventId The reference event ID to compare against
- * @returns true if the event occurred after the event with eventId, false otherwise
- * @throws Error if either ID doesn't match the expected format task_<timestamp>_<sequence>
- */
-function isEventAfterId(event: TaskEvent, eventId: string): boolean {
-  // Create TaskEventId objects from both IDs
-  const currentId = new TaskEventId(event.data.eventId);
-  const referenceId = new TaskEventId(eventId);
-
-  // Use the built-in comparison method
-  return currentId.isAfter(referenceId);
-}
-
 export function createAgentRouter(agent: ZypherAgent): Hono {
   let taskAbortController: AbortController | null = null;
   let taskEventSubject: ReplaySubject<TaskEvent> | null = null;
   let toolApprovalCompletor: Completer<boolean> | null = null;
+  let serverLatestEventId: TaskEventId | undefined = undefined;
 
   function runAgentTask(
     agent: ZypherAgent,
@@ -131,7 +115,14 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           fileAttachments,
           {
             signal: options?.signal,
-            handleToolApproval: (_toolName, _args, options) => {
+            handleToolApproval: async (_toolName, _args, options) => {
+              // TODO: Auto approval everything for now until DEC-48 is resolved (approval UI)
+              const shouldAutoApprove: boolean = true;
+              // TODO: logic to determine if we should auto approve a tool call
+              if (shouldAutoApprove) {
+                return true;
+              }
+
               toolApprovalCompletor = new Completer<boolean>();
               subscriber.next({
                 event: "tool_approval_pending",
@@ -141,11 +132,17 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
                   args: _args,
                 },
               });
-              return toolApprovalCompletor.wait(options);
+              return await toolApprovalCompletor.wait(options);
             },
           },
         )
         .then(() => {
+          subscriber.next({
+            event: "complete",
+            data: {
+              eventId: TaskEventId.generate().toString(),
+            },
+          });
           subscriber.complete();
         })
         .catch((error) => {
@@ -159,10 +156,16 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           });
           subscriber.complete();
         });
-    });
+    })
+      .pipe(
+        map((event) => {
+          serverLatestEventId = new TaskEventId(event.data.eventId);
+          return event;
+        }),
+      );
 
     // 30 seconds heartbeat
-    return withReplayAndHeartbeat(taskEvent$, 30000);
+    return withTaskEventReplayAndHeartbeat(taskEvent$, 30000);
   }
 
   // Get agent messages
@@ -177,7 +180,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   });
 
   // Cancel the current task
-  agentRouter.post("/task/cancel", (c) => {
+  agentRouter.post("/task/cancel", async (c) => {
     // Check if a task is running
     if (!agent.isTaskRunning) {
       throw new ApiError(
@@ -187,8 +190,10 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       );
     }
 
-    if (!taskAbortController) {
-      throw new Error("Agent is running, but no abort controller found");
+    if (!taskAbortController || !taskEventSubject) {
+      throw new Error(
+        "Agent is running, but no abort controller or event subject found",
+      );
     }
 
     // Task is running, cancel it by aborting the controller
@@ -196,8 +201,9 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     taskAbortController = null;
     console.log("Task cancellation requested by user via API");
 
-    // TODO: abort signal does not guarantee the task will be cancelled immediately,
-    //       so we need to wait until the task is actually cancelled
+    // abort signal does not guarantee the task will be cancelled immediately,
+    // so we need to wait until the task is actually cancelled
+    await agent.wait();
 
     return c.body(null, 204);
   });
@@ -269,13 +275,11 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       return streamSSE(
         c,
         async (stream) => {
-          const events = eventSubject
-            .asObservable()
-            .pipe(
-              filter((event) =>
-                lastEventId ? isEventAfterId(event, lastEventId) : true
-              ),
-            );
+          const events = replayTaskEvents(
+            eventSubject,
+            serverLatestEventId,
+            lastEventId ? new TaskEventId(lastEventId) : undefined,
+          );
 
           for await (const event of eachValueFrom(events)) {
             await stream.writeSSE({

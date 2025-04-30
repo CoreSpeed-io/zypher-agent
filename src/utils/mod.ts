@@ -1,5 +1,5 @@
-export * from "../error.ts";
 export * from "./data.ts";
+export * from "./completer.ts";
 
 /**
  * Information about the user's system environment.
