@@ -8,8 +8,9 @@ import {
   McpServerConfigSchema,
   McpServerSchema,
 } from "./types.ts";
-import { formatError, getWorkspaceDataDir } from "../utils/mod.ts";
+import { getWorkspaceDataDir } from "../utils/mod.ts";
 import { join } from "@std/path";
+import { formatError } from "../error.ts";
 
 export class McpServerError extends Error {
   constructor(

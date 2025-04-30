@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { Completer } from "../src/completer.ts";
+import { Completer } from "../src/utils/mod.ts";
 
 Deno.test(
   "completer resolves with correct value",
