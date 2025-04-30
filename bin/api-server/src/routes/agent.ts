@@ -17,7 +17,7 @@ import { Observable, ReplaySubject } from "rxjs";
 import { filter } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
 import { FileAttachment } from "../../../../src/message.ts";
-import { Completer } from "../completer.ts";
+import { Completer } from "../../../../src/utils/completer.ts";
 
 const agentRouter = new Hono();
 
@@ -184,7 +184,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   });
 
   // Cancel the current task
-  agentRouter.post("/task/cancel", (c) => {
+  agentRouter.post("/task/cancel", async (c) => {
     // Check if a task is running
     if (!agent.isTaskRunning) {
       throw new ApiError(
@@ -194,8 +194,10 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       );
     }
 
-    if (!taskAbortController) {
-      throw new Error("Agent is running, but no abort controller found");
+    if (!taskAbortController || !taskEventSubject) {
+      throw new Error(
+        "Agent is running, but no abort controller or event subject found",
+      );
     }
 
     // Task is running, cancel it by aborting the controller
@@ -203,8 +205,9 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     taskAbortController = null;
     console.log("Task cancellation requested by user via API");
 
-    // TODO: abort signal does not guarantee the task will be cancelled immediately,
-    //       so we need to wait until the task is actually cancelled
+    // abort signal does not guarantee the task will be cancelled immediately,
+    // so we need to wait until the task is actually cancelled
+    await agent.wait();
 
     return c.body(null, 204);
   });
@@ -279,6 +282,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           const events = eventSubject
             .asObservable()
             .pipe(
+              // TODO: filter out stale pending approvals events
               filter((event) =>
                 lastEventId ? isEventAfterId(event, lastEventId) : true
               ),

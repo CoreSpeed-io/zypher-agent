@@ -5,10 +5,7 @@
 // To provide a better experience (faster responses from the Anthropic API), we MUST use the global fetch for HTTP/2.
 import "@anthropic-ai/sdk/shims/web";
 import {
-  AbortError,
-  formatError,
   getCurrentUserInfo,
-  isAbortError,
   loadMessageHistory,
   saveMessageHistory,
 } from "./utils/mod.ts";
@@ -31,6 +28,8 @@ import {
 import { McpServerManager } from "./mcp/McpServerManager.ts";
 import { Anthropic } from "@anthropic-ai/sdk";
 import type { StorageService } from "./storage/StorageService.ts";
+import { Completer } from "./utils/mod.ts";
+import { AbortError, formatError, isAbortError } from "./error.ts";
 
 /**
  * Custom error class for task concurrency issues
@@ -119,6 +118,7 @@ export class ZypherAgent {
 
   // Task execution state
   #isTaskRunning: boolean = false;
+  #taskCompleter: Completer<void> | null = null;
 
   constructor(
     config: ZypherAgentConfig = {},
@@ -467,6 +467,7 @@ export class ZypherAgent {
       );
     }
 
+    this.#taskCompleter = new Completer<void>();
     const timeoutController = new AbortController();
 
     // Create a composite signal that aborts if either the caller's signal or our timeout signal aborts
@@ -710,6 +711,20 @@ export class ZypherAgent {
       if (timeoutId !== null) {
         clearTimeout(timeoutId);
       }
+
+      this.#taskCompleter.resolve();
     }
+  }
+
+  /**
+   * Wait for the task to complete
+   * @returns A promise that resolves when the task is complete
+   * @throws {Error} If no task is running
+   */
+  async wait(options?: { signal?: AbortSignal }): Promise<void> {
+    if (!this.#taskCompleter) {
+      throw new Error("Task is not running");
+    }
+    await this.#taskCompleter.wait(options);
   }
 }
