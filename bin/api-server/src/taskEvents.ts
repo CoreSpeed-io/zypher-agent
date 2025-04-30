@@ -283,40 +283,43 @@ export function withReplayAndHeartbeat(
 }
 
 /**
- * Determines if a given event occurred after another event with the specified ID
- * by comparing their timestamps and sequence numbers.
- *
- * @param event The event to check
- * @param eventId The reference event ID to compare against
- * @returns true if the event occurred after the event with eventId, false otherwise
- * @throws Error if either ID doesn't match the expected format task_<timestamp>_<sequence>
- */
-function isEventAfterId(event: TaskEvent, eventId: string): boolean {
-  // Create TaskEventId objects from both IDs
-  const currentId = new TaskEventId(event.data.eventId);
-  const referenceId = new TaskEventId(eventId);
-
-  // Use the built-in comparison method
-  return currentId.isAfter(referenceId);
-}
-
-/**
  * Filters events from a ReplaySubject to replay only events that occurred after
  * a specified event ID (if provided) and filters out stale pending approval events.
  *
  * @param source The ReplaySubject containing the events to replay
- * @param lastEventId The ID of the last event that was received by the client
+ * @param serverLatestEventId The ID of the most recent event produced by the server at the moment
+ * when this function is called. This is used to filter out stale pending approval events.
+ * Pending approval events are those that occurred after the clientLastEventId but before the serverLatestEventId.
+ * @param clientLastEventId The ID of the last event that was received by the client
  * @returns An Observable that emits only events that occurred after the specified event ID
  */
 export function replayEvents(
   source: ReplaySubject<TaskEvent>,
-  lastEventId: string | undefined,
+  serverLatestEventId?: TaskEventId,
+  clientLastEventId?: TaskEventId,
 ): Observable<TaskEvent> {
   return source
     .asObservable()
     .pipe(
+      // First filter: only include events after clientLastEventId (if provided)
       filter((event) =>
-        lastEventId ? isEventAfterId(event, lastEventId) : true
+        clientLastEventId
+          ? new TaskEventId(event.data.eventId).isAfter(clientLastEventId)
+          : true
       ),
+      // Second filter: filter out stale pending approval events
+      filter((event) => {
+        // Only apply this filter to tool_approval_pending events when serverLatestEventId is provided
+        if (serverLatestEventId && event.event === "tool_approval_pending") {
+          // Create TaskEventId objects for comparison
+          const eventId = new TaskEventId(event.data.eventId);
+
+          // Keep the event if it's newer than or equal to the server's latest event
+          // (i.e., filter out stale pending approval events that happened before the server's latest event)
+          return !serverLatestEventId.isAfter(eventId);
+        }
+        // Keep all other event types
+        return true;
+      }),
     );
 }

@@ -81,6 +81,14 @@ Deno.test("TaskEventId - isAfter should correctly compare IDs", () => {
 
   assertEquals(sameTime1.isAfter(sameTime2), false);
   assertEquals(sameTime2.isAfter(sameTime1), false);
+
+  // Test with higher sequence but lower timestamp
+  // Timestamp should take precedence over sequence
+  const olderHigherSequence = new TaskEventId("task_1650000000000_5");
+  const newerLowerSequence = new TaskEventId("task_1650000000001_0");
+
+  assertEquals(olderHigherSequence.isAfter(newerLowerSequence), false);
+  assertEquals(newerLowerSequence.isAfter(olderHigherSequence), true);
 });
 
 Deno.test("TaskEventId - generateWithTimestamp should use provided timestamp", () => {

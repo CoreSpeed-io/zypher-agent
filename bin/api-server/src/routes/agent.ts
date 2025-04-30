@@ -15,6 +15,7 @@ import {
   withReplayAndHeartbeat,
 } from "../taskEvents.ts";
 import { Observable, ReplaySubject } from "rxjs";
+import { map } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
 import { FileAttachment } from "../../../../src/message.ts";
 import { Completer } from "../../../../src/utils/mod.ts";
@@ -57,6 +58,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
   let taskAbortController: AbortController | null = null;
   let taskEventSubject: ReplaySubject<TaskEvent> | null = null;
   let toolApprovalCompletor: Completer<boolean> | null = null;
+  let serverLatestEventId: TaskEventId | undefined = undefined;
 
   function runAgentTask(
     agent: ZypherAgent,
@@ -154,7 +156,13 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           });
           subscriber.complete();
         });
-    });
+    })
+      .pipe(
+        map((event) => {
+          serverLatestEventId = new TaskEventId(event.data.eventId);
+          return event;
+        }),
+      );
 
     // 30 seconds heartbeat
     return withReplayAndHeartbeat(taskEvent$, 30000);
@@ -267,7 +275,11 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       return streamSSE(
         c,
         async (stream) => {
-          const events = replayEvents(eventSubject, lastEventId);
+          const events = replayEvents(
+            eventSubject,
+            serverLatestEventId,
+            lastEventId ? new TaskEventId(lastEventId) : undefined,
+          );
 
           for await (const event of eachValueFrom(events)) {
             await stream.writeSSE({
