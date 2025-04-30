@@ -9,15 +9,15 @@ import {
 } from "../../../../src/ZypherAgent.ts";
 import { ApiError } from "../error.ts";
 import {
+  replayEvents,
   type TaskEvent,
   TaskEventId,
   withReplayAndHeartbeat,
 } from "../taskEvents.ts";
 import { Observable, ReplaySubject } from "rxjs";
-import { filter } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
 import { FileAttachment } from "../../../../src/message.ts";
-import { Completer } from "../../../../src/utils/completer.ts";
+import { Completer } from "../../../../src/utils/mod.ts";
 
 const agentRouter = new Hono();
 
@@ -52,24 +52,6 @@ const streamReconnectQuerySchema = z.object({
 const streamReconnectHeaderSchema = z.object({
   "last-event-id": taskEventIdSchema.optional(),
 });
-
-/**
- * Determines if a given event occurred after another event with the specified ID
- * by comparing their timestamps and sequence numbers.
- *
- * @param event The event to check
- * @param eventId The reference event ID to compare against
- * @returns true if the event occurred after the event with eventId, false otherwise
- * @throws Error if either ID doesn't match the expected format task_<timestamp>_<sequence>
- */
-function isEventAfterId(event: TaskEvent, eventId: string): boolean {
-  // Create TaskEventId objects from both IDs
-  const currentId = new TaskEventId(event.data.eventId);
-  const referenceId = new TaskEventId(eventId);
-
-  // Use the built-in comparison method
-  return currentId.isAfter(referenceId);
-}
 
 export function createAgentRouter(agent: ZypherAgent): Hono {
   let taskAbortController: AbortController | null = null;
@@ -279,14 +261,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       return streamSSE(
         c,
         async (stream) => {
-          const events = eventSubject
-            .asObservable()
-            .pipe(
-              // TODO: filter out stale pending approvals events
-              filter((event) =>
-                lastEventId ? isEventAfterId(event, lastEventId) : true
-              ),
-            );
+          const events = replayEvents(eventSubject, lastEventId);
 
           for await (const event of eachValueFrom(events)) {
             await stream.writeSSE({
