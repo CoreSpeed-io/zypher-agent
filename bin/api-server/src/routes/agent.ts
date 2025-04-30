@@ -131,7 +131,14 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
           fileAttachments,
           {
             signal: options?.signal,
-            handleToolApproval: (_toolName, _args, options) => {
+            handleToolApproval: async (_toolName, _args, options) => {
+              // TODO: Auto approval everything for now until DEC-48 is resolved (approval UI)
+              const shouldAutoApprove: boolean = true;
+              // TODO: logic to determine if we should auto approve a tool call
+              if (shouldAutoApprove) {
+                return true;
+              }
+
               toolApprovalCompletor = new Completer<boolean>();
               subscriber.next({
                 event: "tool_approval_pending",
@@ -141,7 +148,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
                   args: _args,
                 },
               });
-              return toolApprovalCompletor.wait(options);
+              return await toolApprovalCompletor.wait(options);
             },
           },
         )
