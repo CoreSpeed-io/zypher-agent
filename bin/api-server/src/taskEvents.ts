@@ -289,7 +289,7 @@ export function withTaskEventReplayAndHeartbeat(
  * @param source The ReplaySubject containing the events to replay
  * @param serverLatestEventId The ID of the most recent event produced by the server at the moment
  * when this function is called. This is used to filter out stale pending approval events.
- * Pending approval events are those that occurred after the clientLastEventId but before the serverLatestEventId.
+ * Stale pending approval events are those that occurred after the clientLastEventId but before the serverLatestEventId.
  * @param clientLastEventId The ID of the last event that was received by the client
  * @returns An Observable that emits only events that occurred after the specified event ID
  */
