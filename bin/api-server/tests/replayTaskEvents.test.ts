@@ -74,12 +74,12 @@ Deno.test("replayTaskEvents - should replay all events when neither parameter is
   // Test with neither parameter provided (both undefined)
   // Should return all events without any filtering
   const allEvents = await collectEvents(
-    replayTaskEvents(subject, undefined, undefined)
+    replayTaskEvents(subject, undefined, undefined),
   );
-  
+
   // Verify all events are included
   assertEquals(allEvents.length, 5);
-  
+
   // Verify the events are in the correct order
   assertEquals(allEvents[0].data.eventId, id1.toString());
   assertEquals(allEvents[1].data.eventId, id1.toString());
@@ -109,28 +109,38 @@ Deno.test("replayTaskEvents - should filter events based on clientLastEventId on
   // Test with only clientLastEventId = id1 (no serverLatestEventId)
   // Should include all events after id1, including all tool approval events
   const filteredEvents = await collectEvents(
-    replayTaskEvents(subject, undefined, id1)
+    replayTaskEvents(subject, undefined, id1),
   );
 
   // Should have 4 events: all events after id1
   assertEquals(filteredEvents.length, 4);
 
   // Verify that only events after id1 are included
-  const eventIds = filteredEvents.map(e => e.data.eventId);
+  const eventIds = filteredEvents.map((e) => e.data.eventId);
   assertEquals(eventIds.includes(id1.toString()), false);
   assertEquals(eventIds.includes(id2.toString()), true);
   assertEquals(eventIds.includes(id3.toString()), true);
 
   // Count the number of each event type
-  const contentEvents = filteredEvents.filter(e => e.event === "content_delta");
-  const toolApprovalEvents = filteredEvents.filter(e => e.event === "tool_approval_pending");
-  
+  const contentEvents = filteredEvents.filter((e) =>
+    e.event === "content_delta"
+  );
+  const toolApprovalEvents = filteredEvents.filter((e) =>
+    e.event === "tool_approval_pending"
+  );
+
   assertEquals(contentEvents.length, 2); // Content events for id2 and id3
   assertEquals(toolApprovalEvents.length, 2); // Tool approval events for id2 and id3
 
   // Verify the content of the events
-  assertEquals((contentEvents[0].data as ContentDeltaEventData).content, "Content Event 2");
-  assertEquals((contentEvents[1].data as ContentDeltaEventData).content, "Content Event 3");
+  assertEquals(
+    (contentEvents[0].data as ContentDeltaEventData).content,
+    "Content Event 2",
+  );
+  assertEquals(
+    (contentEvents[1].data as ContentDeltaEventData).content,
+    "Content Event 3",
+  );
 });
 
 Deno.test("replayTaskEvents - should filter events based on clientLastEventId", async () => {
@@ -200,23 +210,31 @@ Deno.test("replayTaskEvents - should filter stale pending approval events when o
   // Test with only serverLatestEventId = id2 (no clientLastEventId)
   // Should include all regular events but only tool approval events >= id2
   const filteredEvents = await collectEvents(
-    replayTaskEvents(subject, id2)
+    replayTaskEvents(subject, id2),
   );
 
   // Should have 5 events: 3 regular events + 2 non-stale tool approval events
   assertEquals(filteredEvents.length, 5);
 
   // Count the number of tool approval events (should be 2)
-  const toolApprovalEvents = filteredEvents.filter(e => e.event === "tool_approval_pending");
+  const toolApprovalEvents = filteredEvents.filter((e) =>
+    e.event === "tool_approval_pending"
+  );
   assertEquals(toolApprovalEvents.length, 2);
 
   // Verify that the stale tool approval event (id1) is filtered out
-  const staleEventExists = toolApprovalEvents.some(e => e.data.eventId === id1.toString());
+  const staleEventExists = toolApprovalEvents.some((e) =>
+    e.data.eventId === id1.toString()
+  );
   assertEquals(staleEventExists, false);
 
   // Verify that the non-stale tool approval events (id2 and id3) are included
-  const id2EventExists = toolApprovalEvents.some(e => e.data.eventId === id2.toString());
-  const id3EventExists = toolApprovalEvents.some(e => e.data.eventId === id3.toString());
+  const id2EventExists = toolApprovalEvents.some((e) =>
+    e.data.eventId === id2.toString()
+  );
+  const id3EventExists = toolApprovalEvents.some((e) =>
+    e.data.eventId === id3.toString()
+  );
   assertEquals(id2EventExists, true);
   assertEquals(id3EventExists, true);
 });
