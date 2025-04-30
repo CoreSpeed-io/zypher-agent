@@ -15,7 +15,7 @@ import {
 import { parseArgs } from "@std/cli";
 import readline from "node:readline";
 import { stdin as input, stdout as output } from "node:process";
-import { formatError } from "../src/utils/mod.ts";
+import { formatError } from "../src/error.ts";
 import chalk from "chalk";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
 import { printMessage } from "../src/message.ts";
