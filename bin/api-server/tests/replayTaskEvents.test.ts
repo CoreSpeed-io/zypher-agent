@@ -10,13 +10,13 @@ import {
 
 // Helper function to create a content delta event
 function createContentEvent(
-  eventId: string,
+  eventId: TaskEventId,
   content: string,
 ): TaskEvent {
   return {
     event: "content_delta",
     data: {
-      eventId,
+      eventId: eventId.toString(),
       content,
     } as ContentDeltaEventData,
   };
@@ -24,14 +24,14 @@ function createContentEvent(
 
 // Helper function to create a tool approval pending event
 function createToolApprovalEvent(
-  eventId: string,
+  eventId: TaskEventId,
   toolName: string,
   args: unknown,
 ): TaskEvent {
   return {
     event: "tool_approval_pending",
     data: {
-      eventId,
+      eventId: eventId.toString(),
       toolName,
       args,
     } as ToolApprovalPendingEventData,
@@ -64,11 +64,11 @@ Deno.test("replayTaskEvents - should replay all events when neither parameter is
   const id3 = new TaskEventId("task_3000_0");
 
   // Add a mix of different event types to the subject
-  subject.next(createContentEvent(id1.toString(), "Content Event 1"));
-  subject.next(createToolApprovalEvent(id1.toString(), "tool1", { param: "value1" }));
-  subject.next(createContentEvent(id2.toString(), "Content Event 2"));
-  subject.next(createToolApprovalEvent(id2.toString(), "tool2", { param: "value2" }));
-  subject.next(createContentEvent(id3.toString(), "Content Event 3"));
+  subject.next(createContentEvent(id1, "Content Event 1"));
+  subject.next(createToolApprovalEvent(id1, "tool1", { param: "value1" }));
+  subject.next(createContentEvent(id2, "Content Event 2"));
+  subject.next(createToolApprovalEvent(id2, "tool2", { param: "value2" }));
+  subject.next(createContentEvent(id3, "Content Event 3"));
   subject.complete();
 
   // Test with neither parameter provided (both undefined)
@@ -98,12 +98,12 @@ Deno.test("replayTaskEvents - should filter events based on clientLastEventId on
   const id3 = new TaskEventId("task_3000_0");
 
   // Add a mix of different event types to the subject
-  subject.next(createContentEvent(id1.toString(), "Content Event 1"));
-  subject.next(createToolApprovalEvent(id1.toString(), "tool1", { param: "value1" }));
-  subject.next(createContentEvent(id2.toString(), "Content Event 2"));
-  subject.next(createToolApprovalEvent(id2.toString(), "tool2", { param: "value2" }));
-  subject.next(createContentEvent(id3.toString(), "Content Event 3"));
-  subject.next(createToolApprovalEvent(id3.toString(), "tool3", { param: "value3" }));
+  subject.next(createContentEvent(id1, "Content Event 1"));
+  subject.next(createToolApprovalEvent(id1, "tool1", { param: "value1" }));
+  subject.next(createContentEvent(id2, "Content Event 2"));
+  subject.next(createToolApprovalEvent(id2, "tool2", { param: "value2" }));
+  subject.next(createContentEvent(id3, "Content Event 3"));
+  subject.next(createToolApprovalEvent(id3, "tool3", { param: "value3" }));
   subject.complete();
 
   // Test with only clientLastEventId = id1 (no serverLatestEventId)
@@ -143,9 +143,9 @@ Deno.test("replayTaskEvents - should filter events based on clientLastEventId", 
   const id3 = new TaskEventId("task_3000_0");
 
   // Add events to the subject
-  subject.next(createContentEvent(id1.toString(), "Event 1"));
-  subject.next(createContentEvent(id2.toString(), "Event 2"));
-  subject.next(createContentEvent(id3.toString(), "Event 3"));
+  subject.next(createContentEvent(id1, "Event 1"));
+  subject.next(createContentEvent(id2, "Event 2"));
+  subject.next(createContentEvent(id3, "Event 3"));
   subject.complete();
 
   // Test with no clientLastEventId - should return all events
@@ -189,12 +189,12 @@ Deno.test("replayTaskEvents - should filter stale pending approval events when o
   const id3 = new TaskEventId("task_3000_0"); // New event (after server's latest)
 
   // Add regular events and tool approval events to the subject
-  subject.next(createContentEvent(id1.toString(), "Regular Event 1"));
-  subject.next(createToolApprovalEvent(id1.toString(), "test_tool", { arg1: "value1" }));
-  subject.next(createContentEvent(id2.toString(), "Regular Event 2"));
-  subject.next(createToolApprovalEvent(id2.toString(), "test_tool", { arg1: "value2" }));
-  subject.next(createContentEvent(id3.toString(), "Regular Event 3"));
-  subject.next(createToolApprovalEvent(id3.toString(), "test_tool", { arg1: "value3" }));
+  subject.next(createContentEvent(id1, "Regular Event 1"));
+  subject.next(createToolApprovalEvent(id1, "test_tool", { arg1: "value1" }));
+  subject.next(createContentEvent(id2, "Regular Event 2"));
+  subject.next(createToolApprovalEvent(id2, "test_tool", { arg1: "value2" }));
+  subject.next(createContentEvent(id3, "Regular Event 3"));
+  subject.next(createToolApprovalEvent(id3, "test_tool", { arg1: "value3" }));
   subject.complete();
 
   // Test with only serverLatestEventId = id2 (no clientLastEventId)
@@ -231,17 +231,17 @@ Deno.test("replayTaskEvents - should filter out stale pending approval events", 
   const id3 = new TaskEventId("task_3000_0"); // New event (after server's latest)
 
   // Add regular events and tool approval events to the subject
-  subject.next(createContentEvent(id1.toString(), "Regular Event 1"));
+  subject.next(createContentEvent(id1, "Regular Event 1"));
   subject.next(
-    createToolApprovalEvent(id1.toString(), "test_tool", { arg1: "value1" }),
+    createToolApprovalEvent(id1, "test_tool", { arg1: "value1" }),
   );
-  subject.next(createContentEvent(id2.toString(), "Regular Event 2"));
+  subject.next(createContentEvent(id2, "Regular Event 2"));
   subject.next(
-    createToolApprovalEvent(id2.toString(), "test_tool", { arg1: "value2" }),
+    createToolApprovalEvent(id2, "test_tool", { arg1: "value2" }),
   );
-  subject.next(createContentEvent(id3.toString(), "Regular Event 3"));
+  subject.next(createContentEvent(id3, "Regular Event 3"));
   subject.next(
-    createToolApprovalEvent(id3.toString(), "test_tool", { arg1: "value3" }),
+    createToolApprovalEvent(id3, "test_tool", { arg1: "value3" }),
   );
   subject.complete();
 
@@ -288,22 +288,14 @@ Deno.test("replayTaskEvents - should handle both filters together", async () => 
   const id4 = new TaskEventId("task_4000_0"); // New event (after server's latest)
 
   // Add events to the subject
-  subject.next(createContentEvent(id1.toString(), "Event 1"));
-  subject.next(
-    createToolApprovalEvent(id1.toString(), "test_tool", { arg1: "value1" }),
-  );
-  subject.next(createContentEvent(id2.toString(), "Event 2"));
-  subject.next(
-    createToolApprovalEvent(id2.toString(), "test_tool", { arg1: "value2" }),
-  );
-  subject.next(createContentEvent(id3.toString(), "Event 3"));
-  subject.next(
-    createToolApprovalEvent(id3.toString(), "test_tool", { arg1: "value3" }),
-  );
-  subject.next(createContentEvent(id4.toString(), "Event 4"));
-  subject.next(
-    createToolApprovalEvent(id4.toString(), "test_tool", { arg1: "value4" }),
-  );
+  subject.next(createContentEvent(id1, "Event 1"));
+  subject.next(createToolApprovalEvent(id1, "tool1", { arg: "value1" }));
+  subject.next(createContentEvent(id2, "Event 2"));
+  subject.next(createToolApprovalEvent(id2, "tool2", { arg: "value2" }));
+  subject.next(createContentEvent(id3, "Event 3"));
+  subject.next(createToolApprovalEvent(id3, "tool3", { arg: "value3" }));
+  subject.next(createContentEvent(id4, "Event 4"));
+  subject.next(createToolApprovalEvent(id4, "tool4", { arg: "value4" }));
   subject.complete();
 
   // Test with both filters:
