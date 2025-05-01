@@ -500,9 +500,7 @@ export class ZypherAgent {
         taskDescription.length > 50 ? "..." : ""
       }`;
       const checkpointId = await createCheckpoint(checkpointName);
-      const checkpoint = checkpointId
-        ? await getCheckpointDetails(checkpointId)
-        : undefined;
+      const checkpoint = await getCheckpointDetails(checkpointId);
 
       const messageContent: ContentBlock[] = [
         ...(fileAttachments ?? []),
