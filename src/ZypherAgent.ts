@@ -429,7 +429,9 @@ export class ZypherAgent {
                 {
                   type: "text" as const,
                   text: attachmentCached
-                    ? `Attachment ${attachmentIndex}: has been saved to: ${attachmentCachePath}`
+                    ? `Attachment ${attachmentIndex}:
+                    MIME type: ${block.mimeType}
+                    Cached at: ${attachmentCachePath}`
                     : `Attachment ${attachmentIndex}:`,
                 },
                 {
