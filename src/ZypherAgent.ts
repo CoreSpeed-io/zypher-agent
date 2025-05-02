@@ -5,7 +5,9 @@
 // To provide a better experience (faster responses from the Anthropic API), we MUST use the global fetch for HTTP/2.
 import "@anthropic-ai/sdk/shims/web";
 import {
+  fileExists,
   getCurrentUserInfo,
+  getZypherDir,
   loadMessageHistory,
   saveMessageHistory,
 } from "./utils/mod.ts";
@@ -30,6 +32,7 @@ import { Anthropic } from "@anthropic-ai/sdk";
 import type { StorageService } from "./storage/StorageService.ts";
 import { Completer } from "./utils/mod.ts";
 import { AbortError, formatError, isAbortError } from "./error.ts";
+import * as path from "@std/path";
 
 /**
  * Custom error class for task concurrency issues
@@ -99,6 +102,12 @@ export interface ZypherAgentConfig {
   userId?: string;
   /** Maximum allowed time for a task in milliseconds before it's automatically cancelled. Default is 1 minute (60000ms). Set to 0 to disable. */
   taskTimeoutMs?: number;
+  /** Directory to cache file attachments */
+  fileAttachmentCacheDir?: string;
+}
+
+interface FileAttachmentWithCachePath extends FileAttachment {
+  cachePath?: string;
 }
 
 export class ZypherAgent {
@@ -112,6 +121,7 @@ export class ZypherAgent {
   readonly #mcpServerManager: McpServerManager;
   readonly #taskTimeoutMs: number;
   readonly #storageService?: StorageService;
+  readonly #fileAttachmentCacheDir?: string;
 
   #messages: Message[];
   #system: Anthropic.TextBlockParam[];
@@ -151,6 +161,7 @@ export class ZypherAgent {
     this.#storageService = storageService;
     // Default timeout is 5 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 300000;
+    this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
   }
 
   async init(): Promise<void> {
@@ -216,7 +227,7 @@ export class ZypherAgent {
   }
 
   /**
-   * Retrieves a file attachment from storage
+   * Retrieves a file attachment from storage service
    * @param fileId ID of the file to retrieve
    * @returns Promise resolving to a FileAttachment object or null if file doesn't exist or isn't supported
    */
@@ -244,6 +255,53 @@ export class ZypherAgent {
       fileId,
       mimeType: metadata.contentType as SupportedFileTypes,
     };
+  }
+
+  /**
+   * Get the directory where file attachments are cached
+   * @returns Promise resolving to the cache directory path
+   */
+  async #getFileAttachmentCacheDir(): Promise<string> {
+    return this.#fileAttachmentCacheDir ??
+      path.join(await getZypherDir(), "cache", "file-attachments");
+  }
+
+  /**
+   * Get the local cache file path for a file attachment
+   * @param fileId ID of the file attachment
+   * @returns Promise resolving to the cache file path
+   */
+  async #getFileAttachmentCachePath(fileId: string): Promise<string> {
+    return path.join(await this.#getFileAttachmentCacheDir(), fileId);
+  }
+
+  /**
+   * Caches a file attachment if it's not already cached if possible
+   * @param fileId ID of the file attachment
+   * @returns Promise resolving to the cache file path,
+   * or null if:
+   * - the file ID does not exist on storage service
+   * - fails to cache the file attachment
+   * - the storage service is not initialized
+   */
+  async #cacheFileAttachment(fileId: string): Promise<string | null> {
+    if (!this.#storageService) {
+      console.error("Storage service not initialized");
+      return null;
+    }
+
+    const cachePath = await this.#getFileAttachmentCachePath(fileId);
+    if (!fileExists(cachePath)) {
+      // Download the file attachment from storage service to cache path
+      try {
+        await this.#storageService.downloadFile(fileId, cachePath);
+      } catch (error) {
+        console.warn("Failed to cache file attachment", fileId, error);
+        return null;
+      }
+    }
+
+    return cachePath;
   }
 
   /**
@@ -328,7 +386,7 @@ export class ZypherAgent {
       ? [{ type: "text" as const, text: content } as Anthropic.TextBlockParam]
       : (
         await Promise.all(
-          content.map(async (block) => {
+          content.map(async (block, index) => {
             if (isFileAttachment(block)) {
               if (!this.#storageService) {
                 // skip attachment if storage service is not configured
@@ -355,21 +413,38 @@ export class ZypherAgent {
                 return null;
               }
 
-              return {
-                type: "image" as const, // TODO: hard code as image for now as we only support image files
-                source: {
-                  type: "url" as const,
-                  url: signedUrl,
+              const cachePath = await this.#cacheFileAttachment(block.fileId);
+              const attachmentIndex = index + 1;
+
+              if (!cachePath) {
+                console.warn(
+                  "Failed to cache file attachment, File ID: ",
+                  block.fileId,
+                );
+              }
+
+              return [
+                {
+                  type: "text" as const,
+                  text: cachePath
+                    ? `Attachment ${attachmentIndex}: has been saved to: ${cachePath}`
+                    : `Attachment ${attachmentIndex}:`,
                 },
-              } as Anthropic.ImageBlockParam;
+                {
+                  type: "image" as const, // TODO: hard code as image for now as we only support image files
+                  source: {
+                    type: "url" as const,
+                    url: signedUrl,
+                  },
+                } as Anthropic.ImageBlockParam,
+              ];
             }
             return block;
           }),
         )
       )
-        .filter((block): block is Anthropic.ContentBlockParam =>
-          block !== null
-        );
+        .filter((block): block is Anthropic.ContentBlockParam => block !== null)
+        .flat();
 
     // Add cache control to the last block of the last message
     if (isLastMessage && this.#enablePromptCaching && contentArray.length > 0) {
@@ -417,28 +492,11 @@ export class ZypherAgent {
    * allowing for character-by-character updates as Claude produces them. This enables
    * a more responsive user experience with immediate feedback.
    *
-   * In contrast to runTaskLoop, this method:
-   * - Streams individual text fragments as they become available (not just complete messages)
-   * - Provides real-time updates via onContent callback
-   * - Still delivers complete messages via onMessage when they're done
-   * - Supports image attachments in Claude's native format
-   *
-   * Image handling:
-   * - Images are passed as an array of base64-encoded data with proper MIME types
-   * - Each image should follow Claude's format: { type: "image", source: { type: "base64", media_type: string, data: string } }
-   * - Images are automatically included in the message content along with the text
-   * - The API will optimize images to stay within Claude's token limits
-   *
    * Streaming behavior:
    * - Content is streamed in real-time as it's generated
    * - Tool usage is streamed as tools are invoked
    * - Complete messages are delivered when available
    * - Errors and code fixes are handled automatically
-   *
-   * Cancellation:
-   * - Tasks can be cancelled at any time using cancelTask()
-   * - Cancellation will properly clean up resources and stop API requests
-   * - StreamHandler will be notified of cancellation via onCancelled
    *
    * @param taskDescription The text description of the task to perform
    * @param streamHandler Handler for real-time content updates and complete messages
