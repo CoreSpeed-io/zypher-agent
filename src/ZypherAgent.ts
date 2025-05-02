@@ -400,7 +400,7 @@ export class ZypherAgent {
             if (isFileAttachment(block)) {
               // Increment the file attachment counter for each file attachment
               fileAttachmentCount++;
-              
+
               if (!this.#storageService) {
                 // skip attachment if storage service is not configured
                 console.warn(
