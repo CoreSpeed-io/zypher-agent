@@ -1,8 +1,10 @@
 import { afterEach, beforeAll, describe, test } from "@std/testing/bdd";
 import { expect } from "@std/expect";
+import { assertRejects } from "@std/assert";
 import "@std/dotenv/load";
 import { S3StorageService } from "../src/storage/S3StorageService.ts";
 import { UploadOptions } from "../src/storage/StorageService.ts";
+import { FileNotFoundError } from "../src/storage/StorageErrors.ts";
 
 // Skip tests if environment variables are not set
 const skipTests = !Deno.env.get("S3_ACCESS_KEY_ID") ||
@@ -366,5 +368,70 @@ describe("S3 Storage Integration Tests (S3-compatible)", {
     // Try to get metadata
     const metadata = await storageService.getFileMetadata(nonExistentFileId);
     expect(metadata).toBeNull();
+  });
+
+  test("should throw FileNotFoundError when trying to download a non-existent file", async () => {
+    const nonExistentFileId = "non-existent-file-id";
+    const tempDir = await Deno.makeTempDir();
+    const destinationPath = `${tempDir}/non-existent-file.txt`;
+
+    try {
+      await assertRejects(
+        async () => {
+          await storageService.downloadFile(nonExistentFileId, destinationPath);
+        },
+        FileNotFoundError,
+      );
+    } finally {
+      // Clean up the temporary directory
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  });
+
+  test("should download a file to a local destination", async () => {
+    // Create a test file buffer with content
+    const testContent = "Hello, this is a file to download!";
+    const encoder = new TextEncoder();
+    const testBuffer = encoder.encode(testContent);
+
+    const uploadOptions: UploadOptions = {
+      contentType: "text/plain",
+      filename: "download-test.txt",
+    };
+
+    // Upload the file first
+    const uploadResult = await storageService.uploadFromBuffer(
+      testBuffer,
+      uploadOptions,
+    );
+
+    // Keep track of file ID for cleanup
+    testFileIds.push(uploadResult.id);
+
+    // Create a temporary destination path
+    const tempDir = await Deno.makeTempDir();
+    const destinationPath = `${tempDir}/downloaded-file.txt`;
+
+    try {
+      // Download the file
+      await storageService.downloadFile(uploadResult.id, destinationPath);
+
+      // Verify the file exists
+      const fileInfo = await Deno.stat(destinationPath);
+      expect(fileInfo.isFile).toBe(true);
+
+      // Read the downloaded file
+      const downloadedContent = await Deno.readTextFile(destinationPath);
+
+      // Verify content matches what we uploaded
+      expect(downloadedContent).toBe(testContent);
+    } finally {
+      // Clean up the temporary directory
+      try {
+        await Deno.remove(tempDir, { recursive: true });
+      } catch (error) {
+        console.warn(`Failed to delete temp directory ${tempDir}:`, error);
+      }
+    }
   });
 });
