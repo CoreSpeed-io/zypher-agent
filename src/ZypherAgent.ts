@@ -106,10 +106,6 @@ export interface ZypherAgentConfig {
   fileAttachmentCacheDir?: string;
 }
 
-interface FileAttachmentWithCachePath extends FileAttachment {
-  cachePath?: string;
-}
-
 export class ZypherAgent {
   readonly #client: Anthropic;
   readonly #maxTokens: number;
@@ -263,7 +259,7 @@ export class ZypherAgent {
    */
   async #getFileAttachmentCacheDir(): Promise<string> {
     return this.#fileAttachmentCacheDir ??
-      path.join(await getZypherDir(), "cache", "file-attachments");
+      path.join(await getZypherDir(), "cache", "files");
   }
 
   /**
@@ -291,12 +287,13 @@ export class ZypherAgent {
     }
 
     const cachePath = await this.#getFileAttachmentCachePath(fileId);
-    if (!fileExists(cachePath)) {
+    if (!await fileExists(cachePath)) {
       // Download the file attachment from storage service to cache path
       try {
         await this.#storageService.downloadFile(fileId, cachePath);
+        console.log("Cached file attachment", fileId, cachePath);
       } catch (error) {
-        console.warn("Failed to cache file attachment", fileId, error);
+        console.log("Failed to cache file attachment", fileId, error);
         return null;
       }
     }
@@ -367,6 +364,16 @@ export class ZypherAgent {
     }
   }
 
+  async #cacheMessageFileAttachments(messages: Message[]): Promise<void> {
+    for (const message of messages) {
+      for (const block of message.content) {
+        if (isFileAttachment(block)) {
+          await this.#cacheFileAttachment(block.fileId);
+        }
+      }
+    }
+  }
+
   /**
    * Formats a message for the Anthropic API, converting content to blocks and adding cache control
    * for incremental caching of conversation history.
@@ -413,21 +420,16 @@ export class ZypherAgent {
                 return null;
               }
 
-              const cachePath = await this.#cacheFileAttachment(block.fileId);
+              const attachmentCachePath = await this
+                .#getFileAttachmentCachePath(block.fileId);
+              const attachmentCached = await fileExists(attachmentCachePath);
               const attachmentIndex = index + 1;
-
-              if (!cachePath) {
-                console.warn(
-                  "Failed to cache file attachment, File ID: ",
-                  block.fileId,
-                );
-              }
 
               return [
                 {
                   type: "text" as const,
-                  text: cachePath
-                    ? `Attachment ${attachmentIndex}: has been saved to: ${cachePath}`
+                  text: attachmentCached
+                    ? `Attachment ${attachmentIndex}: has been saved to: ${attachmentCachePath}`
                     : `Attachment ${attachmentIndex}:`,
                 },
                 {
@@ -593,6 +595,8 @@ export class ZypherAgent {
           }),
         }),
       );
+
+      await this.#cacheMessageFileAttachments(this.#messages);
 
       while (iterations < maxIterations) {
         // Check for abort signal early
