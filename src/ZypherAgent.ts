@@ -388,13 +388,19 @@ export class ZypherAgent {
   ): Promise<Anthropic.MessageParam> {
     const { role, content } = message;
 
+    // Track file attachment count separately from content index
+    let fileAttachmentCount = 0;
+
     // For string content, convert to array format
     let contentArray = typeof content === "string"
       ? [{ type: "text" as const, text: content } as Anthropic.TextBlockParam]
       : (
         await Promise.all(
-          content.map(async (block, index) => {
+          content.map(async (block) => {
             if (isFileAttachment(block)) {
+              // Increment the file attachment counter for each file attachment
+              fileAttachmentCount++;
+              
               if (!this.#storageService) {
                 // skip attachment if storage service is not configured
                 console.warn(
@@ -423,7 +429,7 @@ export class ZypherAgent {
               const attachmentCachePath = await this
                 .#getFileAttachmentCachePath(block.fileId);
               const attachmentCached = await fileExists(attachmentCachePath);
-              const attachmentIndex = index + 1;
+              const attachmentIndex = fileAttachmentCount;
 
               return [
                 {
