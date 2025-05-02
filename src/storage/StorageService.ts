@@ -83,7 +83,7 @@ export interface StorageService {
   /**
    * Download a file from storage
    * @param fileId ID of the file to download
-   * @param destinationPath Path to save the downloaded file
+   * @param destinationPath Path to save the downloaded file. The directory and file will be created if it doesn't exist.
    * @throws {FileNotFoundError} When the requested file does not exist or expired
    * @returns Promise that resolves when the file has been successfully downloaded
    */

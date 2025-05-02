@@ -22,6 +22,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateFileId } from "./utils.ts";
+import { ensureDir } from "@std/fs";
+import * as path from "@std/path";
 
 /**
  * S3-specific provider options
@@ -334,6 +336,7 @@ export class S3StorageService implements StorageService {
 
       bodyStream = body.transformToWebStream();
 
+      await ensureDir(path.dirname(destinationPath));
       const fileWriter = await Deno.open(destinationPath, {
         write: true,
         create: true,
