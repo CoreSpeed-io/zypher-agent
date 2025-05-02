@@ -2,6 +2,7 @@
 import "jsr:@std/dotenv/load";
 import { type StreamHandler, ZypherAgent } from "../src/ZypherAgent.ts";
 import {
+  CopyFileTool,
   DeleteFileTool,
   EditFileTool,
   FileSearchTool,
@@ -111,6 +112,7 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(RunTerminalCmdTool);
     mcpServerManager.registerTool(GrepSearchTool);
     mcpServerManager.registerTool(FileSearchTool);
+    mcpServerManager.registerTool(CopyFileTool);
     mcpServerManager.registerTool(DeleteFileTool);
     mcpServerManager.registerTool(ImageGenTool);
     mcpServerManager.registerTool(ImageEditTool);
