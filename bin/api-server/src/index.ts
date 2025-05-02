@@ -7,6 +7,7 @@ import { ZypherAgent } from "../../../src/ZypherAgent.ts";
 import { parseArgs } from "@std/cli";
 
 import {
+  CopyFileTool,
   DeleteFileTool,
   EditFileTool,
   FileSearchTool,
@@ -118,6 +119,7 @@ async function initializeAgent(): Promise<ZypherAgent> {
     mcpServerManager.registerTool(RunTerminalCmdTool);
     mcpServerManager.registerTool(GrepSearchTool);
     mcpServerManager.registerTool(FileSearchTool);
+    mcpServerManager.registerTool(CopyFileTool);
     mcpServerManager.registerTool(DeleteFileTool);
     mcpServerManager.registerTool(ImageGenTool);
     mcpServerManager.registerTool(ImageEditTool);
