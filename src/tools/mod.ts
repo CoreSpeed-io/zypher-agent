@@ -77,5 +77,5 @@ export { EditFileTool } from "./EditFileTool.ts";
 export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
 export { GrepSearchTool } from "./GrepSearchTool.ts";
 export { FileSearchTool } from "./FileSearchTool.ts";
-export { DeleteFileTool } from "./DeleteFileTool.ts";
-export { ImageEditTool, ImageGenTool } from "./ImageTool.ts";
+export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
+export { ImageEditTool, ImageGenTool } from "./ImageTools.ts";

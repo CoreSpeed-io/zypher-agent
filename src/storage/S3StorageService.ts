@@ -5,6 +5,7 @@ import {
   UploadOptions,
   UploadResult,
 } from "./StorageService.ts";
+import { FileNotFoundError } from "./StorageErrors.ts";
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -21,6 +22,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateFileId } from "./utils.ts";
+import { ensureDir } from "@std/fs";
+import * as path from "@std/path";
 
 /**
  * S3-specific provider options
@@ -315,6 +318,38 @@ export class S3StorageService implements StorageService {
         additionalMetadata: options.metadata,
       },
     };
+  }
+
+  async downloadFile(fileId: string, destinationPath: string): Promise<void> {
+    const command = new GetObjectCommand({
+      Bucket: this.#bucket,
+      Key: fileId,
+    });
+
+    let bodyStream: ReadableStream<Uint8Array> | null = null;
+    try {
+      const response = await this.#s3Client.send(command);
+      const body = response.Body;
+      if (!body) {
+        throw new FileNotFoundError(fileId);
+      }
+
+      bodyStream = body.transformToWebStream();
+
+      await ensureDir(path.dirname(destinationPath));
+      const fileWriter = await Deno.open(destinationPath, {
+        write: true,
+        create: true,
+      });
+      await bodyStream.pipeTo(fileWriter.writable);
+    } catch (error) {
+      if (error instanceof NoSuchKey || error instanceof NotFound) {
+        throw new FileNotFoundError(fileId);
+      }
+      throw error;
+    } finally {
+      await bodyStream?.cancel();
+    }
   }
 
   /**

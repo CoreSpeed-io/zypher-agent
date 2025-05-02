@@ -81,6 +81,15 @@ export interface StorageService {
   ): Promise<UploadResult>;
 
   /**
+   * Download a file from storage
+   * @param fileId ID of the file to download
+   * @param destinationPath Path to save the downloaded file. The directory and file will be created if it doesn't exist.
+   * @throws {FileNotFoundError} When the requested file does not exist or expired
+   * @returns Promise that resolves when the file has been successfully downloaded
+   */
+  downloadFile(fileId: string, destinationPath: string): Promise<void>;
+
+  /**
    * Generate a pre-signed URL for accessing a previously uploaded file
    * @param fileId ID of the file to generate URL for
    * @param expirySeconds How long the URL should be valid (in seconds)
