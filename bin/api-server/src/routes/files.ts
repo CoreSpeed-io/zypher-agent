@@ -15,7 +15,8 @@ const fileUploadRequestSchema = z.object({
       }`,
     }),
   }),
-  size: z.number().int().positive().optional(),
+  size: z.number().int().positive()
+    .lte(1024 * 1024 * 32), // 32MB
 });
 
 // File upload response schema
