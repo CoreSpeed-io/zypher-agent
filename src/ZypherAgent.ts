@@ -441,7 +441,10 @@ export class ZypherAgent {
                     : `Attachment ${attachmentIndex}:`,
                 },
                 {
-                  type: "image" as const, // TODO: hard code as image for now as we only support image files
+                  // see SUPPORTED_FILE_TYPES, currently only image and pdf files are supported
+                  type: block.mimeType.startsWith("image/")
+                    ? "image"
+                    : "document",
                   source: {
                     type: "url" as const,
                     url: signedUrl,
