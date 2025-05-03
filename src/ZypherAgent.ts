@@ -249,7 +249,7 @@ export class ZypherAgent {
     return {
       type: "file_attachment",
       fileId,
-      mimeType: metadata.contentType as SupportedFileTypes,
+      mimeType: metadata.contentType satisfies SupportedFileTypes,
     };
   }
 
@@ -393,7 +393,12 @@ export class ZypherAgent {
 
     // For string content, convert to array format
     let contentArray = typeof content === "string"
-      ? [{ type: "text" as const, text: content } as Anthropic.TextBlockParam]
+      ? [
+        {
+          type: "text" as const,
+          text: content,
+        } satisfies Anthropic.TextBlockParam,
+      ]
       : (
         await Promise.all(
           content.map(async (block) => {
@@ -431,26 +436,43 @@ export class ZypherAgent {
               const attachmentCached = await fileExists(attachmentCachePath);
               const attachmentIndex = fileAttachmentCount;
 
-              return [
-                {
-                  type: "text" as const,
-                  text: attachmentCached
-                    ? `Attachment ${attachmentIndex}:
-                    MIME type: ${block.mimeType}
-                    Cached at: ${attachmentCachePath}`
-                    : `Attachment ${attachmentIndex}:`,
-                },
-                {
-                  // see SUPPORTED_FILE_TYPES, currently only image and pdf files are supported
-                  type: block.mimeType.startsWith("image/")
-                    ? "image"
-                    : "document",
-                  source: {
-                    type: "url" as const,
-                    url: signedUrl,
-                  },
-                } as Anthropic.ImageBlockParam,
-              ];
+              // Text block is always included for both image and PDF files
+              const textBlock: Anthropic.TextBlockParam = {
+                type: "text" as const,
+                text: attachmentCached
+                  ? `Attachment ${attachmentIndex}:
+                  MIME type: ${block.mimeType}
+                  Cached at: ${attachmentCachePath}`
+                  : `Attachment ${attachmentIndex}:`,
+              };
+
+              // Handle different file types with appropriate block types
+              if (block.mimeType.startsWith("image/")) {
+                return [
+                  textBlock,
+                  {
+                    type: "image" as const,
+                    source: {
+                      type: "url" as const,
+                      url: signedUrl,
+                    },
+                  } satisfies Anthropic.ImageBlockParam,
+                ];
+              } else if (block.mimeType === "application/pdf") {
+                return [
+                  textBlock,
+                  {
+                    type: "document" as const,
+                    source: {
+                      type: "url" as const,
+                      url: signedUrl,
+                    },
+                  } satisfies Anthropic.DocumentBlockParam,
+                ];
+              }
+
+              // Fall back to just the text block for unsupported types
+              return [textBlock];
             }
             return block;
           }),
@@ -578,7 +600,7 @@ export class ZypherAgent {
         {
           type: "text",
           text: `<user_query>\n${taskDescription}\n</user_query>`,
-        } as Anthropic.TextBlockParam,
+        } satisfies Anthropic.TextBlockParam,
       ];
 
       // Add user message with checkpoint reference
@@ -697,10 +719,10 @@ export class ZypherAgent {
                 role: "user",
                 content: [
                   {
-                    type: "tool_result",
+                    type: "tool_result" as const,
                     tool_use_id: block.id,
                     content: result,
-                  } as Anthropic.ToolResultBlockParam,
+                  } satisfies Anthropic.ToolResultBlockParam,
                 ],
                 timestamp: new Date(),
               };
