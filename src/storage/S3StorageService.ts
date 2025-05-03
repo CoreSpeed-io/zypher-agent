@@ -413,6 +413,7 @@ export class S3StorageService implements StorageService {
       Bucket: this.#bucket,
       Key: key,
       ContentType: options.contentType,
+      ContentLength: options.size,
       Metadata: metadata,
     });
 

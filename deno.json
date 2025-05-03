@@ -7,7 +7,7 @@
     "build:api": "deno compile --allow-all --frozen=true --output dist/api-server bin/api-server/src/index.ts",
     "bundle:api": "deno run -A npm:rolldown -c rolldown.config.mts",
     "test": "deno test -A --trace-leaks",
-    "checkall": "deno fmt && deno lint && deno check src/**/*.ts bin/api-server/src/**/*.ts"
+    "checkall": "deno fmt && deno lint && deno check ."
   },
   "imports": {
     "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.798.0",
