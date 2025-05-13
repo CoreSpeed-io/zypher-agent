@@ -42,6 +42,7 @@ export class McpServerManager {
   private _initialized = false;
   private _configFile = "mcp.json";
   private _dataDir: string | null = null;
+  private _apiBaseUrl: string = Deno.env.get("MCP_API_BASE_URL") ?? "";
 
   /**
    * Initializes the McpServerManager by loading configuration and setting up servers
@@ -489,5 +490,54 @@ export class McpServerManager {
    */
   getTool(name: string): Tool | undefined {
     return this._toolbox.get(name);
+  }
+
+  /**
+   * Fetches MCP server configuration from a remote endpoint
+   * @param endpoint The URL of the remote configuration endpoint
+   * @param options Optional fetch options
+   * @returns Promise resolving to IMcpServerConfig
+   * @throws Error if the fetch fails or returns invalid configuration
+   */
+  async fetchRemoteServerConfig(
+    serverId: string,
+    options?: {
+      provider: "npx" | "docker" | "python" | "sse";
+    },
+  ): Promise<IMcpServerConfig> {
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/servers/${serverId}`, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+        },
+        ...options,
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch server config: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const data = await response.json();
+
+      // Validate the response data against our schema
+      const config = McpServerConfigSchema.parse(data);
+
+      return config;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new Error(
+          `Invalid server configuration format: ${formatError(error)}`,
+        );
+      }
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Unknown error";
+      throw new Error(
+        `Failed to fetch MCP server config: ${formatError(errorMessage)}`,
+      );
+    }
   }
 }
