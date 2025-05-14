@@ -42,7 +42,7 @@ export class McpServerManager {
   private _initialized = false;
   private _configFile = "mcp.json";
   private _dataDir: string | null = null;
-  private _apiBaseUrl: string = Deno.env.get("MCP_API_BASE_URL") ?? "";
+  private _mcpRegistryBaseUrl: string = Deno.env.get("MCP_API_BASE_URL") ?? "";
 
   /**
    * Initializes the McpServerManager by loading configuration and setting up servers
@@ -57,7 +57,7 @@ export class McpServerManager {
     this._dataDir = await getWorkspaceDataDir();
 
     // Get MCP API base URL
-    this._apiBaseUrl = Deno.env.get("MCP_API_BASE_URL") ?? "";
+    this._mcpRegistryBaseUrl = Deno.env.get("MCP_API_BASE_URL") ?? "";
 
     // Load and parse server configs from mcp.json
     await this.loadConfig();
@@ -503,7 +503,7 @@ export class McpServerManager {
    * @throws Error if the fetch fails or returns invalid configuration
    */
   async registerServerFromRegistry(id: string) {
-    const url = `${this._apiBaseUrl}/registry/servers/${id}`;
+    const url = `${this._mcpRegistryBaseUrl}/servers/${id}`;
     const response = await fetch(url);
     const config = McpServerConfigSchema.parse(await response.json());
     await this.registerServer(id, config);
