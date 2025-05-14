@@ -54,4 +54,4 @@ export const McpServerApiSchema = z.object({
 
 export type IMcpServerApi = z.infer<typeof McpServerApiSchema>;
 
-export const McpServerIdSchema = z.string().min(1);
+export const McpServerIdSchema = z.string().min(1).describe("MCP server ID");
