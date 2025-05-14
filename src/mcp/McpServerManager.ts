@@ -56,6 +56,9 @@ export class McpServerManager {
     // Get workspace data directory
     this._dataDir = await getWorkspaceDataDir();
 
+    // Get MCP API base URL
+    this._apiBaseUrl = Deno.env.get("MCP_API_BASE_URL") ?? "";
+
     // Load and parse server configs from mcp.json
     await this.loadConfig();
 
@@ -499,45 +502,11 @@ export class McpServerManager {
    * @returns Promise resolving to IMcpServerConfig
    * @throws Error if the fetch fails or returns invalid configuration
    */
-  async fetchRemoteServerConfig(
-    serverId: string,
-    options?: {
-      provider: "npx" | "docker" | "python" | "sse";
-    },
-  ): Promise<IMcpServerConfig> {
-    try {
-      const response = await fetch(`${this.apiBaseUrl}/servers/${serverId}`, {
-        method: "GET",
-        headers: {
-          "Accept": "application/json",
-        },
-        ...options,
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch server config: ${response.status} ${response.statusText}`,
-        );
-      }
-
-      const data = await response.json();
-
-      // Validate the response data against our schema
-      const config = McpServerConfigSchema.parse(data);
-
-      return config;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new Error(
-          `Invalid server configuration format: ${formatError(error)}`,
-        );
-      }
-      const errorMessage = error instanceof Error
-        ? error.message
-        : "Unknown error";
-      throw new Error(
-        `Failed to fetch MCP server config: ${formatError(errorMessage)}`,
-      );
-    }
+  async registerServerFromRegistry(id: string): Promise<IMcpServerConfig> {
+    const url = `${this._apiBaseUrl}/servers/${id}`;
+    const response = await fetch(url);
+    const config = McpServerConfigSchema.parse(await response.json());
+    await this.registerServer(id, config);
+    return config;
   }
 }
