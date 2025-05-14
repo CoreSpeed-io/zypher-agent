@@ -3,8 +3,10 @@
   "specifiers": {
     "jsr:@bureaudouble-forks/importmap@~0.2.1": "0.2.1",
     "jsr:@openai/openai@^4.96.0": "4.98.0",
+    "jsr:@std/assert@^1.0.13": "1.0.13",
     "jsr:@std/encoding@*": "1.0.10",
     "jsr:@std/fs@^1.0.17": "1.0.17",
+    "jsr:@std/internal@^1.0.6": "1.0.7",
     "jsr:@std/path@^1.0.8": "1.0.9",
     "jsr:@std/path@^1.0.9": "1.0.9",
     "npm:@anthropic-ai/sdk@~0.40.1": "0.40.1",
@@ -30,6 +32,12 @@
     "@openai/openai@4.98.0": {
       "integrity": "c3f1b428c2529713f20d5f66b34eea9f9e2d3f5822f12a84ff561b4b80ecbc9f"
     },
+    "@std/assert@1.0.13": {
+      "integrity": "ae0d31e41919b12c656c742b22522c32fb26ed0cba32975cb0de2a273cb68b29",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     },
@@ -38,6 +46,9 @@
       "dependencies": [
         "jsr:@std/path@^1.0.9"
       ]
+    },
+    "@std/internal@1.0.7": {
+      "integrity": "39eeb5265190a7bc5d5591c9ff019490bd1f2c3907c044a11b0d545796158a0f"
     },
     "@std/path@1.0.9": {
       "integrity": "260a49f11edd3db93dd38350bf9cd1b4d1366afa98e81b86167b4e3dd750129e"
