@@ -1,9 +1,11 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@bureaudouble-forks/importmap@~0.2.1": "0.2.1",
     "jsr:@openai/openai@^4.96.0": "4.98.0",
     "jsr:@std/encoding@*": "1.0.10",
     "jsr:@std/fs@^1.0.17": "1.0.17",
+    "jsr:@std/path@^1.0.8": "1.0.9",
     "jsr:@std/path@^1.0.9": "1.0.9",
     "npm:@anthropic-ai/sdk@~0.40.1": "0.40.1",
     "npm:@aws-sdk/client-s3@^3.798.0": "3.798.0",
@@ -14,6 +16,7 @@
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.8": "4.7.8",
     "npm:rolldown@*": "1.0.0-beta.8_valibot@1.0.0",
+    "npm:rolldown@^1.0.0-beta.7": "1.0.0-beta.8_valibot@1.0.0",
     "npm:rolldown@^1.0.0-beta.8": "1.0.0-beta.8_valibot@1.0.0",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
@@ -21,6 +24,9 @@
     "npm:zod@^3.24.3": "3.24.4"
   },
   "jsr": {
+    "@bureaudouble-forks/importmap@0.2.1": {
+      "integrity": "ba78361d289f946e9c2488066b339553576392c5780b151cdd4c01da0c58f131"
+    },
     "@openai/openai@4.98.0": {
       "integrity": "c3f1b428c2529713f20d5f66b34eea9f9e2d3f5822f12a84ff561b4b80ecbc9f"
     },
@@ -30,7 +36,7 @@
     "@std/fs@1.0.17": {
       "integrity": "1c00c632677c1158988ef7a004cb16137f870aafdb8163b9dce86ec652f3952b",
       "dependencies": [
-        "jsr:@std/path"
+        "jsr:@std/path@^1.0.9"
       ]
     },
     "@std/path@1.0.9": {
@@ -643,43 +649,66 @@
       "integrity": "sha512-7MpMzyXCcwxrTxJ4L0siy63Ds/LA8LAM4szumTFiynxTJkfrIZEV4PyR4Th0CqFZQ+oNi8WvW3Dr1MLy7o9qPQ=="
     },
     "@rolldown/binding-darwin-arm64@1.0.0-beta.8": {
-      "integrity": "sha512-4cwzBnUvPUVdjUMo9uFkcTvj+Z6IXaN/YJSz1RuI/DG5+vlQ9wYfKeDkvb1nsrhi4ZJ99OInOw1Vh/n2ReX8rA=="
+      "integrity": "sha512-4cwzBnUvPUVdjUMo9uFkcTvj+Z6IXaN/YJSz1RuI/DG5+vlQ9wYfKeDkvb1nsrhi4ZJ99OInOw1Vh/n2ReX8rA==",
+      "os": ["darwin"],
+      "cpu": ["arm64"]
     },
     "@rolldown/binding-darwin-x64@1.0.0-beta.8": {
-      "integrity": "sha512-BYI7UXc0UqjdpmEyNpxulv8cYbTdL7zLzIr6GDdIvHH7fe/pKTmC9GpvkpF/j2cyP0SUKTd6ExX7nFDNDqKMBw=="
+      "integrity": "sha512-BYI7UXc0UqjdpmEyNpxulv8cYbTdL7zLzIr6GDdIvHH7fe/pKTmC9GpvkpF/j2cyP0SUKTd6ExX7nFDNDqKMBw==",
+      "os": ["darwin"],
+      "cpu": ["x64"]
     },
     "@rolldown/binding-freebsd-x64@1.0.0-beta.8": {
-      "integrity": "sha512-KsX/nuGiuNugIeBelN7M7c/8kzcAW6IfH080z9IrIrlCaGa+xwjqMAf7JuYLZo82uokFq8nql0YpQIazFwFR0Q=="
+      "integrity": "sha512-KsX/nuGiuNugIeBelN7M7c/8kzcAW6IfH080z9IrIrlCaGa+xwjqMAf7JuYLZo82uokFq8nql0YpQIazFwFR0Q==",
+      "os": ["freebsd"],
+      "cpu": ["x64"]
     },
     "@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.8": {
-      "integrity": "sha512-IzmoAB9J9iOnoC2Nb6AlyIPPULcbLb0qtJDq21+95u/qiE2GYtI5M4aNudbAIdyv0MU4SAdhkG2sXjMo79H/Zg=="
+      "integrity": "sha512-IzmoAB9J9iOnoC2Nb6AlyIPPULcbLb0qtJDq21+95u/qiE2GYtI5M4aNudbAIdyv0MU4SAdhkG2sXjMo79H/Zg==",
+      "os": ["linux"],
+      "cpu": ["arm"]
     },
     "@rolldown/binding-linux-arm64-gnu@1.0.0-beta.8": {
-      "integrity": "sha512-nGtOvVKMywOlqoFiMJgILgCpdVcPe0psH1oCWtieMyFFU/v2h2ucjstAEeCOe+JfMVVA7OpdNoWKc54Y1V7gGw=="
+      "integrity": "sha512-nGtOvVKMywOlqoFiMJgILgCpdVcPe0psH1oCWtieMyFFU/v2h2ucjstAEeCOe+JfMVVA7OpdNoWKc54Y1V7gGw==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
     },
     "@rolldown/binding-linux-arm64-musl@1.0.0-beta.8": {
-      "integrity": "sha512-paTZphpweKHNwlIu0JTAJCddn/psFzNUaKeGEY4vTQEqDcewKp9SsxN7240ao1eqTYy6TMFJiX6Ej2ym93MkSQ=="
+      "integrity": "sha512-paTZphpweKHNwlIu0JTAJCddn/psFzNUaKeGEY4vTQEqDcewKp9SsxN7240ao1eqTYy6TMFJiX6Ej2ym93MkSQ==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
     },
     "@rolldown/binding-linux-x64-gnu@1.0.0-beta.8": {
-      "integrity": "sha512-Pdt5iaG/wlWTvEz1lZ3kDkmVXM7DxQXPFZUX/UjDnUyxf4vSgxszbSx1tiNdU0D9v1IISgBapANSwJOGtF1lWw=="
+      "integrity": "sha512-Pdt5iaG/wlWTvEz1lZ3kDkmVXM7DxQXPFZUX/UjDnUyxf4vSgxszbSx1tiNdU0D9v1IISgBapANSwJOGtF1lWw==",
+      "os": ["linux"],
+      "cpu": ["x64"]
     },
     "@rolldown/binding-linux-x64-musl@1.0.0-beta.8": {
-      "integrity": "sha512-8LoLgKq+Wb030p+tzw0JrOrbJrR2wmqfARX1CHIhge8LBoxd2lfHtWfkg23qRa1S8So/nBZBhrQsg2kXUkpwxw=="
+      "integrity": "sha512-8LoLgKq+Wb030p+tzw0JrOrbJrR2wmqfARX1CHIhge8LBoxd2lfHtWfkg23qRa1S8So/nBZBhrQsg2kXUkpwxw==",
+      "os": ["linux"],
+      "cpu": ["x64"]
     },
     "@rolldown/binding-wasm32-wasi@1.0.0-beta.8": {
       "integrity": "sha512-+2y9Omf9tZRR44Y4EYqm3/Zq2f4Tv+Gh8NsExFWM6WpQZI3HyIB07lrTNQfOJgKSsAiUisnbjiPVTkiH5miy1w==",
       "dependencies": [
         "@napi-rs/wasm-runtime"
-      ]
+      ],
+      "cpu": ["wasm32"]
     },
     "@rolldown/binding-win32-arm64-msvc@1.0.0-beta.8": {
-      "integrity": "sha512-bt5AOleb2yp+Br9Yzew+jbSEGjLoqGwknH0xhK8QkhXKx31sJLseaP7nFXr6JaEbmL4DVmAVgrOcyLzLbR6+Mw=="
+      "integrity": "sha512-bt5AOleb2yp+Br9Yzew+jbSEGjLoqGwknH0xhK8QkhXKx31sJLseaP7nFXr6JaEbmL4DVmAVgrOcyLzLbR6+Mw==",
+      "os": ["win32"],
+      "cpu": ["arm64"]
     },
     "@rolldown/binding-win32-ia32-msvc@1.0.0-beta.8": {
-      "integrity": "sha512-Fa1OH6eUWtjBNNkKiSSq1fHVMuiqQ+Bi9uMNJz7gBFgjNiAB9k9rQr0j9eF1k4H6lXFkuoN5P7pXty6aBh93Cw=="
+      "integrity": "sha512-Fa1OH6eUWtjBNNkKiSSq1fHVMuiqQ+Bi9uMNJz7gBFgjNiAB9k9rQr0j9eF1k4H6lXFkuoN5P7pXty6aBh93Cw==",
+      "os": ["win32"],
+      "cpu": ["ia32"]
     },
     "@rolldown/binding-win32-x64-msvc@1.0.0-beta.8": {
-      "integrity": "sha512-hR81d84Poe6oIxaz4PnWBLVF0VuqtRfISIyXQAgk2etu2udrKnWKr3A+xqXe9ELjbLlRYGvEm2dlw/cldO9Kxg=="
+      "integrity": "sha512-hR81d84Poe6oIxaz4PnWBLVF0VuqtRfISIyXQAgk2etu2udrKnWKr3A+xqXe9ELjbLlRYGvEm2dlw/cldO9Kxg==",
+      "os": ["win32"],
+      "cpu": ["x64"]
     },
     "@smithy/abort-controller@4.0.2": {
       "integrity": "sha512-Sl/78VDtgqKxN2+1qduaVE140XF+Xg+TafkncspwM4jFP/LHr76ZHmIY/y3V1M0mMLNk+Je6IGbzxy23RSToMw==",
@@ -1354,7 +1383,8 @@
       "integrity": "sha512-xkjOecfnKGkSsOwtZ5Pz7Us/T6mrbPQrq0nh+aCO5V9nk5NLWmasAHumTKjiPJPWANe+kAZ84Jc8ooJkzZ88Sw==",
       "dependencies": [
         "strnum"
-      ]
+      ],
+      "bin": true
     },
     "finalhandler@2.1.0": {
       "integrity": "sha512-/t88Ty3d5JWQbWYgaOGCCYfXRwV1+be02WqYYlL6h0lEiUAMPM8o8qKGO01YIkOHzka2up08wvgYD0mDiI+q3Q==",
@@ -1506,7 +1536,8 @@
       "integrity": "sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg=="
     },
     "node-domexception@1.0.0": {
-      "integrity": "sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ=="
+      "integrity": "sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==",
+      "deprecated": true
     },
     "node-fetch@2.7.0": {
       "integrity": "sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==",
@@ -1573,6 +1604,11 @@
       "integrity": "sha512-lwctoQjonOosxGhVbuoIARk8TNO2roqAh/ArhNmT/e/INMN+fzO0++yCypVZLZczOdgTARrYmsOEnTgMOt9sSg==",
       "dependencies": [
         "@oxc-project/types",
+        "@valibot/to-json-schema",
+        "ansis",
+        "valibot"
+      ],
+      "optionalDependencies": [
         "@rolldown/binding-darwin-arm64",
         "@rolldown/binding-darwin-x64",
         "@rolldown/binding-freebsd-x64",
@@ -1584,11 +1620,10 @@
         "@rolldown/binding-wasm32-wasi",
         "@rolldown/binding-win32-arm64-msvc",
         "@rolldown/binding-win32-ia32-msvc",
-        "@rolldown/binding-win32-x64-msvc",
-        "@valibot/to-json-schema",
-        "ansis",
-        "valibot"
-      ]
+        "@rolldown/binding-win32-x64-msvc"
+      ],
+      "scripts": true,
+      "bin": true
     },
     "router@2.2.0": {
       "integrity": "sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==",
@@ -1724,7 +1759,8 @@
       "integrity": "sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ=="
     },
     "uuid@9.0.1": {
-      "integrity": "sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA=="
+      "integrity": "sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==",
+      "bin": true
     },
     "valibot@1.0.0": {
       "integrity": "sha512-1Hc0ihzWxBar6NGeZv7fPLY0QuxFMyxwYR2sF1Blu7Wq7EnremwY2W02tit2ij2VJT8HcSkHAQqmFfl77f73Yw=="
@@ -1749,7 +1785,8 @@
       "integrity": "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==",
       "dependencies": [
         "isexe"
-      ]
+      ],
+      "bin": true
     },
     "wrappy@1.0.2": {
       "integrity": "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="
@@ -1763,6 +1800,9 @@
     "zod@3.24.4": {
       "integrity": "sha512-OdqJE9UDRPwWsrHjLN2F8bPxvwJBK22EHLWtanu0LSYr5YqzsaaW3RMgmjwr8Rypg5k+meEJdSPXJZXE/yqOMg=="
     }
+  },
+  "remote": {
+    "https://raw.githubusercontent.com/CoreSpeed-io/rolldown-deno-loader-plugin/refs/heads/main/mod.ts": "acb71a40a2ca64137e26ca44e9c5956a02c5c9fe829e377921c974ac94e09e95"
   },
   "workspace": {
     "dependencies": [
