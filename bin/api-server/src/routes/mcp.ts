@@ -106,7 +106,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   });
 
   // Register MCP server from registry
-  mcpRouter.post("/servers/:id/registry", async (c) => {
+  mcpRouter.post("/registry/servers/:id", async (c) => {
     const id = McpServerIdSchema.parse(c.req.param("id"));
     await mcpServerManager.registerServerFromRegistry(id);
     return c.body(null, 202);
