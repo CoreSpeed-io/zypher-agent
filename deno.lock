@@ -2,37 +2,52 @@
   "version": "5",
   "specifiers": {
     "jsr:@bureaudouble-forks/importmap@~0.2.1": "0.2.1",
-    "jsr:@openai/openai@^4.96.0": "4.98.0",
+    "jsr:@openai/openai@^4.96.0": "4.96.0",
+    "jsr:@std/assert@^1.0.12": "1.0.13",
     "jsr:@std/assert@^1.0.13": "1.0.13",
+    "jsr:@std/async@^1.0.12": "1.0.12",
+    "jsr:@std/bytes@^1.0.5": "1.0.5",
     "jsr:@std/cli@^1.0.17": "1.0.17",
-    "jsr:@std/dotenv@*": "0.225.4",
+    "jsr:@std/crypto@^1.0.4": "1.0.4",
+    "jsr:@std/data-structures@^1.0.6": "1.0.7",
+    "jsr:@std/dotenv@*": "0.225.3",
+    "jsr:@std/dotenv@~0.225.3": "0.225.3",
     "jsr:@std/encoding@*": "1.0.10",
+    "jsr:@std/encoding@^1.0.10": "1.0.10",
+    "jsr:@std/expect@^1.0.15": "1.0.15",
+    "jsr:@std/fs@^1.0.16": "1.0.17",
     "jsr:@std/fs@^1.0.17": "1.0.17",
-    "jsr:@std/internal@^1.0.6": "1.0.7",
+    "jsr:@std/internal@^1.0.6": "1.0.6",
     "jsr:@std/path@^1.0.8": "1.0.9",
     "jsr:@std/path@^1.0.9": "1.0.9",
+    "jsr:@std/testing@^1.0.11": "1.0.11",
+    "jsr:@std/uuid@^1.0.7": "1.0.7",
     "npm:@anthropic-ai/sdk@~0.40.1": "0.40.1",
     "npm:@aws-sdk/client-s3@^3.798.0": "3.798.0",
     "npm:@aws-sdk/s3-request-presigner@^3.798.0": "3.798.0",
-    "npm:@hono/zod-validator@0.5": "0.5.0_hono@4.7.8_zod@3.24.4",
-    "npm:@modelcontextprotocol/sdk@^1.10.2": "1.10.2_express@5.1.0_zod@3.24.4",
-    "npm:@types/node@*": "22.12.0",
+    "npm:@hono/zod-validator@0.5": "0.5.0_hono@4.7.8_zod@3.24.3",
+    "npm:@modelcontextprotocol/sdk@^1.10.2": "1.10.2_express@5.1.0_zod@3.24.3",
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.8": "4.7.8",
     "npm:rolldown@*": "1.0.0-beta.8_valibot@1.0.0",
+    "npm:rolldown@1.0.0-beta.8": "1.0.0-beta.8_valibot@1.0.0",
     "npm:rolldown@^1.0.0-beta.7": "1.0.0-beta.8_valibot@1.0.0",
     "npm:rolldown@^1.0.0-beta.8": "1.0.0-beta.8_valibot@1.0.0",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
-    "npm:zod-to-json-schema@^3.24.5": "3.24.5_zod@3.24.4",
-    "npm:zod@^3.24.3": "3.24.4"
+    "npm:zod-to-json-schema@^3.24.5": "3.24.5_zod@3.24.3",
+    "npm:zod@3": "3.24.3",
+    "npm:zod@^3.24.3": "3.24.3"
   },
   "jsr": {
     "@bureaudouble-forks/importmap@0.2.1": {
       "integrity": "ba78361d289f946e9c2488066b339553576392c5780b151cdd4c01da0c58f131"
     },
-    "@openai/openai@4.98.0": {
-      "integrity": "c3f1b428c2529713f20d5f66b34eea9f9e2d3f5822f12a84ff561b4b80ecbc9f"
+    "@openai/openai@4.96.0": {
+      "integrity": "51eac6d9f0ce55f5c84d99a1073492ef118d645d0383cda0eb1263d7612e23ed",
+      "dependencies": [
+        "npm:zod@3"
+      ]
     },
     "@std/assert@1.0.13": {
       "integrity": "ae0d31e41919b12c656c742b22522c32fb26ed0cba32975cb0de2a273cb68b29",
@@ -40,14 +55,33 @@
         "jsr:@std/internal"
       ]
     },
+    "@std/async@1.0.12": {
+      "integrity": "d1bfcec459e8012846fe4e38dfc4241ab23240ecda3d8d6dfcf6d81a632e803d"
+    },
+    "@std/bytes@1.0.5": {
+      "integrity": "4465dd739d7963d964c809202ebea6d5c6b8e3829ef25c6a224290fbb8a1021e"
+    },
     "@std/cli@1.0.17": {
       "integrity": "e15b9abe629e17be90cc6216327f03a29eae613365f1353837fa749aad29ce7b"
     },
-    "@std/dotenv@0.225.4": {
-      "integrity": "2a672c2b192abe535dcfea1ae89f219ee3979af6aad7d185cb19206ee9bc5caf"
+    "@std/crypto@1.0.4": {
+      "integrity": "cee245c453bd5366207f4d8aa25ea3e9c86cecad2be3fefcaa6cb17203d79340"
+    },
+    "@std/data-structures@1.0.7": {
+      "integrity": "16932d2c8d281f65eaaa2209af2473209881e33b1ced54cd1b015e7b4cdbb0d2"
+    },
+    "@std/dotenv@0.225.3": {
+      "integrity": "a95e5b812c27b0854c52acbae215856d9cce9d4bbf774d938c51d212711e8d4a"
     },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
+    },
+    "@std/expect@1.0.15": {
+      "integrity": "eca360007b5a7f13dbfa1294224baee7fb98dcd460d8461fe64eeae302902945",
+      "dependencies": [
+        "jsr:@std/assert@^1.0.12",
+        "jsr:@std/internal"
+      ]
     },
     "@std/fs@1.0.17": {
       "integrity": "1c00c632677c1158988ef7a004cb16137f870aafdb8163b9dce86ec652f3952b",
@@ -55,18 +89,36 @@
         "jsr:@std/path@^1.0.9"
       ]
     },
-    "@std/internal@1.0.7": {
-      "integrity": "39eeb5265190a7bc5d5591c9ff019490bd1f2c3907c044a11b0d545796158a0f"
+    "@std/internal@1.0.6": {
+      "integrity": "9533b128f230f73bd209408bb07a4b12f8d4255ab2a4d22a1fd6d87304aca9a4"
     },
     "@std/path@1.0.9": {
       "integrity": "260a49f11edd3db93dd38350bf9cd1b4d1366afa98e81b86167b4e3dd750129e"
+    },
+    "@std/testing@1.0.11": {
+      "integrity": "12b3db12d34f0f385a26248933bde766c0f8c5ad8b6ab34d4d38f528ab852f48",
+      "dependencies": [
+        "jsr:@std/assert@^1.0.12",
+        "jsr:@std/async",
+        "jsr:@std/data-structures",
+        "jsr:@std/fs@^1.0.16",
+        "jsr:@std/internal",
+        "jsr:@std/path@^1.0.8"
+      ]
+    },
+    "@std/uuid@1.0.7": {
+      "integrity": "6885db5cd60794049d1661b5cf06b1e1ed65b2affd054ec8b06da7d2efd421ca",
+      "dependencies": [
+        "jsr:@std/bytes",
+        "jsr:@std/crypto"
+      ]
     }
   },
   "npm": {
     "@anthropic-ai/sdk@0.40.1": {
       "integrity": "sha512-DJMWm8lTEM9Lk/MSFL+V+ugF7jKOn0M2Ujvb5fN8r2nY14aHbGPZ1k6sgjL+tpJ3VuOGJNG+4R83jEpOuYPv8w==",
       "dependencies": [
-        "@types/node@18.19.100",
+        "@types/node@18.19.87",
         "@types/node-fetch",
         "abort-controller",
         "agentkeepalive",
@@ -634,14 +686,14 @@
         "tslib"
       ]
     },
-    "@hono/zod-validator@0.5.0_hono@4.7.8_zod@3.24.4": {
+    "@hono/zod-validator@0.5.0_hono@4.7.8_zod@3.24.3": {
       "integrity": "sha512-ds5bW6DCgAnNHP33E3ieSbaZFd5dkV52ZjyaXtGoR06APFrCtzAsKZxTHwOrJNBdXsi0e5wNwo5L4nVEVnJUdg==",
       "dependencies": [
         "hono",
         "zod"
       ]
     },
-    "@modelcontextprotocol/sdk@1.10.2_express@5.1.0_zod@3.24.4": {
+    "@modelcontextprotocol/sdk@1.10.2_express@5.1.0_zod@3.24.3": {
       "integrity": "sha512-rb6AMp2DR4SN+kc6L1ta2NCpApyA9WYNx3CrTSZvGxq9wH71bRur+zRqPfg0vQ9mjywR7qZdX2RGHOPq3ss+tA==",
       "dependencies": [
         "content-type",
@@ -1179,8 +1231,8 @@
         "form-data"
       ]
     },
-    "@types/node@18.19.100": {
-      "integrity": "sha512-ojmMP8SZBKprc3qGrGk8Ujpo80AXkrP7G2tOT4VWr5jlr5DHjsJF+emXJz+Wm0glmy4Js62oKMdZZ6B9Y+tEcA==",
+    "@types/node@18.19.87": {
+      "integrity": "sha512-OIAAu6ypnVZHmsHCeJ+7CCSub38QNBS9uceMQeg7K5Ur0Jr+wG9wEOEvvMbhp09pxD5czIUy/jND7s7Tb6Nw7A==",
       "dependencies": [
         "undici-types@5.26.5"
       ]
@@ -1810,14 +1862,14 @@
     "wrappy@1.0.2": {
       "integrity": "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="
     },
-    "zod-to-json-schema@3.24.5_zod@3.24.4": {
+    "zod-to-json-schema@3.24.5_zod@3.24.3": {
       "integrity": "sha512-/AuWwMP+YqiPbsJx5D6TfgRTc4kTLjsh5SOcd4bLsfUg2RcEXrFMJl1DGgdHy2aCfsIA/cr/1JM0xcB2GZji8g==",
       "dependencies": [
         "zod"
       ]
     },
-    "zod@3.24.4": {
-      "integrity": "sha512-OdqJE9UDRPwWsrHjLN2F8bPxvwJBK22EHLWtanu0LSYr5YqzsaaW3RMgmjwr8Rypg5k+meEJdSPXJZXE/yqOMg=="
+    "zod@3.24.3": {
+      "integrity": "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="
     }
   },
   "remote": {
