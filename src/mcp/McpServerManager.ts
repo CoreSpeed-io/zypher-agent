@@ -503,7 +503,7 @@ export class McpServerManager {
    * @throws Error if the fetch fails or returns invalid configuration
    */
   async registerServerFromRegistry(id: string) {
-    const url = `${this._mcpRegistryBaseUrl}/servers/${id}`;
+    const url = `${this._mcpRegistryBaseUrl}/servers/${id}/config`;
     const response = await fetch(url);
     const config = McpServerConfigSchema.parse(await response.json());
     await this.registerServer(id, config);
