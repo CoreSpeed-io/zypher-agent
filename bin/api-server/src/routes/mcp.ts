@@ -25,7 +25,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
   // Update server status
   mcpRouter.put(
-    "/mcp/servers/:id/status",
+    "/servers/:id/status",
     zValidator("json", z.object({ enabled: z.boolean() })),
     async (c) => {
       const id = McpServerIdSchema.parse(c.req.param("id"));
@@ -106,8 +106,8 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   });
 
   // Register MCP server from registry
-  mcpRouter.post("/registry/servers/:id", async (c) => {
-    const id = McpServerIdSchema.parse(c.req.param("id"));
+  mcpRouter.post("/registry/:id", async (c) => {
+    const id = c.req.param("id");
     await mcpServerManager.registerServerFromRegistry(id);
     return c.body(null, 202);
   });
