@@ -507,7 +507,9 @@ export class McpServerManager {
   async registerServerFromRegistry(id: string) {
     const url = `${this._mcpRegistryBaseUrl}/servers/${id}/config`;
     const response = await fetch(url);
-    const config = McpServerConfigSchema.parse(await response.json());
-    await this.registerServer(id, config);
+    const data = await response.json();
+    const config = McpServerConfigSchema.parse(data.config);
+    const name = data.name ?? "not_implemented";
+    await this.registerServer(name, config);
   }
 }
