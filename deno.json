@@ -26,7 +26,7 @@
     "@hono/zod-validator": "npm:@hono/zod-validator@^0.5.0",
     "@openai/openai": "jsr:@openai/openai@^4.96.0",
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.40.1",
-    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.10.2",
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.11.4",
     "chalk": "npm:chalk@^5.4.1",
     "rolldown": "npm:rolldown@^1.0.0-beta.8",
     "rxjs": "npm:rxjs@^7.8.2",
