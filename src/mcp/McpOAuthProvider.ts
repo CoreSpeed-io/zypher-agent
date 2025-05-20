@@ -80,14 +80,14 @@ export class McpOAuthProvider implements OAuthClientProvider {
   }
 
   /**
-   * Initialize storage directory
+   * Ensure the storage directory exists
    */
   private async ensureStorageDir(): Promise<void> {
     try {
+      await access(this.config.storagePath);
+    } catch {
+      // Directory doesn't exist, create it
       await mkdir(this.config.storagePath, { recursive: true });
-    } catch (error) {
-      console.error("Failed to create storage directory:", error);
-      throw new Error("Failed to initialize OAuth storage");
     }
   }
 
@@ -197,21 +197,26 @@ export class McpOAuthProvider implements OAuthClientProvider {
   }
 
   /**
-   * Save tokens to storage with expiry time
+   * Save tokens to storage
+   * Adds an expiry timestamp based on expires_in value
    */
   async saveTokens(tokens: OAuthTokens): Promise<void> {
     try {
       await this.ensureStorageDir();
-
-      // Calculate expiry time if available (with 30s buffer for safety)
-      const expiry = tokens.expires_in
-        ? Date.now() + (tokens.expires_in * 1000) - 30000
-        : undefined;
-
       const tokensPath = this.getTokensPath();
+
+      // Add expiry time based on expires_in for later validation
+      const tokensWithExpiry = {
+        ...tokens,
+        // Set expiry to current time + expires_in (in seconds) - 30s buffer
+        expiry: tokens.expires_in
+          ? Date.now() + (tokens.expires_in * 1000) - 30000
+          : undefined,
+      };
+
       await writeFile(
         tokensPath,
-        JSON.stringify({ ...tokens, expiry }, null, 2),
+        JSON.stringify(tokensWithExpiry, null, 2),
         "utf-8",
       );
     } catch (error) {
