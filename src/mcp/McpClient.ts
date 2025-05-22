@@ -106,7 +106,7 @@ export class McpClient {
    * @returns Promise resolving to the list of available tools
    * @throws Error if connection fails or server is not responsive
    */
-  async retriveTools(
+  async retrieveTools(
     config: IMcpServerConfig,
     mode: ConnectionMode = ConnectionMode.CLI,
   ): Promise<Tool[]> {
@@ -116,30 +116,17 @@ export class McpClient {
       }
 
       this.transport = this.buildTransport(mode, config);
+      this.authRetryCount = 0; // Reset auth retry count for new connection attempt
 
-      try {
-        await this.client.connect(this.transport);
-      } catch (error) {
-        // If connection fails due to authentication, attempt to authenticate
-        if (
-          this.isAuthenticationError(error) && this.authProvider &&
-          this.serverUrl
-        ) {
-          console.log("Authentication required, attempting to authenticate...");
-          await this.forceFetchCredentials();
-          // Retry with fresh credentials
-          this.transport = this.buildTransport(mode, config);
-          await this.client.connect(this.transport);
-        } else {
-          throw error;
-        }
-      }
+      // Try to connect with authentication retries if needed
+      await this.connectWithRetry(mode, config);
 
-      // Reset auth retry counter on successful connection
-      this.authRetryCount = 0;
-
+      // Once connected, discover tools
+      console.log("Connected to MCP server, discovering tools...");
       const toolResult = await this.client.listTools();
+      console.log(`Discovered ${toolResult.tools.length} tools from server`);
 
+      // Convert MCP tools to our internal tool format
       const tools = toolResult.tools.map((tool) => {
         const inputSchema = jsonToZod(tool.inputSchema);
         return createTool(
@@ -166,15 +153,58 @@ export class McpClient {
   }
 
   /**
+   * Attempts to connect to the MCP server with authentication retries
+   * @param mode Connection mode (CLI or SSE)
+   * @param config Server configuration
+   */
+  private async connectWithRetry(
+    mode: ConnectionMode,
+    config: IMcpServerConfig,
+  ): Promise<void> {
+    if (!this.client || !this.transport) {
+      throw new Error("Client or transport not initialized");
+    }
+
+    try {
+      await this.client.connect(this.transport);
+    } catch (error) {
+      // If authentication error and we have an OAuth provider, try to refresh credentials
+      if (
+        this.isAuthenticationError(error) &&
+        this.authProvider &&
+        this.serverUrl &&
+        this.config.retryAuthentication &&
+        this.authRetryCount < this.config.maxAuthRetries
+      ) {
+        this.authRetryCount++;
+        console.log(
+          `Authentication failed. Retry attempt ${this.authRetryCount}/${this.config.maxAuthRetries}`,
+        );
+
+        await this.forceFetchCredentials();
+
+        // For SSE connections, we need to recreate the transport with fresh credentials
+        if (mode === ConnectionMode.SSE && "url" in config) {
+          this.transport = this.buildTransport(mode, config);
+          return await this.connectWithRetry(mode, config);
+        }
+      }
+
+      // If not an auth error or we've exhausted retries, propagate the error
+      throw error;
+    }
+  }
+
+  /**
    * Executes a tool call and returns the result
    * @param toolCall The tool call to execute
    * @returns The result of the tool execution
    * @throws Error if client is not connected
    */
-  private async executeToolCall(toolCall: {
+  async executeToolCall(toolCall: {
     name: string;
     input: Record<string, unknown>;
-  }) {
+  }): Promise<unknown> {
     if (!this.client) {
       throw new Error("Client not connected");
     }
@@ -188,28 +218,21 @@ export class McpClient {
     } catch (error) {
       // If the error is due to authentication, try to reauthenticate and retry
       if (
-        this.isAuthenticationError(error) && this.authProvider &&
+        this.isAuthenticationError(error) &&
+        this.authProvider &&
         this.serverUrl &&
         this.config.retryAuthentication &&
         this.authRetryCount < this.config.maxAuthRetries
       ) {
-        this.authRetryCount++;
         console.log(
-          `Authentication failed. Retry attempt ${this.authRetryCount}/${this.config.maxAuthRetries}`,
+          "Authentication error during tool execution, refreshing credentials...",
         );
 
-        await this.forceFetchCredentials();
+        // Try to refresh credentials
+        try {
+          await this.forceFetchCredentials();
 
-        // Reconnect with fresh credentials
-        if (this.transport instanceof SSEClientTransport) {
-          // Create a new transport with fresh credentials
-          this.transport = this.buildTransport(ConnectionMode.SSE, {
-            url: this.serverUrl.toString(),
-            enabled: true,
-          });
-          await this.client.connect(this.transport);
-
-          // Retry the tool call
+          // Retry the tool call with fresh credentials
           const result = await this.client.callTool({
             name: toolCall.name,
             arguments: toolCall.input,
@@ -219,6 +242,13 @@ export class McpClient {
           this.authRetryCount = 0;
 
           return result;
+        } catch {
+          // If we can't refresh credentials, propagate the original error
+          throw new Error(
+            `Tool execution failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
         }
       }
 
@@ -236,6 +266,7 @@ export class McpClient {
       try {
         await this.client?.close();
         this.transport = null;
+        this.client = null;
       } catch (error) {
         const errorMessage = error instanceof Error
           ? error.message
@@ -251,91 +282,76 @@ export class McpClient {
    */
   async forceFetchCredentials(): Promise<void> {
     if (!this.authProvider || !this.serverUrl) {
-      throw new Error("OAuth provider or server URL not initialized");
+      console.warn(
+        "Cannot force fetch credentials: No auth provider or server URL",
+      );
+      return;
     }
 
     try {
-      // Clear existing tokens to force new token acquisition
+      // If the provider has a method to clear auth data, use it
       if (this.hasAuthClearMethod(this.authProvider)) {
+        console.log("Clearing existing authentication data...");
         await this.authProvider.clearAuthData();
       }
 
-      // Trigger the auth flow to get new credentials
+      console.log("Fetching fresh authentication credentials...");
       const result = await auth(this.authProvider, {
         serverUrl: this.serverUrl,
-        // For client credentials flow, we don't need an authorization code
       });
 
-      if (result !== "AUTHORIZED") {
-        throw new Error("Failed to fetch credentials");
+      if (!result) {
+        throw new Error(`Authentication failed with result: ${result}`);
       }
 
-      console.log("Successfully refreshed OAuth credentials");
+      this.authRetryCount = 0; // Reset retry count on success
+
+      console.log("Successfully refreshed authentication credentials");
     } catch (error) {
+      this.authRetryCount++;
       console.error(
-        "Failed to refresh credentials:",
+        `Failed to fetch credentials (attempt ${this.authRetryCount}):`,
         error instanceof Error ? error.message : error,
       );
+
+      // If we've reached the max retry count, throw a more descriptive error
+      if (this.authRetryCount >= this.config.maxAuthRetries) {
+        throw new Error(
+          `Authentication failed after ${this.authRetryCount} attempts: ${
+            error instanceof Error ? error.message : error
+          }`,
+        );
+      }
+
+      // Otherwise, let the caller handle the retry
       throw error;
     }
   }
 
   /**
-   * Handles OAuth authentication for server-to-server contexts
-   * Note: For server environments, we use client credentials flow
+   * Checks if an error is related to authentication
+   * @param error The error to check
+   * @returns True if the error is authentication-related
    */
-  async handleServerAuth(): Promise<boolean> {
-    if (!this.authProvider || !this.serverUrl) {
-      throw new Error("OAuth provider or server URL not initialized");
-    }
-
-    try {
-      const result = await auth(this.authProvider, {
-        serverUrl: this.serverUrl,
-      });
-
-      return result === "AUTHORIZED";
-    } catch (error) {
-      console.error(
-        "OAuth authentication error:",
-        error instanceof Error ? error.message : error,
+  private isAuthenticationError(error: unknown): boolean {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      return (
+        message.includes("auth") ||
+        message.includes("unauthorized") ||
+        message.includes("unauthenticated") ||
+        message.includes("token") ||
+        message.includes("credentials") ||
+        message.includes("401")
       );
-      return false;
     }
+    return false;
   }
 
   /**
-   * Checks if the client is authenticated with the server
-   * @returns True if authenticated, false otherwise
-   */
-  async isAuthenticated(): Promise<boolean> {
-    if (!this.authProvider) {
-      return false;
-    }
-
-    try {
-      const tokens = await this.authProvider.tokens();
-      return !!tokens && !!tokens.access_token;
-    } catch (error) {
-      console.error(
-        "Error checking authentication status:",
-        error instanceof Error ? error.message : error,
-      );
-      return false;
-    }
-  }
-
-  /**
-   * Clears all authentication data
-   */
-  async clearAuthData(): Promise<void> {
-    if (this.authProvider && this.hasAuthClearMethod(this.authProvider)) {
-      await this.authProvider.clearAuthData();
-    }
-  }
-
-  /**
-   * Type guard to check if the provider has clearAuthData method
+   * Checks if an OAuth provider has the clearAuthData method
+   * @param provider The provider to check
+   * @returns True if the provider has the clearAuthData method
    */
   private hasAuthClearMethod(
     provider: OAuthClientProvider,
@@ -345,21 +361,11 @@ export class McpClient {
   }
 
   /**
-   * Checks if an error is related to authentication
+   * Builds the appropriate transport based on connection mode and configuration
+   * @param mode Connection mode (CLI or SSE)
+   * @param config Server configuration
+   * @returns The configured transport
    */
-  private isAuthenticationError(error: unknown): boolean {
-    if (error instanceof Error) {
-      const message = error.message.toLowerCase();
-      return (
-        message.includes("unauthorized") ||
-        message.includes("authentication") ||
-        message.includes("auth") ||
-        message.includes("401")
-      );
-    }
-    return false;
-  }
-
   private buildTransport(mode: ConnectionMode, config: IMcpServerConfig) {
     switch (mode) {
       case ConnectionMode.CLI: {
@@ -400,10 +406,16 @@ export class McpClient {
 
         // Create SSE transport with or without OAuth
         if (this.authProvider) {
+          console.log(
+            `Creating SSE transport with OAuth for ${this.serverUrl}`,
+          );
           return new SSEClientTransport(this.serverUrl, {
             authProvider: this.authProvider,
           });
         } else {
+          console.log(
+            `Creating SSE transport without OAuth for ${this.serverUrl}`,
+          );
           return new SSEClientTransport(this.serverUrl);
         }
       }
