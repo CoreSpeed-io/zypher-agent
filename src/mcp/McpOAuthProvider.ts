@@ -26,8 +26,8 @@ export interface IMcpOAuthProviderConfig {
   host?: string;
   // Path for the OAuth callback endpoint (default: /oauth/callback)
   callbackPath?: string;
-  // Directory to store OAuth credentials
-  storagePath: string;
+  // Base directory to store all OAuth credentials and files
+  oauthBaseDir: string;
   // Client name to use for OAuth registration (default: zypher-agent)
   clientName?: string;
   // Client URI to use for OAuth registration
@@ -119,10 +119,10 @@ export class McpOAuthProvider implements OAuthClientProvider {
    */
   private async ensureStorageDir(): Promise<void> {
     try {
-      await Deno.mkdir(this.config.storagePath, { recursive: true });
+      await Deno.mkdir(this.config.oauthBaseDir, { recursive: true });
     } catch (error) {
       if (!(error instanceof Deno.errors.AlreadyExists)) {
-        console.error("Failed to create storage directory:", error);
+        console.error("Failed to create OAuth base directory:", error);
         throw error;
       }
     }
@@ -135,7 +135,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
    */
   private async getConfigFilePath(filename: string): Promise<string> {
     const hash = await this.getServerHash();
-    return join(this.config.storagePath, `${hash}_${filename}`);
+    return join(this.config.oauthBaseDir, `${hash}_${filename}`);
   }
 
   /**
@@ -467,7 +467,6 @@ export class McpOAuthProvider implements OAuthClientProvider {
       }
 
       // Determine token endpoint URL
-      // For Atlassian MCP, the token endpoint is typically at /v1/token
       const tokenUrl = new URL("/v1/token", this.config.serverUrl);
 
       // Prepare token exchange request

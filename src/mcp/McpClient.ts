@@ -75,6 +75,8 @@ export class McpClient {
   private serverUrl?: URL;
   private authRetryCount: number = 0;
 
+  private static oauthInProgress: Map<string, Promise<void>> = new Map();
+
   /**
    * Creates a new MCPClient instance
    * @param config Optional configuration for the client
@@ -161,7 +163,7 @@ export class McpClient {
     mode: ConnectionMode,
     serverConfig: IMcpServerConfig,
   ): Promise<void> {
-    if (!this.client /*|| !this.transport*/) {
+    if (!this.client) {
       throw new Error("Client not initialized");
     }
 
@@ -172,28 +174,99 @@ export class McpClient {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        this.transport = this.buildTransport(mode, serverConfig); // Build transport for each attempt
         console.log(
-          `Connection attempt ${attempt}/${maxRetries} to MCP server...`,
+          `[${this.config.serverName}] Connection attempt ${attempt}/${maxRetries} to MCP server...`,
         );
 
-        // Build a new transport for each attempt
-        this.transport = this.buildTransport(mode, serverConfig);
-
-        // For SSE servers with OAuth, ensure we have valid tokens before attempting connection
         if (mode === ConnectionMode.SSE && this.authProvider) {
-          console.log("Checking OAuth token status before connection...");
-          const tokens = await this.authProvider.tokens();
+          console.log(
+            `[${this.config.serverName}] Checking OAuth token status before connection...`,
+          );
+          let tokens = await this.authProvider.tokens();
+
           if (!tokens || !tokens.access_token) {
-            console.log("No valid tokens found, triggering OAuth flow...");
-            await this.forceFetchCredentials();
+            if (!this.serverUrl) {
+              throw new Error(
+                "serverUrl is not set in McpClient, cannot proceed with OAuth.",
+              );
+            }
+            const serverUrlString = this.serverUrl.href;
+            console.log(
+              `[${this.config.serverName}] No valid tokens for ${serverUrlString}. Attempting to fetch/await credentials.`,
+            );
+
+            let fetchPromise = McpClient.oauthInProgress.get(serverUrlString);
+
+            if (fetchPromise) {
+              console.log(
+                `[${this.config.serverName}] Authentication for ${serverUrlString} already in progress, awaiting...`,
+              );
+              try {
+                await fetchPromise;
+                console.log(
+                  `[${this.config.serverName}] Finished awaiting in-progress authentication for ${serverUrlString}.`,
+                );
+              } catch (e) {
+                console.error(
+                  `[${this.config.serverName}] Error awaiting in-progress authentication for ${serverUrlString}:`,
+                  e,
+                );
+                // Fall through to try fetching fresh tokens, or let the outer loop handle failure
+              }
+            } else {
+              console.log(
+                `[${this.config.serverName}] Initiating new authentication for ${serverUrlString}.`,
+              );
+              fetchPromise = this.forceFetchCredentials().catch((err) => {
+                // Catch error from forceFetchCredentials to ensure finally block runs and to prevent unhandled rejections
+                console.error(
+                  `[${this.config.serverName}] Error during forceFetchCredentials for ${serverUrlString}:`,
+                  err,
+                );
+                throw err; // Re-throw to be caught by the outer try-catch of the connectWithRetry loop
+              }).finally(() => {
+                McpClient.oauthInProgress.delete(serverUrlString);
+                console.log(
+                  `[${this.config.serverName}] Authentication lock released for ${serverUrlString}.`,
+                );
+              });
+              McpClient.oauthInProgress.set(serverUrlString, fetchPromise);
+              try {
+                await fetchPromise;
+                console.log(
+                  `[${this.config.serverName}] Newly initiated authentication finished for ${serverUrlString}.`,
+                );
+              } catch (e) {
+                // Error already logged by forceFetchCredentials's catch, or by the lock's await catch.
+                // Let the outer loop handle this as a failed attempt.
+                console.error(
+                  `[${this.config.serverName}] Awaiting self-initiated auth promise failed for ${serverUrlString}:`,
+                  e,
+                );
+              }
+            }
+
+            tokens = await this.authProvider.tokens(); // Re-check tokens after awaiting/performing auth
+            if (!tokens || !tokens.access_token) {
+              throw new Error(
+                `[${this.config.serverName}] Still no valid tokens after authentication attempt for ${serverUrlString}.`,
+              );
+            }
+            console.log(
+              `[${this.config.serverName}] Valid tokens acquired for ${serverUrlString}, proceeding with connection.`,
+            );
           } else {
-            console.log("Valid tokens found, proceeding with connection...");
+            console.log(
+              `[${this.config.serverName}] Valid tokens found locally, proceeding with connection...`,
+            );
           }
         }
 
-        // Attempt to connect
         await this.client.connect(this.transport);
-        console.log("Successfully connected to MCP server");
+        console.log(
+          `[${this.config.serverName}] Successfully connected to MCP server`,
+        );
 
         // Verify connection by attempting to list tools as a basic connectivity test
         console.log("Verifying connection with basic tools list request...");

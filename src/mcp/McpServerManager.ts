@@ -61,7 +61,7 @@ export class McpServerManager {
       oauthProvider = new McpOAuthProvider({
         serverUrl: serverConfig.url,
         callbackPort,
-        storagePath: await this.getServerStoragePath(serverId),
+        oauthBaseDir: await this.getServerStoragePath(serverId),
         clientName: "zypher-agent",
         softwareVersion: "1.0.0",
       });
@@ -118,21 +118,19 @@ export class McpServerManager {
    * @param serverId The ID of the server
    * @returns The path to the server's OAuth storage directory
    */
-  private async getServerStoragePath(serverId: string): Promise<string> {
+  private async getServerStoragePath(): Promise<string> {
     if (!this._dataDir) {
       throw new Error("Data directory not initialized");
     }
+    const oauthBasePath = join(this._dataDir, "oauth");
 
-    const serverPath = join(this._dataDir, "oauth", serverId);
-
-    // Ensure the directory exists
+    // Ensure the base directory exists
     try {
-      await Deno.stat(serverPath);
+      await Deno.stat(oauthBasePath);
     } catch {
-      await Deno.mkdir(serverPath, { recursive: true });
+      await Deno.mkdir(oauthBasePath, { recursive: true });
     }
-
-    return serverPath;
+    return oauthBasePath;
   }
 
   /**
