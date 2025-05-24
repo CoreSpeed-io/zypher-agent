@@ -53,23 +53,17 @@ export class McpServerManager {
       | undefined = undefined;
     const isRemoteServer = "url" in serverConfig;
 
-    if (isRemoteServer && serverConfig.url) { // Ensure URL exists for McpOAuthProvider
-      console.log(
-        `Creating OAuth provider for server ${serverId} (during client creation)`,
-      );
+    if (isRemoteServer && serverConfig.url) {
       // Dynamic imports
       const { McpOAuthProvider } = await import("./McpOAuthProvider.ts");
       const { findAvailablePort } = await import("./utils.ts");
-
-      const callbackPort = await findAvailablePort(3001); // TODO: Consider making base port configurable
-      console.log(`OAuth callback port for ${serverId}: ${callbackPort}`);
-
+      const callbackPort = await findAvailablePort(3001);
       oauthProvider = new McpOAuthProvider({
         serverUrl: serverConfig.url,
         callbackPort,
         storagePath: await this.getServerStoragePath(serverId),
-        clientName: "zypher-agent", // TODO: Consider making configurable
-        softwareVersion: "1.0.0", // TODO: Consider making configurable
+        clientName: "zypher-agent",
+        softwareVersion: "1.0.0",
       });
     }
 
@@ -267,22 +261,16 @@ export class McpServerManager {
    */
   async registerServer(id: string, config: IMcpServerConfig): Promise<void> {
     try {
-      console.log(`Starting registration for server: ${id}`);
       if (!this._config) {
         throw new Error("Config not loaded");
       }
-
-      // Check if server already exists
       if (this.getServer(id)) {
         throw new McpServerError(
           "already_exists",
           `Server ${id} already exists`,
         );
       }
-
       const client = await this._createMcpClient(id, config);
-
-      // Create server instance with OAuth provider if needed
       const server: IMcpServer = {
         id,
         name: id,
@@ -290,21 +278,10 @@ export class McpServerManager {
         config,
         enabled: config.enabled ?? true,
       };
-
-      console.log(`Server ${id} enabled state: ${server.enabled}`);
-
-      // Initialize server map entry first
       this._serverToolsMap.set(server, []);
-      console.log(`Initialized server map entry for ${id}`);
-
-      // Register tools (this will authenticate and discover tools)
       await this.registerServerTools(server);
-
-      // Add to config
       this._config.mcpServers[id] = config;
       await this.saveConfig();
-
-      console.log(`Successfully registered server: ${id}`);
     } catch (error) {
       console.error(`Failed to register server ${id}:`, formatError(error));
       throw new Error(`Failed to register server ${id}: ${formatError(error)}`);
@@ -715,12 +692,7 @@ export class McpServerManager {
    */
   async clearAllOAuthData(): Promise<void> {
     if (!this._dataDir) {
-      // Ensure dataDir is initialized, trying to init if not.
-      // This might be the case if manager instance is created but not fully init()ed.
-      console.log(
-        "Data directory not initialized in clearAllOAuthData, attempting to initialize...",
-      );
-      await this.init(); // Attempt to initialize to get _dataDir
+      await this.init();
       if (!this._dataDir) {
         console.error(
           "Failed to initialize data directory. Cannot clear OAuth data.",
@@ -730,21 +702,13 @@ export class McpServerManager {
     }
     const oauthPath = join(this._dataDir, "oauth");
     try {
-      console.log(`Attempting to remove OAuth directory: ${oauthPath}`);
       await Deno.remove(oauthPath, { recursive: true });
-      console.log(`Successfully removed OAuth directory: ${oauthPath}`);
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        console.log(
-          `OAuth directory not found, nothing to clear: ${oauthPath}`,
-        );
-      } else {
+      if (!(error instanceof Deno.errors.NotFound)) {
         console.error(
           `Error removing OAuth directory ${oauthPath}:`,
           formatError(error),
         );
-        // We might not want to throw here, as the primary goal is to clear if it exists.
-        // However, permissions issues etc. should be surfaced.
         throw new Error(
           `Failed to remove OAuth directory: ${formatError(error)}`,
         );
