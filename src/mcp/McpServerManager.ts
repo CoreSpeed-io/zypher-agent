@@ -229,6 +229,7 @@ export class McpServerManager {
    */
   async registerServer(id: string, config: IMcpServerConfig): Promise<void> {
     try {
+      console.log(`Starting registration for server: ${id}`);
       if (!this._config) {
         throw new Error("Config not loaded");
       }
@@ -243,22 +244,30 @@ export class McpServerManager {
 
       // Determine if this is an SSE server that needs OAuth
       const isRemoteServer = "url" in config;
+      console.log(
+        `Server ${id} is ${
+          isRemoteServer ? "remote (SSE)" : "local (CLI)"
+        } server`,
+      );
       let oauthProvider = undefined;
 
       // Create OAuth provider for remote servers
       if (isRemoteServer) {
+        console.log(`Creating OAuth provider for server ${id}`);
         const { McpOAuthProvider } = await import("./McpOAuthProvider.ts");
-        oauthProvider = new McpOAuthProvider({
-          clientName: "zypher-agent",
-          clientVersion: "1.0.0",
-          storagePath: await this.getServerStoragePath(id),
-          serverId: id,
-          serverUrl: config.url, // Add the server URL from the config
-          scope: "tools",
-        });
 
-        // Clear any existing auth data to ensure a fresh authentication
-        await oauthProvider.clearAuthData();
+        // Find an available port for OAuth callback
+        const { findAvailablePort } = await import("./utils.ts");
+        const callbackPort = await findAvailablePort(3001);
+        console.log(`OAuth callback port for ${id}: ${callbackPort}`);
+
+        oauthProvider = new McpOAuthProvider({
+          serverUrl: config.url,
+          callbackPort,
+          storagePath: await this.getServerStoragePath(id),
+          clientName: "zypher-agent",
+          softwareVersion: "1.0.0",
+        });
       }
 
       // Create server instance with OAuth provider if needed
@@ -275,16 +284,22 @@ export class McpServerManager {
         enabled: config.enabled ?? true,
       };
 
-      // Register tools
+      console.log(`Server ${id} enabled state: ${server.enabled}`);
+
+      // Initialize server map entry first
+      this._serverToolsMap.set(server, []);
+      console.log(`Initialized server map entry for ${id}`);
+
+      // Register tools (this will authenticate and discover tools)
       await this.registerServerTools(server);
 
       // Add to config
       this._config.mcpServers[id] = config;
       await this.saveConfig();
 
-      // Add to server map
-      this._serverToolsMap.set(server, []);
+      console.log(`Successfully registered server: ${id}`);
     } catch (error) {
+      console.error(`Failed to register server ${id}:`, formatError(error));
       throw new Error(`Failed to register server ${id}: ${formatError(error)}`);
     }
   }
@@ -503,36 +518,51 @@ export class McpServerManager {
    */
   private async registerServerTools(server: IMcpServer): Promise<void> {
     try {
+      console.log(`Registering tools for server: ${server.id}`);
       const connectionMode = this.getConnectionMode(server.config);
+      console.log(
+        `Connection mode: ${
+          connectionMode === ConnectionMode.SSE ? "SSE" : "CLI"
+        }`,
+      );
 
-      // For SSE connections, ensure authentication is ready
-      if (connectionMode === ConnectionMode.SSE) {
-        // Force fetch credentials before connecting
-        await server.client.forceFetchCredentials().catch((error) => {
-          console.warn(
-            `Warning: Failed to pre-fetch OAuth credentials: ${
-              formatError(error)
-            }`,
-          );
-          // Continue anyway, as the client will retry during connection
-        });
-      }
-
+      console.log("Retrieving tools from server...");
       const tools = await server.client.retrieveTools(
         server.config,
         connectionMode,
       );
+
+      console.log(`Retrieved ${tools.length} tools for server ${server.id}`);
+      if (tools.length > 0) {
+        console.log(`Tool names: ${tools.map((t) => t.name).join(", ")}`);
+      }
 
       // Store tools in serverToolsMap regardless of enabled state
       this._serverToolsMap.set(server, tools);
 
       // Only add to toolbox if server is enabled
       if (server.enabled) {
+        console.log(
+          `Server ${server.id} is enabled, adding ${tools.length} tools to toolbox`,
+        );
         for (const tool of tools) {
           this._toolbox.set(tool.name, tool);
+          console.log(`Added tool to toolbox: ${tool.name}`);
         }
+      } else {
+        console.log(
+          `Server ${server.id} is disabled, not adding tools to toolbox`,
+        );
       }
+
+      console.log(
+        `Successfully registered ${tools.length} tools for server ${server.id}`,
+      );
     } catch (error) {
+      console.error(
+        `Failed to register tools for server ${server.id}:`,
+        formatError(error),
+      );
       throw new Error(
         `Failed to register tools for server ${server.id}: ${
           formatError(error)
@@ -556,6 +586,31 @@ export class McpServerManager {
    */
   getTool(name: string): Tool | undefined {
     return this._toolbox.get(name);
+  }
+
+  /**
+   * Debug method to log current state of servers and tools
+   */
+  debugLogState(): void {
+    console.log("\n=== MCP SERVER MANAGER STATE ===");
+    console.log(`Initialized: ${this._initialized}`);
+    console.log(`Number of servers: ${this._serverToolsMap.size}`);
+    console.log(`Number of tools in toolbox: ${this._toolbox.size}`);
+
+    for (const [server, tools] of this._serverToolsMap.entries()) {
+      console.log(`\nServer: ${server.id}`);
+      console.log(`  - Name: ${server.name}`);
+      console.log(`  - Enabled: ${server.enabled}`);
+      console.log(`  - Tools count: ${tools.length}`);
+      if (tools.length > 0) {
+        console.log(`  - Tool names: ${tools.map((t) => t.name).join(", ")}`);
+      }
+    }
+
+    console.log(
+      `\nToolbox contents: ${Array.from(this._toolbox.keys()).join(", ")}`,
+    );
+    console.log("=== END STATE ===\n");
   }
 
   /**
@@ -594,17 +649,19 @@ export class McpServerManager {
       const config = McpServerConfigSchema.parse(data.config);
       const name = data.name ?? id;
 
-      // For SSE servers, ensure we have OAuth configuration
+      // Log OAuth configuration for SSE servers
       if ("url" in config) {
         console.log(`Server ${id} is a remote SSE server at ${config.url}`);
-
-        // Import the OAuth provider dynamically
-        const { McpOAuthProvider } = await import("./McpOAuthProvider.ts");
 
         // Check if we have client credentials in environment variables
         const clientId = Deno.env.get(`MCP_${id.toUpperCase()}_CLIENT_ID`);
         const clientSecret = Deno.env.get(
           `MCP_${id.toUpperCase()}_CLIENT_SECRET`,
+        );
+
+        // Check for custom OAuth authorization server URL
+        const authServerUrl = Deno.env.get(
+          `MCP_${id.toUpperCase()}_AUTH_SERVER_URL`,
         );
 
         // Determine if we should use dynamic registration
@@ -628,64 +685,16 @@ export class McpServerManager {
           );
         }
 
-        // Create an OAuth provider specifically for this server
-        const oauthProvider = new McpOAuthProvider({
-          clientName: `zypher-agent-${id}`,
-          clientVersion: "1.0.0",
-          // Use a server-specific storage path to avoid conflicts
-          storagePath: await this.getServerStoragePath(id),
-          // Server identifier for storing tokens and client info
-          serverId: id,
-          // Server URL for the MCP server
-          serverUrl: config.url,
-          // Request appropriate scopes for the server
-          scope: "tools",
-          // Load client credentials from environment variables
-          clientId,
-          clientSecret,
-          // Force using Client Credentials flow for server-to-server auth
-          useClientCredentialsFlow: true,
-          // Enable dynamic client registration if configured
-          useDynamicRegistration,
-        });
-
-        // Clear any existing auth data to ensure a fresh authentication
-        await oauthProvider.clearAuthData();
-
-        // Create a client with the OAuth provider
-        const client = new McpClient({
-          serverName: id,
-          oauthProvider: oauthProvider,
-          retryAuthentication: true,
-          maxAuthRetries: 3,
-        });
-
-        // Create server instance with the client
-        const server: IMcpServer = {
-          id,
-          name,
-          client,
-          config,
-          enabled: true,
-        };
-
-        // Register the server tools
-        await this.registerServerTools(server);
-
-        // Add to config and save
-        if (this._config) {
-          this._config.mcpServers[id] = config;
-          await this.saveConfig();
+        if (authServerUrl) {
+          console.log(
+            `Using custom OAuth authorization server for ${id}: ${authServerUrl}`,
+          );
         }
-
-        // Add to server map
-        this._serverToolsMap.set(server, []);
-
-        console.log(`Successfully registered remote server: ${id}`);
-      } else {
-        // For CLI servers, use the standard registration process
-        await this.registerServer(name, config);
       }
+
+      // Use the standard registration process for both CLI and SSE servers
+      await this.registerServer(name, config);
+      console.log(`Successfully registered server from registry: ${id}`);
     } catch (error) {
       console.error(`Failed to register server ${id} from registry:`, error);
       throw new Error(
