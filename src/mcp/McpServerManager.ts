@@ -61,7 +61,7 @@ export class McpServerManager {
       oauthProvider = new McpOAuthProvider({
         serverUrl: serverConfig.url,
         callbackPort,
-        oauthBaseDir: await this.getServerStoragePath(serverId),
+        oauthBaseDir: await this.getServerStoragePath(),
         clientName: "zypher-agent",
         softwareVersion: "1.0.0",
       });
