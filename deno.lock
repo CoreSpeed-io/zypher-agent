@@ -27,6 +27,7 @@
     "npm:@aws-sdk/s3-request-presigner@^3.798.0": "3.798.0",
     "npm:@hono/zod-validator@0.5": "0.5.0_hono@4.7.8_zod@3.24.3",
     "npm:@modelcontextprotocol/sdk@^1.11.4": "1.11.4_express@5.1.0_zod@3.24.3",
+    "npm:@types/node@*": "22.12.0",
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.8": "4.7.8",
     "npm:rolldown@*": "1.0.0-beta.8_valibot@1.0.0",

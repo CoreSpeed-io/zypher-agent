@@ -44,6 +44,43 @@ export class McpServerManager {
   private _dataDir: string | null = null;
   private _mcpRegistryBaseUrl: string | null = null;
 
+  private async _createMcpClient(
+    serverId: string,
+    serverConfig: IMcpServerConfig,
+  ): Promise<McpClient> {
+    let oauthProvider:
+      | import("./McpOAuthProvider.ts").McpOAuthProvider
+      | undefined = undefined;
+    const isRemoteServer = "url" in serverConfig;
+
+    if (isRemoteServer && serverConfig.url) { // Ensure URL exists for McpOAuthProvider
+      console.log(
+        `Creating OAuth provider for server ${serverId} (during client creation)`,
+      );
+      // Dynamic imports
+      const { McpOAuthProvider } = await import("./McpOAuthProvider.ts");
+      const { findAvailablePort } = await import("./utils.ts");
+
+      const callbackPort = await findAvailablePort(3001); // TODO: Consider making base port configurable
+      console.log(`OAuth callback port for ${serverId}: ${callbackPort}`);
+
+      oauthProvider = new McpOAuthProvider({
+        serverUrl: serverConfig.url,
+        callbackPort,
+        storagePath: await this.getServerStoragePath(serverId),
+        clientName: "zypher-agent", // TODO: Consider making configurable
+        softwareVersion: "1.0.0", // TODO: Consider making configurable
+      });
+    }
+
+    return new McpClient({
+      serverName: serverId,
+      oauthProvider: oauthProvider,
+      retryAuthentication: true,
+      maxAuthRetries: 3,
+    });
+  }
+
   /**
    * Initializes the McpServerManager by loading configuration and setting up servers
    * @returns The initialized McpServerManager instance
@@ -135,10 +172,11 @@ export class McpServerManager {
           this._config.mcpServers,
         )
       ) {
+        const client = await this._createMcpClient(serverId, serverConfig);
         const server = McpServerSchema.parse({
           id: serverId,
           name: serverId,
-          client: new McpClient({ serverName: serverId }),
+          client: client,
           config: serverConfig,
           enabled: serverConfig.enabled ?? true,
         });
@@ -242,44 +280,13 @@ export class McpServerManager {
         );
       }
 
-      // Determine if this is an SSE server that needs OAuth
-      const isRemoteServer = "url" in config;
-      console.log(
-        `Server ${id} is ${
-          isRemoteServer ? "remote (SSE)" : "local (CLI)"
-        } server`,
-      );
-      let oauthProvider = undefined;
-
-      // Create OAuth provider for remote servers
-      if (isRemoteServer) {
-        console.log(`Creating OAuth provider for server ${id}`);
-        const { McpOAuthProvider } = await import("./McpOAuthProvider.ts");
-
-        // Find an available port for OAuth callback
-        const { findAvailablePort } = await import("./utils.ts");
-        const callbackPort = await findAvailablePort(3001);
-        console.log(`OAuth callback port for ${id}: ${callbackPort}`);
-
-        oauthProvider = new McpOAuthProvider({
-          serverUrl: config.url,
-          callbackPort,
-          storagePath: await this.getServerStoragePath(id),
-          clientName: "zypher-agent",
-          softwareVersion: "1.0.0",
-        });
-      }
+      const client = await this._createMcpClient(id, config);
 
       // Create server instance with OAuth provider if needed
       const server: IMcpServer = {
         id,
         name: id,
-        client: new McpClient({
-          serverName: id,
-          oauthProvider: oauthProvider,
-          retryAuthentication: true,
-          maxAuthRetries: 3,
-        }),
+        client: client,
         config,
         enabled: config.enabled ?? true,
       };

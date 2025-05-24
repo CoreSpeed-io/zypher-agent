@@ -116,7 +116,6 @@ export class McpClient {
         throw new Error("Client is not initialized");
       }
 
-      this.transport = this.buildTransport(mode, config);
       this.authRetryCount = 0; // Reset auth retry count for new connection attempt
 
       // Try to connect with authentication retries if needed
@@ -160,10 +159,10 @@ export class McpClient {
    */
   private async connectWithRetry(
     mode: ConnectionMode,
-    _config: IMcpServerConfig,
+    serverConfig: IMcpServerConfig,
   ): Promise<void> {
-    if (!this.client || !this.transport) {
-      throw new Error("Client or transport not initialized");
+    if (!this.client /*|| !this.transport*/) {
+      throw new Error("Client not initialized");
     }
 
     const maxRetries = this.config.retryAuthentication
@@ -176,6 +175,9 @@ export class McpClient {
         console.log(
           `Connection attempt ${attempt}/${maxRetries} to MCP server...`,
         );
+
+        // Build a new transport for each attempt
+        this.transport = this.buildTransport(mode, serverConfig);
 
         // For SSE servers with OAuth, ensure we have valid tokens before attempting connection
         if (mode === ConnectionMode.SSE && this.authProvider) {
