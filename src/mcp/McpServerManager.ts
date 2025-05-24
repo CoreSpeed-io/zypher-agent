@@ -709,4 +709,46 @@ export class McpServerManager {
       );
     }
   }
+
+  /**
+   * Clears all stored OAuth authentication data for all servers.
+   */
+  async clearAllOAuthData(): Promise<void> {
+    if (!this._dataDir) {
+      // Ensure dataDir is initialized, trying to init if not.
+      // This might be the case if manager instance is created but not fully init()ed.
+      console.log(
+        "Data directory not initialized in clearAllOAuthData, attempting to initialize...",
+      );
+      await this.init(); // Attempt to initialize to get _dataDir
+      if (!this._dataDir) {
+        console.error(
+          "Failed to initialize data directory. Cannot clear OAuth data.",
+        );
+        throw new Error("Data directory could not be initialized.");
+      }
+    }
+    const oauthPath = join(this._dataDir, "oauth");
+    try {
+      console.log(`Attempting to remove OAuth directory: ${oauthPath}`);
+      await Deno.remove(oauthPath, { recursive: true });
+      console.log(`Successfully removed OAuth directory: ${oauthPath}`);
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        console.log(
+          `OAuth directory not found, nothing to clear: ${oauthPath}`,
+        );
+      } else {
+        console.error(
+          `Error removing OAuth directory ${oauthPath}:`,
+          formatError(error),
+        );
+        // We might not want to throw here, as the primary goal is to clear if it exists.
+        // However, permissions issues etc. should be surfaced.
+        throw new Error(
+          `Failed to remove OAuth directory: ${formatError(error)}`,
+        );
+      }
+    }
+  }
 }
