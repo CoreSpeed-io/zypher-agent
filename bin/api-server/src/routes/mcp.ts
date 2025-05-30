@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import {
   McpServerError,
-  McpServerManager,
+  type McpServerManager,
 } from "../../../../src/mcp/McpServerManager.ts";
 import {
   McpServerConfigSchema,
@@ -108,7 +108,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   // Register MCP server from registry
   mcpRouter.post("/registry/:id", async (c) => {
     const id = c.req.param("id");
-    await mcpServerManager.registerServerFromRegistry(id);
+    const token = c.req.header("Authorization")?.split(" ")[1];
+    if (!token) {
+      throw new ApiError(401, "unauthorized", "No token provided");
+    }
+    await mcpServerManager.registerServerFromRegistry(id, token);
     return c.body(null, 202);
   });
 

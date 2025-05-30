@@ -601,7 +601,7 @@ export class McpServerManager {
    * @returns Promise resolving when the server is registered
    * @throws Error if the fetch fails or registration fails
    */
-  async registerServerFromRegistry(id: string) {
+  async registerServerFromRegistry(id: string, token: string) {
     try {
       console.log(`Fetching configuration for server ${id} from registry...`);
 
@@ -616,7 +616,11 @@ export class McpServerManager {
       const url = `${this._mcpRegistryBaseUrl}/servers/${id}/config`;
       console.log(`Fetching from: ${url}`);
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!response.ok) {
         throw new Error(
@@ -648,7 +652,7 @@ export class McpServerManager {
 
         // Determine if we should use dynamic registration
         const useDynamicRegistration =
-          Deno.env.get(`MCP_USE_DYNAMIC_REGISTRATION`) !== "false";
+          Deno.env.get("MCP_USE_DYNAMIC_REGISTRATION") !== "false";
 
         if (clientId && clientSecret) {
           console.log(

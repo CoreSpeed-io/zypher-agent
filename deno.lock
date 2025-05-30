@@ -30,6 +30,7 @@
     "npm:@types/node@*": "22.12.0",
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.8": "4.7.8",
+    "npm:openid-client@^6.5.0": "6.5.0",
     "npm:rolldown@*": "1.0.0-beta.8_valibot@1.0.0",
     "npm:rolldown@1.0.0-beta.8": "1.0.0-beta.8_valibot@1.0.0",
     "npm:rolldown@^1.0.0-beta.7": "1.0.0-beta.8_valibot@1.0.0",
@@ -1590,6 +1591,9 @@
     "isexe@2.0.0": {
       "integrity": "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw=="
     },
+    "jose@6.0.11": {
+      "integrity": "sha512-QxG7EaliDARm1O1S8BGakqncGT9s25bKL1WSf6/oa17Tkqwi8D2ZNglqCF+DsYF88/rV66Q/Q2mFAy697E1DUg=="
+    },
     "json-schema-traverse@1.0.0": {
       "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="
     },
@@ -1636,6 +1640,9 @@
         "whatwg-url"
       ]
     },
+    "oauth4webapi@3.5.1": {
+      "integrity": "sha512-txg/jZQwcbaF7PMJgY7aoxc9QuCxHVFMiEkDIJ60DwDz3PbtXPQnrzo+3X4IRYGChIwWLabRBRpf1k9hO9+xrQ=="
+    },
     "object-assign@4.1.1": {
       "integrity": "sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg=="
     },
@@ -1652,6 +1659,13 @@
       "integrity": "sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==",
       "dependencies": [
         "wrappy"
+      ]
+    },
+    "openid-client@6.5.0": {
+      "integrity": "sha512-fAfYaTnOYE2kQCqEJGX9KDObW2aw7IQy4jWpU/+3D3WoCFLbix5Hg6qIPQ6Js9r7f8jDUmsnnguRNCSw4wU/IQ==",
+      "dependencies": [
+        "jose",
+        "oauth4webapi"
       ]
     },
     "parseurl@1.3.3": {
@@ -1918,6 +1932,7 @@
       "npm:@modelcontextprotocol/sdk@^1.11.4",
       "npm:chalk@^5.4.1",
       "npm:hono@^4.7.8",
+      "npm:openid-client@^6.5.0",
       "npm:rolldown@^1.0.0-beta.8",
       "npm:rxjs-for-await@1",
       "npm:rxjs@^7.8.2",
