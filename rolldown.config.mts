@@ -22,7 +22,8 @@ export default defineConfig({
     sourcemap: true,
     format: "esm",
     dir: "dist",
-    target: "esnext",
+    // Newer version of rolldown seems to have this removed
+    // target: "esnext",
     inlineDynamicImports: true,
   },
 });
