@@ -11,6 +11,7 @@ import {
 import { getWorkspaceDataDir } from "../utils/mod.ts";
 import { join } from "@std/path";
 import { formatError } from "../error.ts";
+import { ensureDir } from "@std/fs";
 
 export class McpServerError extends Error {
   constructor(
@@ -125,11 +126,7 @@ export class McpServerManager {
     const oauthBasePath = join(this._dataDir, "oauth");
 
     // Ensure the base directory exists
-    try {
-      await Deno.stat(oauthBasePath);
-    } catch {
-      await Deno.mkdir(oauthBasePath, { recursive: true });
-    }
+    await ensureDir(oauthBasePath);
     return oauthBasePath;
   }
 
