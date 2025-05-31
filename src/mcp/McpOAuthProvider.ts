@@ -83,8 +83,8 @@ export class McpOAuthProvider implements OAuthClientProvider {
   ) => void;
   private authorizationReject?: (reason: unknown) => void;
 
-  // OAuth flow state
-  private state?: string;
+  // OAuth flow state (internal only, not part of OAuthClientProvider interface)
+  private currentState?: string;
 
   constructor(config: IMcpOAuthProviderConfig) {
     this.config = config;
@@ -475,14 +475,14 @@ export class McpOAuthProvider implements OAuthClientProvider {
         console.log(
           "Server doesn't support PKCE, adding state parameter for security",
         );
-        this.state = client.randomState();
-        parameters.state = this.state;
+        this.currentState = client.randomState();
+        parameters.state = this.currentState;
       }
 
       // Store PKCE data for later use
       await this.writeJsonFile("pkce_data.json", {
         codeVerifier,
-        state: this.state,
+        state: this.currentState,
       });
 
       // Build authorization URL using openid-client
