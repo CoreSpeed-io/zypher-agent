@@ -240,9 +240,8 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       );
     }
 
-    // biome-ignore lint/suspicious/noAssignInExpressions: <explanation>
     const abortController = taskAbortController ??= new AbortController();
-    // biome-ignore lint/suspicious/noAssignInExpressions: <explanation>
+
     const eventSubject = taskEventSubject ??= runAgentTask(
       agent,
       task,
