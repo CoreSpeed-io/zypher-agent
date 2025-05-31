@@ -127,7 +127,9 @@ async function main(): Promise<void> {
 
     console.log("\n🤖 Welcome to Zypher Agent CLI!\n");
     if (options.model) {
-      console.log(`🧠 Using user-specified model: ${chalk.cyan(options.model)}`);
+      console.log(
+        `🧠 Using user-specified model: ${chalk.cyan(options.model)}`,
+      );
     }
     console.log(
       'Type your task or command below. Use "exit" or Ctrl+C to quit.\n',
