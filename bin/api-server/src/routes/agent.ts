@@ -29,7 +29,7 @@ const taskSchema = z.object({
   model: z.enum([
     "claude-3-5-sonnet-20241022",
     "claude-3-7-sonnet-20250219",
-    "claude-sonnet-4-20250514"
+    "claude-sonnet-4-20250514",
   ]).optional(),
   fileAttachments: z.array(fileIdSchema).optional(),
 });
@@ -223,7 +223,9 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
 
   // Run a task
   agentRouter.post("/task/sse", zValidator("json", taskSchema), async (c) => {
-    const { task, model, fileAttachments: fileAttachmentIds } = c.req.valid("json");
+    const { task, model, fileAttachments: fileAttachmentIds } = c.req.valid(
+      "json",
+    );
 
     const fileAttachments: FileAttachment[] | undefined = fileAttachmentIds
       ? (
