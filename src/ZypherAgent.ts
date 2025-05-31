@@ -1,9 +1,3 @@
-// Tell TypeScript and the package to use the global fetch instead of node-fetch.
-// Note, despite the name, this does not add any polyfills, but expects them to be provided if needed.
-//
-// node-fetch does not support HTTP/2, SSE suffer from hanging issue when using HTTP/1.1.
-// To provide a better experience (faster responses from the Anthropic API), we MUST use the global fetch for HTTP/2.
-import "@anthropic-ai/sdk/shims/web";
 import {
   fileExists,
   getCurrentUserInfo,
@@ -45,7 +39,7 @@ export class TaskConcurrencyError extends Error {
   }
 }
 
-const DEFAULT_MODEL = "claude-3-7-sonnet-20250219";
+const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MAX_ITERATIONS = 25;
 
@@ -90,7 +84,6 @@ export interface ZypherAgentConfig {
   anthropicApiKey?: string;
   /** Base URL for the Anthropic API. Defaults to Anthropic's production API. */
   baseUrl?: string;
-  model?: string;
   maxTokens?: number;
   /** Whether to load and save message history. Defaults to true. */
   persistHistory?: boolean;
@@ -113,7 +106,6 @@ export class ZypherAgent {
   readonly #autoErrorCheck: boolean;
   readonly #enablePromptCaching: boolean;
   readonly #userId?: string;
-  readonly #model: string;
   readonly #mcpServerManager: McpServerManager;
   readonly #taskTimeoutMs: number;
   readonly #storageService?: StorageService;
@@ -152,7 +144,6 @@ export class ZypherAgent {
     this.#autoErrorCheck = config.autoErrorCheck ?? true;
     this.#enablePromptCaching = config.enablePromptCaching ?? true;
     this.#userId = userId;
-    this.#model = config.model ?? DEFAULT_MODEL;
     this.#mcpServerManager = mcpServerManager;
     this.#storageService = storageService;
     // Default timeout is 5 minutes, 0 = disabled
@@ -187,13 +178,6 @@ export class ZypherAgent {
    */
   get messages(): Message[] {
     return [...this.#messages];
-  }
-
-  /**
-   * Get the current model being used by the agent
-   */
-  get model(): string {
-    return this.#model;
   }
 
   /**
@@ -544,6 +528,7 @@ export class ZypherAgent {
    */
   async runTaskWithStreaming(
     taskDescription: string,
+    model: string = DEFAULT_MODEL,
     streamHandler?: StreamHandler,
     fileAttachments?: FileAttachment[],
     options?: {
@@ -642,7 +627,7 @@ export class ZypherAgent {
         // Create a stream with event handlers and pass the composite abort signal for cancellation
         const stream = this.#client.messages
           .stream({
-            model: this.#model,
+            model: model,
             max_tokens: this.#maxTokens,
             system: this.#system,
             messages: await Promise.all(

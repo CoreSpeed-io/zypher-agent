@@ -26,6 +26,11 @@ const agentRouter = new Hono();
 const fileIdSchema = z.string().min(1, "File ID cannot be empty");
 const taskSchema = z.object({
   task: z.string(),
+  model: z.enum([
+    "claude-3-5-sonnet-20241022",
+    "claude-3-7-sonnet-20250219",
+    "claude-sonnet-4-20250514",
+  ]).optional(),
   fileAttachments: z.array(fileIdSchema).optional(),
 });
 
@@ -64,6 +69,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     agent: ZypherAgent,
     taskPrompt: string,
     fileAttachments?: FileAttachment[],
+    model?: string,
     options?: { signal?: AbortSignal },
   ): ReplaySubject<TaskEvent> {
     const taskEvent$ = new Observable<TaskEvent>((subscriber) => {
@@ -111,6 +117,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       agent
         .runTaskWithStreaming(
           taskPrompt,
+          model,
           streamHandler,
           fileAttachments,
           {
@@ -210,7 +217,9 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
 
   // Run a task
   agentRouter.post("/task/sse", zValidator("json", taskSchema), async (c) => {
-    const { task, fileAttachments: fileAttachmentIds } = c.req.valid("json");
+    const { task, model, fileAttachments: fileAttachmentIds } = c.req.valid(
+      "json",
+    );
 
     const fileAttachments: FileAttachment[] | undefined = fileAttachmentIds
       ? (
@@ -236,6 +245,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       agent,
       task,
       fileAttachments,
+      model,
       { signal: abortController.signal },
     );
 
