@@ -116,6 +116,9 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
 
       if (model) {
         agent.model = model;
+      } else {
+        // Fallback to Claude 3.7 Sonnet
+        agent.model = "claude-3-7-sonnet-20250219";
       }
 
       agent
