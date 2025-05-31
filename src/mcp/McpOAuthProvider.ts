@@ -9,7 +9,7 @@
  * - Comprehensive error handling
  */
 
-import * as client from "openid-client";
+import * as client from "jsr:@panva/openid-client";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type {
   OAuthClientInformation,
