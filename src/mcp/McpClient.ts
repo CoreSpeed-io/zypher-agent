@@ -22,7 +22,7 @@ import { createTool, type Tool } from "../tools/mod.ts";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import {
   auth,
-  OAuthClientProvider,
+  type OAuthClientProvider,
 } from "@modelcontextprotocol/sdk/client/auth.js";
 import { z } from "zod";
 import type { IMcpServerConfig } from "./types.ts";
@@ -73,9 +73,9 @@ export class McpClient {
   };
   private authProvider?: OAuthClientProvider;
   private serverUrl?: URL;
-  private authRetryCount: number = 0;
+  private authRetryCount = 0;
 
-  private static oauthInProgress: Map<string, Promise<void>> = new Map();
+  private static oauthInProgress = new Map<string, Promise<void>>();
 
   /**
    * Creates a new MCPClient instance
@@ -460,7 +460,7 @@ export class McpClient {
       console.log("Successfully refreshed authentication credentials");
     } catch (error) {
       console.error(
-        `Failed to fetch credentials:`,
+        "Failed to fetch credentials:",
         error instanceof Error ? error.message : error,
       );
       throw error;
@@ -551,12 +551,11 @@ export class McpClient {
           return new SSEClientTransport(this.serverUrl, {
             authProvider: this.authProvider,
           });
-        } else {
-          console.log(
-            `Creating SSE transport without OAuth for ${this.serverUrl}`,
-          );
-          return new SSEClientTransport(this.serverUrl);
         }
+        console.log(
+          `Creating SSE transport without OAuth for ${this.serverUrl}`,
+        );
+        return new SSEClientTransport(this.serverUrl);
       }
 
       default:

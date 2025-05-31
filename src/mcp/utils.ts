@@ -2,46 +2,15 @@
  * MCP Utility Functions
  *
  * This file contains utility functions for MCP-related operations.
+ * Uses standard libraries and packages instead of custom implementations.
  */
 
-/**
- * Generate a random string for PKCE and state parameters
- * @param length The length of the random string to generate
- * @returns A random string of the specified length
- */
-export function generateRandomString(length: number): string {
-  const charset =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
-  let result = "";
-  const randomValues = new Uint8Array(length);
-  crypto.getRandomValues(randomValues);
-  for (let i = 0; i < length; i++) {
-    result += charset[randomValues[i] % charset.length];
-  }
-  return result;
-}
-
-/**
- * Generate a code challenge for PKCE
- * @param codeVerifier The code verifier to generate a challenge for
- * @returns A base64url-encoded code challenge
- */
-export async function generateCodeChallenge(
-  codeVerifier: string,
-): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(codeVerifier);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-
-  // Base64url encode the digest
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
+// Note: Most OAuth and PKCE functionality should use the openid-client package
+// which is already included in the project dependencies.
 
 /**
  * Find an available port dynamically
+ * This is the only function currently used by the codebase
  * @param startPort The port to start searching from
  * @returns A promise that resolves to an available port
  */
@@ -74,30 +43,25 @@ export function findAvailablePort(startPort: number): Promise<number> {
 }
 
 /**
- * Encode client credentials for Basic Authentication
- * @param clientId The client ID
- * @param clientSecret The client secret
- * @returns A Base64-encoded string for use in the Authorization header
+ * EXAMPLES: How to use standard libraries for common utility functions
+ *
+ * 1. Random String Generation:
+ *    import { v4 } from "@std/uuid";
+ *    const randomString = v4.generate().replace(/-/g, '');
+ *    // OR use Web Crypto API:
+ *    const randomString = crypto.randomUUID().replace(/-/g, '');
+ *
+ * 2. PKCE Code Challenge (use openid-client instead):
+ *    import * as client from "openid-client";
+ *    const codeVerifier = client.randomPKCECodeVerifier();
+ *    const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
+ *
+ * 3. Base64 Encoding (use @std/encoding):
+ *    import { encodeBase64 } from "@std/encoding/base64";
+ *    const encoded = encodeBase64(new TextEncoder().encode("data"));
+ *
+ * 4. Basic Auth Header:
+ *    import { encodeBase64 } from "@std/encoding/base64";
+ *    const credentials = `${clientId}:${clientSecret}`;
+ *    const authHeader = `Basic ${encodeBase64(new TextEncoder().encode(credentials))}`;
  */
-export function encodeClientCredentials(
-  clientId: string,
-  clientSecret: string,
-): string {
-  const credentials = `${encodeURIComponent(clientId)}:${
-    encodeURIComponent(clientSecret)
-  }`;
-  return btoa(credentials);
-}
-
-/**
- * Create an HTTP Basic Authentication header
- * @param clientId The client ID
- * @param clientSecret The client secret
- * @returns The full Authorization header value
- */
-export function createBasicAuthHeader(
-  clientId: string,
-  clientSecret: string,
-): string {
-  return `Basic ${encodeClientCredentials(clientId, clientSecret)}`;
-}
