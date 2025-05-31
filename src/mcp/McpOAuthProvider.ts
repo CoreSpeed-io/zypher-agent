@@ -65,55 +65,55 @@ async function getServerUrlHash(serverUrl: string): Promise<string> {
  * This provider leverages the openid-client library for standards-compliant OAuth flows
  */
 export class McpOAuthProvider implements OAuthClientProvider {
-  private config: IMcpOAuthProviderConfig;
-  private serverUrlHash: string;
-  private callbackPath: string;
-  private clientName: string;
-  private clientUri: string;
-  private softwareId: string;
-  private softwareVersion: string;
-  private scopes: string[];
+  #config: IMcpOAuthProviderConfig;
+  #serverUrlHash: string;
+  #callbackPath: string;
+  #clientName: string;
+  #clientUri: string;
+  #softwareId: string;
+  #softwareVersion: string;
+  #scopes: string[];
 
   // openid-client related properties
-  private configuration?: client.Configuration;
-  private callbackServer?: Deno.HttpServer;
-  private authorizationPromise?: Promise<{ code: string; state?: string }>;
-  private authorizationResolve?: (
+  #configuration?: client.Configuration;
+  #callbackServer?: Deno.HttpServer;
+  #authorizationPromise?: Promise<{ code: string; state?: string }>;
+  #authorizationResolve?: (
     value: { code: string; state?: string },
   ) => void;
-  private authorizationReject?: (reason: unknown) => void;
+  #authorizationReject?: (reason: unknown) => void;
 
   // OAuth flow state (internal only, not part of OAuthClientProvider interface)
-  private currentState?: string;
+  #currentState?: string;
 
   constructor(config: IMcpOAuthProviderConfig) {
-    this.config = config;
-    this.serverUrlHash = "";
-    this.callbackPath = config.callbackPath || "/oauth/callback";
-    this.clientName = config.clientName || "zypher-agent";
-    this.clientUri = config.clientUri ||
+    this.#config = config;
+    this.#serverUrlHash = "";
+    this.#callbackPath = config.callbackPath || "/oauth/callback";
+    this.#clientName = config.clientName || "zypher-agent";
+    this.#clientUri = config.clientUri ||
       "https://github.com/spenciefy/zypher-agent";
-    this.softwareId = config.softwareId || "zypher-agent";
-    this.softwareVersion = config.softwareVersion || "1.0.0";
-    this.scopes = config.scopes || [];
+    this.#softwareId = config.softwareId || "zypher-agent";
+    this.#softwareVersion = config.softwareVersion || "1.0.0";
+    this.#scopes = config.scopes || [];
   }
 
   /**
    * Get or compute the server URL hash
    */
-  private async getServerHash(): Promise<string> {
-    if (!this.serverUrlHash) {
-      this.serverUrlHash = await getServerUrlHash(this.config.serverUrl);
+  async #getServerHash(): Promise<string> {
+    if (!this.#serverUrlHash) {
+      this.#serverUrlHash = await getServerUrlHash(this.#config.serverUrl);
     }
-    return this.serverUrlHash;
+    return this.#serverUrlHash;
   }
 
   /**
    * The URL to redirect the user agent to after authorization
    */
   get redirectUrl(): string {
-    const host = this.config.host || "localhost";
-    return `http://${host}:${this.config.callbackPort}${this.callbackPath}`;
+    const host = this.#config.host || "localhost";
+    return `http://${host}:${this.#config.callbackPort}${this.#callbackPath}`;
   }
 
   /**
@@ -125,30 +125,30 @@ export class McpOAuthProvider implements OAuthClientProvider {
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      client_name: this.clientName,
-      client_uri: this.clientUri,
-      software_id: this.softwareId,
-      software_version: this.softwareVersion,
+      client_name: this.#clientName,
+      client_uri: this.#clientUri,
+      software_id: this.#softwareId,
+      software_version: this.#softwareVersion,
     };
   }
 
   /**
    * Initialize the OAuth configuration using openid-client discovery
    */
-  private async initializeConfiguration(): Promise<client.Configuration> {
-    if (this.configuration) {
-      return this.configuration;
+  async #initializeConfiguration(): Promise<client.Configuration> {
+    if (this.#configuration) {
+      return this.#configuration;
     }
 
     try {
       // Get the base URL from the server URL for discovery
-      const discoveryUrl = new URL(new URL(this.config.serverUrl).origin);
+      const discoveryUrl = new URL(new URL(this.#config.serverUrl).origin);
 
       // Get or create client ID
-      const clientId = await this.getOrCreateClientId();
+      const clientId = await this.#getOrCreateClientId();
 
       console.log("OAuth Configuration Debug:");
-      console.log(`  Server URL: ${this.config.serverUrl}`);
+      console.log(`  Server URL: ${this.#config.serverUrl}`);
       console.log(`  Discovery URL: ${discoveryUrl.href}`);
       console.log(`  Client ID: ${clientId}`);
 
@@ -181,7 +181,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
         );
 
         // Now use openid-client discovery with the correct issuer URL
-        this.configuration = await client.discovery(
+        this.#configuration = await client.discovery(
           issuerUrl,
           clientId,
           undefined, // No client secret for PKCE flow
@@ -213,7 +213,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
           console.log("Using manual OAuth 2.0 server configuration");
 
           // Create configuration manually using the server metadata
-          this.configuration = new client.Configuration(
+          this.#configuration = new client.Configuration(
             serverMetadata,
             clientId,
             undefined, // No client secret for PKCE flow
@@ -224,7 +224,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
         }
       }
 
-      return this.configuration;
+      return this.#configuration;
     } catch (error) {
       console.error("Failed to initialize OAuth configuration:", error);
       throw new Error(`OAuth configuration initialization failed: ${error}`);
@@ -234,7 +234,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
   /**
    * Get existing client ID or create a new one through dynamic registration
    */
-  private async getOrCreateClientId(): Promise<string> {
+  async #getOrCreateClientId(): Promise<string> {
     const existingClientInfo = await this.clientInformation();
     if (existingClientInfo?.client_id) {
       return existingClientInfo.client_id;
@@ -248,29 +248,29 @@ export class McpOAuthProvider implements OAuthClientProvider {
   /**
    * Ensure the storage directory exists
    */
-  private async ensureStorageDir(): Promise<void> {
-    await ensureDir(this.config.oauthBaseDir);
+  async #ensureStorageDir(): Promise<void> {
+    await ensureDir(this.#config.oauthBaseDir);
 
-    const serverHash = await this.getServerHash();
-    const serverDir = join(this.config.oauthBaseDir, serverHash);
+    const serverHash = await this.#getServerHash();
+    const serverDir = join(this.#config.oauthBaseDir, serverHash);
     await ensureDir(serverDir);
   }
 
   /**
    * Get the full path for a configuration file
    */
-  private async getConfigFilePath(filename: string): Promise<string> {
-    await this.ensureStorageDir();
-    const serverHash = await this.getServerHash();
-    return join(this.config.oauthBaseDir, serverHash, filename);
+  async #getConfigFilePath(filename: string): Promise<string> {
+    await this.#ensureStorageDir();
+    const serverHash = await this.#getServerHash();
+    return join(this.#config.oauthBaseDir, serverHash, filename);
   }
 
   /**
    * Read a JSON file from storage
    */
-  private async readJsonFile<T>(filename: string): Promise<T | undefined> {
+  async #readJsonFile<T>(filename: string): Promise<T | undefined> {
     try {
-      const filePath = await this.getConfigFilePath(filename);
+      const filePath = await this.#getConfigFilePath(filename);
       const content = await Deno.readTextFile(filePath);
       return JSON.parse(content) as T;
     } catch (error) {
@@ -284,9 +284,9 @@ export class McpOAuthProvider implements OAuthClientProvider {
   /**
    * Write a JSON file to storage
    */
-  private async writeJsonFile(filename: string, data: unknown): Promise<void> {
+  async #writeJsonFile(filename: string, data: unknown): Promise<void> {
     try {
-      const filePath = await this.getConfigFilePath(filename);
+      const filePath = await this.#getConfigFilePath(filename);
       await Deno.writeTextFile(filePath, JSON.stringify(data, null, 2));
     } catch (error) {
       console.error(`Error writing ${filename}:`, error);
@@ -297,9 +297,9 @@ export class McpOAuthProvider implements OAuthClientProvider {
   /**
    * Read a text file from storage
    */
-  private async readTextFile(filename: string): Promise<string | undefined> {
+  async #readTextFile(filename: string): Promise<string | undefined> {
     try {
-      const filePath = await this.getConfigFilePath(filename);
+      const filePath = await this.#getConfigFilePath(filename);
       return await Deno.readTextFile(filePath);
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) {
@@ -312,9 +312,9 @@ export class McpOAuthProvider implements OAuthClientProvider {
   /**
    * Write a text file to storage
    */
-  private async writeTextFile(filename: string, text: string): Promise<void> {
+  async #writeTextFile(filename: string, text: string): Promise<void> {
     try {
-      const filePath = await this.getConfigFilePath(filename);
+      const filePath = await this.#getConfigFilePath(filename);
       await Deno.writeTextFile(filePath, text);
     } catch (error) {
       console.error(`Error writing ${filename}:`, error);
@@ -325,9 +325,9 @@ export class McpOAuthProvider implements OAuthClientProvider {
   /**
    * Delete a configuration file
    */
-  private async deleteConfigFile(filename: string): Promise<void> {
+  async #deleteConfigFile(filename: string): Promise<void> {
     try {
-      const filePath = await this.getConfigFilePath(filename);
+      const filePath = await this.#getConfigFilePath(filename);
       await Deno.remove(filePath);
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) {
@@ -339,21 +339,21 @@ export class McpOAuthProvider implements OAuthClientProvider {
   // OAuthClientProvider interface implementation
 
   async clientInformation(): Promise<OAuthClientInformation | undefined> {
-    return await this.readJsonFile<OAuthClientInformation>("client_info.json");
+    return await this.#readJsonFile<OAuthClientInformation>("client_info.json");
   }
 
   async saveClientInformation(
     clientInformation: OAuthClientInformationFull,
   ): Promise<void> {
-    await this.writeJsonFile("client_info.json", clientInformation);
+    await this.#writeJsonFile("client_info.json", clientInformation);
   }
 
   async tokens(): Promise<OAuthTokens | undefined> {
-    const tokens = await this.readJsonFile<OAuthTokens>("tokens.json");
+    const tokens = await this.#readJsonFile<OAuthTokens>("tokens.json");
 
     // Check if tokens are expired and attempt refresh if possible
-    if (tokens && this.isTokenExpired(tokens)) {
-      const refreshedTokens = await this.refreshTokensIfPossible(tokens);
+    if (tokens && this.#isTokenExpired(tokens)) {
+      const refreshedTokens = await this.#refreshTokensIfPossible(tokens);
       if (refreshedTokens) {
         await this.saveTokens(refreshedTokens);
         return refreshedTokens;
@@ -364,12 +364,12 @@ export class McpOAuthProvider implements OAuthClientProvider {
   }
 
   async saveTokens(tokens: OAuthTokens): Promise<void> {
-    await this.writeJsonFile("tokens.json", tokens);
+    await this.#writeJsonFile("tokens.json", tokens);
   }
 
   async codeVerifier(): Promise<string> {
     // Load PKCE data from storage
-    const pkceData = await this.readJsonFile<{
+    const pkceData = await this.#readJsonFile<{
       codeVerifier: string;
       state?: string;
     }>("pkce_data.json");
@@ -383,13 +383,13 @@ export class McpOAuthProvider implements OAuthClientProvider {
 
   async saveCodeVerifier(codeVerifier: string): Promise<void> {
     // Load existing PKCE data or create new
-    const existingData = await this.readJsonFile<{
+    const existingData = await this.#readJsonFile<{
       codeVerifier?: string;
       state?: string;
     }>("pkce_data.json") || {};
 
     // Update with new code verifier
-    await this.writeJsonFile("pkce_data.json", {
+    await this.#writeJsonFile("pkce_data.json", {
       ...existingData,
       codeVerifier,
     });
@@ -399,16 +399,16 @@ export class McpOAuthProvider implements OAuthClientProvider {
    * Clears all stored authentication data
    */
   public async clearAuthData(): Promise<void> {
-    await this.deleteConfigFile("client_info.json");
-    await this.deleteConfigFile("tokens.json");
-    await this.deleteConfigFile("pkce_data.json");
+    await this.#deleteConfigFile("client_info.json");
+    await this.#deleteConfigFile("tokens.json");
+    await this.#deleteConfigFile("pkce_data.json");
     await this.stopCallbackServer();
   }
 
   /**
    * Check if a token is expired
    */
-  private isTokenExpired(tokens: OAuthTokens): boolean {
+  #isTokenExpired = (tokens: OAuthTokens): boolean => {
     if (!tokens.expires_in) {
       return false; // No expiration info, assume valid
     }
@@ -416,22 +416,22 @@ export class McpOAuthProvider implements OAuthClientProvider {
     // This is a simplified check - in a real implementation,
     // we'd store the token issue time and calculate expiration
     return false;
-  }
+  };
 
   /**
    * Attempt to refresh tokens using the refresh token
    */
-  private async refreshTokensIfPossible(
+  async #refreshTokensIfPossible(
     tokens: OAuthTokens,
   ): Promise<OAuthTokens | null> {
-    if (!tokens.refresh_token || !this.configuration) {
+    if (!tokens.refresh_token || !this.#configuration) {
       return null;
     }
 
     try {
       // Use openid-client to refresh tokens
       const refreshedTokens = await client.refreshTokenGrant(
-        this.configuration,
+        this.#configuration,
         tokens.refresh_token,
       );
 
@@ -454,7 +454,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
   async redirectToAuthorization(): Promise<void> {
     try {
       // Initialize configuration
-      const config = await this.initializeConfiguration();
+      const config = await this.#initializeConfiguration();
 
       // Generate PKCE code verifier using openid-client
       const codeVerifier = client.randomPKCECodeVerifier();
@@ -465,7 +465,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
       // Build authorization parameters
       const parameters: Record<string, string> = {
         redirect_uri: this.redirectUrl,
-        scope: this.scopes.join(" ") || "openid",
+        scope: this.#scopes.join(" ") || "openid",
         code_challenge: codeChallenge,
         code_challenge_method: "S256",
       };
@@ -475,14 +475,14 @@ export class McpOAuthProvider implements OAuthClientProvider {
         console.log(
           "Server doesn't support PKCE, adding state parameter for security",
         );
-        this.currentState = client.randomState();
-        parameters.state = this.currentState;
+        this.#currentState = client.randomState();
+        parameters.state = this.#currentState;
       }
 
       // Store PKCE data for later use
-      await this.writeJsonFile("pkce_data.json", {
+      await this.#writeJsonFile("pkce_data.json", {
         codeVerifier,
-        state: this.currentState,
+        state: this.#currentState,
       });
 
       // Build authorization URL using openid-client
@@ -491,21 +491,21 @@ export class McpOAuthProvider implements OAuthClientProvider {
       console.log("Opening authorization URL:", authUrl.href);
 
       // Start callback server and setup promise for authorization result
-      this.startCallbackServer();
-      this.setupAuthorizationPromise();
+      this.#startCallbackServer();
+      this.#setupAuthorizationPromise();
 
       // Open browser
-      await this.openBrowser(authUrl);
+      await this.#openBrowser(authUrl);
 
       // Wait for the authorization to complete
       console.log("Waiting for OAuth authorization...");
-      const authResult = await this.waitForAuthorization();
+      const authResult = await this.#waitForAuthorization();
       console.log(
         "OAuth authorization completed, exchanging code for tokens...",
       );
 
       // Exchange authorization code for tokens using openid-client
-      await this.exchangeCodeForTokens(authResult.code, authResult.state);
+      await this.#exchangeCodeForTokens(authResult.code, authResult.state);
       console.log("Token exchange completed successfully");
     } catch (error) {
       console.error("Authorization flow failed:", error);
@@ -516,7 +516,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
   /**
    * Open browser to authorization URL
    */
-  private async openBrowser(authorizationUrl: URL): Promise<void> {
+  async #openBrowser(authorizationUrl: URL): Promise<void> {
     try {
       const command = new Deno.Command("open", {
         args: [authorizationUrl.toString()],
@@ -542,17 +542,17 @@ export class McpOAuthProvider implements OAuthClientProvider {
   /**
    * Exchange authorization code for tokens using openid-client
    */
-  private async exchangeCodeForTokens(
+  async #exchangeCodeForTokens(
     code: string,
     receivedState?: string,
   ): Promise<void> {
     try {
-      if (!this.configuration) {
+      if (!this.#configuration) {
         throw new Error("OAuth configuration not initialized");
       }
 
       // Load PKCE data
-      const pkceData = await this.readJsonFile<{
+      const pkceData = await this.#readJsonFile<{
         codeVerifier: string;
         state?: string;
       }>("pkce_data.json");
@@ -569,7 +569,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
 
       // Use openid-client for token exchange
       const tokens = await client.authorizationCodeGrant(
-        this.configuration,
+        this.#configuration,
         new URL(callbackUrl),
         {
           pkceCodeVerifier: pkceData.codeVerifier,
@@ -590,7 +590,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
       await this.saveTokens(oauthTokens);
 
       // Clean up PKCE data
-      await this.deleteConfigFile("pkce_data.json");
+      await this.#deleteConfigFile("pkce_data.json");
 
       console.log("Successfully stored OAuth tokens");
     } catch (error) {
@@ -602,35 +602,35 @@ export class McpOAuthProvider implements OAuthClientProvider {
   /**
    * Start a simple callback server to receive authorization codes
    */
-  private startCallbackServer(): void {
-    if (this.callbackServer) {
+  #startCallbackServer = (): void => {
+    if (this.#callbackServer) {
       return; // Already running
     }
 
-    const host = this.config.host || "localhost";
+    const host = this.#config.host || "localhost";
 
     try {
-      this.callbackServer = Deno.serve({
+      this.#callbackServer = Deno.serve({
         hostname: host,
-        port: this.config.callbackPort,
+        port: this.#config.callbackPort,
         onListen: ({ hostname, port }) => {
           console.log(
-            `OAuth callback server listening on http://${hostname}:${port}${this.callbackPath}`,
+            `OAuth callback server listening on http://${hostname}:${port}${this.#callbackPath}`,
           );
         },
-      }, (req: Request) => this.handleCallback(req));
+      }, (req: Request) => this.#handleCallback(req));
     } catch (error) {
       console.error(`Failed to start OAuth callback server: ${error}`);
     }
-  }
+  };
 
   /**
    * Handle OAuth callback and trigger authorization completion
    */
-  private handleCallback(req: Request): Response {
+  #handleCallback = (req: Request): Response => {
     const url = new URL(req.url);
 
-    if (url.pathname !== this.callbackPath) {
+    if (url.pathname !== this.#callbackPath) {
       return new Response("Not Found", { status: 404 });
     }
 
@@ -640,20 +640,20 @@ export class McpOAuthProvider implements OAuthClientProvider {
 
     if (error) {
       console.error(`OAuth authorization error: ${error}`);
-      if (this.authorizationReject) {
-        this.authorizationReject(
+      if (this.#authorizationReject) {
+        this.#authorizationReject(
           new Error(`OAuth authorization error: ${error}`),
         );
-        this.clearAuthorizationPromise();
+        this.#clearAuthorizationPromise();
       }
       return new Response(`Authorization failed: ${error}`, { status: 400 });
     }
 
     if (code) {
       console.log("Received OAuth authorization code");
-      if (this.authorizationResolve) {
-        this.authorizationResolve({ code, state });
-        this.clearAuthorizationPromise();
+      if (this.#authorizationResolve) {
+        this.#authorizationResolve({ code, state });
+        this.#clearAuthorizationPromise();
       }
       return new Response(
         "Authorization successful! You can close this window.",
@@ -665,64 +665,64 @@ export class McpOAuthProvider implements OAuthClientProvider {
     }
 
     const missingCodeError = new Error("Missing authorization code");
-    if (this.authorizationReject) {
-      this.authorizationReject(missingCodeError);
-      this.clearAuthorizationPromise();
+    if (this.#authorizationReject) {
+      this.#authorizationReject(missingCodeError);
+      this.#clearAuthorizationPromise();
     }
     return new Response("Missing authorization code", { status: 400 });
-  }
+  };
 
   /**
    * Stop the callback server
    */
   async stopCallbackServer(): Promise<void> {
-    if (this.callbackServer) {
-      await this.callbackServer.shutdown();
-      this.callbackServer = undefined;
+    if (this.#callbackServer) {
+      await this.#callbackServer.shutdown();
+      this.#callbackServer = undefined;
     }
   }
 
   /**
    * Setup the authorization promise for waiting
    */
-  private setupAuthorizationPromise(): void {
-    if (this.authorizationPromise) {
+  #setupAuthorizationPromise = (): void => {
+    if (this.#authorizationPromise) {
       return; // Already set up
     }
 
-    this.authorizationPromise = new Promise((resolve, reject) => {
-      this.authorizationResolve = resolve;
-      this.authorizationReject = reject;
+    this.#authorizationPromise = new Promise((resolve, reject) => {
+      this.#authorizationResolve = resolve;
+      this.#authorizationReject = reject;
 
       // Set a timeout to prevent waiting forever
       setTimeout(() => {
-        if (this.authorizationReject) {
-          this.authorizationReject(new Error("OAuth authorization timeout"));
-          this.clearAuthorizationPromise();
+        if (this.#authorizationReject) {
+          this.#authorizationReject(new Error("OAuth authorization timeout"));
+          this.#clearAuthorizationPromise();
         }
       }, 300000); // 5 minute timeout
     });
-  }
+  };
 
   /**
    * Clear the authorization promise
    */
-  private clearAuthorizationPromise(): void {
-    this.authorizationPromise = undefined;
-    this.authorizationResolve = undefined;
-    this.authorizationReject = undefined;
-  }
+  #clearAuthorizationPromise = (): void => {
+    this.#authorizationPromise = undefined;
+    this.#authorizationResolve = undefined;
+    this.#authorizationReject = undefined;
+  };
 
   /**
    * Wait for OAuth authorization to complete
    */
-  private async waitForAuthorization(): Promise<
+  async #waitForAuthorization(): Promise<
     { code: string; state?: string }
   > {
-    if (!this.authorizationPromise) {
+    if (!this.#authorizationPromise) {
       throw new Error("Authorization promise not set up");
     }
 
-    return await this.authorizationPromise;
+    return await this.#authorizationPromise;
   }
 }
