@@ -31,7 +31,7 @@ interface CliOptions {
 
 // Parse command line arguments using std/cli
 const cliFlags = parseArgs(Deno.args, {
-  string: ["workspace", "user-id", "base-url", "api-key"],
+  string: ["workspace", "user-id", "base-url", "api-key", "model"],
   alias: {
     w: "workspace",
     u: "user-id",
@@ -46,6 +46,7 @@ const options: CliOptions = {
   userId: cliFlags["user-id"],
   baseUrl: cliFlags["base-url"],
   apiKey: cliFlags["api-key"],
+  model: cliFlags.model,
 };
 
 const rl = readline.createInterface({ input, output });
@@ -100,7 +101,6 @@ async function main(): Promise<void> {
         userId: options.userId,
         baseUrl: options.baseUrl,
         anthropicApiKey: options.apiKey,
-        model: options.model,
       },
       mcpServerManager,
     );
@@ -126,8 +126,8 @@ async function main(): Promise<void> {
     await agent.init();
 
     console.log("\n🤖 Welcome to Zypher Agent CLI!\n");
-    if (!options.model) {
-      console.log(`🧠 Using model: ${chalk.cyan(agent.model)}`);
+    if (options.model) {
+      console.log(`🧠 Using user-specified model: ${chalk.cyan(options.model)}`);
     }
     console.log(
       'Type your task or command below. Use "exit" or Ctrl+C to quit.\n',
@@ -182,7 +182,7 @@ async function main(): Promise<void> {
             },
           };
 
-          await agent.runTaskWithStreaming(task, streamHandler);
+          await agent.runTaskWithStreaming(task, options.model, streamHandler);
 
           // Add extra newlines for readability after completion
           Deno.stdout.write(textEncoder.encode("\n\n"));

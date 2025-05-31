@@ -90,7 +90,6 @@ export interface ZypherAgentConfig {
   anthropicApiKey?: string;
   /** Base URL for the Anthropic API. Defaults to Anthropic's production API. */
   baseUrl?: string;
-  model?: string;
   maxTokens?: number;
   /** Whether to load and save message history. Defaults to true. */
   persistHistory?: boolean;
@@ -118,7 +117,6 @@ export class ZypherAgent {
   readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
 
-  #model: string;
   #messages: Message[];
   #system: Anthropic.TextBlockParam[];
 
@@ -152,7 +150,6 @@ export class ZypherAgent {
     this.#autoErrorCheck = config.autoErrorCheck ?? true;
     this.#enablePromptCaching = config.enablePromptCaching ?? true;
     this.#userId = userId;
-    this.#model = config.model ?? DEFAULT_MODEL;
     this.#mcpServerManager = mcpServerManager;
     this.#storageService = storageService;
     // Default timeout is 5 minutes, 0 = disabled
@@ -187,20 +184,6 @@ export class ZypherAgent {
    */
   get messages(): Message[] {
     return [...this.#messages];
-  }
-
-  /**
-   * Set the current model being used by the agent
-   */
-  set model(model: string) {
-    this.#model = model;
-  }
-
-  /**
-   * Get the current model being used by the agent
-   */
-  get model(): string {
-    return this.#model;
   }
 
   /**
@@ -551,6 +534,7 @@ export class ZypherAgent {
    */
   async runTaskWithStreaming(
     taskDescription: string,
+    model: string = DEFAULT_MODEL,
     streamHandler?: StreamHandler,
     fileAttachments?: FileAttachment[],
     options?: {
@@ -649,7 +633,7 @@ export class ZypherAgent {
         // Create a stream with event handlers and pass the composite abort signal for cancellation
         const stream = this.#client.messages
           .stream({
-            model: this.#model,
+            model: model,
             max_tokens: this.#maxTokens,
             system: this.#system,
             messages: await Promise.all(
