@@ -32,7 +32,7 @@ export async function getCustomRules(): Promise<string | null> {
 
 export async function getSystemPrompt(userInfo: UserInfo): Promise<string> {
   const systemPrompt =
-    `You are Zypher, a powerful agentic AI coding assistant by CoreSpeed, powered by Claude 3.5 Sonnet.
+    `You are Zypher, a powerful agentic AI coding assistant by CoreSpeed Inc.
 
 You are pair programming with a USER to solve their coding task.
 The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.
