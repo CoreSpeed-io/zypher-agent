@@ -45,7 +45,7 @@ export class TaskConcurrencyError extends Error {
   }
 }
 
-const DEFAULT_MODEL = "claude-3-7-sonnet-20250219";
+const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MAX_ITERATIONS = 25;
 
@@ -113,12 +113,12 @@ export class ZypherAgent {
   readonly #autoErrorCheck: boolean;
   readonly #enablePromptCaching: boolean;
   readonly #userId?: string;
-  readonly #model: string;
   readonly #mcpServerManager: McpServerManager;
   readonly #taskTimeoutMs: number;
   readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
 
+  #model: string;
   #messages: Message[];
   #system: Anthropic.TextBlockParam[];
 
@@ -187,6 +187,13 @@ export class ZypherAgent {
    */
   get messages(): Message[] {
     return [...this.#messages];
+  }
+
+  /**
+   * Set the current model being used by the agent
+   */
+  set model(model: string) {
+    this.#model = model;
   }
 
   /**
