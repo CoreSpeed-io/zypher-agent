@@ -3,7 +3,7 @@
 //
 // node-fetch does not support HTTP/2, SSE suffer from hanging issue when using HTTP/1.1.
 // To provide a better experience (faster responses from the Anthropic API), we MUST use the global fetch for HTTP/2.
-import "@anthropic-ai/sdk/shims/web";
+
 import {
   fileExists,
   getCurrentUserInfo,
