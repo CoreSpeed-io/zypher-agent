@@ -1,9 +1,3 @@
-// Tell TypeScript and the package to use the global fetch instead of node-fetch.
-// Note, despite the name, this does not add any polyfills, but expects them to be provided if needed.
-//
-// node-fetch does not support HTTP/2, SSE suffer from hanging issue when using HTTP/1.1.
-// To provide a better experience (faster responses from the Anthropic API), we MUST use the global fetch for HTTP/2.
-
 import {
   fileExists,
   getCurrentUserInfo,
