@@ -73,10 +73,10 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
               await ensureDir(oauthBaseDir);
 
               const oauthProvider = new RemoteOAuthProvider({
+                serverId: details.serverId,
                 serverUrl,
                 oauthBaseDir,
                 clientName: "zypher-agent-api",
-                callbackPort: 3000,
               });
 
               // Generate authorization URL with PKCE and save data

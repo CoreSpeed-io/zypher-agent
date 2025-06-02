@@ -456,6 +456,18 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
     }
   }
 
+  async saveClientInformation(
+    clientInfo: OAuthClientInformation,
+  ): Promise<void> {
+    await ensureDir(this.config.oauthBaseDir);
+    const clientInfoPath = join(this.config.oauthBaseDir, "client.json");
+    await Deno.writeTextFile(
+      clientInfoPath,
+      JSON.stringify(clientInfo, null, 2),
+    );
+    console.log(`💾 Saved client information to: ${clientInfoPath}`);
+  }
+
   async tokens(): Promise<OAuthTokens | undefined> {
     try {
       const tokensPath = join(this.config.oauthBaseDir, "tokens.json");

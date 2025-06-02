@@ -12,7 +12,9 @@ import {
 } from "../../../shared/auth/BaseMcpOAuthProvider.ts";
 
 export interface IRemoteOAuthConfig extends McpOAuthConfig {
-  // Redirect URI for OAuth callback (default: http://localhost:3001/oauth/callback)
+  // Server ID for this OAuth flow
+  serverId: string;
+  // Redirect URI for OAuth callback (default: http://localhost:3001/oauth/{serverId}/callback)
   redirectUri?: string;
   // Local server port for capturing callback (default: 3001)
   callbackPort?: number;
@@ -24,11 +26,15 @@ export interface IRemoteOAuthConfig extends McpOAuthConfig {
  */
 export class RemoteOAuthProvider extends BaseMcpOAuthProvider {
   private defaultRedirectUri: string;
+  private serverId: string;
 
   constructor(config: IRemoteOAuthConfig) {
     super(config);
+    this.serverId = config.serverId;
     this.defaultRedirectUri = config.redirectUri ||
-      `http://localhost:${config.callbackPort || 3001}/oauth/callback`;
+      `http://localhost:${
+        config.callbackPort || 3000
+      }/oauth/${this.serverId}/callback`;
   }
 
   /**

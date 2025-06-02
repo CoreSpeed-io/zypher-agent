@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@cmd-johnson/oauth2-client@2": "2.0.0",
     "jsr:@openai/openai@^4.102.0": "4.102.0",
     "jsr:@panva/jose@^6.0.10": "6.0.11",
     "jsr:@panva/oauth4webapi@^3.5.1": "3.5.1",
@@ -15,6 +16,7 @@
     "jsr:@std/dotenv@~0.225.5": "0.225.5",
     "jsr:@std/encoding@*": "1.0.10",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
+    "jsr:@std/encoding@^1.0.5": "1.0.10",
     "jsr:@std/expect@^1.0.16": "1.0.16",
     "jsr:@std/fs@^1.0.17": "1.0.18",
     "jsr:@std/fs@^1.0.18": "1.0.18",
@@ -42,6 +44,12 @@
     "npm:zod@^3.25.42": "3.25.42"
   },
   "jsr": {
+    "@cmd-johnson/oauth2-client@2.0.0": {
+      "integrity": "e2f2fa6e657db2a39a55f7d19a9e331c317f3ddbb6068aa44947aa247a99125e",
+      "dependencies": [
+        "jsr:@std/encoding@^1.0.5"
+      ]
+    },
     "@openai/openai@4.102.0": {
       "integrity": "ea5201bc5c8a696d3a5139a9cd2252e3ab9b2b880769a9cd7f05602ea1a02acf",
       "dependencies": [
