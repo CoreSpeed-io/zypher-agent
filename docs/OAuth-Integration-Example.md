@@ -68,33 +68,42 @@ POST /oauth/atlassian/callback
 }
 ```
 
-**Response:**
+**Response (Success):**
 
 ```json
 {
   "success": true,
-  "message": "OAuth authentication completed successfully"
+  "message": "OAuth authentication completed and server registered successfully",
+  "registered": true
 }
 ```
 
-### 5. Retry Server Registration
-
-```bash
-POST /mcp/servers/atlassian/retry-oauth
-{
-  "url": "https://mcp.atlassian.com/v1/sse",
-  "enabled": true
-}
-```
-
-**Response:**
+**Response (OAuth Success, Registration Failed):**
 
 ```json
 {
   "success": true,
-  "message": "Server atlassian registered successfully with OAuth authentication"
+  "message": "OAuth authentication completed successfully, but server registration failed. You can retry registration manually.",
+  "registered": false,
+  "registrationError": "Connection timeout"
 }
 ```
+
+### 5. Server Registration Complete
+
+The server is now automatically registered and ready to use! No additional steps
+needed in most cases.
+
+## Benefits of Automatic Registration
+
+1. **Seamless Experience**: OAuth callback automatically completes server
+   registration
+2. **Error Resilience**: If registration fails, OAuth tokens are still saved for
+   manual retry
+3. **Single Request Flow**: No need for separate retry endpoints in typical
+   usage
+4. **Graceful Degradation**: Falls back to manual retry if automatic
+   registration fails
 
 ## CLI Flow
 
@@ -190,17 +199,25 @@ async function registerServer(serverId, config) {
     // Open OAuth popup with the provided URL
     const popup = window.open(result.authUrl, "oauth", "width=500,height=600");
 
-    // Wait for OAuth completion
-    await waitForOAuthCompletion(popup);
+    // Wait for OAuth completion - server registers automatically
+    const oauthResult = await waitForOAuthCompletion(popup);
 
-    // Retry registration
-    const retryResponse = await fetch(`/mcp/servers/${serverId}/retry-oauth`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-    });
-
-    return retryResponse.json();
+    if (oauthResult.registered) {
+      console.log("✅ Server registered successfully!");
+      return { success: true, message: "Server registered with OAuth" };
+    } else {
+      // OAuth succeeded but registration failed - retry manually
+      console.warn("OAuth succeeded but registration failed, retrying...");
+      const retryResponse = await fetch(
+        `/mcp/servers/${serverId}/retry-oauth`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(config),
+        },
+      );
+      return retryResponse.json();
+    }
   }
 
   return result;

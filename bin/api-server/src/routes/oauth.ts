@@ -120,6 +120,28 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
             }, '*');
             window.close();
         }
+        
+        // Auto-process callback if we have code and state
+        if ('${code}' && '${state}') {
+          fetch('/oauth/atlassian/callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              code: '${code}', 
+              state: '${state}' 
+            })
+          }).then(response => response.json())
+            .then(result => {
+              console.log('OAuth callback processed:', result);
+              if (result.success) {
+                document.querySelector('.container').innerHTML = 
+                  '<h1 class="success">✅ Server Registered Successfully!</h1>' +
+                  '<p>' + result.message + '</p>' +
+                  '<p><small>You can close this window.</small></p>';
+              }
+            })
+            .catch(error => console.error('OAuth callback error:', error));
+        }
     </script>
 </body>
 </html>`;
@@ -141,43 +163,47 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
 
         console.log(`Processing OAuth callback for server: ${serverId}`);
 
-        // Get server configuration from MCP server manager
-        let serverConfig: IMcpServerConfig;
-        try {
-          serverConfig = mcpServerManager.getServerConfig(serverId);
-        } catch {
-          return c.json({
-            success: false,
-            error: `Server not found: ${serverId}`,
-          }, 404);
-        }
+        // Try to get server configuration from saved OAuth data first
+        const dataDir = await getWorkspaceDataDir();
+        const oauthBaseDir = join(dataDir, "oauth", serverId);
+        const serverInfoPath = join(oauthBaseDir, "server_info.json");
 
-        // Extract server URL from config
         let serverUrl: string;
         try {
-          serverUrl = getServerUrlFromConfig(serverConfig);
-        } catch (error) {
-          return c.json({
-            success: false,
-            error: error instanceof Error
-              ? error.message
-              : "Invalid server configuration",
-          }, 400);
+          // Read server info from OAuth directory
+          const serverInfoText = await Deno.readTextFile(serverInfoPath);
+          const serverInfo = JSON.parse(serverInfoText);
+          serverUrl = serverInfo.serverUrl;
+          console.log(`Using server URL from OAuth data: ${serverUrl}`);
+        } catch {
+          // Fallback to MCP server manager (for backward compatibility)
+          let serverConfig: IMcpServerConfig;
+          try {
+            serverConfig = mcpServerManager.getServerConfig(serverId);
+            serverUrl = getServerUrlFromConfig(serverConfig);
+            console.log(
+              `Using server URL from MCP server manager: ${serverUrl}`,
+            );
+          } catch {
+            return c.json({
+              success: false,
+              error:
+                `Server not found: ${serverId}. OAuth data may be missing.`,
+            }, 404);
+          }
         }
 
         // Create OAuth provider for this server
-        const dataDir = await getWorkspaceDataDir();
-        const oauthBaseDir = join(dataDir, "oauth");
         await ensureDir(oauthBaseDir);
 
         const oauthProvider = new RemoteOAuthProvider({
           serverUrl,
           oauthBaseDir,
           clientName: "zypher-agent-api",
-          softwareVersion: "1.0.0",
         });
 
         // Process the callback
+        console.log("Processing OAuth callback with data:", callbackData);
         await oauthProvider.processCallback(callbackData);
 
         // Verify we have tokens
@@ -186,10 +212,47 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
           throw new Error("Failed to obtain access token");
         }
 
-        return c.json({
-          success: true,
-          message: "OAuth authentication completed successfully",
-        });
+        console.log(
+          "✅ OAuth callback processed successfully, tokens obtained",
+        );
+
+        // Automatically register the server now that we have valid OAuth tokens
+        try {
+          const serverInfoText = await Deno.readTextFile(serverInfoPath);
+          const serverInfo = JSON.parse(serverInfoText);
+
+          console.log(
+            `Attempting to register server ${serverId} with OAuth tokens...`,
+          );
+          await mcpServerManager.registerServer(
+            serverId,
+            serverInfo.serverConfig,
+          );
+
+          console.log(
+            `✅ Server ${serverId} registered successfully with OAuth authentication`,
+          );
+          return c.json({
+            success: true,
+            message:
+              "OAuth authentication completed and server registered successfully",
+            registered: true,
+          });
+        } catch (registrationError) {
+          console.warn(
+            `OAuth succeeded but server registration failed for ${serverId}:`,
+            registrationError,
+          );
+          return c.json({
+            success: true,
+            message:
+              "OAuth authentication completed successfully, but server registration failed. You can retry registration manually.",
+            registered: false,
+            registrationError: registrationError instanceof Error
+              ? registrationError.message
+              : "Unknown error",
+          });
+        }
       } catch (error) {
         console.error(
           `OAuth callback processing failed for ${c.req.param("serverId")}:`,
@@ -239,14 +302,13 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
 
       // Create OAuth provider for this server
       const dataDir = await getWorkspaceDataDir();
-      const oauthBaseDir = join(dataDir, "oauth");
+      const oauthBaseDir = join(dataDir, "oauth", serverId);
       await ensureDir(oauthBaseDir);
 
       const oauthProvider = new RemoteOAuthProvider({
         serverUrl,
         oauthBaseDir,
         clientName: "zypher-agent-api",
-        softwareVersion: "1.0.0",
       });
 
       await oauthProvider.clearAuthData();
@@ -303,14 +365,13 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
 
       // Create OAuth provider for this server
       const dataDir = await getWorkspaceDataDir();
-      const oauthBaseDir = join(dataDir, "oauth");
+      const oauthBaseDir = join(dataDir, "oauth", serverId);
       await ensureDir(oauthBaseDir);
 
       const oauthProvider = new RemoteOAuthProvider({
         serverUrl,
         oauthBaseDir,
         clientName: "zypher-agent-api",
-        softwareVersion: "1.0.0",
       });
 
       const tokens = await oauthProvider.tokens();

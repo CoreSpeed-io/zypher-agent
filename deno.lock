@@ -32,6 +32,8 @@
     "npm:@types/node@*": "22.15.15",
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.10": "4.7.10",
+    "npm:rolldown@*": "1.0.0-beta.10",
+    "npm:rolldown@^1.0.0-beta.7": "1.0.0-beta.9-commit.d91dfb5",
     "npm:rolldown@^1.0.0-beta.9-commit.d91dfb5": "1.0.0-beta.9-commit.d91dfb5",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
@@ -723,17 +725,38 @@
     "@oxc-project/runtime@0.71.0": {
       "integrity": "sha512-QwoF5WUXIGFQ+hSxWEib4U/aeLoiDN9JlP18MnBgx9LLPRDfn1iICtcow7Jgey6HLH4XFceWXQD5WBJ39dyJcw=="
     },
+    "@oxc-project/runtime@0.72.1": {
+      "integrity": "sha512-8nU/WPeJWF6QJrT8HtEEIojz26bXn677deDX8BDVpjcz97CVKORVAvFhE2/lfjnBYE0+aqmjFeD17YnJQpCyqg=="
+    },
     "@oxc-project/types@0.71.0": {
       "integrity": "sha512-5CwQ4MI+P4MQbjLWXgNurA+igGwu/opNetIE13LBs9+V93R64MLvDKOOLZIXSzEfovU3Zef3q3GjPnMTgJTn2w=="
+    },
+    "@oxc-project/types@0.72.1": {
+      "integrity": "sha512-qlvcDuCjISt4W7Izw0i5+GS3zCKJLXkoNDEc+E4ploage35SlZqxahpdKbHDX8uD70KDVNYWtupsHoNETy5kPQ=="
+    },
+    "@rolldown/binding-darwin-arm64@1.0.0-beta.10": {
+      "integrity": "sha512-5/5fKH9QVumapTMf04TivnFX4oIUnUbpmqw0IOYnOdlw89Dqz72VwZ6wx/zyU43i4QOOZC8vEwSDI1ZHhN50pQ==",
+      "os": ["darwin"],
+      "cpu": ["arm64"]
     },
     "@rolldown/binding-darwin-arm64@1.0.0-beta.9-commit.d91dfb5": {
       "integrity": "sha512-Mp0/gqiPdepHjjVm7e0yL1acWvI0rJVVFQEADSezvAjon9sjQ7CEg9JnXICD4B1YrPmN9qV/e7cQZCp87tTV4w==",
       "os": ["darwin"],
       "cpu": ["arm64"]
     },
+    "@rolldown/binding-darwin-x64@1.0.0-beta.10": {
+      "integrity": "sha512-98XVjpiU6pILAFav+Qief9J+TU3Gcqmd+zjz1KjwiDzkWgj/tJnX42cwZKYFtOyp12jmToav+rSPIS0RAL767w==",
+      "os": ["darwin"],
+      "cpu": ["x64"]
+    },
     "@rolldown/binding-darwin-x64@1.0.0-beta.9-commit.d91dfb5": {
       "integrity": "sha512-40re4rMNrsi57oavRzIOpRGmg3QRlW6Ea8Q3znaqgOuJuKVrrm2bIQInTfkZJG7a4/5YMX7T951d0+toGLTdCA==",
       "os": ["darwin"],
+      "cpu": ["x64"]
+    },
+    "@rolldown/binding-freebsd-x64@1.0.0-beta.10": {
+      "integrity": "sha512-dPUPU4EJBltaXEWGBru8sWZijRzyY2Kfyf0Hs90AdrT2rpobRR1oOUw3hKjpVl1hTMzxFRfZQxhvKW+xitvRnQ==",
+      "os": ["freebsd"],
       "cpu": ["x64"]
     },
     "@rolldown/binding-freebsd-x64@1.0.0-beta.9-commit.d91dfb5": {
@@ -741,13 +764,28 @@
       "os": ["freebsd"],
       "cpu": ["x64"]
     },
+    "@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.10": {
+      "integrity": "sha512-xoaHj4SYbEu3XnmfoVtKT26AB0T2ZGFP16KZozJS7dM7D8FYjezp0eweHZafjrv6FmkbqzyoGpxr75/EV395Sw==",
+      "os": ["linux"],
+      "cpu": ["arm"]
+    },
     "@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.9-commit.d91dfb5": {
       "integrity": "sha512-sntsPaPgrECpBB/+2xrQzVUt0r493TMPI+4kWRMhvMsmrxOqH1Ep5lM0Wua/ZdbfZNwm1aVa5pcESQfNfM4Fhw==",
       "os": ["linux"],
       "cpu": ["arm"]
     },
+    "@rolldown/binding-linux-arm64-gnu@1.0.0-beta.10": {
+      "integrity": "sha512-yVtGQ8kNjfC7ex0M4XRJz3wPF4aevoX52B9oIw/7l/gBQQcFxwvLnWtUE52XD/LPII2OncFsoQ2cyh/BZi4kZA==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
+    },
     "@rolldown/binding-linux-arm64-gnu@1.0.0-beta.9-commit.d91dfb5": {
       "integrity": "sha512-5clBW/I+er9F2uM1OFjJFWX86y7Lcy0M+NqsN4s3o07W+8467Zk8oQa4B45vdaXoNUF/yqIAgKkA/OEdQDxZqA==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
+    },
+    "@rolldown/binding-linux-arm64-musl@1.0.0-beta.10": {
+      "integrity": "sha512-uvmzUIYmIlHTn9pboT3iM+Az5TxO2CX/OKtXFPqb//YhM917Yij4LYX9HlSqEmKWJivDr0OVGeXsFOhF0L+mNg==",
       "os": ["linux"],
       "cpu": ["arm64"]
     },
@@ -756,8 +794,18 @@
       "os": ["linux"],
       "cpu": ["arm64"]
     },
+    "@rolldown/binding-linux-x64-gnu@1.0.0-beta.10": {
+      "integrity": "sha512-BtfoQK4lWJmARDQk4m025ODfaiHmokpJtTkV3lblLOg6ZuBp/NTuYmoxwY+qbDm3u0x1mU4Iq1Pp29ulv9wRGQ==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
     "@rolldown/binding-linux-x64-gnu@1.0.0-beta.9-commit.d91dfb5": {
       "integrity": "sha512-gxD0/xhU4Py47IH3bKZbWtvB99tMkUPGPJFRfSc5UB9Osoje0l0j1PPbxpUtXIELurYCqwLBKXIMTQGifox1BQ==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
+    "@rolldown/binding-linux-x64-musl@1.0.0-beta.10": {
+      "integrity": "sha512-UxXIgyumFb9D/KMsB6wIOK+zqkpf0d3Seh2UcPNVlCWchs09N7a9ZrZ8cjv40/zmVI/5HfzZcbWIatW+8Ntb5w==",
       "os": ["linux"],
       "cpu": ["x64"]
     },
@@ -766,6 +814,13 @@
       "os": ["linux"],
       "cpu": ["x64"]
     },
+    "@rolldown/binding-wasm32-wasi@1.0.0-beta.10": {
+      "integrity": "sha512-EUmJIQDRZaN99VpI3q4SuMHX+BXFbJMutIKD2tf3uqcRcNbICzRqSZnM1Wc99vVpu0RkYNnr85Pi1fb8dlc+kA==",
+      "dependencies": [
+        "@napi-rs/wasm-runtime"
+      ],
+      "cpu": ["wasm32"]
+    },
     "@rolldown/binding-wasm32-wasi@1.0.0-beta.9-commit.d91dfb5": {
       "integrity": "sha512-8Cx+ucbd8n2dIr21FqBh6rUvTVL0uTgEtKR7l+MUZ5BgY4dFh1e4mPVX8oqmoYwOxBiXrsD2JIOCz4AyKLKxWA==",
       "dependencies": [
@@ -773,20 +828,38 @@
       ],
       "cpu": ["wasm32"]
     },
+    "@rolldown/binding-win32-arm64-msvc@1.0.0-beta.10": {
+      "integrity": "sha512-K9SY7AQgiVT2fn+RLdADJmPkO4X0tdVX6wCQas6Eyslk5eLUccgA2j6cUhlUsR0JDBQ7+pNrSpsj6A+BtLamHw==",
+      "os": ["win32"],
+      "cpu": ["arm64"]
+    },
     "@rolldown/binding-win32-arm64-msvc@1.0.0-beta.9-commit.d91dfb5": {
       "integrity": "sha512-Vhq5vikrVDxAa75fxsyqj0c0Y/uti/TwshXI71Xb8IeUQJOBnmLUsn5dgYf5ljpYYkNa0z9BPAvUDIDMmyDi+w==",
       "os": ["win32"],
       "cpu": ["arm64"]
+    },
+    "@rolldown/binding-win32-ia32-msvc@1.0.0-beta.10": {
+      "integrity": "sha512-eIDWUhu56DZpgLv+vzYppU96fAdewPoXeUfK2bUl/3cuzb/isfa3PBDD3ITNcCSD9Yx7fkxfzVWtd3WAwtphJA==",
+      "os": ["win32"],
+      "cpu": ["ia32"]
     },
     "@rolldown/binding-win32-ia32-msvc@1.0.0-beta.9-commit.d91dfb5": {
       "integrity": "sha512-lN7RIg9Iugn08zP2aZN9y/MIdG8iOOCE93M1UrFlrxMTqPf8X+fDzmR/OKhTSd1A2pYNipZHjyTcb5H8kyQSow==",
       "os": ["win32"],
       "cpu": ["ia32"]
     },
+    "@rolldown/binding-win32-x64-msvc@1.0.0-beta.10": {
+      "integrity": "sha512-yGctlHu7bXL1HfsI/ADr4sFZ9X2DokYI2YjIQnEMqwMmiYBVTmIadkWdNZYfS3LwNxioPDLbuu8PsTC5djSFAQ==",
+      "os": ["win32"],
+      "cpu": ["x64"]
+    },
     "@rolldown/binding-win32-x64-msvc@1.0.0-beta.9-commit.d91dfb5": {
       "integrity": "sha512-7/7cLIn48Y+EpQ4CePvf8reFl63F15yPUlg4ZAhl+RXJIfydkdak1WD8Ir3AwAO+bJBXzrfNL+XQbxm0mcQZmw==",
       "os": ["win32"],
       "cpu": ["x64"]
+    },
+    "@rolldown/pluginutils@1.0.0-beta.10": {
+      "integrity": "sha512-FeISF1RUTod5Kvt3yUXByrAPk5EfDWo/1BPv1ARBZ07weqx888SziPuWS6HUJU0YroGyQURjdIrkjWJP2zBFDQ=="
     },
     "@rolldown/pluginutils@1.0.0-beta.9-commit.d91dfb5": {
       "integrity": "sha512-8sExkWRK+zVybw3+2/kBkYBFeLnEUWz1fT7BLHplpzmtqkOfTbAQ9gkt4pzwGIIZmg4Qn5US5ACjUBenrhezwQ=="
@@ -1599,27 +1672,51 @@
         "unpipe"
       ]
     },
-    "rolldown@1.0.0-beta.9-commit.d91dfb5": {
-      "integrity": "sha512-FHkj6gGEiEgmAXQchglofvUUdwj2Oiw603Rs+zgFAnn9Cb7T7z3fiaEc0DbN3ja4wYkW6sF2rzMEtC1V4BGx/g==",
+    "rolldown@1.0.0-beta.10": {
+      "integrity": "sha512-LkrI/70+Ky6KLSO26+GeYGSXggrPVSPvvXmpxvpRnTZeYrgtyfKYYZT3ZS95UmsCugPnDDLj1w8EQkiDw9Wvnw==",
       "dependencies": [
-        "@oxc-project/runtime",
-        "@oxc-project/types",
-        "@rolldown/pluginutils",
+        "@oxc-project/runtime@0.72.1",
+        "@oxc-project/types@0.72.1",
+        "@rolldown/pluginutils@1.0.0-beta.10",
         "ansis"
       ],
       "optionalDependencies": [
-        "@rolldown/binding-darwin-arm64",
-        "@rolldown/binding-darwin-x64",
-        "@rolldown/binding-freebsd-x64",
-        "@rolldown/binding-linux-arm-gnueabihf",
-        "@rolldown/binding-linux-arm64-gnu",
-        "@rolldown/binding-linux-arm64-musl",
-        "@rolldown/binding-linux-x64-gnu",
-        "@rolldown/binding-linux-x64-musl",
-        "@rolldown/binding-wasm32-wasi",
-        "@rolldown/binding-win32-arm64-msvc",
-        "@rolldown/binding-win32-ia32-msvc",
-        "@rolldown/binding-win32-x64-msvc"
+        "@rolldown/binding-darwin-arm64@1.0.0-beta.10",
+        "@rolldown/binding-darwin-x64@1.0.0-beta.10",
+        "@rolldown/binding-freebsd-x64@1.0.0-beta.10",
+        "@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.10",
+        "@rolldown/binding-linux-arm64-gnu@1.0.0-beta.10",
+        "@rolldown/binding-linux-arm64-musl@1.0.0-beta.10",
+        "@rolldown/binding-linux-x64-gnu@1.0.0-beta.10",
+        "@rolldown/binding-linux-x64-musl@1.0.0-beta.10",
+        "@rolldown/binding-wasm32-wasi@1.0.0-beta.10",
+        "@rolldown/binding-win32-arm64-msvc@1.0.0-beta.10",
+        "@rolldown/binding-win32-ia32-msvc@1.0.0-beta.10",
+        "@rolldown/binding-win32-x64-msvc@1.0.0-beta.10"
+      ],
+      "bin": true
+    },
+    "rolldown@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-FHkj6gGEiEgmAXQchglofvUUdwj2Oiw603Rs+zgFAnn9Cb7T7z3fiaEc0DbN3ja4wYkW6sF2rzMEtC1V4BGx/g==",
+      "dependencies": [
+        "@oxc-project/runtime@0.71.0",
+        "@oxc-project/types@0.71.0",
+        "@rolldown/pluginutils@1.0.0-beta.9-commit.d91dfb5",
+        "ansis"
+      ],
+      "optionalDependencies": [
+        "@rolldown/binding-darwin-arm64@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-darwin-x64@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-freebsd-x64@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-linux-arm64-gnu@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-linux-arm64-musl@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-linux-x64-gnu@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-linux-x64-musl@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-wasm32-wasi@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-win32-arm64-msvc@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-win32-ia32-msvc@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-win32-x64-msvc@1.0.0-beta.9-commit.d91dfb5"
       ],
       "bin": true
     },
@@ -1782,6 +1879,10 @@
     "zod@3.25.42": {
       "integrity": "sha512-PcALTLskaucbeHc41tU/xfjfhcz8z0GdhhDcSgrCTmSazUuqnYqiXO63M0QUBVwpBlsLsNVn5qHSC5Dw3KZvaQ=="
     }
+  },
+  "remote": {
+    "https://esm.sh/oauth4webapi@3.5.1": "126b482ed5019378165d0b497ed3ab7e7f8620e21d1d84b7ecdd6f81d7476b39",
+    "https://esm.sh/oauth4webapi@3.5.1/denonext/oauth4webapi.mjs": "f629ca907e21bb408b4c5300dc218b30ca6fc7d584c9f32721a4996f4bb218bb"
   },
   "workspace": {
     "dependencies": [

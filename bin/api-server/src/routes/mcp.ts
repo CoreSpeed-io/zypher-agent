@@ -65,31 +65,49 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
                 serverUrl: string;
               };
               const serverUrl = details.serverUrl;
+              const serverConfig = servers[details.serverId];
 
               // Create OAuth provider for this server
               const dataDir = await getWorkspaceDataDir();
-              const oauthBaseDir = join(dataDir, "oauth");
+              const oauthBaseDir = join(dataDir, "oauth", details.serverId);
               await ensureDir(oauthBaseDir);
 
               const oauthProvider = new RemoteOAuthProvider({
                 serverUrl,
                 oauthBaseDir,
                 clientName: "zypher-agent-api",
-                softwareVersion: "1.0.0",
-                callbackPort: 3001,
-                scopes: [],
+                callbackPort: 3000,
               });
 
-              // Generate authorization URL with PKCE
-              const authInfo = await oauthProvider.generateAuthUrl();
+              // Generate authorization URL with PKCE and save data
+              const authInfo = await oauthProvider.generateAuthRequest();
+
+              // Save server configuration for callback processing
+              const serverInfoPath = join(oauthBaseDir, "server_info.json");
+              await Deno.writeTextFile(
+                serverInfoPath,
+                JSON.stringify(
+                  {
+                    serverId: details.serverId,
+                    serverUrl: details.serverUrl,
+                    serverConfig: serverConfig,
+                  },
+                  null,
+                  2,
+                ),
+              );
+
+              // Read the saved state to include in response
+              const statePath = join(oauthBaseDir, "state");
+              const savedState = await Deno.readTextFile(statePath);
 
               return c.json({
                 success: false,
                 requiresOAuth: true,
                 code: error.code,
                 message: error.message,
-                authUrl: authInfo.url,
-                state: authInfo.state,
+                authUrl: authInfo.uri,
+                state: savedState,
                 details: error.details,
               }, 202); // 202 Accepted - additional action required
             } catch (oauthError) {

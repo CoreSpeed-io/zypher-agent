@@ -162,6 +162,23 @@ app.route("/files", createFilesRouter(storageService));
 app.route("/mcp", createMcpRouter(mcpServerManager));
 app.route("/oauth", createOAuthRouter(mcpServerManager));
 
+// Catch-all route for OAuth callbacks with different prefixes (e.g., /mcp-atlassian/oauth/callback)
+app.get("*/oauth/callback", (c) => {
+  console.log(
+    `Redirecting OAuth callback from ${c.req.url} to /oauth/callback`,
+  );
+
+  // Get query parameters from original URL
+  const url = new URL(c.req.url);
+  const searchParams = url.searchParams.toString();
+
+  // Redirect to standard OAuth callback route
+  const redirectUrl = `/oauth/callback${
+    searchParams ? `?${searchParams}` : ""
+  }`;
+  return c.redirect(redirectUrl);
+});
+
 // Middleware (CORS)
 // This has to be placed at the very end, see: https://hono.dev/docs/helpers/websocket
 app.use("*", cors());

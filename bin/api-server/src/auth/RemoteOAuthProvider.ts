@@ -8,10 +8,10 @@
 import type { OAuthClientMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 import {
   BaseMcpOAuthProvider,
-  type IBaseMcpOAuthConfig,
+  type McpOAuthConfig,
 } from "../../../shared/auth/BaseMcpOAuthProvider.ts";
 
-export interface IRemoteOAuthConfig extends IBaseMcpOAuthConfig {
+export interface IRemoteOAuthConfig extends McpOAuthConfig {
   // Redirect URI for OAuth callback (default: http://localhost:3001/oauth/callback)
   redirectUri?: string;
   // Local server port for capturing callback (default: 3001)
@@ -47,21 +47,7 @@ export class RemoteOAuthProvider extends BaseMcpOAuthProvider {
       token_endpoint_auth_method: "none", // Public client (PKCE)
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      client_name: this.clientName,
-      client_uri: this.clientUri,
-      software_id: this.softwareId,
-      software_version: this.softwareVersion,
+      client_name: this.config.clientName,
     };
-  }
-
-  /**
-   * Override to provide API server-specific client ID
-   */
-  protected override async getOrCreateClientId(): Promise<string> {
-    const existingClientInfo = await this.clientInformation();
-    if (existingClientInfo?.client_id) {
-      return existingClientInfo.client_id;
-    }
-    return "zypher-agent-api-pkce-client";
   }
 }
