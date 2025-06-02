@@ -1,6 +1,6 @@
 // The jsr specifier here is a workaround for deno rolldown plugin
 import "jsr:@std/dotenv/load";
-import { type StreamHandler, ZypherAgent } from "../src/ZypherAgent.ts";
+import { type StreamHandler, ZypherAgent } from "../../src/ZypherAgent.ts";
 import {
   CopyFileTool,
   DeleteFileTool,
@@ -12,14 +12,21 @@ import {
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
-} from "../src/tools/mod.ts";
+} from "../../src/tools/mod.ts";
 import { parseArgs } from "@std/cli";
 import readline from "node:readline";
 import { stdin as input, stdout as output } from "node:process";
-import { formatError } from "../src/error.ts";
+import { formatError } from "../../src/error.ts";
 import chalk from "chalk";
-import { McpServerManager } from "../src/mcp/McpServerManager.ts";
-import { printMessage } from "../src/message.ts";
+import {
+  McpServerManager,
+  type OAuthProviderFactory,
+} from "../../src/mcp/McpServerManager.ts";
+import { printMessage } from "../../src/message.ts";
+import { getWorkspaceDataDir } from "../../src/utils/mod.ts";
+import { join } from "@std/path";
+import { ensureDir } from "@std/fs";
+import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 
 interface CliOptions {
   workspace?: string;
@@ -52,7 +59,43 @@ const options: CliOptions = {
 const rl = readline.createInterface({ input, output });
 const textEncoder = new TextEncoder();
 
-const mcpServerManager = new McpServerManager();
+/**
+ * OAuth provider factory for CLI
+ * Creates RemoteOAuthProvider instances for remote MCP servers
+ */
+const createOAuthProviderFactory = (): OAuthProviderFactory => {
+  return async (
+    serverId: string,
+    serverUrl: string,
+  ): Promise<OAuthClientProvider | undefined> => {
+    try {
+      console.log(`Setting up OAuth for CLI server: ${serverId}`);
+
+      // Import RemoteOAuthProvider from CLI auth directory
+      const { RemoteOAuthProvider } = await import(
+        "./auth/RemoteOAuthProvider.ts"
+      );
+
+      // Get OAuth storage directory
+      const dataDir = await getWorkspaceDataDir();
+      const oauthBaseDir = join(dataDir, "oauth");
+      await ensureDir(oauthBaseDir);
+
+      return new RemoteOAuthProvider({
+        serverUrl,
+        oauthBaseDir,
+        clientName: "zypher-agent-cli",
+        softwareVersion: "1.0.0",
+        callbackPort: 8080,
+      });
+    } catch (error) {
+      console.error(`Failed to create OAuth provider for ${serverId}:`, error);
+      return undefined;
+    }
+  };
+};
+
+const mcpServerManager = new McpServerManager(createOAuthProviderFactory());
 
 function prompt(question: string): Promise<string> {
   return new Promise((resolve) => {

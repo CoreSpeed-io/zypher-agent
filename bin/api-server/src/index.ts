@@ -24,10 +24,11 @@ import process from "node:process";
 import { createMcpRouter } from "./routes/mcp.ts";
 import { createAgentRouter } from "./routes/agent.ts";
 import { createFilesRouter } from "./routes/files.ts";
+import { createOAuthRouter } from "./routes/oauth.ts";
 import { errorHandler } from "./error.ts";
 import { parsePort } from "./utils.ts";
 import { S3StorageService } from "../../../src/storage/S3StorageService.ts";
-import { StorageService } from "../../../src/storage/StorageService.ts";
+import type { StorageService } from "../../../src/storage/StorageService.ts";
 
 interface ServerOptions {
   port: string;
@@ -159,6 +160,7 @@ app.get("/health", (c) => {
 app.route("/agent", createAgentRouter(agent));
 app.route("/files", createFilesRouter(storageService));
 app.route("/mcp", createMcpRouter(mcpServerManager));
+app.route("/oauth", createOAuthRouter(mcpServerManager));
 
 // Middleware (CORS)
 // This has to be placed at the very end, see: https://hono.dev/docs/helpers/websocket

@@ -1,13 +1,20 @@
 {
   "tasks": {
-    "start": "deno run -A bin/cli.ts",
+    "start": "deno run -A bin/cli/cli.ts",
     "start:api": "deno run -A bin/api-server/src/index.ts",
     "dev:api": "deno run --watch -A bin/api-server/src/index.ts",
-    "build:cli": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
+    "build:cli": "deno compile --allow-all --frozen=true --output dist/cli bin/cli/cli.ts",
     "build:api": "deno compile --allow-all --frozen=true --output dist/api-server bin/api-server/src/index.ts",
     "bundle:api": "deno run -A npm:rolldown -c rolldown.config.mts",
-    "test": "deno test -A --trace-leaks",
-    "checkall": "deno fmt && deno lint && deno check ."
+    "test": "deno test -A",
+    "test:watch": "deno test -A --watch",
+    "checkall": "deno fmt && deno lint && deno check .",
+    "fmt": "deno fmt",
+    "lint": "deno lint",
+    "clean": "rm -rf dist/"
+  },
+  "compilerOptions": {
+    "verbatimModuleSyntax": true
   },
   "imports": {
     "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.821.0",
@@ -35,5 +42,6 @@
     "zod": "npm:zod@^3.25.42",
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.5"
   },
-  "nodeModulesDir": "auto"
+  "nodeModulesDir": "auto",
+  "exclude": ["dist/", "node_modules/"]
 }

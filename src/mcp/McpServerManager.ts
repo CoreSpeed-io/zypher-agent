@@ -11,11 +11,11 @@ import {
 import { getWorkspaceDataDir } from "../utils/mod.ts";
 import { join } from "@std/path";
 import { formatError } from "../error.ts";
-import { ensureDir } from "@std/fs";
+import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 
 export class McpServerError extends Error {
   constructor(
-    public code: "already_exists",
+    public code: "already_exists" | "oauth_required" | "auth_failed",
     message: string,
     public details?: unknown,
   ) {
@@ -31,8 +31,19 @@ const McpConfigSchema = z.object({
 type IMcpConfig = z.infer<typeof McpConfigSchema>;
 
 /**
+ * Optional OAuth provider factory function type
+ * Applications can provide this to create OAuth providers for remote servers
+ */
+export type OAuthProviderFactory = (
+  serverId: string,
+  serverUrl: string,
+) => Promise<OAuthClientProvider | undefined>;
+
+/**
  * McpServerManager is a class that manages MCP (Model Context Protocol) servers and their tools.
  * It handles server registration, tool management, and configuration persistence.
+ *
+ * OAuth authentication is handled by the application layer via the optional oauthProviderFactory.
  */
 export class McpServerManager {
   #config: IMcpConfig | null = null;
@@ -44,28 +55,25 @@ export class McpServerManager {
   #configFile = "mcp.json";
   #dataDir: string | null = null;
   #mcpRegistryBaseUrl: string | null = null;
+  #oauthProviderFactory?: OAuthProviderFactory;
+
+  constructor(oauthProviderFactory?: OAuthProviderFactory) {
+    this.#oauthProviderFactory = oauthProviderFactory;
+  }
 
   async #createMcpClient(
     serverId: string,
     serverConfig: IMcpServerConfig,
   ): Promise<McpClient> {
-    let oauthProvider:
-      | import("./McpOAuthProvider.ts").McpOAuthProvider
-      | undefined = undefined;
+    let oauthProvider: OAuthClientProvider | undefined = undefined;
     const isRemoteServer = "url" in serverConfig;
 
-    if (isRemoteServer && serverConfig.url) {
-      // Dynamic imports
-      const { McpOAuthProvider } = await import("./McpOAuthProvider.ts");
-      const { findAvailablePort } = await import("./utils.ts");
-      const callbackPort = await findAvailablePort(3001);
-      oauthProvider = new McpOAuthProvider({
-        serverUrl: serverConfig.url,
-        callbackPort,
-        oauthBaseDir: await this.getServerStoragePath(),
-        clientName: "zypher-agent",
-        softwareVersion: "1.0.0",
-      });
+    if (isRemoteServer && serverConfig.url && this.#oauthProviderFactory) {
+      console.log(`Creating OAuth provider for remote server ${serverId}`);
+      oauthProvider = await this.#oauthProviderFactory(
+        serverId,
+        serverConfig.url,
+      );
     }
 
     return new McpClient({
@@ -113,22 +121,6 @@ export class McpServerManager {
     }
     return join(this.#dataDir, filename);
   };
-
-  /**
-   * Gets the storage path for a specific server's OAuth data
-   * @param serverId The ID of the server
-   * @returns The path to the server's OAuth storage directory
-   */
-  async getServerStoragePath(): Promise<string> {
-    if (!this.#dataDir) {
-      throw new Error("Data directory not initialized");
-    }
-    const oauthBasePath = join(this.#dataDir, "oauth");
-
-    // Ensure the base directory exists
-    await ensureDir(oauthBasePath);
-    return oauthBasePath;
-  }
 
   /**
    * Loads and validates the MCP configuration from mcp.json
@@ -249,6 +241,40 @@ export class McpServerManager {
   };
 
   /**
+   * Check if an error is an authentication-related error
+   */
+  #isAuthenticationError = (error: unknown): boolean => {
+    const errorStr = formatError(error).toLowerCase();
+    return errorStr.includes("401") ||
+      errorStr.includes("unauthorized") ||
+      errorStr.includes("authentication") ||
+      errorStr.includes("non-200 status code (401)");
+  };
+
+  /**
+   * Check if a server supports OAuth by looking for OAuth metadata
+   */
+  #checkOAuthSupport = async (serverUrl: string): Promise<boolean> => {
+    try {
+      const url = new URL(serverUrl);
+      const metadataUrl = new URL(
+        `${url.origin}/.well-known/oauth-authorization-server`,
+      );
+
+      console.log(`Checking OAuth support at: ${metadataUrl.href}`);
+
+      const response = await fetch(metadataUrl.href, {
+        method: "HEAD", // Just check if the endpoint exists
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.log(`OAuth metadata check failed: ${formatError(error)}`);
+      return false;
+    }
+  };
+
+  /**
    * Registers a new MCP server and its tools
    * @param id Unique identifier for the server
    * @param config Server configuration
@@ -274,10 +300,51 @@ export class McpServerManager {
         enabled: config.enabled ?? true,
       };
       this.#serverToolsMap.set(server, []);
-      await this.#registerServerTools(server);
+
+      // Try to register server tools - this is where OAuth errors occur
+      try {
+        await this.#registerServerTools(server);
+      } catch (error) {
+        // Check if this is an authentication error for SSE servers
+        if (this.#isAuthenticationError(error) && "url" in config) {
+          // Remove the partially registered server
+          this.#serverToolsMap.delete(server);
+          await server.client.cleanup();
+
+          // Check if server supports OAuth
+          const oauthSupported = await this.#checkOAuthSupport(config.url);
+          if (oauthSupported) {
+            throw new McpServerError(
+              "oauth_required",
+              `Server ${id} requires OAuth authentication. Please complete OAuth flow first.`,
+              {
+                serverId: id,
+                serverUrl: config.url,
+                requiresOAuth: true,
+              },
+            );
+          }
+
+          throw new McpServerError(
+            "auth_failed",
+            `Server ${id} authentication failed and OAuth is not supported.`,
+            { serverId: id, serverUrl: config.url },
+          );
+        }
+        // Re-throw if not an auth error
+        throw error;
+      }
+
       this.#config.mcpServers[id] = config;
       await this.#saveConfig();
     } catch (error) {
+      // Don't log OAuth-related errors as generic failures
+      if (
+        error instanceof McpServerError &&
+        (error.code === "oauth_required" || error.code === "auth_failed")
+      ) {
+        throw error;
+      }
       console.error(`Failed to register server ${id}:`, formatError(error));
       throw new Error(`Failed to register server ${id}: ${formatError(error)}`);
     }
@@ -687,31 +754,30 @@ export class McpServerManager {
   }
 
   /**
-   * Clears all stored OAuth authentication data for all servers.
+   * Retry server registration after OAuth authentication is completed
+   * This method attempts to register a server that previously failed due to OAuth requirements
+   * @param id Unique identifier for the server
+   * @param config Server configuration
+   * @throws Error if server registration fails
    */
-  async clearAllOAuthData(): Promise<void> {
-    if (!this.#dataDir) {
-      await this.init();
-      if (!this.#dataDir) {
-        console.error(
-          "Failed to initialize data directory. Cannot clear OAuth data.",
-        );
-        throw new Error("Data directory could not be initialized.");
-      }
+  async retryServerRegistrationWithOAuth(
+    id: string,
+    config: IMcpServerConfig,
+  ): Promise<void> {
+    console.log(`Retrying server registration with OAuth for server: ${id}`);
+
+    // First check if we already have this server registered
+    const existingServer = this.#getServer(id);
+    if (existingServer) {
+      console.log(`Server ${id} already exists, updating configuration...`);
+      await this.updateServerConfig(id, config);
+      return;
     }
-    const oauthPath = join(this.#dataDir, "oauth");
-    try {
-      await Deno.remove(oauthPath, { recursive: true });
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) {
-        console.error(
-          `Error removing OAuth directory ${oauthPath}:`,
-          formatError(error),
-        );
-        throw new Error(
-          `Failed to remove OAuth directory: ${formatError(error)}`,
-        );
-      }
-    }
+
+    // Attempt fresh registration - OAuth tokens should now be available
+    await this.registerServer(id, config);
+    console.log(
+      `Successfully registered server ${id} with OAuth authentication`,
+    );
   }
 }

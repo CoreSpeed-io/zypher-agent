@@ -1,0 +1,67 @@
+/**
+ * Remote OAuth Provider for API Server
+ *
+ * Simple configuration-only implementation for API server environments.
+ * All PKCE + Authorization Code logic is handled by BaseMcpOAuthProvider.
+ */
+
+import type { OAuthClientMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
+import {
+  BaseMcpOAuthProvider,
+  type IBaseMcpOAuthConfig,
+} from "../../../shared/auth/BaseMcpOAuthProvider.ts";
+
+export interface IRemoteOAuthConfig extends IBaseMcpOAuthConfig {
+  // Redirect URI for OAuth callback (default: http://localhost:3001/oauth/callback)
+  redirectUri?: string;
+  // Local server port for capturing callback (default: 3001)
+  callbackPort?: number;
+}
+
+/**
+ * Remote OAuth provider for API server applications
+ * Uses Authorization Code + PKCE flow implemented in base class
+ */
+export class RemoteOAuthProvider extends BaseMcpOAuthProvider {
+  private defaultRedirectUri: string;
+
+  constructor(config: IRemoteOAuthConfig) {
+    super(config);
+    this.defaultRedirectUri = config.redirectUri ||
+      `http://localhost:${config.callbackPort || 3001}/oauth/callback`;
+  }
+
+  /**
+   * The URL to redirect the user agent to after authorization
+   */
+  get redirectUrl(): string {
+    return this.defaultRedirectUri;
+  }
+
+  /**
+   * Metadata about this OAuth client for dynamic registration
+   */
+  get clientMetadata(): OAuthClientMetadata {
+    return {
+      redirect_uris: [this.redirectUrl],
+      token_endpoint_auth_method: "none", // Public client (PKCE)
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      client_name: this.clientName,
+      client_uri: this.clientUri,
+      software_id: this.softwareId,
+      software_version: this.softwareVersion,
+    };
+  }
+
+  /**
+   * Override to provide API server-specific client ID
+   */
+  protected override async getOrCreateClientId(): Promise<string> {
+    const existingClientInfo = await this.clientInformation();
+    if (existingClientInfo?.client_id) {
+      return existingClientInfo.client_id;
+    }
+    return "zypher-agent-api-pkce-client";
+  }
+}
