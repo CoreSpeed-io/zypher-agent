@@ -47,10 +47,6 @@ export interface IMcpClientConfig {
   serverName?: string;
   /** Optional OAuth provider for authentication */
   oAuthProvider?: OAuthClientProvider;
-  /** Optional setting to retry authentication on failure */
-  retryAuthentication?: boolean;
-  /** Max number of authentication retries */
-  maxAuthRetries?: number;
 }
 
 export enum ConnectionMode {
@@ -68,12 +64,9 @@ export class McpClient {
     name: string;
     version: string;
     serverName: string;
-    retryAuthentication: boolean;
-    maxAuthRetries: number;
   };
   #authProvider?: OAuthClientProvider;
   #serverUrl?: URL;
-  #authRetryCount = 0;
 
   static #oauthInProgress = new Map<string, Promise<void>>();
 
@@ -86,8 +79,6 @@ export class McpClient {
       name: config.name ?? "mcp-client",
       version: config.version ?? "1.0.0",
       serverName: config.serverName ?? "default-server",
-      retryAuthentication: config.retryAuthentication ?? true,
-      maxAuthRetries: config.maxAuthRetries ?? 3,
       ...config,
     };
 
@@ -118,10 +109,8 @@ export class McpClient {
         throw new Error("Client is not initialized");
       }
 
-      this.#authRetryCount = 0; // Reset auth retry count for new connection attempt
-
-      // Try to connect with authentication retries if needed
-      await this.#connectWithRetry(mode, config);
+      // Connect to the server
+      await this.#connect(mode, config);
 
       // Once connected, discover tools
       console.log("Connected to MCP server, discovering tools...");
@@ -155,11 +144,11 @@ export class McpClient {
   }
 
   /**
-   * Attempts to connect to the MCP server with enhanced error handling and authentication verification
+   * Connects to the MCP server
    * @param mode Connection mode (CLI or SSE)
    * @param config Server configuration
    */
-  #connectWithRetry = async (
+  #connect = async (
     mode: ConnectionMode,
     serverConfig: IMcpServerConfig,
   ): Promise<void> => {
@@ -167,171 +156,73 @@ export class McpClient {
       throw new Error("Client not initialized");
     }
 
-    const maxRetries = this.#config.retryAuthentication
-      ? this.#config.maxAuthRetries
-      : 1;
-    let lastError: Error | null = null;
+    this.#transport = this.#buildTransport(mode, serverConfig);
+    console.log(`[${this.#config.serverName}] Connecting to MCP server...`);
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        this.#transport = this.#buildTransport(mode, serverConfig); // Build transport for each attempt
-        console.log(
-          `[${this.#config.serverName}] Connection attempt ${attempt}/${maxRetries} to MCP server...`,
-        );
+    if (mode === ConnectionMode.SSE && this.#authProvider) {
+      console.log(
+        `[${this.#config.serverName}] Checking OAuth token status before connection...`,
+      );
+      let tokens = await this.#authProvider.tokens();
 
-        if (mode === ConnectionMode.SSE && this.#authProvider) {
-          console.log(
-            `[${this.#config.serverName}] Checking OAuth token status before connection...`,
+      if (!tokens || !tokens.access_token) {
+        if (!this.#serverUrl) {
+          throw new Error(
+            "serverUrl is not set in McpClient, cannot proceed with OAuth.",
           );
-          let tokens = await this.#authProvider.tokens();
-
-          if (!tokens || !tokens.access_token) {
-            if (!this.#serverUrl) {
-              throw new Error(
-                "serverUrl is not set in McpClient, cannot proceed with OAuth.",
-              );
-            }
-            const serverUrlString = this.#serverUrl.href;
-            console.log(
-              `[${this.#config.serverName}] No valid tokens for ${serverUrlString}. Attempting to fetch/await credentials.`,
-            );
-
-            let fetchPromise = McpClient.#oauthInProgress.get(serverUrlString);
-
-            if (fetchPromise) {
-              console.log(
-                `[${this.#config.serverName}] Authentication for ${serverUrlString} already in progress, awaiting...`,
-              );
-              try {
-                await fetchPromise;
-                console.log(
-                  `[${this.#config.serverName}] Finished awaiting in-progress authentication for ${serverUrlString}.`,
-                );
-              } catch (e) {
-                console.error(
-                  `[${this.#config.serverName}] Error awaiting in-progress authentication for ${serverUrlString}:`,
-                  e,
-                );
-                // Fall through to try fetching fresh tokens, or let the outer loop handle failure
-              }
-            } else {
-              console.log(
-                `[${this.#config.serverName}] Initiating new authentication for ${serverUrlString}.`,
-              );
-              fetchPromise = this.forceFetchCredentials().catch((err) => {
-                // Catch error from forceFetchCredentials to ensure finally block runs and to prevent unhandled rejections
-                console.error(
-                  `[${this.#config.serverName}] Error during forceFetchCredentials for ${serverUrlString}:`,
-                  err,
-                );
-                throw err; // Re-throw to be caught by the outer try-catch of the connectWithRetry loop
-              }).finally(() => {
-                McpClient.#oauthInProgress.delete(serverUrlString);
-                console.log(
-                  `[${this.#config.serverName}] Authentication lock released for ${serverUrlString}.`,
-                );
-              });
-              McpClient.#oauthInProgress.set(serverUrlString, fetchPromise);
-              try {
-                await fetchPromise;
-                console.log(
-                  `[${this.#config.serverName}] Newly initiated authentication finished for ${serverUrlString}.`,
-                );
-              } catch (e) {
-                // Error already logged by forceFetchCredentials's catch, or by the lock's await catch.
-                // Let the outer loop handle this as a failed attempt.
-                console.error(
-                  `[${this.#config.serverName}] Awaiting self-initiated auth promise failed for ${serverUrlString}:`,
-                  e,
-                );
-              }
-            }
-
-            tokens = await this.#authProvider.tokens(); // Re-check tokens after awaiting/performing auth
-            if (!tokens || !tokens.access_token) {
-              throw new Error(
-                `[${this.#config.serverName}] Still no valid tokens after authentication attempt for ${serverUrlString}.`,
-              );
-            }
-            console.log(
-              `[${this.#config.serverName}] Valid tokens acquired for ${serverUrlString}, proceeding with connection.`,
-            );
-          } else {
-            console.log(
-              `[${this.#config.serverName}] Valid tokens found locally, proceeding with connection...`,
-            );
-          }
         }
-
-        await this.#client.connect(this.#transport);
+        const serverUrlString = this.#serverUrl.href;
         console.log(
-          `[${this.#config.serverName}] Successfully connected to MCP server`,
+          `[${this.#config.serverName}] No valid tokens for ${serverUrlString}. Attempting to fetch credentials.`,
         );
 
-        // Verify connection by attempting to list tools as a basic connectivity test
-        console.log("Verifying connection with basic tools list request...");
-        const toolsResult = await this.#client.listTools();
-        console.log(
-          `Connection verified: found ${toolsResult.tools.length} tools`,
-        );
+        let fetchPromise = McpClient.#oauthInProgress.get(serverUrlString);
 
-        return; // Success!
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        console.error(
-          `Connection attempt ${attempt} failed:`,
-          lastError.message,
-        );
-
-        // Check if this is an authentication error
-        if (
-          this.#isAuthenticationError(lastError) &&
-          this.#config.retryAuthentication && attempt < maxRetries
-        ) {
+        if (fetchPromise) {
           console.log(
-            "Authentication error detected, attempting to refresh credentials...",
+            `[${this.#config.serverName}] Authentication for ${serverUrlString} already in progress, awaiting...`,
           );
-          this.#authRetryCount++;
-
-          // Clear existing auth data and retry
-          if (
-            this.#authProvider && this.#hasAuthClearMethod(this.#authProvider)
-          ) {
-            try {
-              await this.#authProvider.clearAuthData();
-              console.log("Cleared existing authentication data");
-            } catch (clearError) {
-              console.warn("Failed to clear auth data:", clearError);
-            }
-          }
-
-          // Force re-authentication
-          if (this.#authProvider) {
-            try {
-              await this.forceFetchCredentials();
-              console.log(
-                "Successfully refreshed credentials, retrying connection...",
-              );
-            } catch (authError) {
-              console.error("Failed to refresh credentials:", authError);
-              // Continue to retry anyway in case the issue is transient
-            }
-          }
-
-          // Brief delay before retry
-          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+          await fetchPromise;
         } else {
-          // Not an auth error or no retries left
-          break;
+          console.log(
+            `[${this.#config.serverName}] Initiating new authentication for ${serverUrlString}.`,
+          );
+          fetchPromise = this.forceFetchCredentials().finally(() => {
+            McpClient.#oauthInProgress.delete(serverUrlString);
+            console.log(
+              `[${this.#config.serverName}] Authentication lock released for ${serverUrlString}.`,
+            );
+          });
+          McpClient.#oauthInProgress.set(serverUrlString, fetchPromise);
+          await fetchPromise;
         }
+
+        tokens = await this.#authProvider.tokens();
+        if (!tokens || !tokens.access_token) {
+          throw new Error(
+            `[${this.#config.serverName}] Still no valid tokens after authentication attempt for ${serverUrlString}.`,
+          );
+        }
+        console.log(
+          `[${this.#config.serverName}] Valid tokens acquired for ${serverUrlString}, proceeding with connection.`,
+        );
+      } else {
+        console.log(
+          `[${this.#config.serverName}] Valid tokens found locally, proceeding with connection...`,
+        );
       }
     }
 
-    // If we get here, all retries failed
-    const finalError = lastError ||
-      new Error("Connection failed for unknown reason");
-    throw new Error(
-      `Failed to connect to MCP server after ${maxRetries} attempts: ${finalError.message}`,
+    await this.#client.connect(this.#transport);
+    console.log(
+      `[${this.#config.serverName}] Successfully connected to MCP server`,
+    );
+
+    // Verify connection by attempting to list tools as a basic connectivity test
+    console.log("Verifying connection with basic tools list request...");
+    const toolsResult = await this.#client.listTools();
+    console.log(
+      `Connection verified: found ${toolsResult.tools.length} tools`,
     );
   };
 
@@ -349,51 +240,11 @@ export class McpClient {
       throw new Error("Client not connected");
     }
 
-    try {
-      // Execute the tool call
-      const result = await this.#client.callTool({
-        name: toolCall.name,
-        arguments: toolCall.input,
-      });
-      return result;
-    } catch (error) {
-      // Check if this is an authentication error and attempt retry if configured
-      if (
-        this.#isAuthenticationError(error) &&
-        this.#config.retryAuthentication &&
-        this.#authRetryCount < this.#config.maxAuthRetries
-      ) {
-        console.log(
-          "Authentication error during tool execution, attempting to refresh credentials...",
-        );
-        this.#authRetryCount++;
-
-        // Try to refresh credentials
-        if (this.#authProvider) {
-          try {
-            await this.forceFetchCredentials();
-            console.log("Credentials refreshed, retrying tool call...");
-
-            // Retry the tool call
-            const result = await this.#client.callTool({
-              name: toolCall.name,
-              arguments: toolCall.input,
-            });
-            this.#authRetryCount = 0; // Reset on success
-            return result;
-          } catch (retryError) {
-            console.error(
-              "Failed to execute tool after credential refresh:",
-              retryError,
-            );
-            throw retryError;
-          }
-        }
-      }
-
-      // Re-throw the original error if not an auth error or retry failed
-      throw error;
-    }
+    const result = await this.#client.callTool({
+      name: toolCall.name,
+      arguments: toolCall.input,
+    });
+    return result;
   }
 
   /**
@@ -459,7 +310,6 @@ export class McpClient {
         throw new Error(`Authentication failed with result: ${result}`);
       }
 
-      this.#authRetryCount = 0; // Reset retry count on success
       console.log("Successfully refreshed authentication credentials");
     } catch (error) {
       console.error(
@@ -469,26 +319,6 @@ export class McpClient {
       throw error;
     }
   }
-
-  /**
-   * Checks if an error is related to authentication
-   * @param error The error to check
-   * @returns True if the error is authentication-related
-   */
-  #isAuthenticationError = (error: unknown): boolean => {
-    if (error instanceof Error) {
-      const message = error.message.toLowerCase();
-      return (
-        message.includes("auth") ||
-        message.includes("unauthorized") ||
-        message.includes("unauthenticated") ||
-        message.includes("token") ||
-        message.includes("credentials") ||
-        message.includes("401")
-      );
-    }
-    return false;
-  };
 
   /**
    * Checks if an OAuth provider has the clearAuthData method

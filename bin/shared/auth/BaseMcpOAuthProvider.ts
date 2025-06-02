@@ -1,11 +1,6 @@
 /**
  * Base OAuth Provider for MCP Servers
  *
- * Simple implementation of Authorization Code + PKCE flow for MCP OAuth 2.0:
- * 1. OAuth 2.0 Authorization Server Metadata discovery
- * 2. Generating authentication URLs with PKCE challenge
- * 3. Processing callback data and exchanging codes for tokens
- *
  * Subclasses only need to provide:
  * - redirectUrl getter
  * - clientMetadata getter
@@ -20,6 +15,8 @@ import type {
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
+import { OAuth2Client } from "jsr:@cmd-johnson/oauth2-client@^2.0.0";
+import type { Tokens } from "jsr:@cmd-johnson/oauth2-client@^2.0.0";
 
 export interface McpOAuthConfig {
   serverUrl: string;
@@ -44,12 +41,14 @@ interface OAuth2ServerMetadata {
 }
 
 /**
- * Base OAuth Provider for MCP Servers using manual OAuth 2.0 implementation
+ * Base OAuth Provider for MCP Servers using @cmd-johnson/oauth2-client
+ * Supports Authorization Code + PKCE flow only
  */
 export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
   protected config: McpOAuthConfig;
   protected serverMetadata: OAuth2ServerMetadata | null = null;
   protected scopes: string[] = [];
+  protected oauth2Client: OAuth2Client | null = null;
 
   constructor(config: McpOAuthConfig) {
     this.config = config;
@@ -57,6 +56,14 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
 
   abstract get redirectUrl(): string;
   abstract get clientMetadata(): OAuthClientMetadata;
+
+  /**
+   * Set OAuth scopes for the authorization request
+   */
+  setScopes(scopes: string[]): void {
+    this.scopes = scopes;
+    console.log(`Set OAuth scopes: ${scopes.join(", ")}`);
+  }
 
   /**
    * Initialize server metadata using MCP-compliant OAuth 2.0 Authorization Server Metadata
@@ -119,89 +126,108 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
   }
 
   /**
-   * Generate PKCE code verifier and challenge
+   * Initialize OAuth2Client with discovered endpoints
    */
-  private async generatePKCEChallenge(): Promise<
-    { codeVerifier: string; codeChallenge: string }
-  > {
-    // Generate random code verifier (43-128 characters)
-    const array = new Uint8Array(32);
-    crypto.getRandomValues(array);
-    const codeVerifier = btoa(String.fromCharCode(...array))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "");
+  protected async initializeOAuth2Client(): Promise<OAuth2Client> {
+    if (this.oauth2Client) {
+      return this.oauth2Client;
+    }
 
-    // Create SHA256 hash and base64url encode it
-    const encoder = new TextEncoder();
-    const data = encoder.encode(codeVerifier);
-    const digest = await crypto.subtle.digest("SHA-256", data);
-    const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "");
+    const serverMetadata = await this.initializeServerMetadata();
+    const clientId = await this.getOrCreateClientId();
 
-    return { codeVerifier, codeChallenge };
+    if (
+      !serverMetadata.authorization_endpoint || !serverMetadata.token_endpoint
+    ) {
+      throw new Error(
+        "Authorization or token endpoint not found in server metadata",
+      );
+    }
+
+    this.oauth2Client = new OAuth2Client({
+      clientId,
+      clientSecret: await this.getClientSecret(),
+      authorizationEndpointUri: serverMetadata.authorization_endpoint,
+      tokenUri: serverMetadata.token_endpoint,
+      redirectUri: this.redirectUrl,
+      defaults: {
+        scope: this.scopes.join(" ") || "",
+      },
+    });
+
+    return this.oauth2Client;
   }
 
   /**
-   * Generate random state for CSRF protection
+   * Get client secret from stored client information
    */
-  private generateState(): string {
-    const array = new Uint8Array(16);
-    crypto.getRandomValues(array);
-    return btoa(String.fromCharCode(...array))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "");
+  protected async getClientSecret(): Promise<string | undefined> {
+    try {
+      const clientInfoPath = join(this.config.oauthBaseDir, "client.json");
+      const clientInfo = JSON.parse(
+        await Deno.readTextFile(clientInfoPath),
+      ) as OAuthClientInformationFull;
+      return clientInfo.client_secret;
+    } catch {
+      return undefined; // For public clients
+    }
   }
 
   /**
    * Generate authorization URL with PKCE challenge
    */
   async generateAuthUrl(): Promise<AuthUrlInfo> {
-    const serverMetadata = await this.initializeServerMetadata();
-    const clientId = await this.getOrCreateClientId();
+    const client = await this.initializeOAuth2Client();
 
-    if (!serverMetadata.authorization_endpoint) {
-      throw new Error("Authorization endpoint not found in server metadata");
-    }
-
-    // Generate PKCE code verifier and challenge
-    const { codeVerifier, codeChallenge } = await this.generatePKCEChallenge();
-
-    // Generate state for CSRF protection
-    const state = this.generateState();
-
-    // Build authorization URL
-    const authorizationUrl = new URL(serverMetadata.authorization_endpoint);
-    authorizationUrl.searchParams.set("response_type", "code");
-    authorizationUrl.searchParams.set("client_id", clientId);
-    authorizationUrl.searchParams.set("redirect_uri", this.redirectUrl);
-    authorizationUrl.searchParams.set("scope", this.scopes.join(" ") || "");
-    authorizationUrl.searchParams.set("state", state);
-    authorizationUrl.searchParams.set("code_challenge", codeChallenge);
-    authorizationUrl.searchParams.set("code_challenge_method", "S256");
+    // Generate authorization URL with PKCE (default behavior)
+    const authResult = await client.code.getAuthorizationUri({
+      scope: this.scopes.join(" ") || "",
+    });
 
     console.log("Generated authorization URL:");
-    console.log(`  URL: ${authorizationUrl.href}`);
-    console.log(`  Code Challenge: ${codeChallenge}`);
-    console.log(`  State: ${state}`);
+    console.log(`  URL: ${authResult.uri.href}`);
+
+    // PKCE is enabled by default, so codeVerifier should always be present
+    if (!("codeVerifier" in authResult)) {
+      throw new Error("PKCE is required but codeVerifier was not generated");
+    }
+
+    const codeVerifier = authResult.codeVerifier;
+    console.log(`  Code Verifier: ${codeVerifier}`);
+
+    // Extract state from the authorization URL
+    let state = authResult.uri.searchParams.get("state") || "";
+
+    // If no state was generated, create one - some servers require it
+    if (!state) {
+      state = crypto.randomUUID();
+      const urlWithState = new URL(authResult.uri.href);
+      urlWithState.searchParams.set("state", state);
+
+      console.log(`  Generated state parameter: ${state}`);
+      console.log(`  Enhanced URL with state: ${urlWithState.href}`);
+
+      return {
+        url: urlWithState.href,
+        codeVerifier,
+        state,
+      };
+    }
 
     return {
-      url: authorizationUrl.href,
+      url: authResult.uri.href,
       codeVerifier,
       state,
     };
   }
 
   /**
-   * Process OAuth callback and exchange code for tokens
+   * Process OAuth callback and exchange code for tokens using PKCE
    */
   async processCallback(
     callbackData: Record<string, string>,
   ): Promise<OAuthTokens> {
-    const serverMetadata = await this.initializeServerMetadata();
+    const client = await this.initializeOAuth2Client();
     const { code, state } = callbackData;
 
     if (!code) {
@@ -216,39 +242,18 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
       throw new Error("State mismatch - possible CSRF attack");
     }
 
-    if (!serverMetadata.token_endpoint) {
-      throw new Error("Token endpoint not found in server metadata");
-    }
-
-    console.log("Exchanging authorization code for tokens...");
+    console.log("Exchanging authorization code for tokens using PKCE...");
 
     try {
-      // Exchange authorization code for tokens
-      const clientId = await this.getOrCreateClientId();
-      const tokenRequest = new URLSearchParams();
-      tokenRequest.set("grant_type", "authorization_code");
-      tokenRequest.set("code", code);
-      tokenRequest.set("redirect_uri", this.redirectUrl);
-      tokenRequest.set("client_id", clientId);
-      tokenRequest.set("code_verifier", codeVerifier);
+      // Construct callback URL for the oauth2-client library
+      const callbackUrl = new URL(this.redirectUrl);
+      callbackUrl.searchParams.set("code", code);
+      callbackUrl.searchParams.set("state", state);
 
-      const response = await fetch(serverMetadata.token_endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Accept": "application/json",
-        },
-        body: tokenRequest.toString(),
+      // Exchange authorization code for tokens with PKCE verifier
+      const tokens = await client.code.getToken(callbackUrl, {
+        codeVerifier,
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`,
-        );
-      }
-
-      const result = await response.json() as OAuthTokens;
 
       console.log("✅ Successfully exchanged code for tokens");
 
@@ -256,7 +261,8 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
       await this.clearCodeVerifier();
       await this.clearState();
 
-      return result;
+      // Convert from oauth2-client format to MCP format
+      return this.convertTokensToMcpFormat(tokens);
     } catch (error) {
       console.error("Token exchange failed:", error);
       throw new Error(
@@ -265,6 +271,32 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
         }`,
       );
     }
+  }
+
+  /**
+   * Convert oauth2-client tokens to MCP OAuth tokens format
+   */
+  protected convertTokensToMcpFormat(tokens: Tokens): OAuthTokens {
+    return {
+      access_token: tokens.accessToken,
+      token_type: tokens.tokenType || "Bearer",
+      refresh_token: tokens.refreshToken,
+      expires_in: tokens.expiresIn,
+      scope: tokens.scope,
+    };
+  }
+
+  /**
+   * Convert MCP OAuth tokens to oauth2-client tokens format
+   */
+  protected convertTokensFromMcpFormat(mcpTokens: OAuthTokens): Tokens {
+    return {
+      accessToken: mcpTokens.access_token,
+      tokenType: mcpTokens.token_type || "Bearer",
+      refreshToken: mcpTokens.refresh_token,
+      expiresIn: mcpTokens.expires_in,
+      scope: mcpTokens.scope,
+    };
   }
 
   /**
@@ -366,7 +398,7 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
         error,
       );
       throw new Error(
-        "Code verifier not found - OAuth flow may have been interrupted",
+        "Code verifier not found - PKCE is required for this OAuth flow",
       );
     }
   }
@@ -501,20 +533,26 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
   }
 
   async refreshTokens(refreshToken: string): Promise<OAuthTokens> {
-    const serverMetadata = await this.initializeServerMetadata();
-
-    if (!serverMetadata.token_endpoint) {
-      throw new Error("Token endpoint not found in server metadata");
-    }
-
     console.log("Refreshing tokens...");
 
     try {
+      // Use direct HTTP calls for token refresh since oauth2-client doesn't expose this
+      const serverMetadata = await this.initializeServerMetadata();
+
+      if (!serverMetadata.token_endpoint) {
+        throw new Error("Token endpoint not found in server metadata");
+      }
+
       const clientId = await this.getOrCreateClientId();
+      const clientSecret = await this.getClientSecret();
+
       const tokenRequest = new URLSearchParams();
       tokenRequest.set("grant_type", "refresh_token");
       tokenRequest.set("refresh_token", refreshToken);
       tokenRequest.set("client_id", clientId);
+      if (clientSecret) {
+        tokenRequest.set("client_secret", clientSecret);
+      }
 
       const response = await fetch(serverMetadata.token_endpoint, {
         method: "POST",
