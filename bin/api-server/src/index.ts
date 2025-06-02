@@ -26,7 +26,10 @@ import { createAgentRouter } from "./routes/agent.ts";
 import { createFilesRouter } from "./routes/files.ts";
 import { errorHandler } from "./error.ts";
 import { parsePort } from "./utils.ts";
-import { S3StorageService } from "../../../src/storage/S3StorageService.ts";
+import {
+  S3Options,
+  S3StorageService,
+} from "../../../src/storage/S3StorageService.ts";
 import { StorageService } from "../../../src/storage/StorageService.ts";
 
 interface ServerOptions {
@@ -64,24 +67,29 @@ const options: ServerOptions = {
 // Initialize Hono app
 const app = new Hono();
 const mcpServerManager = new McpServerManager();
-const storageService: StorageService = new S3StorageService({
+
+// Prepare S3 storage service options
+const s3Options: S3Options = {
   bucket: Deno.env.get("S3_BUCKET_NAME") ?? "zypher-storage",
   region: Deno.env.get("S3_REGION") ?? "us-east-1",
-  credentials: {
-    accessKeyId: Deno.env.get("S3_ACCESS_KEY_ID") ?? "",
-    secretAccessKey: Deno.env.get("S3_SECRET_ACCESS_KEY") ?? "",
-  },
   endpoint: Deno.env.get("S3_ENDPOINT"),
-});
+};
 
-// Validate S3 credentials are provided
-if (
-  !Deno.env.get("S3_ACCESS_KEY_ID") || !Deno.env.get("S3_SECRET_ACCESS_KEY")
-) {
-  console.warn(
-    "⚠️ S3 credentials not provided. Storage service may not function correctly.",
+// Only add credentials if both environment variables are set
+const accessKeyId = Deno.env.get("S3_ACCESS_KEY_ID");
+const secretAccessKey = Deno.env.get("S3_SECRET_ACCESS_KEY");
+if (accessKeyId && secretAccessKey) {
+  s3Options.credentials = {
+    accessKeyId,
+    secretAccessKey,
+  };
+} else {
+  console.log(
+    "ℹ️ S3 credentials not provided. Using AWS default credential chain.",
   );
 }
+
+const storageService: StorageService = new S3StorageService(s3Options);
 
 // Middleware (prettyJSON)
 app.use("*", prettyJSON());
