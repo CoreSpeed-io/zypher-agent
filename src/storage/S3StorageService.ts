@@ -18,6 +18,7 @@ import {
   NotFound,
   PutObjectCommand,
   S3Client,
+  S3ClientConfig,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -28,10 +29,10 @@ import * as path from "@std/path";
 /**
  * S3-specific provider options
  */
-interface S3Options {
+export interface S3Options {
   bucket: string;
   region: string;
-  credentials: {
+  credentials?: {
     accessKeyId: string;
     secretAccessKey: string;
   };
@@ -65,24 +66,20 @@ export class S3StorageService implements StorageService {
     if (!s3Options.region) {
       throw new Error("S3 region is required");
     }
-    if (
-      !s3Options.credentials?.accessKeyId ||
-      !s3Options.credentials?.secretAccessKey
-    ) {
-      throw new Error(
-        "S3 credentials (accessKeyId and secretAccessKey) are required",
-      );
+
+    // Initialize S3 client configuration
+    const clientConfig: S3ClientConfig = {
+      region: s3Options.region,
+      endpoint: s3Options.endpoint,
+    };
+
+    // Only add credentials if provided, otherwise let S3Client use default credential chain
+    if (s3Options.credentials) {
+      clientConfig.credentials = s3Options.credentials;
     }
 
     // Initialize S3 client
-    this.#s3Client = new S3Client({
-      region: s3Options.region,
-      credentials: {
-        accessKeyId: s3Options.credentials.accessKeyId,
-        secretAccessKey: s3Options.credentials.secretAccessKey,
-      },
-      endpoint: s3Options.endpoint,
-    });
+    this.#s3Client = new S3Client(clientConfig);
   }
 
   /**
