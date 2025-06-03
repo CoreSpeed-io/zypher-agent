@@ -79,7 +79,146 @@ The API server provides the following endpoints:
 - `GET /mcp/reload` - Reload MCP server configurations (5s cooldown)
 - `GET /mcp/tools` - List all available tools from MCP servers
 
+### OAuth Authentication Endpoints
+
+For MCP servers that require OAuth authentication:
+
+- `POST /mcp/registry/{id}` - Register MCP server from central registry (may
+  return OAuth authorization details)
+- `GET /mcp/servers/{id}/oauth/callback` - OAuth callback handler (called by
+  OAuth provider)
+- `GET /mcp/servers/{id}/oauth/status` - Check OAuth authentication status
+- `DELETE /mcp/servers/{id}/oauth` - Clear stored OAuth tokens and
+  authentication data
+
 See the [API Specification](./api-spec.yaml) for detailed documentation.
+
+## OAuth Authentication Flow
+
+Some MCP servers require OAuth authentication before they can be registered. The
+API handles this with a streamlined flow:
+
+### 1. Attempt Registration
+
+When registering an MCP server (either via `/mcp/register` or
+`/mcp/registry/{id}`), if the server requires OAuth, you'll receive a response
+like:
+
+```json
+{
+  "success": false,
+  "requiresOAuth": true,
+  "oauth": {
+    "authUrl": "https://provider.com/oauth/authorize?client_id=...",
+    "state": "csrf-protection-state",
+    "instructions": "Please open the authUrl in a browser to complete OAuth authentication"
+  },
+  "error": {
+    "code": "oauth_required",
+    "message": "Server requires OAuth authentication. Please complete OAuth flow first.",
+    "details": {
+      "serverId": "server-id",
+      "serverUrl": "https://server.com/api",
+      "requiresOAuth": true
+    }
+  }
+}
+```
+
+### 2. User Authorization
+
+Direct the user to open the `authUrl` in their browser. This can be done by:
+
+- Opening a popup window
+- Redirecting in the current tab
+- Displaying the URL for manual opening
+
+### 3. OAuth Callback
+
+After user authorization, the OAuth provider redirects to:
+`/mcp/servers/{serverId}/oauth/callback?code=...&state=...`
+
+The API automatically:
+
+- Validates the OAuth response
+- Exchanges the authorization code for access tokens
+- Stores the tokens securely
+- Attempts to register the server again
+
+### 4. Frontend Handling
+
+The callback returns JSON (not HTML) for frontend processing:
+
+```json
+{
+  "success": true,
+  "message": "OAuth authentication completed successfully",
+  "serverId": "server-id",
+  "serverRegistered": true
+}
+```
+
+### 5. Status Checking
+
+You can check OAuth status anytime:
+
+```bash
+GET /mcp/servers/{serverId}/oauth/status
+```
+
+Returns:
+
+```json
+{
+  "success": true,
+  "authenticated": true,
+  "hasTokens": true
+}
+```
+
+### Frontend Implementation Example
+
+```javascript
+async function registerServer(serverId) {
+  try {
+    const response = await fetch(`/mcp/registry/${serverId}`, {
+      method: "POST",
+      headers: { "Authorization": "Bearer your-token" },
+    });
+
+    const data = await response.json();
+
+    if (data.requiresOAuth && data.oauth.authUrl) {
+      // Open OAuth authorization in popup
+      const authWindow = window.open(
+        data.oauth.authUrl,
+        "oauth",
+        "width=600,height=700",
+      );
+
+      // Poll for completion or listen for postMessage
+      const checkStatus = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(
+            `/mcp/servers/${serverId}/oauth/status`,
+          );
+          const status = await statusResponse.json();
+
+          if (status.authenticated) {
+            clearInterval(checkStatus);
+            authWindow.close();
+            showSuccess("Server registered successfully!");
+          }
+        } catch (error) {
+          // Continue polling
+        }
+      }, 2000);
+    }
+  } catch (error) {
+    showError("Registration failed:", error);
+  }
+}
+```
 
 ## Development
 
@@ -181,6 +320,35 @@ bin/
 Required environment variables:
 
 - `ANTHROPIC_API_KEY`: Your Anthropic API key for Claude
+
+Optional environment variables:
+
+- `MCP_SERVER_REGISTRY_URL`: Base URL for the MCP server registry (for
+  `/mcp/registry/{id}` endpoints)
+- `MCP_USE_DYNAMIC_REGISTRATION`: Enable dynamic OAuth client registration
+  (default: true)
+- `MCP_{SERVER_ID}_CLIENT_ID`: OAuth client ID for specific MCP server
+  (uppercase server ID)
+- `MCP_{SERVER_ID}_CLIENT_SECRET`: OAuth client secret for specific MCP server
+  (uppercase server ID)
+- `MCP_{SERVER_ID}_AUTH_SERVER_URL`: Custom OAuth authorization server URL for
+  specific MCP server
+
+### OAuth Configuration Examples
+
+For a server with ID `atlassian-mcp`:
+
+```bash
+# Use pre-registered OAuth client credentials
+MCP_ATLASSIAN_MCP_CLIENT_ID=your_client_id
+MCP_ATLASSIAN_MCP_CLIENT_SECRET=your_client_secret
+
+# Use custom OAuth authorization server
+MCP_ATLASSIAN_MCP_AUTH_SERVER_URL=https://custom-auth.example.com
+
+# Disable dynamic registration (requires above credentials)
+MCP_USE_DYNAMIC_REGISTRATION=false
+```
 
 ## License
 

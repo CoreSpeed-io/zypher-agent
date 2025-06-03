@@ -219,6 +219,84 @@ components:
             type: string
           description: Environment variables
 
+    OAuthResponse:
+      type: object
+      required:
+        - success
+        - requiresOAuth
+      properties:
+        success:
+          type: boolean
+          description: Always false when OAuth is required
+        requiresOAuth:
+          type: boolean
+          description: Indicates that OAuth authentication is required
+        oauth:
+          type: object
+          properties:
+            authUrl:
+              type: string
+              format: uri
+              description: Authorization URL for OAuth flow
+              example: "https://example.com/oauth/authorize?client_id=..."
+            state:
+              type: string
+              description: OAuth state parameter for CSRF protection
+            instructions:
+              type: string
+              description: Human-readable instructions for OAuth flow
+              example: "Please open the authUrl in a browser to complete OAuth authentication"
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code (oauth_required)
+            message:
+              type: string
+              description: Error message
+            details:
+              type: object
+              description: Additional error details
+
+    OAuthStatus:
+      type: object
+      required:
+        - success
+        - authenticated
+        - hasTokens
+      properties:
+        success:
+          type: boolean
+          description: Whether the request was successful
+        authenticated:
+          type: boolean
+          description: Whether the server is authenticated via OAuth
+        hasTokens:
+          type: boolean
+          description: Whether valid OAuth tokens are stored
+
+    OAuthCallbackResponse:
+      type: object
+      required:
+        - success
+        - message
+        - serverId
+        - serverRegistered
+      properties:
+        success:
+          type: boolean
+          description: Whether OAuth authentication completed successfully
+        message:
+          type: string
+          description: Success message
+        serverId:
+          type: string
+          description: ID of the server that was authenticated
+        serverRegistered:
+          type: boolean
+          description: Whether the server was successfully registered after OAuth
+
   responses:
     ValidationError:
       description: Validation error
@@ -621,3 +699,160 @@ paths:
       responses:
         "200":
           description: Configuration reloaded successfully
+
+  /mcp/registry/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+        description: ID of the MCP server from registry
+    post:
+      summary: Register MCP server from registry
+      description: |
+        Registers an MCP server from the central registry. If the server requires OAuth authentication,
+        returns OAuth authorization details instead of immediately registering the server.
+      operationId: registerMcpServerFromRegistry
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+          description: Optional authorization token for registry access (format "Bearer {token}")
+      responses:
+        "202":
+          description: Server registration initiated (may require OAuth)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: Registration successful
+                  - $ref: "#/components/schemas/OAuthResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          description: Unauthorized - Invalid or missing registry token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mcp/servers/{id}/oauth/callback:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+        description: ID of the MCP server undergoing OAuth
+    get:
+      summary: OAuth callback handler
+      description: |
+        Processes OAuth authorization callback from the MCP server's OAuth provider.
+        This endpoint is called by the OAuth provider after user authorization.
+        Returns JSON response for frontend handling instead of HTML.
+      operationId: handleOAuthCallback
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+          description: Authorization code from OAuth provider
+        - name: state
+          in: query
+          schema:
+            type: string
+          description: State parameter for CSRF protection
+        - name: error
+          in: query
+          schema:
+            type: string
+          description: Error code if authorization failed
+        - name: error_description
+          in: query
+          schema:
+            type: string
+          description: Human-readable error description
+      responses:
+        "200":
+          description: OAuth callback processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthCallbackResponse"
+        "400":
+          description: OAuth callback processing failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mcp/servers/{id}/oauth/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+        description: ID of the MCP server
+    get:
+      summary: Get OAuth authentication status
+      description: |
+        Checks the OAuth authentication status for a specific MCP server.
+        Only supported for SSE-mode servers with URLs.
+      operationId: getOAuthStatus
+      responses:
+        "200":
+          description: OAuth status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthStatus"
+        "400":
+          description: OAuth not supported for this server type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mcp/servers/{id}/oauth:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+        description: ID of the MCP server
+    delete:
+      summary: Clear OAuth authentication data
+      description: |
+        Clears stored OAuth tokens and authentication data for a specific MCP server.
+        Only supported for SSE-mode servers with URLs.
+      operationId: clearOAuthData
+      responses:
+        "200":
+          description: OAuth data cleared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                required:
+                  - success
+                  - message
+        "400":
+          description: OAuth not supported for this server type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
