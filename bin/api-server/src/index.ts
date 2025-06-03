@@ -25,7 +25,6 @@ import process from "node:process";
 import { createMcpRouter } from "./routes/mcp.ts";
 import { createAgentRouter } from "./routes/agent.ts";
 import { createFilesRouter } from "./routes/files.ts";
-import { createOAuthRouter } from "./routes/oauth.ts";
 import { errorHandler } from "./error.ts";
 import { parsePort } from "./utils.ts";
 import { S3StorageService } from "../../../src/storage/S3StorageService.ts";
@@ -196,24 +195,6 @@ app.get("/health", (c) => {
 app.route("/agent", createAgentRouter(agent));
 app.route("/files", createFilesRouter(storageService));
 app.route("/mcp", createMcpRouter(mcpServerManager));
-app.route("/oauth", createOAuthRouter(mcpServerManager));
-
-// Catch-all route for OAuth callbacks with different prefixes (e.g., /mcp-atlassian/oauth/callback)
-app.get("*/oauth/callback", (c) => {
-  console.log(
-    `Redirecting OAuth callback from ${c.req.url} to /oauth/callback`,
-  );
-
-  // Get query parameters from original URL
-  const url = new URL(c.req.url);
-  const searchParams = url.searchParams.toString();
-
-  // Redirect to standard OAuth callback route
-  const redirectUrl = `/oauth/callback${
-    searchParams ? `?${searchParams}` : ""
-  }`;
-  return c.redirect(redirectUrl);
-});
 
 // Middleware (CORS)
 // This has to be placed at the very end, see: https://hono.dev/docs/helpers/websocket

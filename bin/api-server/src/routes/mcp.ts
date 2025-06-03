@@ -18,6 +18,92 @@ import { ensureDir } from "@std/fs";
 // Schema for request validation
 const McpServerApiSchema = z.record(z.string(), McpServerConfigSchema);
 
+// OAuth callback validation schema
+const CallbackDataSchema = z.object({
+  code: z.string().optional(),
+  state: z.string().optional(),
+  error: z.string().optional(),
+  error_description: z.string().optional(),
+});
+
+// Server info interface for OAuth callback processing
+interface ServerInfo {
+  serverId: string;
+  serverUrl: string;
+  serverConfig?: z.infer<typeof McpServerConfigSchema>;
+  fromRegistry?: boolean;
+  registryToken?: string;
+}
+
+// Helper function to create OAuth provider
+async function createOAuthProvider(
+  serverId: string,
+  serverUrl: string,
+): Promise<RemoteOAuthProvider> {
+  const dataDir = await getWorkspaceDataDir();
+  const oauthBaseDir = join(dataDir, "oauth", serverId);
+  await ensureDir(oauthBaseDir);
+
+  return new RemoteOAuthProvider({
+    serverId,
+    serverUrl,
+    oauthBaseDir,
+    clientName: "zypher-agent-api",
+  });
+}
+
+// Helper function to generate OAuth response
+async function generateOAuthResponse(
+  serverId: string,
+  serverUrl: string,
+  serverConfig?: z.infer<typeof McpServerConfigSchema>,
+  registryToken?: string,
+) {
+  const dataDir = await getWorkspaceDataDir();
+  const oauthBaseDir = join(dataDir, "oauth", serverId);
+  await ensureDir(oauthBaseDir);
+
+  const oauthProvider = new RemoteOAuthProvider({
+    serverId,
+    serverUrl,
+    oauthBaseDir,
+    clientName: "zypher-agent-api",
+  });
+
+  // Generate authorization URL with PKCE and save data
+  const authInfo = await oauthProvider.generateAuthRequest();
+
+  // Save server information for callback processing
+  const serverInfoPath = join(oauthBaseDir, "server_info.json");
+  const serverInfoData: ServerInfo = {
+    serverId,
+    serverUrl,
+  };
+
+  if (registryToken) {
+    serverInfoData.fromRegistry = true;
+    serverInfoData.registryToken = registryToken;
+  } else {
+    serverInfoData.serverConfig = serverConfig;
+  }
+
+  await Deno.writeTextFile(
+    serverInfoPath,
+    JSON.stringify(serverInfoData, null, 2),
+  );
+
+  // Read the saved state to include in response
+  const statePath = join(oauthBaseDir, "state");
+  const savedState = await Deno.readTextFile(statePath);
+
+  return {
+    success: false,
+    requiresOAuth: true,
+    authUrl: authInfo.uri,
+    state: savedState,
+  };
+}
+
 export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   const mcpRouter = new Hono();
 
@@ -59,70 +145,24 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           }
           if (error.code === "oauth_required") {
             // Generate OAuth URL directly and return it in the response
-            try {
-              const details = error.details as {
-                serverId: string;
-                serverUrl: string;
-              };
-              const serverUrl = details.serverUrl;
-              const serverConfig = servers[details.serverId];
+            const details = error.details as {
+              serverId: string;
+              serverUrl: string;
+            };
+            const serverConfig = servers[details.serverId];
 
-              // Create OAuth provider for this server
-              const dataDir = await getWorkspaceDataDir();
-              const oauthBaseDir = join(dataDir, "oauth", details.serverId);
-              await ensureDir(oauthBaseDir);
+            const oauthResponse = await generateOAuthResponse(
+              details.serverId,
+              details.serverUrl,
+              serverConfig,
+            );
 
-              const oauthProvider = new RemoteOAuthProvider({
-                serverId: details.serverId,
-                serverUrl,
-                oauthBaseDir,
-                clientName: "zypher-agent-api",
-              });
-
-              // Generate authorization URL with PKCE and save data
-              const authInfo = await oauthProvider.generateAuthRequest();
-
-              // Save server configuration for callback processing
-              const serverInfoPath = join(oauthBaseDir, "server_info.json");
-              await Deno.writeTextFile(
-                serverInfoPath,
-                JSON.stringify(
-                  {
-                    serverId: details.serverId,
-                    serverUrl: details.serverUrl,
-                    serverConfig: serverConfig,
-                  },
-                  null,
-                  2,
-                ),
-              );
-
-              // Read the saved state to include in response
-              const statePath = join(oauthBaseDir, "state");
-              const savedState = await Deno.readTextFile(statePath);
-
-              return c.json({
-                success: false,
-                requiresOAuth: true,
-                code: error.code,
-                message: error.message,
-                authUrl: authInfo.uri,
-                state: savedState,
-                details: error.details,
-              }, 202); // 202 Accepted - additional action required
-            } catch (oauthError) {
-              console.error(`Failed to generate OAuth URL: ${oauthError}`);
-              return c.json({
-                success: false,
-                requiresOAuth: true,
-                code: error.code,
-                message: "OAuth required but failed to generate auth URL",
-                error: oauthError instanceof Error
-                  ? oauthError.message
-                  : "Unknown error",
-                details: error.details,
-              }, 202);
-            }
+            return c.json({
+              ...oauthResponse,
+              code: error.code,
+              message: error.message,
+              details: error.details,
+            }, 202);
           }
           if (error.code === "auth_failed") {
             throw new ApiError(401, error.code, error.message, error.details);
@@ -186,8 +226,134 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     if (!token) {
       throw new ApiError(401, "unauthorized", "No token provided");
     }
-    await mcpServerManager.registerServerFromRegistry(id, token);
-    return c.body(null, 202);
+
+    try {
+      await mcpServerManager.registerServerFromRegistry(id, token);
+      return c.body(null, 202);
+    } catch (error) {
+      if (error instanceof McpServerError) {
+        if (error.code === "oauth_required") {
+          // Generate OAuth URL for registry server
+          const details = error.details as {
+            serverId: string;
+            serverUrl: string;
+          };
+
+          const oauthResponse = await generateOAuthResponse(
+            details.serverId,
+            details.serverUrl,
+            undefined,
+            token,
+          );
+
+          return c.json({
+            ...oauthResponse,
+            code: error.code,
+            message: error.message,
+            details: error.details,
+          }, 202);
+        }
+        if (error.code === "auth_failed") {
+          throw new ApiError(401, error.code, error.message, error.details);
+        }
+      }
+      throw error;
+    }
+  });
+
+  // Process OAuth callback for server registration
+  mcpRouter.post(
+    "/servers/:id/oauth/callback",
+    zValidator("json", CallbackDataSchema),
+    async (c) => {
+      const serverId = c.req.param("id");
+      const callbackData = c.req.valid("json");
+
+      const dataDir = await getWorkspaceDataDir();
+      const oauthBaseDir = join(dataDir, "oauth", serverId);
+      const serverInfoPath = join(oauthBaseDir, "server_info.json");
+
+      const serverInfoText = await Deno.readTextFile(serverInfoPath);
+      const serverInfo = JSON.parse(serverInfoText);
+      const serverUrl = serverInfo.serverUrl;
+      const serverConfig = serverInfo.serverConfig;
+
+      const oauthProvider = await createOAuthProvider(serverId, serverUrl);
+      const tokens = await oauthProvider.processCallback(callbackData);
+      await oauthProvider.saveTokens(tokens);
+
+      if (!tokens?.access_token) {
+        throw new Error("Failed to obtain access token");
+      }
+
+      // Deregister server first (ignore errors if not exists)
+      await mcpServerManager.deregisterServer(serverId);
+
+      // Check if this is a registry registration or config registration
+      if (serverInfo.fromRegistry) {
+        // Registry-based registration with saved token
+        await mcpServerManager.registerServerFromRegistry(
+          serverId,
+          serverInfo.registryToken,
+        );
+      } else {
+        // Config-based registration
+        await mcpServerManager.registerServer(serverId, serverConfig);
+      }
+
+      return c.json({
+        success: true,
+        message:
+          "OAuth authentication completed and server registered successfully",
+        registered: true,
+      });
+    },
+  );
+
+  // Get OAuth status for a server
+  mcpRouter.get("/servers/:id/oauth/status", async (c) => {
+    const serverId = c.req.param("id");
+    const serverConfig = mcpServerManager.getServerConfig(serverId);
+
+    if (!("url" in serverConfig)) {
+      throw new ApiError(
+        400,
+        "invalid_server",
+        "OAuth is only supported for SSE-mode servers with URLs",
+      );
+    }
+
+    const oauthProvider = await createOAuthProvider(serverId, serverConfig.url);
+    const tokens = await oauthProvider.tokens();
+    const hasValidTokens = !!(tokens?.access_token);
+
+    return c.json({
+      success: true,
+      authenticated: hasValidTokens,
+      hasTokens: hasValidTokens,
+    });
+  });
+
+  // Clear OAuth data for a server
+  mcpRouter.delete("/servers/:id/oauth", async (c) => {
+    const serverId = c.req.param("id");
+    const serverConfig = mcpServerManager.getServerConfig(serverId);
+
+    if (!("url" in serverConfig)) {
+      throw new ApiError(
+        400,
+        "invalid_server",
+        "OAuth is only supported for SSE-mode servers with URLs",
+      );
+    }
+
+    const oauthProvider = await createOAuthProvider(serverId, serverConfig.url);
+    await oauthProvider.clearAuthData();
+
+    return c.json({
+      success: true,
+      message: "OAuth data cleared successfully",
+    });
   });
 
   // Retry MCP server registration after OAuth
