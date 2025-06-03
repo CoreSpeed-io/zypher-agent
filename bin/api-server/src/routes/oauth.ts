@@ -36,6 +36,42 @@ function getServerUrlFromConfig(config: IMcpServerConfig): string {
   throw new Error("OAuth is only supported for SSE-mode servers with URLs");
 }
 
+async function createOAuthProvider(
+  serverId: string,
+  mcpServerManager: McpServerManager,
+) {
+  const serverConfig = mcpServerManager.getServerConfig(serverId);
+  const serverUrl = getServerUrlFromConfig(serverConfig);
+
+  const dataDir = await getWorkspaceDataDir();
+  const oauthBaseDir = join(dataDir, "oauth", serverId);
+  await ensureDir(oauthBaseDir);
+
+  return new RemoteOAuthProvider({
+    serverId,
+    serverUrl,
+    oauthBaseDir,
+    clientName: "zypher-agent-api",
+  });
+}
+
+async function getServerUrlForOAuth(
+  serverId: string,
+  mcpServerManager: McpServerManager,
+): Promise<string> {
+  const dataDir = await getWorkspaceDataDir();
+  const serverInfoPath = join(dataDir, "oauth", serverId, "server_info.json");
+
+  try {
+    const serverInfoText = await Deno.readTextFile(serverInfoPath);
+    const serverInfo = JSON.parse(serverInfoText);
+    return serverInfo.serverUrl;
+  } catch {
+    const serverConfig = mcpServerManager.getServerConfig(serverId);
+    return getServerUrlFromConfig(serverConfig);
+  }
+}
+
 export function createOAuthRouter(mcpServerManager: McpServerManager) {
   const app = new Hono();
 
@@ -47,104 +83,35 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
     "/:serverId/callback",
     zValidator("json", CallbackDataSchema),
     async (c) => {
-      try {
-        const serverId = c.req.param("serverId");
-        const callbackData = c.req.valid("json");
+      const serverId = c.req.param("serverId");
+      const callbackData = c.req.valid("json");
 
-        console.log(`Processing OAuth callback for server: ${serverId}`);
+      const oauthProvider = await createOAuthProvider(
+        serverId,
+        mcpServerManager,
+      );
 
-        // Try to get server configuration from saved OAuth data first
-        const dataDir = await getWorkspaceDataDir();
-        const oauthBaseDir = join(dataDir, "oauth", serverId);
-        const serverInfoPath = join(oauthBaseDir, "server_info.json");
+      const tokens = await oauthProvider.processCallback(callbackData);
+      await oauthProvider.saveTokens(tokens);
 
-        let serverUrl: string;
-        try {
-          // Read server info from OAuth directory
-          const serverInfoText = await Deno.readTextFile(serverInfoPath);
-          const serverInfo = JSON.parse(serverInfoText);
-          serverUrl = serverInfo.serverUrl;
-        } catch {
-          // Fallback to MCP server manager (for backward compatibility)
-          let serverConfig: IMcpServerConfig;
-          try {
-            serverConfig = mcpServerManager.getServerConfig(serverId);
-            serverUrl = getServerUrlFromConfig(serverConfig);
-          } catch {
-            return c.json({
-              success: false,
-              error:
-                `Server not found: ${serverId}. OAuth data may be missing.`,
-            }, 404);
-          }
-        }
-
-        // Create OAuth provider for this server
-        await ensureDir(oauthBaseDir);
-
-        const oauthProvider = new RemoteOAuthProvider({
-          serverId,
-          serverUrl,
-          oauthBaseDir,
-          clientName: "zypher-agent-api",
-        });
-
-        console.log("Processing OAuth callback with data:", callbackData);
-        const tokens = await oauthProvider.processCallback(callbackData);
-        await oauthProvider.saveTokens(tokens);
-
-        if (!tokens?.access_token) {
-          throw new Error("Failed to obtain access token");
-        }
-
-        try {
-          await mcpServerManager.deregisterServer(serverId);
-        } catch {
-          // Ignore errors - server might not exist
-        }
-
-        let serverConfig: IMcpServerConfig;
-        try {
-          const serverInfoText = await Deno.readTextFile(serverInfoPath);
-          const serverInfo = JSON.parse(serverInfoText);
-          serverConfig = serverInfo.serverConfig;
-        } catch {
-          serverConfig = {
-            url: serverUrl,
-            enabled: true,
-          };
-        }
-
-        try {
-          await mcpServerManager.registerServer(serverId, serverConfig);
-          return c.json({
-            success: true,
-            message:
-              "OAuth authentication completed and server registered successfully with OAuth credentials",
-            registered: true,
-          });
-        } catch (registerError) {
-          return c.json({
-            success: true,
-            message:
-              "OAuth authentication completed successfully, but server registration failed. The OAuth tokens are saved and ready to use.",
-            registered: false,
-            serverUrl: serverUrl,
-            registerError: registerError instanceof Error
-              ? registerError.message
-              : "Unknown error",
-          });
-        }
-      } catch (error) {
-        console.error(
-          `OAuth callback processing failed for ${c.req.param("serverId")}:`,
-          error,
-        );
-        return c.json({
-          success: false,
-          error: error instanceof Error ? error.message : "Unknown error",
-        }, 500);
+      if (!tokens?.access_token) {
+        throw new Error("Failed to obtain access token");
       }
+
+      await mcpServerManager.deregisterServer(serverId);
+
+      const serverConfig = {
+        url: await getServerUrlForOAuth(serverId, mcpServerManager),
+        enabled: true,
+      };
+
+      await mcpServerManager.registerServer(serverId, serverConfig);
+      return c.json({
+        success: true,
+        message:
+          "OAuth authentication completed and server registered successfully with OAuth credentials",
+        registered: true,
+      });
     },
   );
 
@@ -153,62 +120,16 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
    * DELETE /oauth/:serverId
    */
   app.delete("/:serverId", async (c) => {
-    try {
-      const serverId = c.req.param("serverId");
+    const serverId = c.req.param("serverId");
 
-      console.log(`Clearing OAuth data for server: ${serverId}`);
+    const oauthProvider = await createOAuthProvider(serverId, mcpServerManager);
 
-      let serverConfig: IMcpServerConfig;
-      try {
-        serverConfig = mcpServerManager.getServerConfig(serverId);
-      } catch {
-        return c.json({
-          success: false,
-          error: `Server not found: ${serverId}`,
-        }, 404);
-      }
+    await oauthProvider.clearAuthData();
 
-      // Extract server URL from config
-      let serverUrl: string;
-      try {
-        serverUrl = getServerUrlFromConfig(serverConfig);
-      } catch (error) {
-        return c.json({
-          success: false,
-          error: error instanceof Error
-            ? error.message
-            : "Invalid server configuration",
-        }, 400);
-      }
-
-      // Create OAuth provider for this server
-      const dataDir = await getWorkspaceDataDir();
-      const oauthBaseDir = join(dataDir, "oauth", serverId);
-      await ensureDir(oauthBaseDir);
-
-      const oauthProvider = new RemoteOAuthProvider({
-        serverId,
-        serverUrl,
-        oauthBaseDir,
-        clientName: "zypher-agent-api",
-      });
-
-      await oauthProvider.clearAuthData();
-
-      return c.json({
-        success: true,
-        message: "OAuth data cleared successfully",
-      });
-    } catch (error) {
-      console.error(
-        `Failed to clear OAuth data for ${c.req.param("serverId")}:`,
-        error,
-      );
-      return c.json({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      }, 500);
-    }
+    return c.json({
+      success: true,
+      message: "OAuth data cleared successfully",
+    });
   });
 
   /**
@@ -216,67 +137,18 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
    * GET /oauth/:serverId/status
    */
   app.get("/:serverId/status", async (c) => {
-    try {
-      const serverId = c.req.param("serverId");
+    const serverId = c.req.param("serverId");
 
-      // Get server configuration from MCP server manager
-      let serverConfig: IMcpServerConfig;
-      try {
-        serverConfig = mcpServerManager.getServerConfig(serverId);
-      } catch {
-        return c.json({
-          success: false,
-          error: `Server not found: ${serverId}`,
-        }, 404);
-      }
+    const oauthProvider = await createOAuthProvider(serverId, mcpServerManager);
 
-      // Extract server URL from config
-      let serverUrl: string;
-      try {
-        serverUrl = getServerUrlFromConfig(serverConfig);
-      } catch (error) {
-        return c.json({
-          success: false,
-          error: error instanceof Error
-            ? error.message
-            : "Invalid server configuration",
-          authenticated: false,
-          hasTokens: false,
-        }, 400);
-      }
+    const tokens = await oauthProvider.tokens();
+    const hasValidTokens = !!(tokens?.access_token);
 
-      // Create OAuth provider for this server
-      const dataDir = await getWorkspaceDataDir();
-      const oauthBaseDir = join(dataDir, "oauth", serverId);
-      await ensureDir(oauthBaseDir);
-
-      const oauthProvider = new RemoteOAuthProvider({
-        serverId,
-        serverUrl,
-        oauthBaseDir,
-        clientName: "zypher-agent-api",
-      });
-
-      const tokens = await oauthProvider.tokens();
-      const hasValidTokens = !!(tokens?.access_token);
-
-      return c.json({
-        success: true,
-        authenticated: hasValidTokens,
-        hasTokens: hasValidTokens,
-      });
-    } catch (error) {
-      console.error(
-        `Failed to get OAuth status for ${c.req.param("serverId")}:`,
-        error,
-      );
-      return c.json({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-        authenticated: false,
-        hasTokens: false,
-      }, 500);
-    }
+    return c.json({
+      success: true,
+      authenticated: hasValidTokens,
+      hasTokens: hasValidTokens,
+    });
   });
 
   return app;
