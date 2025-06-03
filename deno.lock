@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@bureaudouble-forks/importmap@~0.2.1": "0.2.1",
     "jsr:@cmd-johnson/oauth2-client@2": "2.0.0",
     "jsr:@openai/openai@^4.102.0": "4.102.0",
     "jsr:@panva/jose@^6.0.10": "6.0.11",
@@ -23,6 +24,7 @@
     "jsr:@std/internal@^1.0.6": "1.0.8",
     "jsr:@std/internal@^1.0.7": "1.0.8",
     "jsr:@std/internal@^1.0.8": "1.0.8",
+    "jsr:@std/path@^1.0.8": "1.1.0",
     "jsr:@std/path@^1.1.0": "1.1.0",
     "jsr:@std/testing@^1.0.13": "1.0.13",
     "jsr:@std/uuid@^1.0.8": "1.0.8",
@@ -44,6 +46,9 @@
     "npm:zod@^3.25.42": "3.25.42"
   },
   "jsr": {
+    "@bureaudouble-forks/importmap@0.2.1": {
+      "integrity": "ba78361d289f946e9c2488066b339553576392c5780b151cdd4c01da0c58f131"
+    },
     "@cmd-johnson/oauth2-client@2.0.0": {
       "integrity": "e2f2fa6e657db2a39a55f7d19a9e331c317f3ddbb6068aa44947aa247a99125e",
       "dependencies": [
@@ -106,7 +111,7 @@
     "@std/fs@1.0.18": {
       "integrity": "24bcad99eab1af4fde75e05da6e9ed0e0dce5edb71b7e34baacf86ffe3969f3a",
       "dependencies": [
-        "jsr:@std/path"
+        "jsr:@std/path@^1.1.0"
       ]
     },
     "@std/internal@1.0.8": {
@@ -123,7 +128,7 @@
         "jsr:@std/data-structures",
         "jsr:@std/fs@^1.0.17",
         "jsr:@std/internal@^1.0.8",
-        "jsr:@std/path"
+        "jsr:@std/path@^1.1.0"
       ]
     },
     "@std/uuid@1.0.8": {
@@ -1890,7 +1895,8 @@
   },
   "remote": {
     "https://esm.sh/oauth4webapi@3.5.1": "126b482ed5019378165d0b497ed3ab7e7f8620e21d1d84b7ecdd6f81d7476b39",
-    "https://esm.sh/oauth4webapi@3.5.1/denonext/oauth4webapi.mjs": "f629ca907e21bb408b4c5300dc218b30ca6fc7d584c9f32721a4996f4bb218bb"
+    "https://esm.sh/oauth4webapi@3.5.1/denonext/oauth4webapi.mjs": "f629ca907e21bb408b4c5300dc218b30ca6fc7d584c9f32721a4996f4bb218bb",
+    "https://raw.githubusercontent.com/CoreSpeed-io/rolldown-deno-loader-plugin/refs/heads/main/mod.ts": "acb71a40a2ca64137e26ca44e9c5956a02c5c9fe829e377921c974ac94e09e95"
   },
   "workspace": {
     "dependencies": [
