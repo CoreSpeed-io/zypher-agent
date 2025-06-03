@@ -155,10 +155,19 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
             );
 
             return c.json({
-              ...oauthResponse,
-              code: error.code,
-              message: error.message,
-              details: error.details,
+              success: false,
+              requiresOAuth: true,
+              oauth: {
+                authUrl: oauthResponse.authUrl,
+                state: oauthResponse.state,
+                instructions:
+                  "Please open the authUrl in a browser to complete OAuth authentication",
+              },
+              error: {
+                code: error.code,
+                message: error.message,
+                details: error.details,
+              },
             }, 202);
           } catch (oauthError) {
             console.error(
@@ -169,12 +178,19 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
             return c.json({
               success: false,
               requiresOAuth: true,
-              code: error.code,
-              message: error.message,
-              details: error.details,
-              oauthError: oauthError instanceof Error
-                ? oauthError.message
-                : String(oauthError),
+              oauth: {
+                authUrl: null,
+                instructions:
+                  "OAuth authentication required but failed to generate authorization URL",
+              },
+              error: {
+                code: error.code,
+                message: error.message,
+                details: error.details,
+                oauthError: oauthError instanceof Error
+                  ? oauthError.message
+                  : String(oauthError),
+              },
             }, 202);
           }
         }
@@ -259,10 +275,19 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           );
 
           return c.json({
-            ...oauthResponse,
-            code: error.code,
-            message: error.message,
-            details: error.details,
+            success: false,
+            requiresOAuth: true,
+            oauth: {
+              authUrl: oauthResponse.authUrl,
+              state: oauthResponse.state,
+              instructions:
+                "Please open the authUrl in a browser to complete OAuth authentication",
+            },
+            error: {
+              code: error.code,
+              message: error.message,
+              details: error.details,
+            },
           }, 202);
         } catch (oauthError) {
           console.error(
@@ -273,12 +298,19 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           return c.json({
             success: false,
             requiresOAuth: true,
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            oauthError: oauthError instanceof Error
-              ? oauthError.message
-              : String(oauthError),
+            oauth: {
+              authUrl: null,
+              instructions:
+                "OAuth authentication required but failed to generate authorization URL",
+            },
+            error: {
+              code: error.code,
+              message: error.message,
+              details: error.details,
+              oauthError: oauthError instanceof Error
+                ? oauthError.message
+                : String(oauthError),
+            },
           }, 202);
         }
       }
