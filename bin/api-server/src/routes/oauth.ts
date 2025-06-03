@@ -31,290 +31,13 @@ const CallbackDataSchema = z.object({
  */
 function getServerUrlFromConfig(config: IMcpServerConfig): string {
   if ("url" in config) {
-    // SSE config
     return config.url;
   }
-  // CLI config - we don't have a URL, so this is likely not an OAuth-enabled server
   throw new Error("OAuth is only supported for SSE-mode servers with URLs");
 }
 
 export function createOAuthRouter(mcpServerManager: McpServerManager) {
   const app = new Hono();
-
-  /**
-   * Handle OAuth callback from provider (direct redirect) - Legacy route for backward compatibility
-   * GET /oauth/callback
-   */
-  app.get("/callback", async (c) => {
-    const url = new URL(c.req.url);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
-    const error = url.searchParams.get("error");
-    const errorDescription = url.searchParams.get("error_description");
-
-    // For legacy callbacks, try to determine serverId from stored OAuth data using the state parameter
-    let serverId = "unknown";
-    if (state) {
-      try {
-        const dataDir = await getWorkspaceDataDir();
-        const oauthDir = join(dataDir, "oauth");
-
-        // Search through OAuth directories to find the one with matching state
-        for await (const dirEntry of Deno.readDir(oauthDir)) {
-          if (dirEntry.isDirectory) {
-            try {
-              const stateFile = join(oauthDir, dirEntry.name, "state");
-              const storedState = await Deno.readTextFile(stateFile);
-              if (storedState === state) {
-                serverId = dirEntry.name;
-                console.log(`Found matching serverId for state: ${serverId}`);
-                break;
-              }
-            } catch {
-              // Continue to next directory if state file doesn't exist
-            }
-          }
-        }
-      } catch (error) {
-        console.warn("Could not determine serverId from state:", error);
-      }
-    }
-
-    // Return a simple HTML page that posts the data to the frontend
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>OAuth Authentication</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            padding: 50px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            margin: 0;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 30px;
-            max-width: 500px;
-            margin: 0 auto;
-            backdrop-filter: blur(10px);
-        }
-        .success { color: #4ade80; }
-        .error { color: #f87171; }
-        .code { 
-            background: rgba(0, 0, 0, 0.2); 
-            padding: 10px; 
-            border-radius: 5px; 
-            font-family: monospace;
-            word-break: break-all;
-            margin: 10px 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1 class="${error ? "error" : "success"}">
-            ${error ? "❌ Authentication Failed" : "✅ Authentication Complete"}
-        </h1>
-        ${
-      error
-        ? `<p>Error: ${error}</p>
-           ${errorDescription ? `<p>Description: ${errorDescription}</p>` : ""}`
-        : `<p>Authorization successful! You can close this window.</p>
-           <div class="code">Authorization Code: ${
-          code?.substring(0, 20)
-        }...</div>`
-    }
-        <p>
-            <small>This callback data has been processed by the API server.</small>
-        </p>
-    </div>
-
-    <script>
-        // Send callback data to parent window if it exists (for popup flows)
-        if (window.opener) {
-            window.opener.postMessage({
-                type: 'oauth_callback',
-                data: {
-                    code: '${code || ""}',
-                    state: '${state || ""}',
-                    error: '${error || ""}',
-                    error_description: '${errorDescription || ""}'
-                }
-            }, '*');
-            window.close();
-        }
-        
-        // Auto-process callback if we have code and state
-        if ('${code}' && '${state}') {
-          const serverId = '${serverId}';
-          console.log('Processing OAuth callback for serverId:', serverId);
-          
-          fetch('/oauth/' + serverId + '/callback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              code: '${code}', 
-              state: '${state}' 
-            })
-          }).then(response => response.json())
-            .then(result => {
-              console.log('OAuth callback processed:', result);
-              if (result.success) {
-                document.querySelector('.container').innerHTML = 
-                  '<h1 class="success">✅ Server Registered Successfully!</h1>' +
-                  '<p>' + result.message + '</p>' +
-                  '<p><small>You can close this window.</small></p>';
-              } else {
-                document.querySelector('.container').innerHTML = 
-                  '<h1 class="error">❌ Registration Failed</h1>' +
-                  '<p>' + (result.error || 'Unknown error occurred') + '</p>' +
-                  '<p><small>Please check the console for more details.</small></p>';
-              }
-            })
-            .catch(error => {
-              console.error('OAuth callback error:', error);
-              document.querySelector('.container').innerHTML = 
-                '<h1 class="error">❌ Processing Failed</h1>' +
-                '<p>Failed to process OAuth callback</p>' +
-                '<p><small>Please check the console for more details.</small></p>';
-            });
-        }
-    </script>
-</body>
-</html>`;
-
-    return c.html(html);
-  });
-
-  /**
-   * Handle OAuth callback from provider (direct redirect) with serverId
-   * GET /oauth/:serverId/callback
-   */
-  app.get("/:serverId/callback", (c) => {
-    const serverId = c.req.param("serverId");
-    const url = new URL(c.req.url);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
-    const error = url.searchParams.get("error");
-    const errorDescription = url.searchParams.get("error_description");
-
-    console.log(`Received OAuth callback for server: ${serverId}`);
-
-    // Return a simple HTML page that posts the data to the frontend
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>OAuth Authentication</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            padding: 50px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            margin: 0;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 30px;
-            max-width: 500px;
-            margin: 0 auto;
-            backdrop-filter: blur(10px);
-        }
-        .success { color: #4ade80; }
-        .error { color: #f87171; }
-        .code { 
-            background: rgba(0, 0, 0, 0.2); 
-            padding: 10px; 
-            border-radius: 5px; 
-            font-family: monospace;
-            word-break: break-all;
-            margin: 10px 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1 class="${error ? "error" : "success"}">
-            ${error ? "❌ Authentication Failed" : "✅ Authentication Complete"}
-        </h1>
-        ${
-      error
-        ? `<p>Error: ${error}</p>
-           ${errorDescription ? `<p>Description: ${errorDescription}</p>` : ""}`
-        : `<p>Authorization successful! You can close this window.</p>
-           <div class="code">Authorization Code: ${
-          code?.substring(0, 20)
-        }...</div>`
-    }
-        <p>
-            <small>This callback data is being processed for server: <strong>${serverId}</strong></small>
-        </p>
-    </div>
-
-    <script>
-        // Send callback data to parent window if it exists (for popup flows)
-        if (window.opener) {
-            window.opener.postMessage({
-                type: 'oauth_callback',
-                data: {
-                    code: '${code || ""}',
-                    state: '${state || ""}',
-                    error: '${error || ""}',
-                    error_description: '${errorDescription || ""}'
-                }
-            }, '*');
-            window.close();
-        }
-        
-        // Auto-process callback if we have code and state
-        if ('${code}' && '${state}') {
-          const serverId = '${serverId}';
-          console.log('Processing OAuth callback for serverId:', serverId);
-          
-          fetch('/oauth/' + serverId + '/callback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              code: '${code}', 
-              state: '${state}' 
-            })
-          }).then(response => response.json())
-            .then(result => {
-              console.log('OAuth callback processed:', result);
-              if (result.success) {
-                document.querySelector('.container').innerHTML = 
-                  '<h1 class="success">✅ Server Registered Successfully!</h1>' +
-                  '<p>' + result.message + '</p>' +
-                  '<p><small>You can close this window.</small></p>';
-              } else {
-                document.querySelector('.container').innerHTML = 
-                  '<h1 class="error">❌ Registration Failed</h1>' +
-                  '<p>' + (result.error || 'Unknown error occurred') + '</p>' +
-                  '<p><small>Please check the console for more details.</small></p>';
-              }
-            })
-            .catch(error => {
-              console.error('OAuth callback error:', error);
-              document.querySelector('.container').innerHTML = 
-                '<h1 class="error">❌ Processing Failed</h1>' +
-                '<p>Failed to process OAuth callback</p>' +
-                '<p><small>Please check the console for more details.</small></p>';
-            });
-        }
-    </script>
-</body>
-</html>`;
-
-    return c.html(html);
-  });
 
   /**
    * Process OAuth callback data from frontend
@@ -341,16 +64,12 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
           const serverInfoText = await Deno.readTextFile(serverInfoPath);
           const serverInfo = JSON.parse(serverInfoText);
           serverUrl = serverInfo.serverUrl;
-          console.log(`Using server URL from OAuth data: ${serverUrl}`);
         } catch {
           // Fallback to MCP server manager (for backward compatibility)
           let serverConfig: IMcpServerConfig;
           try {
             serverConfig = mcpServerManager.getServerConfig(serverId);
             serverUrl = getServerUrlFromConfig(serverConfig);
-            console.log(
-              `Using server URL from MCP server manager: ${serverUrl}`,
-            );
           } catch {
             return c.json({
               success: false,
@@ -370,57 +89,49 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
           clientName: "zypher-agent-api",
         });
 
-        // Process the callback
         console.log("Processing OAuth callback with data:", callbackData);
         const tokens = await oauthProvider.processCallback(callbackData);
-
-        // Save the tokens
         await oauthProvider.saveTokens(tokens);
-        console.log("💾 Tokens saved successfully");
 
-        // Verify we have tokens
         if (!tokens?.access_token) {
           throw new Error("Failed to obtain access token");
         }
 
-        console.log(
-          "✅ OAuth callback processed successfully, tokens obtained",
-        );
+        try {
+          await mcpServerManager.deregisterServer(serverId);
+        } catch {
+          // Ignore errors - server might not exist
+        }
 
-        // Automatically register the server now that we have valid OAuth tokens
+        let serverConfig: IMcpServerConfig;
         try {
           const serverInfoText = await Deno.readTextFile(serverInfoPath);
           const serverInfo = JSON.parse(serverInfoText);
+          serverConfig = serverInfo.serverConfig;
+        } catch {
+          serverConfig = {
+            url: serverUrl,
+            enabled: true,
+          };
+        }
 
-          console.log(
-            `Attempting to register server ${serverId} with OAuth tokens...`,
-          );
-          await mcpServerManager.registerServer(
-            serverId,
-            serverInfo.serverConfig,
-          );
-
-          console.log(
-            `✅ Server ${serverId} registered successfully with OAuth authentication`,
-          );
+        try {
+          await mcpServerManager.registerServer(serverId, serverConfig);
           return c.json({
             success: true,
             message:
-              "OAuth authentication completed and server registered successfully",
+              "OAuth authentication completed and server registered successfully with OAuth credentials",
             registered: true,
           });
-        } catch (registrationError) {
-          console.warn(
-            `OAuth succeeded but server registration failed for ${serverId}:`,
-            registrationError,
-          );
+        } catch (registerError) {
           return c.json({
             success: true,
             message:
-              "OAuth authentication completed successfully, but server registration failed. You can retry registration manually.",
+              "OAuth authentication completed successfully, but server registration failed. The OAuth tokens are saved and ready to use.",
             registered: false,
-            registrationError: registrationError instanceof Error
-              ? registrationError.message
+            serverUrl: serverUrl,
+            registerError: registerError instanceof Error
+              ? registerError.message
               : "Unknown error",
           });
         }
@@ -447,7 +158,6 @@ export function createOAuthRouter(mcpServerManager: McpServerManager) {
 
       console.log(`Clearing OAuth data for server: ${serverId}`);
 
-      // Get server configuration from MCP server manager
       let serverConfig: IMcpServerConfig;
       try {
         serverConfig = mcpServerManager.getServerConfig(serverId);
