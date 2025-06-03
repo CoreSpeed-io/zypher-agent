@@ -145,54 +145,29 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           const serverId = details.serverId;
           const serverConfig = servers[serverId];
 
-          try {
-            const oauthResponse = await generateOAuthResponse(
-              serverId,
-              details.serverUrl,
-              serverConfig,
-              undefined,
-              false,
-            );
+          const oauthResponse = await generateOAuthResponse(
+            serverId,
+            details.serverUrl,
+            serverConfig,
+            undefined,
+            false,
+          );
 
-            return c.json({
-              success: false,
-              requiresOAuth: true,
-              oauth: {
-                authUrl: oauthResponse.authUrl,
-                state: oauthResponse.state,
-                instructions:
-                  "Please open the authUrl in a browser to complete OAuth authentication",
-              },
-              error: {
-                code: error.code,
-                message: error.message,
-                details: error.details,
-              },
-            }, 202);
-          } catch (oauthError) {
-            console.error(
-              `Failed to generate OAuth response for ${serverId}:`,
-              oauthError,
-            );
-            // Return a simpler OAuth required response if generateOAuthResponse fails
-            return c.json({
-              success: false,
-              requiresOAuth: true,
-              oauth: {
-                authUrl: null,
-                instructions:
-                  "OAuth authentication required but failed to generate authorization URL",
-              },
-              error: {
-                code: error.code,
-                message: error.message,
-                details: error.details,
-                oauthError: oauthError instanceof Error
-                  ? oauthError.message
-                  : String(oauthError),
-              },
-            }, 202);
-          }
+          return c.json({
+            success: false,
+            requiresOAuth: true,
+            oauth: {
+              authUrl: oauthResponse.authUrl,
+              state: oauthResponse.state,
+              instructions:
+                "Please open the authUrl in a browser to complete OAuth authentication",
+            },
+            error: {
+              code: error.code,
+              message: error.message,
+              details: error.details,
+            },
+          }, 202);
         }
         // Let centralized error handler deal with all other errors
         throw error;
@@ -265,54 +240,29 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
         };
         const serverId = details.serverId;
 
-        try {
-          const oauthResponse = await generateOAuthResponse(
-            serverId,
-            details.serverUrl,
-            undefined,
-            token,
-            true,
-          );
+        const oauthResponse = await generateOAuthResponse(
+          serverId,
+          details.serverUrl,
+          undefined,
+          token,
+          true,
+        );
 
-          return c.json({
-            success: false,
-            requiresOAuth: true,
-            oauth: {
-              authUrl: oauthResponse.authUrl,
-              state: oauthResponse.state,
-              instructions:
-                "Please open the authUrl in a browser to complete OAuth authentication",
-            },
-            error: {
-              code: error.code,
-              message: error.message,
-              details: error.details,
-            },
-          }, 202);
-        } catch (oauthError) {
-          console.error(
-            `Failed to generate OAuth response for ${serverId}:`,
-            oauthError,
-          );
-          // Return a simpler OAuth required response if generateOAuthResponse fails
-          return c.json({
-            success: false,
-            requiresOAuth: true,
-            oauth: {
-              authUrl: null,
-              instructions:
-                "OAuth authentication required but failed to generate authorization URL",
-            },
-            error: {
-              code: error.code,
-              message: error.message,
-              details: error.details,
-              oauthError: oauthError instanceof Error
-                ? oauthError.message
-                : String(oauthError),
-            },
-          }, 202);
-        }
+        return c.json({
+          success: false,
+          requiresOAuth: true,
+          oauth: {
+            authUrl: oauthResponse.authUrl,
+            state: oauthResponse.state,
+            instructions:
+              "Please open the authUrl in a browser to complete OAuth authentication",
+          },
+          error: {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+          },
+        }, 202);
       }
       // Let centralized error handler deal with all other errors
       throw error;
@@ -338,75 +288,51 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     const oauthBaseDir = join(dataDir, "oauth", serverId);
     const serverInfoPath = join(oauthBaseDir, "server_info.json");
 
+    const serverInfoText = await Deno.readTextFile(serverInfoPath);
+    const serverInfo = JSON.parse(serverInfoText) as ServerInfo;
+    const serverUrl = serverInfo.serverUrl;
+
+    const oauthProvider = await createOAuthProvider(serverId, serverUrl);
+    const tokens = await oauthProvider.processCallback(callbackData);
+    await oauthProvider.saveTokens(tokens);
+
+    if (!tokens?.access_token) {
+      throw new Error("Failed to obtain access token");
+    }
+
+    // Deregister server first (ignore errors if not exists)
     try {
-      const serverInfoText = await Deno.readTextFile(serverInfoPath);
-      const serverInfo = JSON.parse(serverInfoText) as ServerInfo;
-      const serverUrl = serverInfo.serverUrl;
+      await mcpServerManager.deregisterServer(serverId);
+    } catch {
+      // Ignore if server doesn't exist
+    }
 
-      const oauthProvider = await createOAuthProvider(serverId, serverUrl);
-      const tokens = await oauthProvider.processCallback(callbackData);
-      await oauthProvider.saveTokens(tokens);
-
-      if (!tokens?.access_token) {
-        throw new Error("Failed to obtain access token");
-      }
-
-      // Deregister server first (ignore errors if not exists)
-      try {
-        await mcpServerManager.deregisterServer(serverId);
-      } catch {
-        // Ignore if server doesn't exist
-      }
-
-      // Check if this is a registry registration or config registration
-      if (serverInfo.fromRegistry) {
-        // Registry-based registration with saved token (may be empty string)
-        await mcpServerManager.registerServerFromRegistry(
-          serverId,
-          serverInfo.registryToken || "",
-        );
-      } else if (serverInfo.serverConfig) {
-        // Config-based registration
-        await mcpServerManager.registerServer(
-          serverId,
-          serverInfo.serverConfig,
-        );
-      } else {
-        throw new Error(
-          "Invalid server info: missing both registry token and server config",
-        );
-      }
-
-      // Return success page or redirect
-      return c.html(`
-        <html>
-          <head><title>OAuth Success</title></head>
-          <body>
-            <h1>Authentication Successful!</h1>
-            <p>The ${serverId} server has been successfully authenticated and registered.</p>
-            <p>You can now close this window and return to your application.</p>
-          </body>
-        </html>
-      `);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
-      console.error(`OAuth callback error for ${serverId}:`, error);
-      return c.html(
-        `
-        <html>
-          <head><title>OAuth Error</title></head>
-          <body>
-            <h1>Authentication Failed</h1>
-            <p>There was an error processing the OAuth callback: ${errorMessage}</p>
-            <p>Please try again or contact support.</p>
-          </body>
-        </html>
-      `,
-        400,
+    // Check if this is a registry registration or config registration
+    if (serverInfo.fromRegistry) {
+      // Registry-based registration with saved token (may be empty string)
+      await mcpServerManager.registerServerFromRegistry(
+        serverId,
+        serverInfo.registryToken || "",
+      );
+    } else if (serverInfo.serverConfig) {
+      // Config-based registration
+      await mcpServerManager.registerServer(
+        serverId,
+        serverInfo.serverConfig,
+      );
+    } else {
+      throw new Error(
+        "Invalid server info: missing both registry token and server config",
       );
     }
+
+    // Return success JSON response instead of HTML
+    return c.json({
+      success: true,
+      message: "OAuth authentication completed successfully",
+      serverId: serverId,
+      serverRegistered: true,
+    });
   });
 
   // Get OAuth status for a server
