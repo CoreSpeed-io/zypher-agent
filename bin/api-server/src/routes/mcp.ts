@@ -131,6 +131,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     zValidator("json", McpServerApiSchema),
     async (c) => {
       const servers = c.req.valid("json");
+
       try {
         await Promise.all(
           Object.entries(servers).map(
@@ -138,39 +139,35 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
               config && mcpServerManager.registerServer(name, config),
           ),
         );
+        return c.body(null, 201);
       } catch (error) {
-        if (error instanceof McpServerError) {
-          if (error.code === "already_exists") {
-            throw new ApiError(409, error.code, error.message, error.details);
-          }
-          if (error.code === "oauth_required") {
-            // Generate OAuth URL directly and return it in the response
-            const details = error.details as {
-              serverId: string;
-              serverUrl: string;
-            };
-            const serverConfig = servers[details.serverId];
+        // Only handle OAuth requirement - let other errors go to centralized handler
+        if (
+          error instanceof McpServerError && error.code === "oauth_required"
+        ) {
+          const details = error.details as {
+            serverId: string;
+            serverUrl: string;
+          };
+          const serverId = details.serverId;
+          const serverConfig = servers[serverId];
 
-            const oauthResponse = await generateOAuthResponse(
-              details.serverId,
-              details.serverUrl,
-              serverConfig,
-            );
+          const oauthResponse = await generateOAuthResponse(
+            serverId,
+            details.serverUrl,
+            serverConfig,
+          );
 
-            return c.json({
-              ...oauthResponse,
-              code: error.code,
-              message: error.message,
-              details: error.details,
-            }, 202);
-          }
-          if (error.code === "auth_failed") {
-            throw new ApiError(401, error.code, error.message, error.details);
-          }
+          return c.json({
+            ...oauthResponse,
+            code: error.code,
+            message: error.message,
+            details: error.details,
+          }, 202);
         }
+        // Let centralized error handler deal with all other errors
         throw error;
       }
-      return c.body(null, 201);
     },
   );
 
@@ -231,32 +228,29 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       await mcpServerManager.registerServerFromRegistry(id, token);
       return c.body(null, 202);
     } catch (error) {
-      if (error instanceof McpServerError) {
-        if (error.code === "oauth_required") {
-          // Generate OAuth URL for registry server
-          const details = error.details as {
-            serverId: string;
-            serverUrl: string;
-          };
+      // Only handle OAuth requirement - let other errors go to centralized handler
+      if (error instanceof McpServerError && error.code === "oauth_required") {
+        const details = error.details as {
+          serverId: string;
+          serverUrl: string;
+        };
+        const serverId = details.serverId;
 
-          const oauthResponse = await generateOAuthResponse(
-            details.serverId,
-            details.serverUrl,
-            undefined,
-            token,
-          );
+        const oauthResponse = await generateOAuthResponse(
+          serverId,
+          details.serverUrl,
+          undefined,
+          token,
+        );
 
-          return c.json({
-            ...oauthResponse,
-            code: error.code,
-            message: error.message,
-            details: error.details,
-          }, 202);
-        }
-        if (error.code === "auth_failed") {
-          throw new ApiError(401, error.code, error.message, error.details);
-        }
+        return c.json({
+          ...oauthResponse,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+        }, 202);
       }
+      // Let centralized error handler deal with all other errors
       throw error;
     }
   });
@@ -355,41 +349,6 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       message: "OAuth data cleared successfully",
     });
   });
-
-  // Retry MCP server registration after OAuth
-  mcpRouter.post(
-    "/servers/:id/retry-oauth",
-    zValidator("json", McpServerConfigSchema),
-    async (c) => {
-      const id = McpServerIdSchema.parse(c.req.param("id"));
-      const config = c.req.valid("json");
-
-      try {
-        await mcpServerManager.retryServerRegistrationWithOAuth(id, config);
-        return c.json({
-          success: true,
-          message:
-            `Server ${id} registered successfully with OAuth authentication`,
-        }, 201);
-      } catch (error) {
-        if (error instanceof McpServerError) {
-          if (error.code === "oauth_required") {
-            return c.json({
-              success: false,
-              requiresOAuth: true,
-              code: error.code,
-              message: "OAuth authentication still required",
-              details: error.details,
-            }, 202);
-          }
-          if (error.code === "auth_failed") {
-            throw new ApiError(401, error.code, error.message, error.details);
-          }
-        }
-        throw error;
-      }
-    },
-  );
 
   return mcpRouter;
 }

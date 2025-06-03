@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { StatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import { formatError } from "../../../src/error.ts";
+import { McpServerError } from "../../../src/mcp/McpServerManager.ts";
 
 export class ApiError extends Error {
   constructor(
@@ -35,6 +36,23 @@ export function errorHandler(err: Error, c: Context) {
       type: "invalid_request",
       message: "Validation error",
       details: err.errors,
+    });
+  }
+
+  if (err instanceof McpServerError) {
+    let statusCode = 500;
+    if (err.code === "already_exists") {
+      statusCode = 409;
+    } else if (err.code === "auth_failed") {
+      statusCode = 401;
+    }
+
+    c.status(statusCode as StatusCode);
+    return c.json({
+      code: statusCode,
+      type: err.code,
+      message: err.message,
+      details: err.details,
     });
   }
 
