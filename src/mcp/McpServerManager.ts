@@ -79,8 +79,6 @@ export class McpServerManager {
     return new McpClient({
       serverName: serverId,
       oAuthProvider: oauthProvider,
-      retryAuthentication: true,
-      maxAuthRetries: 3,
     });
   }
 
@@ -248,7 +246,10 @@ export class McpServerManager {
     return errorStr.includes("401") ||
       errorStr.includes("unauthorized") ||
       errorStr.includes("authentication") ||
-      errorStr.includes("non-200 status code (401)");
+      errorStr.includes("non-200 status code (401)") ||
+      errorStr.includes("please use the new oauth flow") ||
+      errorStr.includes("generateauthurl") ||
+      errorStr.includes("oauth flow");
   };
 
   /**

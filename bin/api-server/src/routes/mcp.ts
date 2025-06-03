@@ -18,14 +18,6 @@ import { ensureDir } from "@std/fs";
 // Schema for request validation
 const McpServerApiSchema = z.record(z.string(), McpServerConfigSchema);
 
-// OAuth callback validation schema
-const CallbackDataSchema = z.object({
-  code: z.string().optional(),
-  state: z.string().optional(),
-  error: z.string().optional(),
-  error_description: z.string().optional(),
-});
-
 // Server info interface for OAuth callback processing
 interface ServerInfo {
   serverId: string;
@@ -255,18 +247,26 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     }
   });
 
-  // Process OAuth callback for server registration
-  mcpRouter.post(
-    "/servers/:id/oauth/callback",
-    zValidator("json", CallbackDataSchema),
-    async (c) => {
-      const serverId = c.req.param("id");
-      const callbackData = c.req.valid("json");
+  // Process OAuth callback for server registration (GET request with query parameters)
+  mcpRouter.get("/servers/:id/oauth/callback", async (c) => {
+    const serverId = c.req.param("id");
+    const code = c.req.query("code");
+    const state = c.req.query("state");
+    const error = c.req.query("error");
+    const error_description = c.req.query("error_description");
 
-      const dataDir = await getWorkspaceDataDir();
-      const oauthBaseDir = join(dataDir, "oauth", serverId);
-      const serverInfoPath = join(oauthBaseDir, "server_info.json");
+    const callbackData = {
+      code: code || "",
+      state: state || "",
+      error: error || "",
+      error_description: error_description || "",
+    };
 
+    const dataDir = await getWorkspaceDataDir();
+    const oauthBaseDir = join(dataDir, "oauth", serverId);
+    const serverInfoPath = join(oauthBaseDir, "server_info.json");
+
+    try {
       const serverInfoText = await Deno.readTextFile(serverInfoPath);
       const serverInfo = JSON.parse(serverInfoText);
       const serverUrl = serverInfo.serverUrl;
@@ -281,7 +281,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       }
 
       // Deregister server first (ignore errors if not exists)
-      await mcpServerManager.deregisterServer(serverId);
+      try {
+        await mcpServerManager.deregisterServer(serverId);
+      } catch {
+        // Ignore if server doesn't exist
+      }
 
       // Check if this is a registry registration or config registration
       if (serverInfo.fromRegistry) {
@@ -295,14 +299,37 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
         await mcpServerManager.registerServer(serverId, serverConfig);
       }
 
-      return c.json({
-        success: true,
-        message:
-          "OAuth authentication completed and server registered successfully",
-        registered: true,
-      });
-    },
-  );
+      // Return success page or redirect
+      return c.html(`
+        <html>
+          <head><title>OAuth Success</title></head>
+          <body>
+            <h1>Authentication Successful!</h1>
+            <p>The ${serverId} server has been successfully authenticated and registered.</p>
+            <p>You can now close this window and return to your application.</p>
+          </body>
+        </html>
+      `);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
+      console.error(`OAuth callback error for ${serverId}:`, error);
+      return c.html(
+        `
+        <html>
+          <head><title>OAuth Error</title></head>
+          <body>
+            <h1>Authentication Failed</h1>
+            <p>There was an error processing the OAuth callback: ${errorMessage}</p>
+            <p>Please try again or contact support.</p>
+          </body>
+        </html>
+      `,
+        400,
+      );
+    }
+  });
 
   // Get OAuth status for a server
   mcpRouter.get("/servers/:id/oauth/status", async (c) => {

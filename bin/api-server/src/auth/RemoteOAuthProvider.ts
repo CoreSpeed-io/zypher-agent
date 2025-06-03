@@ -34,7 +34,7 @@ export class RemoteOAuthProvider extends BaseMcpOAuthProvider {
     this.defaultRedirectUri = config.redirectUri ||
       `http://localhost:${
         config.callbackPort || 3000
-      }/oauth/${this.serverId}/callback`;
+      }/mcp/servers/${this.serverId}/oauth/callback`;
   }
 
   /**
