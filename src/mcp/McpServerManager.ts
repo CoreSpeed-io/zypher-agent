@@ -747,6 +747,13 @@ export class McpServerManager {
       await this.registerServer(name, config);
       console.log(`Successfully registered server from registry: ${id}`);
     } catch (error) {
+      // Don't wrap OAuth-related errors - let them propagate directly
+      if (
+        error instanceof McpServerError &&
+        (error.code === "oauth_required" || error.code === "auth_failed")
+      ) {
+        throw error;
+      }
       console.error(`Failed to register server ${id} from registry:`, error);
       throw new Error(
         `Failed to register server ${id} from registry: ${formatError(error)}`,

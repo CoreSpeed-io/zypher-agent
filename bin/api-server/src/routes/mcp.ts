@@ -50,6 +50,7 @@ async function generateOAuthResponse(
   serverUrl: string,
   serverConfig?: z.infer<typeof McpServerConfigSchema>,
   registryToken?: string,
+  isFromRegistry = false,
 ) {
   const dataDir = await getWorkspaceDataDir();
   const oauthBaseDir = join(dataDir, "oauth", serverId);
@@ -72,9 +73,9 @@ async function generateOAuthResponse(
     serverUrl,
   };
 
-  if (registryToken) {
+  if (isFromRegistry) {
     serverInfoData.fromRegistry = true;
-    serverInfoData.registryToken = registryToken;
+    serverInfoData.registryToken = registryToken || "";
   } else {
     serverInfoData.serverConfig = serverConfig;
   }
@@ -144,18 +145,38 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           const serverId = details.serverId;
           const serverConfig = servers[serverId];
 
-          const oauthResponse = await generateOAuthResponse(
-            serverId,
-            details.serverUrl,
-            serverConfig,
-          );
+          try {
+            const oauthResponse = await generateOAuthResponse(
+              serverId,
+              details.serverUrl,
+              serverConfig,
+              undefined,
+              false,
+            );
 
-          return c.json({
-            ...oauthResponse,
-            code: error.code,
-            message: error.message,
-            details: error.details,
-          }, 202);
+            return c.json({
+              ...oauthResponse,
+              code: error.code,
+              message: error.message,
+              details: error.details,
+            }, 202);
+          } catch (oauthError) {
+            console.error(
+              `Failed to generate OAuth response for ${serverId}:`,
+              oauthError,
+            );
+            // Return a simpler OAuth required response if generateOAuthResponse fails
+            return c.json({
+              success: false,
+              requiresOAuth: true,
+              code: error.code,
+              message: error.message,
+              details: error.details,
+              oauthError: oauthError instanceof Error
+                ? oauthError.message
+                : String(oauthError),
+            }, 202);
+          }
         }
         // Let centralized error handler deal with all other errors
         throw error;
@@ -212,12 +233,12 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   mcpRouter.post("/registry/:id", async (c) => {
     const id = c.req.param("id");
     const token = c.req.header("Authorization")?.split(" ")[1];
-    if (!token) {
-      throw new ApiError(401, "unauthorized", "No token provided");
-    }
+    // if (!token) {
+    //   throw new ApiError(401, "unauthorized", "No token provided");
+    // }
 
     try {
-      await mcpServerManager.registerServerFromRegistry(id, token);
+      await mcpServerManager.registerServerFromRegistry(id, token ?? "");
       return c.body(null, 202);
     } catch (error) {
       // Only handle OAuth requirement - let other errors go to centralized handler
@@ -228,19 +249,38 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
         };
         const serverId = details.serverId;
 
-        const oauthResponse = await generateOAuthResponse(
-          serverId,
-          details.serverUrl,
-          undefined,
-          token,
-        );
+        try {
+          const oauthResponse = await generateOAuthResponse(
+            serverId,
+            details.serverUrl,
+            undefined,
+            token,
+            true,
+          );
 
-        return c.json({
-          ...oauthResponse,
-          code: error.code,
-          message: error.message,
-          details: error.details,
-        }, 202);
+          return c.json({
+            ...oauthResponse,
+            code: error.code,
+            message: error.message,
+            details: error.details,
+          }, 202);
+        } catch (oauthError) {
+          console.error(
+            `Failed to generate OAuth response for ${serverId}:`,
+            oauthError,
+          );
+          // Return a simpler OAuth required response if generateOAuthResponse fails
+          return c.json({
+            success: false,
+            requiresOAuth: true,
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            oauthError: oauthError instanceof Error
+              ? oauthError.message
+              : String(oauthError),
+          }, 202);
+        }
       }
       // Let centralized error handler deal with all other errors
       throw error;
@@ -268,9 +308,8 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
     try {
       const serverInfoText = await Deno.readTextFile(serverInfoPath);
-      const serverInfo = JSON.parse(serverInfoText);
+      const serverInfo = JSON.parse(serverInfoText) as ServerInfo;
       const serverUrl = serverInfo.serverUrl;
-      const serverConfig = serverInfo.serverConfig;
 
       const oauthProvider = await createOAuthProvider(serverId, serverUrl);
       const tokens = await oauthProvider.processCallback(callbackData);
@@ -289,14 +328,21 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
       // Check if this is a registry registration or config registration
       if (serverInfo.fromRegistry) {
-        // Registry-based registration with saved token
+        // Registry-based registration with saved token (may be empty string)
         await mcpServerManager.registerServerFromRegistry(
           serverId,
-          serverInfo.registryToken,
+          serverInfo.registryToken || "",
+        );
+      } else if (serverInfo.serverConfig) {
+        // Config-based registration
+        await mcpServerManager.registerServer(
+          serverId,
+          serverInfo.serverConfig,
         );
       } else {
-        // Config-based registration
-        await mcpServerManager.registerServer(serverId, serverConfig);
+        throw new Error(
+          "Invalid server info: missing both registry token and server config",
+        );
       }
 
       // Return success page or redirect
