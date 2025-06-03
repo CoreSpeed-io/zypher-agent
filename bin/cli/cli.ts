@@ -85,7 +85,6 @@ const createOAuthProviderFactory = (): OAuthProviderFactory => {
         serverUrl,
         oauthBaseDir,
         clientName: "zypher-agent-cli",
-        softwareVersion: "1.0.0",
         callbackPort: 8080,
       });
     } catch (error) {

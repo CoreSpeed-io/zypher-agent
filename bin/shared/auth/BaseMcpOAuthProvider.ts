@@ -282,7 +282,9 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
       token_type: tokens.tokenType || "Bearer",
       refresh_token: tokens.refreshToken,
       expires_in: tokens.expiresIn,
-      scope: tokens.scope,
+      scope: Array.isArray(tokens.scope)
+        ? tokens.scope.join(" ")
+        : tokens.scope,
     };
   }
 
@@ -295,7 +297,9 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
       tokenType: mcpTokens.token_type || "Bearer",
       refreshToken: mcpTokens.refresh_token,
       expiresIn: mcpTokens.expires_in,
-      scope: mcpTokens.scope,
+      scope: typeof mcpTokens.scope === "string"
+        ? mcpTokens.scope.split(" ")
+        : mcpTokens.scope,
     };
   }
 

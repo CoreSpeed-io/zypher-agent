@@ -8,10 +8,10 @@
 import type { OAuthClientMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 import {
   BaseMcpOAuthProvider,
-  type IBaseMcpOAuthConfig,
+  type McpOAuthConfig,
 } from "../../shared/auth/BaseMcpOAuthProvider.ts";
 
-export interface IRemoteOAuthConfig extends IBaseMcpOAuthConfig {
+export interface IRemoteOAuthConfig extends McpOAuthConfig {
   // Redirect URI for OAuth callback (default: http://localhost:8080/callback)
   redirectUri?: string;
   // Local server port for capturing callback (default: 8080)
@@ -47,10 +47,10 @@ export class RemoteOAuthProvider extends BaseMcpOAuthProvider {
       token_endpoint_auth_method: "none", // Public client (PKCE)
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      client_name: this.clientName,
-      client_uri: this.clientUri,
-      software_id: this.softwareId,
-      software_version: this.softwareVersion,
+      client_name: this.config.clientName,
+      client_uri: "https://github.com/zypher-ai/zypher-agent",
+      software_id: "zypher-agent",
+      software_version: "0.1.0",
     };
   }
 
