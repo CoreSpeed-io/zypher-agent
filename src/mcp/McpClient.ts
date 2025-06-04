@@ -20,10 +20,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { createTool, type Tool } from "../tools/mod.ts";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import {
-  auth,
-  type OAuthClientProvider,
-} from "@modelcontextprotocol/sdk/client/auth.js";
+import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import { z } from "zod";
 import type { IMcpServerConfig } from "./types.ts";
 
@@ -39,6 +36,7 @@ interface OAuthProviderWithClear extends OAuthClientProvider {
  * Configuration options for the MCP client
  */
 export interface IMcpClientConfig {
+  id?: string;
   /** Optional client name for identification */
   name?: string;
   /** Optional version string */
@@ -61,6 +59,7 @@ export class McpClient {
   #client: Client | null = null;
   #transport: StdioClientTransport | SSEClientTransport | null = null;
   #config: IMcpClientConfig & {
+    id: string;
     name: string;
     version: string;
     serverName: string;
@@ -76,6 +75,7 @@ export class McpClient {
    */
   constructor(config: IMcpClientConfig = {}) {
     this.#config = {
+      id: config.id ?? crypto.randomUUID(),
       name: config.name ?? "mcp-client",
       version: config.version ?? "1.0.0",
       serverName: config.serverName ?? "default-server",
@@ -111,6 +111,7 @@ export class McpClient {
 
       // Connect to the server
       await this.#connect(mode, config);
+      console.log("Connected to MCP server", this.#config.serverName);
 
       // Once connected, discover tools
       console.log("Connected to MCP server, discovering tools...");
@@ -163,54 +164,23 @@ export class McpClient {
       console.log(
         `[${this.#config.serverName}] Checking OAuth token status before connection...`,
       );
-      let tokens = await this.#authProvider.tokens();
+      const tokens = await this.#authProvider.tokens();
 
       if (!tokens || !tokens.access_token) {
-        if (!this.#serverUrl) {
-          throw new Error(
-            "serverUrl is not set in McpClient, cannot proceed with OAuth.",
-          );
-        }
-        const serverUrlString = this.#serverUrl.href;
         console.log(
-          `[${this.#config.serverName}] No valid tokens for ${serverUrlString}. Attempting to fetch credentials.`,
+          `[${this.#config.serverName}] No valid tokens found. OAuth authorization required.`,
         );
 
-        let fetchPromise = McpClient.#oauthInProgress.get(serverUrlString);
-
-        if (fetchPromise) {
-          console.log(
-            `[${this.#config.serverName}] Authentication for ${serverUrlString} already in progress, awaiting...`,
-          );
-          await fetchPromise;
-        } else {
-          console.log(
-            `[${this.#config.serverName}] Initiating new authentication for ${serverUrlString}.`,
-          );
-          fetchPromise = this.forceFetchCredentials().finally(() => {
-            McpClient.#oauthInProgress.delete(serverUrlString);
-            console.log(
-              `[${this.#config.serverName}] Authentication lock released for ${serverUrlString}.`,
-            );
-          });
-          McpClient.#oauthInProgress.set(serverUrlString, fetchPromise);
-          await fetchPromise;
-        }
-
-        tokens = await this.#authProvider.tokens();
-        if (!tokens || !tokens.access_token) {
-          throw new Error(
-            `[${this.#config.serverName}] Still no valid tokens after authentication attempt for ${serverUrlString}.`,
-          );
-        }
-        console.log(
-          `[${this.#config.serverName}] Valid tokens acquired for ${serverUrlString}, proceeding with connection.`,
-        );
-      } else {
-        console.log(
-          `[${this.#config.serverName}] Valid tokens found locally, proceeding with connection...`,
+        // Let the OAuth provider handle the authorization flow
+        // This will typically involve opening a browser for user authorization
+        throw new Error(
+          "Please use the new OAuth flow: generateAuthUrl() -> open browser -> processCallback()",
         );
       }
+
+      console.log(
+        `[${this.#config.serverName}] Valid tokens found locally, proceeding with connection...`,
+      );
     }
 
     await this.#client.connect(this.#transport);
@@ -279,45 +249,6 @@ export class McpClient {
       } catch (error) {
         console.error("Error cleaning up OAuth provider:", error);
       }
-    }
-  }
-
-  /**
-   * Force refresh of OAuth credentials
-   * Useful when tokens have expired or been invalidated
-   * NOTE: With simplified OAuth provider, this is mainly for debugging
-   */
-  async forceFetchCredentials(): Promise<void> {
-    console.log(
-      `forceFetchCredentials called - authProvider: ${!!this
-        .#authProvider}, serverUrl: ${!!this.#serverUrl}`,
-    );
-    if (!this.#authProvider || !this.#serverUrl) {
-      console.warn(
-        `Cannot force fetch credentials: No auth provider (${!!this
-          .#authProvider}) or server URL (${!!this.#serverUrl})`,
-      );
-      return;
-    }
-
-    try {
-      console.log("Attempting to fetch authentication credentials...");
-      const result = await auth(this.#authProvider, {
-        serverUrl: this.#serverUrl,
-      });
-
-      if (!result) {
-        throw new Error(`Authentication failed with result: ${result}`);
-      }
-
-      console.log("Successfully refreshed authentication credentials");
-    } catch (error) {
-      // Just log the error message cleanly without stack trace
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
-      console.log(`OAuth error: ${errorMessage}`);
-      // Don't re-throw, let the flow continue
     }
   }
 

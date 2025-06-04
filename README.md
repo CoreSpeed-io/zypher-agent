@@ -179,9 +179,11 @@ Returns:
 ### Frontend Implementation Example
 
 ```javascript
-async function registerServer(serverId) {
+async function registerServer(registryId) {
   try {
-    const response = await fetch(`/mcp/registry/${serverId}`, {
+    // Note: registryId should be the UUID from the MCP registry (e.g., "ffa12db9-460f-4049-b32a-fa19d90ca27e")
+    // NOT the friendly name (e.g., "atlassian")
+    const response = await fetch(`/mcp/registry/${registryId}`, {
       method: "POST",
       headers: { "Authorization": "Bearer your-token" },
     });
@@ -199,8 +201,10 @@ async function registerServer(serverId) {
       // Poll for completion or listen for postMessage
       const checkStatus = setInterval(async () => {
         try {
+          // After registration, the server will be available with its friendly name
+          // Extract friendly name from OAuth callback or use the registryId for now
           const statusResponse = await fetch(
-            `/mcp/servers/${serverId}/oauth/status`,
+            `/mcp/servers/${registryId}/oauth/status`,
           );
           const status = await statusResponse.json();
 
@@ -218,6 +222,10 @@ async function registerServer(serverId) {
     showError("Registration failed:", error);
   }
 }
+
+// Example usage:
+// registerServer("ffa12db9-460f-4049-b32a-fa19d90ca27e"); // ✅ Correct - registry UUID
+// registerServer("atlassian"); // ❌ Wrong - this will cause 404
 ```
 
 ## Development

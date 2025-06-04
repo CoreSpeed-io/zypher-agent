@@ -64,6 +64,7 @@ export class McpServerManager {
 
   async #createMcpClient(
     serverId: string,
+    serverName: string,
     serverConfig: IMcpServerConfig,
   ): Promise<McpClient> {
     let oauthProvider: OAuthClientProvider | undefined = undefined;
@@ -78,7 +79,8 @@ export class McpServerManager {
     }
 
     return new McpClient({
-      serverName: serverId,
+      id: serverId,
+      serverName: serverName,
       oAuthProvider: oauthProvider,
     });
   }
@@ -152,7 +154,11 @@ export class McpServerManager {
           this.#config.mcpServers,
         )
       ) {
-        const client = await this.#createMcpClient(serverId, serverConfig);
+        const client = await this.#createMcpClient(
+          serverId,
+          serverId,
+          serverConfig,
+        );
         const server = McpServerSchema.parse({
           id: serverId,
           name: serverId,
@@ -282,7 +288,11 @@ export class McpServerManager {
    * @param config Server configuration
    * @throws Error if server registration fails or server already exists
    */
-  async registerServer(id: string, config: IMcpServerConfig): Promise<void> {
+  async registerServer(
+    id: string,
+    config: IMcpServerConfig,
+    options?: { name?: string },
+  ): Promise<void> {
     try {
       if (!this.#config) {
         throw new Error("Config not loaded");
@@ -293,10 +303,14 @@ export class McpServerManager {
           `Server ${id} already exists`,
         );
       }
-      const client = await this.#createMcpClient(id, config);
+      const client = await this.#createMcpClient(
+        id,
+        options?.name ?? id,
+        config,
+      );
       const server: IMcpServer = {
         id,
-        name: id,
+        name: options?.name ?? id,
         client: client,
         config,
         enabled: config.enabled ?? true,
@@ -566,7 +580,7 @@ export class McpServerManager {
    */
   #registerServerTools = async (server: IMcpServer): Promise<void> => {
     try {
-      console.log(`Registering tools for server: ${server.id}`);
+      console.log(`Registering tools for server: ${server.name}`);
       const connectionMode = this.#getConnectionMode(server.config);
       console.log(
         `Connection mode: ${
@@ -758,7 +772,7 @@ export class McpServerManager {
       }
 
       // Use the friendly name for server registration (affects tool names)
-      await this.registerServer(serverName, config);
+      await this.registerServer(id, config, { name: serverName });
       console.log(
         `Successfully registered server from registry: ${id}${
           extractedName ? ` as '${serverName}'` : ""
