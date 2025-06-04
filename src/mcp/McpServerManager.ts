@@ -26,7 +26,11 @@ export class McpServerError extends Error {
 }
 
 const McpConfigSchema = z.object({
-  mcpServers: z.record(McpServerConfigSchema),
+  mcpServers: z.record(z.object({
+    id: z.string(),
+    name: z.string(),
+    config: McpServerConfigSchema,
+  })),
 });
 
 type IMcpConfig = z.infer<typeof McpConfigSchema>;
@@ -146,25 +150,61 @@ export class McpServerManager {
 
       const configContent = await Deno.readTextFile(configPath);
       const parsedConfig = JSON.parse(configContent) as Record<string, unknown>;
+
+      // Handle legacy config format where servers were stored as Record<string, IMcpServerConfig>
+      if (
+        parsedConfig.mcpServers && typeof parsedConfig.mcpServers === "object"
+      ) {
+        const mcpServers = parsedConfig.mcpServers as Record<string, unknown>;
+        const transformedServers: Record<
+          string,
+          { id: string; name: string; config: IMcpServerConfig }
+        > = {};
+
+        for (const [serverId, serverData] of Object.entries(mcpServers)) {
+          // Check if this is legacy format (direct config) or new format (with id, name, config)
+          if (
+            serverData && typeof serverData === "object" &&
+            "id" in serverData && "name" in serverData && "config" in serverData
+          ) {
+            // New format
+            transformedServers[serverId] = serverData as {
+              id: string;
+              name: string;
+              config: IMcpServerConfig;
+            };
+          } else {
+            // Legacy format - convert to new format
+            transformedServers[serverId] = {
+              id: serverId,
+              name: serverId,
+              config: serverData as IMcpServerConfig,
+            };
+          }
+        }
+
+        parsedConfig.mcpServers = transformedServers;
+      }
+
       this.#config = McpConfigSchema.parse(parsedConfig);
 
       // Create server instances with their enabled states from config
       for (
-        const [serverId, serverConfig] of Object.entries(
+        const serverData of Object.values(
           this.#config.mcpServers,
         )
       ) {
         const client = await this.#createMcpClient(
-          serverId,
-          serverId,
-          serverConfig,
+          serverData.id,
+          serverData.name,
+          serverData.config,
         );
         const server = McpServerSchema.parse({
-          id: serverId,
-          name: serverId,
+          id: serverData.id,
+          name: serverData.name,
           client: client,
-          config: serverConfig,
-          enabled: serverConfig.enabled ?? true,
+          config: serverData.config,
+          enabled: serverData.config.enabled ?? true,
         });
         this.#serverToolsMap.set(server, []);
       }
@@ -291,7 +331,7 @@ export class McpServerManager {
   async registerServer(
     id: string,
     config: IMcpServerConfig,
-    options?: { name?: string },
+    options?: { serverName?: string },
   ): Promise<void> {
     try {
       if (!this.#config) {
@@ -305,12 +345,12 @@ export class McpServerManager {
       }
       const client = await this.#createMcpClient(
         id,
-        options?.name ?? id,
+        options?.serverName ?? id,
         config,
       );
       const server: IMcpServer = {
         id,
-        name: options?.name ?? id,
+        name: options?.serverName ?? id,
         client: client,
         config,
         enabled: config.enabled ?? true,
@@ -351,7 +391,11 @@ export class McpServerManager {
         throw error;
       }
 
-      this.#config.mcpServers[id] = config;
+      this.#config.mcpServers[id] = {
+        id: id,
+        name: server.name,
+        config: config,
+      };
       await this.#saveConfig();
     } catch (error) {
       // Don't log OAuth-related errors as generic failures
@@ -432,10 +476,13 @@ export class McpServerManager {
     }
 
     try {
+      // Store the original server name before deregistering
+      const originalServerName = server.name;
+
       // Deregister existing server
       await this.deregisterServer(id);
-      // Register with new config
-      await this.registerServer(id, config);
+      // Register with new config but preserve the original name
+      await this.registerServer(id, config, { serverName: originalServerName });
     } catch (error) {
       throw new Error(`Failed to update server ${id}: ${formatError(error)}`);
     }
@@ -505,9 +552,14 @@ export class McpServerManager {
 
     // Update the config
     if (this.#config?.mcpServers[serverId]) {
+      const serverData = this.#config.mcpServers[serverId];
       this.#config.mcpServers[serverId] = {
-        ...this.#config.mcpServers[serverId],
-        enabled,
+        id: serverData.id,
+        name: serverData.name,
+        config: {
+          ...serverData.config,
+          enabled,
+        },
       };
       await this.#saveConfig();
     }
@@ -539,16 +591,17 @@ export class McpServerManager {
       throw new Error("Config not loaded");
     }
 
-    // Update enabled state in config for all servers
+    // Update server configurations with current server state
     for (const server of this.#serverToolsMap.keys()) {
       const serverId = server.id;
-      if (this.#config.mcpServers[serverId]) {
-        const currentConfig = this.#config.mcpServers[serverId];
-        this.#config.mcpServers[serverId] = {
-          ...currentConfig,
+      this.#config.mcpServers[serverId] = {
+        id: server.id,
+        name: server.name,
+        config: {
+          ...server.config,
           enabled: server.enabled,
-        };
-      }
+        },
+      };
     }
 
     // Write config to file
@@ -772,7 +825,7 @@ export class McpServerManager {
       }
 
       // Use the friendly name for server registration (affects tool names)
-      await this.registerServer(id, config, { name: serverName });
+      await this.registerServer(id, config, { serverName: serverName });
       console.log(
         `Successfully registered server from registry: ${id}${
           extractedName ? ` as '${serverName}'` : ""
