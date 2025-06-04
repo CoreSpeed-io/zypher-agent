@@ -25,23 +25,23 @@ export interface IRemoteOAuthConfig extends McpOAuthConfig {
  * Uses Authorization Code + PKCE flow implemented in base class
  */
 export class RemoteOAuthProvider extends BaseMcpOAuthProvider {
-  private defaultRedirectUri: string;
-  private serverId: string;
+  #defaultRedirectUri: string;
+  #serverId: string;
 
   constructor(config: IRemoteOAuthConfig) {
     super(config);
-    this.serverId = config.serverId;
-    this.defaultRedirectUri = config.redirectUri ||
+    this.#serverId = config.serverId;
+    this.#defaultRedirectUri = config.redirectUri ||
       `http://localhost:${
         config.callbackPort || 3000
-      }/mcp/servers/${this.serverId}/oauth/callback`;
+      }/mcp/servers/${this.#serverId}/oauth/callback`;
   }
 
   /**
    * The URL to redirect the user agent to after authorization
    */
   get redirectUrl(): string {
-    return this.defaultRedirectUri;
+    return this.#defaultRedirectUri;
   }
 
   /**
