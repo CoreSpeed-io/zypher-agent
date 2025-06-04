@@ -701,17 +701,25 @@ export class McpServerManager {
       const parsed = McpServerRegistryConfigSchema.parse(data.config);
       const config = parsed.config;
       const extractedName = parsed.extractedName;
-      
+
       // Use friendly name for server registration if available, otherwise use registry ID
       const serverName = extractedName || data.name || id;
-      console.log(`Registering server as: ${serverName}${extractedName ? ' (friendly name extracted from config)' : ''}`);
+      console.log(
+        `Registering server as: ${serverName}${
+          extractedName ? " (friendly name extracted from config)" : ""
+        }`,
+      );
 
       // Log OAuth configuration for SSE servers
       if ("url" in config) {
-        console.log(`Server ${serverName} is a remote SSE server at ${config.url}`);
+        console.log(
+          `Server ${serverName} is a remote SSE server at ${config.url}`,
+        );
 
         // Use server name for environment variables
-        const clientId = Deno.env.get(`MCP_${serverName.toUpperCase()}_CLIENT_ID`);
+        const clientId = Deno.env.get(
+          `MCP_${serverName.toUpperCase()}_CLIENT_ID`,
+        );
         const clientSecret = Deno.env.get(
           `MCP_${serverName.toUpperCase()}_CLIENT_SECRET`,
         );
@@ -751,7 +759,11 @@ export class McpServerManager {
 
       // Use the friendly name for server registration (affects tool names)
       await this.registerServer(serverName, config);
-      console.log(`Successfully registered server from registry: ${id}${extractedName ? ` as '${serverName}'` : ''}`);
+      console.log(
+        `Successfully registered server from registry: ${id}${
+          extractedName ? ` as '${serverName}'` : ""
+        }`,
+      );
     } catch (error) {
       // Don't wrap OAuth-related errors - let them propagate directly
       if (

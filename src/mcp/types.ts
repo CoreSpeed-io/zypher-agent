@@ -39,33 +39,33 @@ export const McpServerRegistryConfigSchema = z.preprocess(
   (val) => {
     // If the value is an object with exactly one key, and that key's value
     // contains 'url' or 'command', extract the nested configuration and the key name
-    if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+    if (typeof val === "object" && val !== null && !Array.isArray(val)) {
       const keys = Object.keys(val);
       if (keys.length === 1) {
         const key = keys[0];
         const nestedValue = (val as Record<string, unknown>)[key];
         if (
-          typeof nestedValue === 'object' && 
-          nestedValue !== null && 
+          typeof nestedValue === "object" &&
+          nestedValue !== null &&
           !Array.isArray(nestedValue) &&
-          ('url' in nestedValue || 'command' in nestedValue)
+          ("url" in nestedValue || "command" in nestedValue)
         ) {
           return {
             config: nestedValue,
-            extractedName: key
+            extractedName: key,
           };
         }
       }
     }
     return {
       config: val,
-      extractedName: null
+      extractedName: null,
     };
   },
   z.object({
     config: McpServerConfigSchema,
-    extractedName: z.string().nullable()
-  })
+    extractedName: z.string().nullable(),
+  }),
 );
 
 export type IMcpServerConfig = z.infer<typeof McpServerConfigSchema>;
