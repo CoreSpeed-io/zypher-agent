@@ -6,6 +6,7 @@ import {
   type IMcpServerApi,
   type IMcpServerConfig,
   McpServerConfigSchema,
+  McpServerRegistryConfigSchema,
   McpServerSchema,
 } from "./types.ts";
 import { getWorkspaceDataDir } from "../utils/mod.ts";
@@ -696,23 +697,28 @@ export class McpServerManager {
       const data = await response.json();
       console.log(`Received config for server: ${id}`);
 
-      // Parse and validate the server configuration
-      const config = McpServerConfigSchema.parse(data.config);
-      const name = data.name ?? id;
+      // Parse and validate the server configuration (handles nested structures automatically)
+      const parsed = McpServerRegistryConfigSchema.parse(data.config);
+      const config = parsed.config;
+      const extractedName = parsed.extractedName;
+      
+      // Use friendly name for server registration if available, otherwise use registry ID
+      const serverName = extractedName || data.name || id;
+      console.log(`Registering server as: ${serverName}${extractedName ? ' (friendly name extracted from config)' : ''}`);
 
       // Log OAuth configuration for SSE servers
       if ("url" in config) {
-        console.log(`Server ${id} is a remote SSE server at ${config.url}`);
+        console.log(`Server ${serverName} is a remote SSE server at ${config.url}`);
 
-        // Check if we have client credentials in environment variables
-        const clientId = Deno.env.get(`MCP_${id.toUpperCase()}_CLIENT_ID`);
+        // Use server name for environment variables
+        const clientId = Deno.env.get(`MCP_${serverName.toUpperCase()}_CLIENT_ID`);
         const clientSecret = Deno.env.get(
-          `MCP_${id.toUpperCase()}_CLIENT_SECRET`,
+          `MCP_${serverName.toUpperCase()}_CLIENT_SECRET`,
         );
 
         // Check for custom OAuth authorization server URL
         const authServerUrl = Deno.env.get(
-          `MCP_${id.toUpperCase()}_AUTH_SERVER_URL`,
+          `MCP_${serverName.toUpperCase()}_AUTH_SERVER_URL`,
         );
 
         // Determine if we should use dynamic registration
@@ -721,31 +727,31 @@ export class McpServerManager {
 
         if (clientId && clientSecret) {
           console.log(
-            `Found OAuth client credentials for server ${id} in environment variables.`,
+            `Found OAuth client credentials for server ${serverName} in environment variables.`,
           );
         } else if (useDynamicRegistration) {
           console.log(
-            `No client credentials found for server ${id}, will use dynamic client registration.`,
+            `No client credentials found for server ${serverName}, will use dynamic client registration.`,
           );
         } else {
           console.warn(
-            `OAuth client credentials not found in environment variables for server ${id}.`,
+            `OAuth client credentials not found in environment variables for server ${serverName}.`,
           );
           console.warn(
-            `Set MCP_${id.toUpperCase()}_CLIENT_ID and MCP_${id.toUpperCase()}_CLIENT_SECRET environment variables or enable dynamic registration.`,
+            `Set MCP_${serverName.toUpperCase()}_CLIENT_ID and MCP_${serverName.toUpperCase()}_CLIENT_SECRET environment variables or enable dynamic registration.`,
           );
         }
 
         if (authServerUrl) {
           console.log(
-            `Using custom OAuth authorization server for ${id}: ${authServerUrl}`,
+            `Using custom OAuth authorization server for ${serverName}: ${authServerUrl}`,
           );
         }
       }
 
-      // Use the standard registration process for both CLI and SSE servers
-      await this.registerServer(name, config);
-      console.log(`Successfully registered server from registry: ${id}`);
+      // Use the friendly name for server registration (affects tool names)
+      await this.registerServer(serverName, config);
+      console.log(`Successfully registered server from registry: ${id}${extractedName ? ` as '${serverName}'` : ''}`);
     } catch (error) {
       // Don't wrap OAuth-related errors - let them propagate directly
       if (

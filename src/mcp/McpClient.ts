@@ -312,11 +312,10 @@ export class McpClient {
 
       console.log("Successfully refreshed authentication credentials");
     } catch (error) {
-      console.error(
-        "Failed to fetch credentials:",
-        error instanceof Error ? error.message : error,
-      );
-      throw error;
+      // Just log the error message cleanly without stack trace
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(`OAuth error: ${errorMessage}`);
+      // Don't re-throw, let the flow continue
     }
   }
 
