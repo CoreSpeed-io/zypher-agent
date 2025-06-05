@@ -24,8 +24,6 @@ export interface McpOAuthConfig {
   clientName: string;
   // Timeout for OAuth requests in milliseconds (default: 30000ms = 30 seconds)
   timeoutMs?: number;
-  // Allow fallback to no authentication for open servers
-  allowOpenAccess?: boolean;
 }
 
 interface AuthUrlInfo {
@@ -333,7 +331,6 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
 
   /**
    * Get or create OAuth client ID using Dynamic Client Registration if available
-   * For open servers, this may return a placeholder client ID
    */
   protected async getOrCreateClientId(): Promise<string> {
     const clientInfoPath = join(this.config.oauthBaseDir, "client.json");
@@ -409,43 +406,6 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
         return clientInfo.client_id;
       } catch (registrationError) {
         console.warn("Dynamic Client Registration failed:", registrationError);
-
-        // Check if we should allow open access as fallback
-        if (this.config.allowOpenAccess) {
-          console.log(
-            "🌐 Attempting to proceed with open access (no authentication)...",
-          );
-
-          // Check if server metadata discovery also failed (indicating likely open server)
-          try {
-            await this.initializeServerMetadata();
-            // If metadata discovery succeeded but registration failed, likely needs OAuth
-            throw new Error(
-              "Server supports OAuth but client registration failed",
-            );
-          } catch {
-            // If metadata discovery also failed, this might be an open server
-            console.log(
-              "📖 OAuth metadata not found - treating as open server",
-            );
-
-            // Create a placeholder client info for open servers
-            const openClientInfo: OAuthClientInformationFull = {
-              client_id: "open-server-client",
-              redirect_uris: [this.redirectUrl],
-            };
-
-            await ensureDir(this.config.oauthBaseDir);
-            await Deno.writeTextFile(
-              clientInfoPath,
-              JSON.stringify(openClientInfo, null, 2),
-            );
-
-            console.log("✅ Created placeholder client for open server access");
-            return openClientInfo.client_id;
-          }
-        }
-
         throw new Error("Failed to obtain client credentials");
       }
     }
@@ -745,20 +705,6 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
           error instanceof Error ? error.message : String(error)
         }`,
       );
-    }
-  }
-
-  /**
-   * Check if this is an open server (no authentication required)
-   */
-  async isOpenServer(): Promise<boolean> {
-    try {
-      // Try to access server metadata
-      await this.initializeServerMetadata();
-      return false; // If OAuth metadata exists, it's not an open server
-    } catch {
-      // If OAuth metadata discovery fails, it might be an open server
-      return this.config.allowOpenAccess ?? false;
     }
   }
 }

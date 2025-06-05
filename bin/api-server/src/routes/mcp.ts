@@ -215,8 +215,8 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
   // Deregister MCP server
   mcpRouter.delete("/servers/:id", async (c) => {
-    const id = McpServerIdSchema.parse(c.req.param("id"));
-    await mcpServerManager.deregisterServer(id);
+    const serverName = McpServerIdSchema.parse(c.req.param("id"));
+    await mcpServerManager.deregisterServerByName(serverName);
     return c.body(null, 204);
   });
 

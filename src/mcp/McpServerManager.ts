@@ -693,6 +693,35 @@ export class McpServerManager {
     return undefined;
   };
 
+  /**
+   * Get server by name (serverName)
+   * @param serverName The name of the server to find
+   * @returns The server if found, undefined otherwise
+   */
+  #getServerByName = (serverName: string): IMcpServer | undefined => {
+    for (const server of this.#serverToolsMap.keys()) {
+      if (server.name === serverName) {
+        return server;
+      }
+    }
+    return undefined;
+  };
+
+  /**
+   * Deregisters a server by its name and removes its tools
+   * @param serverName Name of the server to deregister
+   * @throws Error if server is not found or deregistration fails
+   */
+  async deregisterServerByName(serverName: string): Promise<void> {
+    const server = this.#getServerByName(serverName);
+    if (!server) {
+      throw new Error(`Server with name '${serverName}' not found`);
+    }
+
+    // Use the existing deregisterServer method with the actual ID
+    await this.deregisterServer(server.id);
+  }
+
   getServerConfig(serverId: string): IMcpServerConfig {
     const server = this.#getServer(serverId);
     if (!server) {
