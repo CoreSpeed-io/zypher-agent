@@ -22,6 +22,8 @@ export interface McpOAuthConfig {
   serverUrl: string;
   oauthBaseDir: string;
   clientName: string;
+  // Timeout for OAuth requests in milliseconds (default: 30000ms = 30 seconds)
+  timeoutMs?: number;
 }
 
 interface AuthUrlInfo {
@@ -40,6 +42,9 @@ interface OAuth2ServerMetadata {
   code_challenge_methods_supported?: string[];
 }
 
+// Default OAuth timeout: 30 seconds
+const DEFAULT_OAUTH_TIMEOUT_MS = 30000;
+
 /**
  * Base OAuth Provider for MCP Servers using @cmd-johnson/oauth2-client
  * Supports Authorization Code + PKCE flow only
@@ -49,9 +54,12 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
   protected serverMetadata: OAuth2ServerMetadata | null = null;
   protected scopes: string[] = [];
   protected oauth2Client: OAuth2Client | null = null;
+  private timeoutMs: number;
 
   constructor(config: McpOAuthConfig) {
     this.config = config;
+    this.timeoutMs = config.timeoutMs ?? DEFAULT_OAUTH_TIMEOUT_MS;
+    console.log(`OAuth timeout configured: ${this.timeoutMs}ms`);
   }
 
   abstract get redirectUrl(): string;
@@ -63,6 +71,24 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
   setScopes(scopes: string[]): void {
     this.scopes = scopes;
     console.log(`Set OAuth scopes: ${scopes.join(", ")}`);
+  }
+
+  /**
+   * Set timeout for OAuth requests
+   */
+  setTimeout(timeoutMs: number): void {
+    if (timeoutMs <= 0) {
+      throw new Error("Timeout must be greater than 0");
+    }
+    this.timeoutMs = timeoutMs;
+    console.log(`Updated OAuth timeout: ${timeoutMs}ms`);
+  }
+
+  /**
+   * Get current timeout setting
+   */
+  getTimeout(): number {
+    return this.timeoutMs;
   }
 
   /**
@@ -89,7 +115,7 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
       );
       console.log(`Fetching OAuth metadata from: ${metadataUrl.href}`);
 
-      const response = await fetch(metadataUrl.href);
+      const response = await this.fetchWithTimeout(metadataUrl.href);
       if (!response.ok) {
         throw new Error(
           `Discovery failed: ${response.status} ${response.statusText}`,
@@ -342,14 +368,17 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
           ...clientMetadataWithoutRedirectUris,
         };
 
-        const response = await fetch(serverMetadata.registration_endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
+        const response = await this.fetchWithTimeout(
+          serverMetadata.registration_endpoint,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: JSON.stringify(registrationRequest),
           },
-          body: JSON.stringify(registrationRequest),
-        });
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -443,6 +472,40 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
       console.log(`🗑️ Cleared state from: ${statePath}`);
     } catch {
       // Ignore if file doesn't exist
+    }
+  }
+
+  /**
+   * Fetch with timeout support
+   */
+  protected async fetchWithTimeout(
+    url: string,
+    options: RequestInit = {},
+    timeoutMs?: number,
+  ): Promise<Response> {
+    const timeout = timeoutMs ?? this.timeoutMs;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === "AbortError") {
+        const urlObj = new URL(url);
+        const operation = urlObj.pathname.includes("oauth-authorization-server")
+          ? "OAuth metadata discovery"
+          : urlObj.pathname.includes("oauth")
+          ? "OAuth token exchange"
+          : "OAuth request";
+        throw new Error(`${operation} timed out after ${timeout}ms: ${url}`);
+      }
+      throw error;
     }
   }
 
@@ -570,14 +633,17 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
         tokenRequest.set("client_secret", clientSecret);
       }
 
-      const response = await fetch(serverMetadata.token_endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Accept": "application/json",
+      const response = await this.fetchWithTimeout(
+        serverMetadata.token_endpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+          },
+          body: tokenRequest.toString(),
         },
-        body: tokenRequest.toString(),
-      });
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
