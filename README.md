@@ -228,6 +228,90 @@ async function registerServer(registryId) {
 // registerServer("atlassian"); // ❌ Wrong - this will cause 404
 ```
 
+## Docker OAuth Configuration
+
+When deploying the API server in Docker containers, OAuth redirect URIs need
+special configuration since `localhost` won't work for external OAuth providers.
+The system provides multiple ways to configure the correct redirect URIs:
+
+### Method 1: Environment Variables (Recommended)
+
+```bash
+docker run \
+  -e OAUTH_HOST=myapp.example.com \
+  -e OAUTH_PORT=443 \
+  -e OAUTH_USE_HTTPS=true \
+  -p 443:3000 \
+  zypher-agent bun start:api
+```
+
+### Method 2: Docker Compose
+
+```yaml
+version: "3.8"
+services:
+  zypher-agent:
+    image: zypher-agent
+    ports:
+      - "443:3000"
+    environment:
+      - OAUTH_HOST=myapp.example.com
+      - OAUTH_PORT=443
+      - OAUTH_USE_HTTPS=true
+      - NODE_ENV=production
+    command: bun start:api
+```
+
+### Method 3: Direct Configuration
+
+```typescript
+// In your application code
+const provider = new RemoteOAuthProvider({
+  serverId: "github",
+  serverUrl: "https://github.com",
+  oauthBaseDir: "/app/oauth",
+  clientName: "My App",
+  host: "myapp.example.com", // Your actual domain
+  callbackPort: 443, // Your port
+  useHttps: true, // Use HTTPS in production
+});
+```
+
+### Method 4: Direct Redirect URI
+
+```typescript
+const provider = new RemoteOAuthProvider({
+  serverId: "github",
+  redirectUri: "https://myapp.example.com/mcp/servers/github/oauth/callback",
+});
+```
+
+### Supported Environment Variables
+
+| Variable          | Description                                  | Example                     |
+| ----------------- | -------------------------------------------- | --------------------------- |
+| `OAUTH_HOST`      | Domain/host for redirect URI                 | `myapp.example.com`         |
+| `OAUTH_PORT`      | Port for redirect URI                        | `443`                       |
+| `OAUTH_USE_HTTPS` | Set to "true" to use HTTPS                   | `true`                      |
+| `PUBLIC_URL`      | Full base URL (host extracted automatically) | `https://myapp.example.com` |
+| `NODE_ENV`        | Auto-enables HTTPS if set to "production"    | `production`                |
+
+### Example Production Setup
+
+```bash
+# Production deployment with reverse proxy
+docker run -d \
+  --name zypher-agent \
+  -e OAUTH_HOST=api.mycompany.com \
+  -e OAUTH_USE_HTTPS=true \
+  -e NODE_ENV=production \
+  -p 3000:3000 \
+  zypher-agent bun start:api
+```
+
+The system will automatically construct redirect URIs like:
+`https://api.mycompany.com/mcp/servers/{serverId}/oauth/callback`
+
 ## Development
 
 ### Local Development

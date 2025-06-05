@@ -14,10 +14,14 @@ import {
 export interface IRemoteOAuthConfig extends McpOAuthConfig {
   // Server ID for this OAuth flow
   serverId: string;
-  // Redirect URI for OAuth callback (default: http://localhost:3001/oauth/{serverId}/callback)
+  // Redirect URI for OAuth callback (if not provided, will be constructed from host/port)
   redirectUri?: string;
-  // Local server port for capturing callback (default: 3001)
+  // Host/domain for the callback URL (default: localhost, use your domain for Docker)
+  host?: string;
+  // Port for capturing callback (default: 3000)
   callbackPort?: number;
+  // Use HTTPS for redirect URI (default: false, set true for production)
+  useHttps?: boolean;
 }
 
 /**
@@ -31,10 +35,35 @@ export class RemoteOAuthProvider extends BaseMcpOAuthProvider {
   constructor(config: IRemoteOAuthConfig) {
     super(config);
     this.#serverId = config.serverId;
-    this.#defaultRedirectUri = config.redirectUri ||
-      `http://localhost:${
-        config.callbackPort || 3000
-      }/mcp/servers/${this.#serverId}/oauth/callback`;
+
+    // Build redirect URI with Docker-friendly defaults
+    if (config.redirectUri) {
+      this.#defaultRedirectUri = config.redirectUri;
+    } else {
+      // Check environment variables commonly used in Docker deployments
+      const host = config.host ||
+        Deno.env.get("OAUTH_HOST") ||
+        Deno.env.get("PUBLIC_URL")?.replace(/^https?:\/\//, "") ||
+        "localhost";
+
+      const port = config.callbackPort ||
+        Number.parseInt(Deno.env.get("OAUTH_PORT") || "3000");
+
+      const useHttps = config.useHttps ||
+        Deno.env.get("OAUTH_USE_HTTPS") === "true" ||
+        Deno.env.get("NODE_ENV") === "production";
+
+      const protocol = useHttps ? "https" : "http";
+      const portSuffix =
+        (useHttps && port === 443) || (!useHttps && port === 80)
+          ? ""
+          : `:${port}`;
+
+      this.#defaultRedirectUri =
+        `${protocol}://${host}${portSuffix}/mcp/servers/${this.#serverId}/oauth/callback`;
+    }
+
+    console.log(`OAuth redirect URI: ${this.#defaultRedirectUri}`);
   }
 
   /**
