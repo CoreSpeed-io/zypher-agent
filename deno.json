@@ -6,7 +6,7 @@
     "build:cli": "deno compile --allow-all --frozen=true --output dist/cli bin/cli/cli.ts",
     "build:api": "deno compile --allow-all --frozen=true --output dist/api-server bin/api-server/src/index.ts",
     "bundle:api": "deno run -A npm:rolldown -c rolldown.config.mts",
-    "test": "deno test -A",
+    "test": "deno test -A --trace-leaks",
     "test:watch": "deno test -A --watch",
     "checkall": "deno fmt && deno lint && deno check .",
     "fmt": "deno fmt",
