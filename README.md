@@ -98,6 +98,58 @@ See the [API Specification](./api-spec.yaml) for detailed documentation.
 Some MCP servers require OAuth authentication before they can be registered. The
 API handles this with a streamlined flow:
 
+### Open/Public Servers
+
+**New in this version:** The system now automatically detects and supports
+**open MCP servers** that don't require authentication. When a server doesn't
+support OAuth but is publicly accessible, the registration process will
+automatically fall back to open access mode.
+
+#### How Open Server Detection Works
+
+1. **Attempt OAuth Discovery** - First, the system checks if the server supports
+   OAuth by looking for `.well-known/oauth-authorization-server` metadata
+2. **Test Open Access** - If OAuth is not supported, it tests if the server
+   responds to unauthenticated requests
+3. **Automatic Fallback** - If the server appears to be open, registration
+   proceeds without authentication
+
+#### Configuring Open Server Support
+
+You can explicitly enable open server support when creating OAuth providers:
+
+```typescript
+// For API server
+const provider = new RemoteOAuthProvider({
+  serverId: "open-server",
+  serverUrl: "https://open-mcp-server.com/api",
+  clientName: "My App",
+  allowOpenAccess: true, // Enable open server fallback
+});
+
+// For CLI
+const cliProvider = new RemoteOAuthProvider({
+  serverId: "public-tools",
+  serverUrl: "https://public-tools-server.com/mcp",
+  clientName: "Zypher Agent CLI",
+  allowOpenAccess: true, // Enable open server fallback
+});
+```
+
+#### Registration Flow for Open Servers
+
+When registering an open server, you'll see logs like:
+
+```
+🔍 Authentication failed for server-id, checking server capabilities...
+📖 OAuth metadata not found - treating as open server
+✅ Successfully registered open server: server-id
+```
+
+No user intervention is required - the system handles this automatically!
+
+### OAuth-Required Servers
+
 ### 1. Attempt Registration
 
 When registering an MCP server (either via `/mcp/register` or

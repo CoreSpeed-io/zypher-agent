@@ -16,6 +16,8 @@ export interface IRemoteOAuthConfig extends McpOAuthConfig {
   redirectUri?: string;
   // Local server port for capturing callback (default: 8080)
   callbackPort?: number;
+  // Allow fallback to no authentication for open servers (inherited from McpOAuthConfig)
+  // allowOpenAccess?: boolean; // Already inherited from McpOAuthConfig
 }
 
 /**
@@ -55,13 +57,20 @@ export class RemoteOAuthProvider extends BaseMcpOAuthProvider {
   }
 
   /**
-   * Override to provide remote-specific client ID
+   * Override to provide remote-specific client ID fallback for CLI environments
    */
   protected override async getOrCreateClientId(): Promise<string> {
-    const existingClientInfo = await this.clientInformation();
-    if (existingClientInfo?.client_id) {
-      return existingClientInfo.client_id;
+    try {
+      // Try the base implementation first (handles dynamic registration and open servers)
+      return await super.getOrCreateClientId();
+    } catch {
+      // If all else fails in CLI environment, use a default client ID
+      // This is mainly for backward compatibility
+      const existingClientInfo = await this.clientInformation();
+      if (existingClientInfo?.client_id) {
+        return existingClientInfo.client_id;
+      }
+      return "zypher-agent-pkce-client";
     }
-    return "zypher-agent-pkce-client";
   }
 }

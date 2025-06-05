@@ -22,6 +22,8 @@ export interface IRemoteOAuthConfig extends McpOAuthConfig {
   callbackPort?: number;
   // Use HTTPS for redirect URI (default: false, set true for production)
   useHttps?: boolean;
+  // Allow fallback to no authentication for open servers (inherited from McpOAuthConfig)
+  // allowOpenAccess?: boolean; // Already inherited from McpOAuthConfig
 }
 
 /**

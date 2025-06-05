@@ -323,6 +323,44 @@ export class McpServerManager {
   };
 
   /**
+   * Check if a server is open (accessible without authentication)
+   */
+  #checkOpenServerAccess = async (serverUrl: string): Promise<boolean> => {
+    try {
+      console.log(`Testing open access to: ${serverUrl}`);
+
+      // Try a simple GET request to see if the server responds
+      const response = await fetch(serverUrl, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+        },
+      });
+
+      // If we get a 200 or other non-auth error, server might be open
+      if (response.ok) {
+        console.log(`✅ Server appears to be open (${response.status})`);
+        return true;
+      }
+
+      // Check if it's specifically an auth error
+      if (response.status === 401 || response.status === 403) {
+        console.log(`🔒 Server requires authentication (${response.status})`);
+        return false;
+      }
+
+      // Other errors might indicate server is reachable but has different endpoint structure
+      console.log(
+        `⚠️ Server responded with ${response.status}, might still be open`,
+      );
+      return true; // Give it the benefit of the doubt
+    } catch (error) {
+      console.log(`❌ Failed to access server: ${formatError(error)}`);
+      return false;
+    }
+  };
+
+  /**
    * Registers a new MCP server and its tools
    * @param id Unique identifier for the server
    * @param config Server configuration
@@ -367,8 +405,13 @@ export class McpServerManager {
           this.#serverToolsMap.delete(server);
           await server.client.cleanup();
 
+          console.log(
+            `🔍 Authentication failed for ${id}, checking server capabilities...`,
+          );
+
           // Check if server supports OAuth
           const oauthSupported = await this.#checkOAuthSupport(config.url);
+
           if (oauthSupported) {
             throw new McpServerError(
               "oauth_required",
@@ -379,6 +422,48 @@ export class McpServerManager {
                 requiresOAuth: true,
               },
             );
+          }
+
+          // Check if server might be open/accessible without auth
+          const isOpenServer = await this.#checkOpenServerAccess(config.url);
+
+          if (isOpenServer) {
+            console.log(`🌐 Retrying registration for ${id} as open server...`);
+
+            // Try to create a new client with allowOpenAccess enabled
+            try {
+              const openClient = await this.#createMcpClientWithOpenAccess(
+                id,
+                options?.serverName ?? id,
+                config,
+              );
+
+              const openServer: IMcpServer = {
+                id,
+                name: options?.serverName ?? id,
+                client: openClient,
+                config,
+                enabled: config.enabled ?? true,
+              };
+
+              this.#serverToolsMap.set(openServer, []);
+              await this.#registerServerTools(openServer);
+
+              // If successful, save the config and return
+              this.#config.mcpServers[id] = {
+                id: id,
+                name: openServer.name,
+                config: config,
+              };
+              await this.#saveConfig();
+              console.log(`✅ Successfully registered open server: ${id}`);
+              return;
+            } catch (openError) {
+              console.error(
+                `Failed to register as open server: ${formatError(openError)}`,
+              );
+              // Fall through to regular error handling
+            }
           }
 
           throw new McpServerError(
@@ -408,6 +493,40 @@ export class McpServerManager {
       console.error(`Failed to register server ${id}:`, formatError(error));
       throw new Error(`Failed to register server ${id}: ${formatError(error)}`);
     }
+  }
+
+  /**
+   * Create MCP client with open access enabled for servers that don't require auth
+   */
+  async #createMcpClientWithOpenAccess(
+    serverId: string,
+    serverName: string,
+    serverConfig: IMcpServerConfig,
+  ): Promise<McpClient> {
+    let oauthProvider: OAuthClientProvider | undefined = undefined;
+    const isRemoteServer = "url" in serverConfig;
+
+    if (isRemoteServer && serverConfig.url && this.#oauthProviderFactory) {
+      console.log(
+        `Creating OAuth provider with open access for server ${serverId}`,
+      );
+      oauthProvider = await this.#oauthProviderFactory(
+        serverId,
+        serverConfig.url,
+      );
+
+      // Enable open access if the provider supports it
+      if (oauthProvider && "config" in oauthProvider && oauthProvider.config) {
+        (oauthProvider.config as { allowOpenAccess?: boolean })
+          .allowOpenAccess = true;
+      }
+    }
+
+    return new McpClient({
+      id: serverId,
+      serverName: serverName,
+      oAuthProvider: oauthProvider,
+    });
   }
 
   /**
