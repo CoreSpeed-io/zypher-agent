@@ -230,22 +230,47 @@ async function registerServer(registryId) {
 
 ## Docker OAuth Configuration
 
-When deploying the API server in Docker containers, OAuth redirect URIs need
-special configuration since `localhost` won't work for external OAuth providers.
-The system provides multiple ways to configure the correct redirect URIs:
+When deploying the API server in Docker containers, OAuth redirect URIs are
+**automatically detected** from incoming HTTP requests. No manual configuration
+is needed! The system automatically:
 
-### Method 1: Environment Variables (Recommended)
+- ✅ **Auto-detects the correct host** from the request
+- ✅ **Auto-detects HTTPS vs HTTP** from the request protocol
+- ✅ **Auto-detects the correct port** from the request
+- ✅ **Works with reverse proxies** and load balancers
+- ✅ **Works in any Docker deployment** without configuration
+
+### How It Works
+
+The OAuth system automatically constructs redirect URIs based on how your API is
+accessed:
 
 ```bash
-docker run \
-  -e OAUTH_HOST=myapp.example.com \
-  -e OAUTH_PORT=443 \
-  -e OAUTH_USE_HTTPS=true \
-  -p 443:3000 \
-  zypher-agent bun start:api
+# If your API is accessed at:
+https://myapp.example.com/mcp/registry/some-id
+
+# OAuth redirects will automatically use:
+https://myapp.example.com/mcp/servers/{serverId}/oauth/callback
 ```
 
-### Method 2: Docker Compose
+### Docker Deployment Examples
+
+**Simple Docker Deployment:**
+
+```bash
+docker run -p 3000:3000 zypher-agent bun start:api
+# Automatically works with: http://localhost:3000
+```
+
+**Production with Reverse Proxy:**
+
+```bash
+docker run -p 3000:3000 zypher-agent bun start:api
+# Behind nginx/traefik serving: https://api.mycompany.com
+# Automatically works with: https://api.mycompany.com
+```
+
+**Docker Compose:**
 
 ```yaml
 version: "3.8"
@@ -253,64 +278,41 @@ services:
   zypher-agent:
     image: zypher-agent
     ports:
-      - "443:3000"
-    environment:
-      - OAUTH_HOST=myapp.example.com
-      - OAUTH_PORT=443
-      - OAUTH_USE_HTTPS=true
-      - NODE_ENV=production
+      - "3000:3000"
     command: bun start:api
+
+  nginx:
+    image: nginx
+    ports:
+      - "443:443"
+    # Proxy to zypher-agent:3000
 ```
 
-### Method 3: Direct Configuration
+### Manual Override (Optional)
 
-```typescript
-// In your application code
-const provider = new RemoteOAuthProvider({
-  serverId: "github",
-  serverUrl: "https://github.com",
-  oauthBaseDir: "/app/oauth",
-  clientName: "My App",
-  host: "myapp.example.com", // Your actual domain
-  callbackPort: 443, // Your port
-  useHttps: true, // Use HTTPS in production
-});
-```
-
-### Method 4: Direct Redirect URI
+If you need to override the auto-detection, you can still use direct
+configuration:
 
 ```typescript
 const provider = new RemoteOAuthProvider({
   serverId: "github",
-  redirectUri: "https://myapp.example.com/mcp/servers/github/oauth/callback",
+  redirectUri: "https://custom.example.com/mcp/servers/github/oauth/callback",
 });
 ```
 
-### Supported Environment Variables
+### Environment Variables (Legacy)
 
-| Variable          | Description                                  | Example                     |
-| ----------------- | -------------------------------------------- | --------------------------- |
-| `OAUTH_HOST`      | Domain/host for redirect URI                 | `myapp.example.com`         |
-| `OAUTH_PORT`      | Port for redirect URI                        | `443`                       |
-| `OAUTH_USE_HTTPS` | Set to "true" to use HTTPS                   | `true`                      |
-| `PUBLIC_URL`      | Full base URL (host extracted automatically) | `https://myapp.example.com` |
-| `NODE_ENV`        | Auto-enables HTTPS if set to "production"    | `production`                |
+The following environment variables are still supported but **not required**:
 
-### Example Production Setup
+| Variable          | Description                     | Example                     |
+| ----------------- | ------------------------------- | --------------------------- |
+| `OAUTH_HOST`      | Override auto-detected host     | `myapp.example.com`         |
+| `OAUTH_PORT`      | Override auto-detected port     | `443`                       |
+| `OAUTH_USE_HTTPS` | Override auto-detected protocol | `true`                      |
+| `PUBLIC_URL`      | Override with full base URL     | `https://myapp.example.com` |
 
-```bash
-# Production deployment with reverse proxy
-docker run -d \
-  --name zypher-agent \
-  -e OAUTH_HOST=api.mycompany.com \
-  -e OAUTH_USE_HTTPS=true \
-  -e NODE_ENV=production \
-  -p 3000:3000 \
-  zypher-agent bun start:api
-```
-
-The system will automatically construct redirect URIs like:
-`https://api.mycompany.com/mcp/servers/{serverId}/oauth/callback`
+**The system automatically detects the correct settings in 99% of deployments,
+making manual configuration unnecessary!**
 
 ## Development
 

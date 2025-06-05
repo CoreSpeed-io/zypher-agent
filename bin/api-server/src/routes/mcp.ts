@@ -31,16 +31,38 @@ interface ServerInfo {
 async function createOAuthProvider(
   serverId: string,
   serverUrl: string,
+  requestUrl?: URL,
 ): Promise<RemoteOAuthProvider> {
   const dataDir = await getWorkspaceDataDir();
   const oauthBaseDir = join(dataDir, "oauth", serverId);
   await ensureDir(oauthBaseDir);
+
+  // Auto-detect host and protocol from request if available
+  let host: string | undefined;
+  let useHttps: boolean | undefined;
+  let callbackPort: number | undefined;
+
+  if (requestUrl) {
+    host = requestUrl.hostname;
+    useHttps = requestUrl.protocol === "https:";
+    // Only include port if it's not the default for the protocol
+    const port = requestUrl.port
+      ? Number.parseInt(requestUrl.port)
+      : (useHttps ? 443 : 80);
+    callbackPort = (useHttps && port === 443) || (!useHttps && port === 80)
+      ? undefined
+      : port;
+  }
 
   return new RemoteOAuthProvider({
     serverId,
     serverUrl,
     oauthBaseDir,
     clientName: "zypher-agent-api",
+    // Auto-detected configuration from request
+    host,
+    callbackPort,
+    useHttps,
   });
 }
 
@@ -48,6 +70,7 @@ async function createOAuthProvider(
 async function generateOAuthResponse(
   serverId: string,
   serverUrl: string,
+  requestUrl: URL,
   serverConfig?: z.infer<typeof McpServerConfigSchema>,
   registryToken?: string,
   isFromRegistry = false,
@@ -56,11 +79,25 @@ async function generateOAuthResponse(
   const oauthBaseDir = join(dataDir, "oauth", serverId);
   await ensureDir(oauthBaseDir);
 
+  // Auto-detect host and protocol from request
+  const host = requestUrl.hostname;
+  const useHttps = requestUrl.protocol === "https:";
+  const port = requestUrl.port
+    ? Number.parseInt(requestUrl.port)
+    : (useHttps ? 443 : 80);
+  const callbackPort = (useHttps && port === 443) || (!useHttps && port === 80)
+    ? undefined
+    : port;
+
   const oauthProvider = new RemoteOAuthProvider({
     serverId,
     serverUrl,
     oauthBaseDir,
     clientName: "zypher-agent-api",
+    // Auto-detected configuration from request
+    host,
+    callbackPort,
+    useHttps,
   });
 
   // Generate authorization URL with PKCE and save data
@@ -148,6 +185,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           const oauthResponse = await generateOAuthResponse(
             serverId,
             details.serverUrl,
+            new URL(c.req.url),
             serverConfig,
             undefined,
             false,
@@ -243,6 +281,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
         const oauthResponse = await generateOAuthResponse(
           serverId,
           details.serverUrl,
+          new URL(c.req.url),
           undefined,
           token,
           true,
@@ -292,7 +331,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     const serverInfo = JSON.parse(serverInfoText) as ServerInfo;
     const serverUrl = serverInfo.serverUrl;
 
-    const oauthProvider = await createOAuthProvider(serverId, serverUrl);
+    const oauthProvider = await createOAuthProvider(
+      serverId,
+      serverUrl,
+      new URL(c.req.url),
+    );
     const tokens = await oauthProvider.processCallback(callbackData);
     await oauthProvider.saveTokens(tokens);
 
@@ -348,7 +391,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       );
     }
 
-    const oauthProvider = await createOAuthProvider(serverId, serverConfig.url);
+    const oauthProvider = await createOAuthProvider(
+      serverId,
+      serverConfig.url,
+      new URL(c.req.url),
+    );
     const tokens = await oauthProvider.tokens();
     const hasValidTokens = !!(tokens?.access_token);
 
@@ -372,7 +419,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       );
     }
 
-    const oauthProvider = await createOAuthProvider(serverId, serverConfig.url);
+    const oauthProvider = await createOAuthProvider(
+      serverId,
+      serverConfig.url,
+      new URL(c.req.url),
+    );
     await oauthProvider.clearAuthData();
 
     return c.json({

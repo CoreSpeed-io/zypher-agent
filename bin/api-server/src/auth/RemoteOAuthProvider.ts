@@ -36,22 +36,24 @@ export class RemoteOAuthProvider extends BaseMcpOAuthProvider {
     super(config);
     this.#serverId = config.serverId;
 
-    // Build redirect URI with Docker-friendly defaults
+    // Build redirect URI with auto-detection priority, environment fallback
     if (config.redirectUri) {
       this.#defaultRedirectUri = config.redirectUri;
     } else {
-      // Check environment variables commonly used in Docker deployments
+      // Priority: config > environment variables > defaults
       const host = config.host ||
         Deno.env.get("OAUTH_HOST") ||
         Deno.env.get("PUBLIC_URL")?.replace(/^https?:\/\//, "") ||
         "localhost";
 
       const port = config.callbackPort ||
-        Number.parseInt(Deno.env.get("OAUTH_PORT") || "3000");
+        (Deno.env.get("OAUTH_PORT")
+          ? Number.parseInt(Deno.env.get("OAUTH_PORT") || "3000")
+          : 3000);
 
-      const useHttps = config.useHttps ||
-        Deno.env.get("OAUTH_USE_HTTPS") === "true" ||
-        Deno.env.get("NODE_ENV") === "production";
+      const useHttps = (config.useHttps ?? false) ||
+        (Deno.env.get("OAUTH_USE_HTTPS") === "true") ||
+        (Deno.env.get("NODE_ENV") === "production");
 
       const protocol = useHttps ? "https" : "http";
       const portSuffix =
