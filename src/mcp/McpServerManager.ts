@@ -830,14 +830,16 @@ export class McpServerManager {
         `Failed to register tools for server ${server.id}:`,
         formatError(error),
       );
-      
+
       // Check if this is an OAuth-related error that should be handled specially
       if (this.#isAuthenticationError(error)) {
-        console.log(`Detected authentication error for server ${server.id}, will trigger OAuth flow`);
+        console.log(
+          `Detected authentication error for server ${server.id}, will trigger OAuth flow`,
+        );
         // Don't wrap OAuth errors - let them propagate as-is for proper handling
         throw error;
       }
-      
+
       // For non-OAuth errors, wrap them with additional context
       throw new Error(
         `Failed to register tools for server ${server.id}: ${
