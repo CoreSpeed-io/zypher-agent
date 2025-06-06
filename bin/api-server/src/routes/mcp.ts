@@ -250,7 +250,8 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     const token = c.req.header("Authorization")?.split(" ")[1];
     const clientName = c.req.query("clientName") ?? "zypher-agent-api";
     const callbackUrl = c.req.query("callbackUrl"); // Get callback URL from frontend
-    console.log("clientName", clientName);
+    console.log("[clientName]", clientName);
+    console.log("[callbackUrl]", callbackUrl);
     // if (!token) {
     //   throw new ApiError(401, "unauthorized", "No token provided");
     // }
