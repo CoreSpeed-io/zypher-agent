@@ -413,6 +413,27 @@ export class McpServerManager {
             `🔍 Authentication failed for ${id}, checking server capabilities...`,
           );
 
+          // Check if the error message explicitly mentions OAuth
+          const errorStr = formatError(error).toLowerCase();
+          if (
+            errorStr.includes("oauth") ||
+            errorStr.includes("generateauthurl") ||
+            errorStr.includes("auth url")
+          ) {
+            console.log(
+              "✅ OAuth support detected from error message - triggering OAuth flow",
+            );
+            throw new McpServerError(
+              "oauth_required",
+              `Server ${id} requires OAuth authentication. Please complete OAuth flow first.`,
+              {
+                serverId: id,
+                serverUrl: config.url,
+                requiresOAuth: true,
+              },
+            );
+          }
+
           // Check if server supports OAuth
           const oauthSupported = await this.#checkOAuthSupport(config.url);
 
