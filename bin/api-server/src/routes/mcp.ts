@@ -25,6 +25,8 @@ interface ServerInfo {
   serverConfig?: z.infer<typeof McpServerConfigSchema>;
   fromRegistry?: boolean;
   registryToken?: string;
+  /** The exact redirect URI that was used when generating the authorization request. */
+  redirectUri?: string;
 }
 
 // Helper function to generate OAuth response
@@ -86,6 +88,7 @@ async function generateOAuthResponse(
   const serverInfoData: ServerInfo = {
     serverId,
     serverUrl,
+    redirectUri: finalCallbackUrl,
   };
 
   if (isFromRegistry) {
@@ -325,18 +328,44 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     const serverInfo = JSON.parse(serverInfoText) as ServerInfo;
     const serverUrl = serverInfo.serverUrl;
 
-    // Create OAuth provider using the same redirect URI that was used during auth request
-    // We need to reconstruct the exact provider instance that was used
-    const requestUrl = new URL(c.req.url);
-    const currentCallbackUrl = requestUrl.origin + requestUrl.pathname +
-      requestUrl.search;
+    // Reconstruct the exact redirect URI that was used when generating the
+    // authorization request. Prefer the persisted value if available to avoid
+    // accidentally including transient parameters like `code` and `state`.
+
+    let redirectUri: string;
+
+    if (serverInfo.redirectUri) {
+      // Persisted value from the original request – guaranteed to match.
+      redirectUri = serverInfo.redirectUri;
+    } else {
+      // Fallback: rebuild from the current request URL but REMOVE the OAuth
+      // response parameters (`code`, `state`, `error`, etc.) so that it matches
+      // the URI used in the initial authorization request.
+      const requestUrl = new URL(c.req.url);
+      const rebuilt = new URL(requestUrl.origin + requestUrl.pathname);
+
+      // Preserve custom query parameters that existed during the original
+      // request (e.g. `clientName`) but skip OAuth-specific ones.
+      for (const [key, value] of requestUrl.searchParams.entries()) {
+        if (
+          key !== "code" &&
+          key !== "state" &&
+          key !== "error" &&
+          key !== "error_description"
+        ) {
+          rebuilt.searchParams.set(key, value);
+        }
+      }
+
+      redirectUri = rebuilt.toString();
+    }
 
     const oauthProvider = new RemoteOAuthProvider({
       serverId,
       serverUrl,
       oauthBaseDir,
       clientName,
-      redirectUri: currentCallbackUrl,
+      redirectUri,
     });
 
     const tokens = await oauthProvider.processCallback(callbackData);
