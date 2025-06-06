@@ -45,9 +45,9 @@ async function generateOAuthResponse(
   // Use provided callback URL or auto-detect from request
   let finalCallbackUrl: string;
   if (callbackUrl) {
-    // Frontend provided callback URL - ensure clientName is included
+    // Frontend provided callback URL - add serverId and clientName as query parameters
     const callbackUrlObj = new URL(callbackUrl);
-    callbackUrlObj.searchParams.set("clientName", clientName);
+    callbackUrlObj.searchParams.set("serverId", serverId);
     finalCallbackUrl = callbackUrlObj.toString();
   } else {
     // Fallback to auto-detection for backward compatibility
