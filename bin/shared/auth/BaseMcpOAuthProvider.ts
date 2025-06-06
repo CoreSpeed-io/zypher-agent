@@ -273,6 +273,7 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
     try {
       // Construct callback URL for the oauth2-client library
       const callbackUrl = new URL(this.redirectUrl);
+      console.log("[callbackUrl]", callbackUrl);
       callbackUrl.searchParams.set("code", code);
       callbackUrl.searchParams.set("state", state);
 
