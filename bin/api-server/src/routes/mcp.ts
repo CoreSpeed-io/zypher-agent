@@ -27,50 +27,13 @@ interface ServerInfo {
   registryToken?: string;
 }
 
-// Helper function to create OAuth provider
-async function createOAuthProvider(
-  serverId: string,
-  serverUrl: string,
-  requestUrl?: URL,
-): Promise<RemoteOAuthProvider> {
-  const dataDir = await getWorkspaceDataDir();
-  const oauthBaseDir = join(dataDir, "oauth", serverId);
-  await ensureDir(oauthBaseDir);
-
-  // Auto-detect host and protocol from request if available
-  let host: string | undefined;
-  let useHttps: boolean | undefined;
-  let callbackPort: number | undefined;
-
-  if (requestUrl) {
-    host = requestUrl.hostname;
-    useHttps = requestUrl.protocol === "https:";
-    // Only include port if it's not the default for the protocol
-    const port = requestUrl.port
-      ? Number.parseInt(requestUrl.port)
-      : (useHttps ? 443 : 80);
-    callbackPort = (useHttps && port === 443) || (!useHttps && port === 80)
-      ? undefined
-      : port;
-  }
-
-  return new RemoteOAuthProvider({
-    serverId,
-    serverUrl,
-    oauthBaseDir,
-    clientName: "zypher-agent-api",
-    // Auto-detected configuration from request
-    host,
-    callbackPort,
-    useHttps,
-  });
-}
-
 // Helper function to generate OAuth response
 async function generateOAuthResponse(
+  clientName: string,
   serverId: string,
   serverUrl: string,
   requestUrl: URL,
+  callbackUrl?: string,
   serverConfig?: z.infer<typeof McpServerConfigSchema>,
   registryToken?: string,
   isFromRegistry = false,
@@ -79,25 +42,40 @@ async function generateOAuthResponse(
   const oauthBaseDir = join(dataDir, "oauth", serverId);
   await ensureDir(oauthBaseDir);
 
-  // Auto-detect host and protocol from request
-  const host = requestUrl.hostname;
-  const useHttps = requestUrl.protocol === "https:";
-  const port = requestUrl.port
-    ? Number.parseInt(requestUrl.port)
-    : (useHttps ? 443 : 80);
-  const callbackPort = (useHttps && port === 443) || (!useHttps && port === 80)
-    ? undefined
-    : port;
+  // Use provided callback URL or auto-detect from request
+  let finalCallbackUrl: string;
+  if (callbackUrl) {
+    // Frontend provided callback URL - ensure clientName is included
+    const callbackUrlObj = new URL(callbackUrl);
+    callbackUrlObj.searchParams.set("clientName", clientName);
+    finalCallbackUrl = callbackUrlObj.toString();
+  } else {
+    // Fallback to auto-detection for backward compatibility
+    const host = requestUrl.hostname;
+    const useHttps = requestUrl.protocol === "https:";
+    const port = requestUrl.port
+      ? Number.parseInt(requestUrl.port)
+      : (useHttps ? 443 : 80);
+    const callbackPort =
+      (useHttps && port === 443) || (!useHttps && port === 80)
+        ? undefined
+        : port;
 
+    const protocol = useHttps ? "https" : "http";
+    const portSuffix = callbackPort ? `:${callbackPort}` : "";
+    finalCallbackUrl =
+      `${protocol}://${host}${portSuffix}/mcp/servers/${serverId}/oauth/callback?clientName=${
+        encodeURIComponent(clientName)
+      }`;
+  }
+
+  // Create OAuth provider with the final callback URL
   const oauthProvider = new RemoteOAuthProvider({
     serverId,
     serverUrl,
     oauthBaseDir,
-    clientName: "zypher-agent-api",
-    // Auto-detected configuration from request
-    host,
-    callbackPort,
-    useHttps,
+    clientName,
+    redirectUri: finalCallbackUrl,
   });
 
   // Generate authorization URL with PKCE and save data
@@ -131,6 +109,7 @@ async function generateOAuthResponse(
     requiresOAuth: true,
     authUrl: authInfo.uri,
     state: savedState,
+    callbackUrl: finalCallbackUrl,
   };
 }
 
@@ -161,6 +140,9 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     zValidator("json", McpServerApiSchema),
     async (c) => {
       const servers = c.req.valid("json");
+      const clientName = c.req.query("clientName") ?? "zypher-agent-api";
+      const callbackUrl = c.req.query("callbackUrl"); //
+      // Get callback URL from frontend
 
       try {
         await Promise.all(
@@ -183,9 +165,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           const serverConfig = servers[serverId];
 
           const oauthResponse = await generateOAuthResponse(
+            clientName,
             serverId,
             details.serverUrl,
             new URL(c.req.url),
+            callbackUrl,
             serverConfig,
             undefined,
             false,
@@ -197,6 +181,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
             oauth: {
               authUrl: oauthResponse.authUrl,
               state: oauthResponse.state,
+              callbackUrl: oauthResponse.callbackUrl,
               instructions:
                 "Please open the authUrl in a browser to complete OAuth authentication",
             },
@@ -217,6 +202,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   mcpRouter.delete("/servers/:id", async (c) => {
     const serverName = McpServerIdSchema.parse(c.req.param("id"));
     await mcpServerManager.deregisterServerByName(serverName);
+
     return c.body(null, 204);
   });
 
@@ -262,6 +248,9 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   mcpRouter.post("/registry/:id", async (c) => {
     const id = c.req.param("id");
     const token = c.req.header("Authorization")?.split(" ")[1];
+    const clientName = c.req.query("clientName") ?? "zypher-agent-api";
+    const callbackUrl = c.req.query("callbackUrl"); // Get callback URL from frontend
+    console.log("clientName", clientName);
     // if (!token) {
     //   throw new ApiError(401, "unauthorized", "No token provided");
     // }
@@ -279,9 +268,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
         const serverId = details.serverId;
 
         const oauthResponse = await generateOAuthResponse(
+          clientName,
           serverId,
           details.serverUrl,
           new URL(c.req.url),
+          callbackUrl,
           undefined,
           token,
           true,
@@ -293,6 +284,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           oauth: {
             authUrl: oauthResponse.authUrl,
             state: oauthResponse.state,
+            callbackUrl: oauthResponse.callbackUrl,
             instructions:
               "Please open the authUrl in a browser to complete OAuth authentication",
           },
@@ -315,6 +307,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     const state = c.req.query("state");
     const error = c.req.query("error");
     const error_description = c.req.query("error_description");
+    const clientName = c.req.query("clientName") ?? "zypher-agent-api";
 
     const callbackData = {
       code: code || "",
@@ -331,11 +324,20 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     const serverInfo = JSON.parse(serverInfoText) as ServerInfo;
     const serverUrl = serverInfo.serverUrl;
 
-    const oauthProvider = await createOAuthProvider(
+    // Create OAuth provider using the same redirect URI that was used during auth request
+    // We need to reconstruct the exact provider instance that was used
+    const requestUrl = new URL(c.req.url);
+    const currentCallbackUrl = requestUrl.origin + requestUrl.pathname +
+      requestUrl.search;
+
+    const oauthProvider = new RemoteOAuthProvider({
       serverId,
       serverUrl,
-      new URL(c.req.url),
-    );
+      oauthBaseDir,
+      clientName,
+      redirectUri: currentCallbackUrl,
+    });
+
     const tokens = await oauthProvider.processCallback(callbackData);
     await oauthProvider.saveTokens(tokens);
 
@@ -381,6 +383,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   // Get OAuth status for a server
   mcpRouter.get("/servers/:id/oauth/status", async (c) => {
     const serverId = c.req.param("id");
+    const clientName = c.req.query("clientName") ?? "zypher-agent-api";
     const serverConfig = mcpServerManager.getServerConfig(serverId);
 
     if (!("url" in serverConfig)) {
@@ -391,11 +394,18 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       );
     }
 
-    const oauthProvider = await createOAuthProvider(
+    const dataDir = await getWorkspaceDataDir();
+    const oauthBaseDir = join(dataDir, "oauth", serverId);
+
+    // Create OAuth provider for status checking
+    // We don't need a specific callback URL for status checking
+    const oauthProvider = new RemoteOAuthProvider({
       serverId,
-      serverConfig.url,
-      new URL(c.req.url),
-    );
+      serverUrl: serverConfig.url,
+      oauthBaseDir,
+      clientName,
+    });
+
     const tokens = await oauthProvider.tokens();
     const hasValidTokens = !!(tokens?.access_token);
 
@@ -410,6 +420,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   mcpRouter.delete("/servers/:id/oauth", async (c) => {
     const serverId = c.req.param("id");
     const serverConfig = mcpServerManager.getServerConfig(serverId);
+    const clientName = c.req.query("clientName") ?? "zypher-agent-api";
 
     if (!("url" in serverConfig)) {
       throw new ApiError(
@@ -419,11 +430,18 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       );
     }
 
-    const oauthProvider = await createOAuthProvider(
+    const dataDir = await getWorkspaceDataDir();
+    const oauthBaseDir = join(dataDir, "oauth", serverId);
+
+    // Create OAuth provider for clearing data
+    // We don't need a specific callback URL for clearing data
+    const oauthProvider = new RemoteOAuthProvider({
       serverId,
-      serverConfig.url,
-      new URL(c.req.url),
-    );
+      serverUrl: serverConfig.url,
+      oauthBaseDir,
+      clientName,
+    });
+
     await oauthProvider.clearAuthData();
 
     return c.json({

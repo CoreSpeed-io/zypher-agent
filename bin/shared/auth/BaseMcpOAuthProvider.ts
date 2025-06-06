@@ -54,12 +54,12 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
   protected serverMetadata: OAuth2ServerMetadata | null = null;
   protected scopes: string[] = [];
   protected oauth2Client: OAuth2Client | null = null;
-  private timeoutMs: number;
+  #timeoutMs: number;
 
   constructor(config: McpOAuthConfig) {
     this.config = config;
-    this.timeoutMs = config.timeoutMs ?? DEFAULT_OAUTH_TIMEOUT_MS;
-    console.log(`OAuth timeout configured: ${this.timeoutMs}ms`);
+    this.#timeoutMs = config.timeoutMs ?? DEFAULT_OAUTH_TIMEOUT_MS;
+    console.log(`OAuth timeout configured: ${this.#timeoutMs}ms`);
   }
 
   abstract get redirectUrl(): string;
@@ -80,7 +80,7 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
     if (timeoutMs <= 0) {
       throw new Error("Timeout must be greater than 0");
     }
-    this.timeoutMs = timeoutMs;
+    this.#timeoutMs = timeoutMs;
     console.log(`Updated OAuth timeout: ${timeoutMs}ms`);
   }
 
@@ -88,7 +88,7 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
    * Get current timeout setting
    */
   getTimeout(): number {
-    return this.timeoutMs;
+    return this.#timeoutMs;
   }
 
   /**
@@ -483,7 +483,7 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
     options: RequestInit = {},
     timeoutMs?: number,
   ): Promise<Response> {
-    const timeout = timeoutMs ?? this.timeoutMs;
+    const timeout = timeoutMs ?? this.#timeoutMs;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -597,18 +597,6 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
     await this.saveState(authInfo.state);
 
     return { uri: authInfo.url };
-  }
-
-  async handleAuthResponse(callbackUrl: string): Promise<OAuthTokens> {
-    const url = new URL(callbackUrl);
-    const params = new URLSearchParams(url.search);
-
-    const callbackData: Record<string, string> = {};
-    for (const [key, value] of params) {
-      callbackData[key] = value;
-    }
-
-    return await this.processCallback(callbackData);
   }
 
   async refreshTokens(refreshToken: string): Promise<OAuthTokens> {

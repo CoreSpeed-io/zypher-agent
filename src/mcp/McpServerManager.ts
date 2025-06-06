@@ -42,6 +42,7 @@ type IMcpConfig = z.infer<typeof McpConfigSchema>;
 export type OAuthProviderFactory = (
   serverId: string,
   serverUrl: string,
+  clientName: string,
 ) => Promise<OAuthClientProvider | undefined>;
 
 /**
@@ -61,9 +62,14 @@ export class McpServerManager {
   #dataDir: string | null = null;
   #mcpRegistryBaseUrl: string | null = null;
   #oauthProviderFactory?: OAuthProviderFactory;
+  #clientName: string;
 
-  constructor(oauthProviderFactory?: OAuthProviderFactory) {
+  constructor(
+    oauthProviderFactory?: OAuthProviderFactory,
+    clientName?: string,
+  ) {
     this.#oauthProviderFactory = oauthProviderFactory;
+    this.#clientName = clientName ?? "zypher-agent-api";
   }
 
   async #createMcpClient(
@@ -79,6 +85,7 @@ export class McpServerManager {
       oauthProvider = await this.#oauthProviderFactory(
         serverId,
         serverConfig.url,
+        this.#clientName,
       );
     }
 
@@ -538,6 +545,7 @@ export class McpServerManager {
       oauthProvider = await this.#oauthProviderFactory(
         serverId,
         serverConfig.url,
+        this.#clientName,
       );
 
       // Enable open access if the provider supports it

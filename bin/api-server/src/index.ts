@@ -80,6 +80,7 @@ const createOAuthProviderFactory = (): OAuthProviderFactory => {
   return async (
     serverId: string,
     serverUrl: string,
+    clientName?: string,
   ) => {
     try {
       console.log(`Setting up OAuth for API server: ${serverId}`);
@@ -93,7 +94,7 @@ const createOAuthProviderFactory = (): OAuthProviderFactory => {
         serverId,
         serverUrl,
         oauthBaseDir,
-        clientName: "zypher-agent-api",
+        clientName: clientName ?? "zypher-agent-api",
       });
     } catch (error) {
       console.error(`Failed to create OAuth provider for ${serverId}:`, error);
