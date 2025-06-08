@@ -281,23 +281,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           token,
           true,
         );
-
-        return c.json({
-          success: false,
-          requiresOAuth: true,
-          oauth: {
-            authUrl: oauthResponse.authUrl,
-            state: oauthResponse.state,
-            callbackUrl: oauthResponse.callbackUrl,
-            instructions:
-              "Please open the authUrl in a browser to complete OAuth authentication",
-          },
-          error: {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-          },
-        }, 202);
+        throw new ApiError(
+          500,
+          "internal_server_error",
+          "Failed to generate OAuth response",
+        );
       }
       // Let centralized error handler deal with all other errors
       throw error;
