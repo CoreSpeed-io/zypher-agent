@@ -284,7 +284,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
         throw new ApiError(
           500,
           "internal_server_error",
-          "Failed to generate OAuth response",
+          `Failed to generate OAuth response ${formatError(error)}`,
         );
       }
       // Let centralized error handler deal with all other errors
