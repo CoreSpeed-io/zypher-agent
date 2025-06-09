@@ -31,7 +31,7 @@ export const RunTerminalCmdTool = defineTool({
       if (isBackground) {
         // For background processes, use spawn
         const child = spawn(command, [], {
-          shell: true,
+          shell: "/usr/bin/bash",
           detached: true,
           stdio: "ignore",
         });
@@ -39,7 +39,7 @@ export const RunTerminalCmdTool = defineTool({
         return `Started background command: ${command}`;
       }
 
-      const { stdout, stderr } = await execAsync(command);
+      const { stdout, stderr } = await execAsync(command, { shell: "/usr/bin/bash" });
       if (stderr) {
         return `Command executed with warnings:\n${stderr}\nOutput:\n${stdout}`;
       }
