@@ -10,6 +10,7 @@ import {
   ImageGenTool,
   ListDirTool,
   ReadFileTool,
+  YouTubeVideoAccessTool,
   RunTerminalCmdTool,
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
@@ -22,6 +23,7 @@ import { exit } from "node:process";
 const BENCHMARK_DATASET = Deno.env.get("BENCHMARK_DATASET")!;
 const BENCHMARK_MODE = Deno.env.get("BENCHMARK_MODE")! as "test" | "validation";
 const BENCHMARK_LEVEL = Deno.env.get("BENCHMARK_LEVEL");
+const METADATA_NAME = Deno.env.get("METADATA_NAME");
 const BENCHMARK_WORKSPACE = Deno.env.get("BENCHMARK_WORKSPACE")!;
 const BENCHMARK_MODEL = Deno.env.get("BENCHMARK_MODEL")!;
 // const BENCHMARK_PROMPT =
@@ -82,10 +84,11 @@ const textEncoder = new TextEncoder();
 async function loadGAIADataset(
   datasetPath: string,
   mode: "test" | "validation",
+  metaDataName: string,
   level?: number,
 ): Promise<GAIATask[]> {
   // Construct the path to the metadata.jsonl file based on the dataset structure
-  const metadataPath = join(datasetPath, "2023", mode, "metadata.jsonl");
+  const metadataPath = join(datasetPath, "2023", mode, metaDataName + ".jsonl");
 
   try {
     const content = await Deno.readTextFile(metadataPath);
@@ -264,7 +267,8 @@ async function main(): Promise<void> {
     const tasks = await loadGAIADataset(
       BENCHMARK_DATASET!,
       BENCHMARK_MODE as "test" | "validation",
-      BENCHMARK_LEVEL ? parseInt(BENCHMARK_LEVEL) : undefined,
+      METADATA_NAME ?? "metadata",
+      BENCHMARK_LEVEL ? parseInt(BENCHMARK_LEVEL) : undefined
     );
     console.log(`✅ Loaded ${tasks.length} tasks`);
 
@@ -284,6 +288,7 @@ async function main(): Promise<void> {
     await mcpServerManager.registerTool(FileSearchTool);
     await mcpServerManager.registerTool(CopyFileTool);
     await mcpServerManager.registerTool(DeleteFileTool);
+    await mcpServerManager.registerTool(YouTubeVideoAccessTool);
     // mcpServerManager.registerTool(ImageGenTool);
     // mcpServerManager.registerTool(ImageEditTool);
 

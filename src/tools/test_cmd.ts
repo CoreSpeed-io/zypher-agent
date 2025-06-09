@@ -2,16 +2,24 @@ import { join } from "@std/path";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import "jsr:@std/dotenv/load";
+import { YouTubeVideoAccessTool } from "./YoutubeVideoAccessTool.ts";
 const execAsync = promisify(exec);
+import { google, youtube_v3 } from "npm:googleapis@latest";
 
 async function main() {
-  const PYTHON_VENV_PATH = Deno.env.get("PYTHON_VENV_PATH")!;
-  const VENV_ACTIVATE_COMMAND = "source " + join(PYTHON_VENV_PATH, "bin", "activate")
-  console.log(VENV_ACTIVATE_COMMAND)
-  const command = VENV_ACTIVATE_COMMAND + " && " + "python3 /home/ubuntu/Workspace/zypher-agent/bench/workspace/e1fc63a2-da7a-432f-be78-7c4a95598703/calculation.py"
-  // const command = "python3 /home/ubuntu/Workspace/zypher-agent/bench/workspace/e1fc63a2-da7a-432f-be78-7c4a95598703/calculation.py"
-  const { stdout, stderr } =  await execAsync(command, { shell: '/usr/bin/bash' });
-  console.log(`${stdout}`)
+  // const resp = await YouTubeVideoAccessTool.execute({videoId : "NVOMxeAt_-4", explanation: ""})
+  const apiKey = Deno.env.get("GOOGLE_CLOUD_API_KEY");
+  if (!apiKey) {
+    return "Missing YOUTUBE_API_KEY environment variable.";
+  }
+  const youtube = google.youtube({
+    version: "v3",
+    auth: apiKey,
+  }) as youtube_v3.Youtube;
+  const data = await youtube.videos.list({
+    id: ["NVOMxeAt_-4"],
+    part: ["snippet,contentDetails,statistics"],
+  });
 }
 
-main()
+main();

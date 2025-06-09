@@ -79,3 +79,4 @@ export { GrepSearchTool } from "./GrepSearchTool.ts";
 export { FileSearchTool } from "./FileSearchTool.ts";
 export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
 export { ImageEditTool, ImageGenTool } from "./ImageTools.ts";
+export { YouTubeVideoAccessTool } from "./YoutubeVideoAccessTool.ts"

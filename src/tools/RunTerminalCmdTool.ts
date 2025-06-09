@@ -2,7 +2,6 @@ import { z } from "zod";
 import { defineTool } from "./mod.ts";
 import { exec, spawn } from "node:child_process";
 import { promisify } from "node:util";
-import { env } from "node:process";
 import { join } from "@std/path";
 const PYTHON_VENV_PATH = Deno.env.get("PYTHON_VENV_PATH")!;
 const VENV_ACTIVATE_COMMAND = "source " + join(PYTHON_VENV_PATH, "bin", "activate")
