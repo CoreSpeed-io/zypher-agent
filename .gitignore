@@ -142,3 +142,7 @@ dist
 # ide
 .idea/
 .vscode/
+
+bench/GAIA
+bench/output
+bench/workspace
