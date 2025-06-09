@@ -12,6 +12,7 @@ import {
   ReadFileTool,
   YouTubeVideoAccessTool,
   RunTerminalCmdTool,
+  WebSearchTool
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -19,6 +20,7 @@ import { ensureDir } from "@std/fs";
 import { join } from "@std/path";
 import { IMcpServerConfig } from "../src/mcp/types.ts";
 import { exit } from "node:process";
+
 
 const BENCHMARK_DATASET = Deno.env.get("BENCHMARK_DATASET")!;
 const BENCHMARK_MODE = Deno.env.get("BENCHMARK_MODE")! as "test" | "validation";
@@ -289,6 +291,7 @@ async function main(): Promise<void> {
     await mcpServerManager.registerTool(CopyFileTool);
     await mcpServerManager.registerTool(DeleteFileTool);
     await mcpServerManager.registerTool(YouTubeVideoAccessTool);
+    await mcpServerManager.registerTool(WebSearchTool);
     // mcpServerManager.registerTool(ImageGenTool);
     // mcpServerManager.registerTool(ImageEditTool);
 
