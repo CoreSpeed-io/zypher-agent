@@ -5,9 +5,10 @@ import "jsr:@std/dotenv/load";
 import { YouTubeVideoAccessTool } from "./YoutubeVideoAccessTool.ts";
 const execAsync = promisify(exec);
 import { google, youtube_v3 } from "npm:googleapis@latest";
+import { WebsiteAccessTool } from "./WebsiteAccessTool.ts";
 
 async function main() {
-  const resp = await YouTubeVideoAccessTool.execute({videoId : "NVOMxeAt_-4", explanation: ""})
+  const resp = await WebsiteAccessTool.execute({url : "https://en.wikipedia.org/wiki/Alcoholics_Anonymous", explanation: ""})
   console.log(resp)
 }
 

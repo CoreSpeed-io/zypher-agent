@@ -81,3 +81,4 @@ export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
 export { ImageEditTool, ImageGenTool } from "./ImageTools.ts";
 export { YouTubeVideoAccessTool } from "./YoutubeVideoAccessTool.ts"
 export { WebSearchTool } from "./WebSearchTool.ts"
+export { WebsiteAccessTool } from "./WebsiteAccessTool.ts"
