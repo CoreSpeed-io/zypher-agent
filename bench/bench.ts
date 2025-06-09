@@ -6,8 +6,6 @@ import {
   EditFileTool,
   FileSearchTool,
   GrepSearchTool,
-  ImageEditTool,
-  ImageGenTool,
   ListDirTool,
   ReadFileTool,
   YouTubeVideoAccessTool,
@@ -18,8 +16,6 @@ import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
 import { ensureDir } from "@std/fs";
 import { join } from "@std/path";
-import { IMcpServerConfig } from "../src/mcp/types.ts";
-import { exit } from "node:process";
 
 
 const BENCHMARK_DATASET = Deno.env.get("BENCHMARK_DATASET")!;
