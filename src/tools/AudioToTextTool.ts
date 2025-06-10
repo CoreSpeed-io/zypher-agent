@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineTool } from "./mod.ts";
-import OpenAI from "npm:openai";
+import OpenAI from "@openai/openai";
 
 const openai = new OpenAI({
   apiKey: Deno.env.get("OPENAI_API_KEY"),
