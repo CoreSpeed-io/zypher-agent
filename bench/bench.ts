@@ -12,12 +12,13 @@ import {
   RunTerminalCmdTool,
   WebSearchTool,
   WebsiteAccessTool,
-  AudioToTextTool
+  AudioToTextTool,
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
 import { ensureDir } from "@std/fs";
 import { join } from "@std/path";
+import { exit } from "node:process";
 
 
 const BENCHMARK_DATASET = Deno.env.get("BENCHMARK_DATASET")!;
@@ -37,17 +38,6 @@ const BENCHMARK_MODEL = Deno.env.get("BENCHMARK_MODEL")!;
 // for cities), and write the digits in plain text unless specified otherwise. \
 // If you are asked for a comma separated list, apply the above rules depending \
 // of whether the element to be put in the list is a number or a string.`;
-const BENCHMARK_PROMPT =
-  `You are a general AI assistant. I will ask you a question. Report your \
-thoughts, and finish your answer by writing the answer to an answer.txt file with the following template: \
-FINAL ANSWER: [YOUR FINAL ANSWER]. YOUR FINAL ANSWER should be a number OR \
-as few words as possible OR a comma separated list of numbers and/or \
-strings. If you are asked for a number, don't use comma to write your number \
-neither use units such as $ or percent sign unless specified otherwise. If \
-you are asked for a string, don't use articles, neither abbreviations (e.g. \
-for cities), and write the digits in plain text unless specified otherwise. \
-If you are asked for a comma separated list, apply the above rules depending \
-of whether the element to be put in the list is a number or a string.`;
 const BENCHMARK_OUTPUT = Deno.env.get("BENCHMARK_OUTPUT")!;
 
 interface GAIATask {
@@ -128,11 +118,11 @@ async function setupWorkspaceForTask(
   const taskWorkspace = join(workspaceDir, task.task_id);
   await ensureDir(taskWorkspace);
 
-  // Create .zypherrules file
-  await Deno.writeTextFile(
-    join(taskWorkspace, ".zypherrules"),
-    BENCHMARK_PROMPT,
-  );
+  // Create .zypherrules file, disabled due to a bug in Zypher Agent
+  // await Deno.writeTextFile(
+  //   join(taskWorkspace, ".zypherrules"),
+  //   BENCHMARK_PROMPT,
+  // );
 
   // If task has an associated file, copy it to the workspace
   if (task.file_name) {
@@ -292,36 +282,6 @@ async function main(): Promise<void> {
     await mcpServerManager.registerTool(WebSearchTool);
     await mcpServerManager.registerTool(WebsiteAccessTool);
     await mcpServerManager.registerTool(AudioToTextTool);
-    
-    // mcpServerManager.registerTool(ImageGenTool);
-    // mcpServerManager.registerTool(ImageEditTool);
-
-    // DDG
-    // const ddgMcpConfig = {
-    //   "command": "uvx",
-    //   "args": ["duckduckgo-mcp-server"],
-    // } as IMcpServerConfig;
-    // await mcpServerManager.registerServer("ddg-search", ddgMcpConfig);
-
-    // DDG
-    // const ddgMcpConfig = {
-    //     "command": "npx",
-    //     "args": [
-    //       "-y",
-    //       "duckduckgo-mcp-server"
-    //     ]
-    // } as IMcpServerConfig;
-    // await mcpServerManager.registerServer("duckduckgo", ddgMcpConfig);
-
-    // Firecrawl
-    // const firecrawlMcpConfig = {
-    //   "command": "npx",
-    //   "args": ["-y", "firecrawl-mcp"],
-    //   "env": {
-    //     "FIRECRAWL_API_KEY": "",
-    //   },
-    // } as IMcpServerConfig;
-    // await mcpServerManager.registerServer("firecrawl", firecrawlMcpConfig);
 
     console.log(
       "🔧 Registered tools:",
@@ -347,10 +307,9 @@ async function main(): Promise<void> {
         // Initialize a fresh agent instance for each task
         const agent = new ZypherAgent(
           {
-            // userId: options.userId,
-            // baseUrl: options.baseUrl,
             anthropicApiKey: Deno.env.get("ANTHROPIC_API_KEY"),
             persistHistory: false,
+            enableCheckpointing: false,
           },
           mcpServerManager,
         );
