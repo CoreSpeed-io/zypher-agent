@@ -108,7 +108,7 @@ def question_scorer(
 def collect_answers_and_compare():
     """
     Collects answers from workspace directories and compares them with metadata.
-    Creates a CSV file with the comparison results.
+    Creates a CSV file with the comparison results, organized by levels.
     """
     # Read the metadata.jsonl file
     metadata_file = 'bench/GAIA/2023/validation/metadata.jsonl'
@@ -118,7 +118,10 @@ def collect_answers_and_compare():
     with open(metadata_file, 'r', encoding='utf-8') as f:
         for line in f:
             data = json.loads(line.strip())
-            metadata[data['task_id']] = data['Final answer']
+            metadata[data['task_id']] = {
+                'answer': data['Final answer'],
+                'level': data['Level']
+            }
     
     print(f"Loaded {len(metadata)} entries from metadata")
     
@@ -143,8 +146,10 @@ def collect_answers_and_compare():
         except Exception as e:
             actual_answer = f"ERROR: {str(e)}"
         
-        # Get expected answer from metadata
-        expected_answer = metadata.get(task_id, "NOT_FOUND")
+        # Get expected answer and level from metadata
+        task_metadata = metadata.get(task_id, {"answer": "NOT_FOUND", "level": 0})
+        expected_answer = task_metadata['answer']
+        level = task_metadata['level']
         
         # Use sophisticated scoring instead of simple equality
         if expected_answer == "NOT_FOUND" or actual_answer.startswith("ERROR:"):
@@ -156,6 +161,7 @@ def collect_answers_and_compare():
             'task_id': task_id,
             'expected_answer': expected_answer,
             'actual_answer': actual_answer,
+            'level': level,
             'match': match
         })
     
@@ -165,7 +171,7 @@ def collect_answers_and_compare():
     # Write to CSV
     csv_filename = 'answer_comparison.csv'
     with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['task_id', 'expected_answer', 'actual_answer', 'match']
+        fieldnames = ['task_id', 'level', 'expected_answer', 'actual_answer', 'match']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         
         writer.writeheader()
@@ -175,18 +181,56 @@ def collect_answers_and_compare():
     print(f"\nComparison completed. Results saved to {csv_filename}")
     print(f"Total tasks processed: {len(results)}")
     
-    # Print summary statistics
-    matches = sum(1 for r in results if r['match'])
-    mismatches = len(results) - matches
-    print(f"Matches: {matches}/{len(results)} ({matches/len(results)*100:.1f}%)")
-    print(f"Mismatches: {mismatches}/{len(results)} ({mismatches/len(results)*100:.1f}%)")
+    # Group results by level
+    results_by_level = {}
+    for result in results:
+        level = result['level']
+        if level not in results_by_level:
+            results_by_level[level] = []
+        results_by_level[level].append(result)
     
-    # Show mismatches
-    if mismatches > 0:
-        print("\nAll mismatches:")
-        for result in results:
-            if not result['match']:
-                print(f"  {result['task_id']}: Expected '{result['expected_answer']}', Got '{result['actual_answer']}'")
+    # Print statistics by level
+    print("\n" + "="*60)
+    print("RESULTS BY LEVEL")
+    print("="*60)
+    
+    level_percentages = []
+    total_matches = 0
+    total_tasks = 0
+    
+    for level in sorted(results_by_level.keys()):
+        level_results = results_by_level[level]
+        matches = sum(1 for r in level_results if r['match'])
+        total = len(level_results)
+        percentage = (matches / total * 100) if total > 0 else 0
+        
+        level_percentages.append(percentage)
+        total_matches += matches
+        total_tasks += total
+        
+        print(f"\nLevel {level}:")
+        print(f"  Correct: {matches}/{total} ({percentage:.1f}%)")
+        print(f"  Incorrect: {total - matches}")
+        
+        # Show mismatches for this level
+        mismatches = [r for r in level_results if not r['match']]
+        if mismatches:
+            print(f"  Mismatches:")
+            for result in mismatches:
+                print(f"    {result['task_id']}: Expected '{result['expected_answer']}', Got '{result['actual_answer']}'")
+    
+    # Calculate and show overall average
+    print("\n" + "="*60)
+    print("OVERALL SUMMARY")
+    print("="*60)
+    
+    if level_percentages:
+        average_percentage = sum(level_percentages) / len(level_percentages)
+        print(f"Average percentage across levels: {average_percentage:.1f}%")
+    
+    overall_percentage = (total_matches / total_tasks * 100) if total_tasks > 0 else 0
+    print(f"Overall percentage (weighted): {overall_percentage:.1f}%")
+    print(f"Total correct: {total_matches}/{total_tasks}")
 
 
 if __name__ == "__main__":
