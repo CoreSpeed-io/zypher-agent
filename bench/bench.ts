@@ -11,7 +11,8 @@ import {
   YouTubeVideoAccessTool,
   RunTerminalCmdTool,
   WebSearchTool,
-  WebsiteAccessTool
+  WebsiteAccessTool,
+  AudioToTextTool
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -290,6 +291,7 @@ async function main(): Promise<void> {
     await mcpServerManager.registerTool(YouTubeVideoAccessTool);
     await mcpServerManager.registerTool(WebSearchTool);
     await mcpServerManager.registerTool(WebsiteAccessTool);
+    await mcpServerManager.registerTool(AudioToTextTool);
     
     // mcpServerManager.registerTool(ImageGenTool);
     // mcpServerManager.registerTool(ImageEditTool);
