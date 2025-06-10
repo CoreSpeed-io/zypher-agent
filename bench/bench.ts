@@ -22,7 +22,7 @@ import { join } from "@std/path";
 const BENCHMARK_DATASET = Deno.env.get("BENCHMARK_DATASET")!;
 const BENCHMARK_MODE = Deno.env.get("BENCHMARK_MODE")! as "test" | "validation";
 const BENCHMARK_LEVEL = Deno.env.get("BENCHMARK_LEVEL");
-const METADATA_NAME = Deno.env.get("METADATA_NAME");
+const BENCHMARK_METADATA = Deno.env.get("BENCHMARK_METADATA")!;
 const BENCHMARK_WORKSPACE = Deno.env.get("BENCHMARK_WORKSPACE")!;
 const BENCHMARK_MODEL = Deno.env.get("BENCHMARK_MODEL")!;
 // const BENCHMARK_PROMPT =
@@ -83,11 +83,11 @@ const textEncoder = new TextEncoder();
 async function loadGAIADataset(
   datasetPath: string,
   mode: "test" | "validation",
-  metaDataName: string,
+  metadataName: string,
   level?: number,
 ): Promise<GAIATask[]> {
   // Construct the path to the metadata.jsonl file based on the dataset structure
-  const metadataPath = join(datasetPath, "2023", mode, metaDataName + ".jsonl");
+  const metadataPath = join(datasetPath, "2023", mode, metadataName + ".jsonl");
 
   try {
     const content = await Deno.readTextFile(metadataPath);
@@ -266,7 +266,7 @@ async function main(): Promise<void> {
     const tasks = await loadGAIADataset(
       BENCHMARK_DATASET!,
       BENCHMARK_MODE as "test" | "validation",
-      METADATA_NAME ?? "metadata",
+      BENCHMARK_METADATA,
       BENCHMARK_LEVEL ? parseInt(BENCHMARK_LEVEL) : undefined
     );
     console.log(`✅ Loaded ${tasks.length} tasks`);

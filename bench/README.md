@@ -32,14 +32,14 @@ ANTHROPIC_API_KEY=your_api_key_here
 OPENAI_API_KEY=your_api_key_here
 
 BENCHMARK_DATASET=/path/to/GAIA/dataset
-BENCHMARK_MODE=validation  # or "test"
+BENCHMARK_MODE=validation # or "test"
+BENCHMARK_METADATA=metadata # Metadata file name
 BENCHMARK_WORKSPACE=/path/to/bench/workspace
 BENCHMARK_MODEL=claude-3-5-sonnet-20241022
 BENCHMARK_OUTPUT=/path/to/bench/output
 
 # Optional
-BENCHMARK_LEVEL=1          # Filter by difficulty level (1, 2, or 3)
-METADATA_NAME=metadata     # Metadata file name (default: metadata)
+BENCHMARK_LEVEL=1 # Filter by difficulty level (1, 2, or 3)
 ```
 
 ### GAIA Dataset
