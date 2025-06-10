@@ -11,6 +11,7 @@ import {
   applyCheckpoint,
   createCheckpoint,
   getCheckpointDetails,
+  type Checkpoint,
 } from "./checkpoints.ts";
 import {
   type ContentBlock,
@@ -97,6 +98,8 @@ export interface ZypherAgentConfig {
   taskTimeoutMs?: number;
   /** Directory to cache file attachments */
   fileAttachmentCacheDir?: string;
+  /** Whether to enable git-based checkpointing. Defaults to true. */
+  enableCheckpointing?: boolean;
 }
 
 export class ZypherAgent {
@@ -110,6 +113,7 @@ export class ZypherAgent {
   readonly #taskTimeoutMs: number;
   readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
+  readonly #enableCheckpointing: boolean;
 
   #messages: Message[];
   #system: Anthropic.TextBlockParam[];
@@ -149,6 +153,7 @@ export class ZypherAgent {
     // Default timeout is 5 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 300000;
     this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
+    this.#enableCheckpointing = config.enableCheckpointing ?? true;
   }
 
   async init(): Promise<void> {
@@ -573,12 +578,17 @@ export class ZypherAgent {
 
       let iterations = 0;
 
-      // Always create a checkpoint before executing the task
-      const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${
-        taskDescription.length > 50 ? "..." : ""
-      }`;
-      const checkpointId = await createCheckpoint(checkpointName);
-      const checkpoint = await getCheckpointDetails(checkpointId);
+      // Create a checkpoint before executing the task if checkpointing is enabled
+      let checkpointId: string | undefined;
+      let checkpoint: Checkpoint | undefined;
+      
+      if (this.#enableCheckpointing) {
+        const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${
+          taskDescription.length > 50 ? "..." : ""
+        }`;
+        checkpointId = await createCheckpoint(checkpointName);
+        checkpoint = await getCheckpointDetails(checkpointId);
+      }
 
       const messageContent: ContentBlock[] = [
         ...(fileAttachments ?? []),
@@ -588,12 +598,12 @@ export class ZypherAgent {
         } satisfies Anthropic.TextBlockParam,
       ];
 
-      // Add user message with checkpoint reference
+      // Add user message with checkpoint reference (if checkpointing is enabled)
       const userMessage: Message = {
         role: "user",
         content: messageContent,
-        checkpointId,
-        checkpoint,
+        ...(checkpointId && { checkpointId }),
+        ...(checkpoint && { checkpoint }),
         timestamp: new Date(), // current timestamp
       };
       this.#messages.push(userMessage);
