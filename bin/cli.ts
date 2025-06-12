@@ -184,7 +184,7 @@ async function main(): Promise<void> {
             },
           };
 
-          await agent.runTaskWithStreaming(task, options.model, streamHandler);
+          await agent.runTaskWithStreaming(task, options.model, streamHandler, undefined, {think: true});
 
           // Add extra newlines for readability after completion
           Deno.stdout.write(textEncoder.encode("\n\n"));
