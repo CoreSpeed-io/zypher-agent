@@ -1,6 +1,7 @@
 import "jsr:@std/dotenv/load";
 import { type StreamHandler, ZypherAgent } from "../src/ZypherAgent.ts";
 import {
+  AudioToTextTool,
   CopyFileTool,
   DeleteFileTool,
   EditFileTool,
@@ -8,18 +9,18 @@ import {
   GrepSearchTool,
   ListDirTool,
   ReadFileTool,
-  YouTubeVideoAccessTool,
   RunTerminalCmdTool,
   WebSearchTool,
   WebsiteAccessTool,
-  AudioToTextTool,
+  YouTubeVideoAccessTool,
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
+import { FileAttachment, isFileTypeSupported } from "../src/message.ts";
+import { S3StorageService } from "../src/storage/S3StorageService.ts";
 import { ensureDir } from "@std/fs";
 import { join } from "@std/path";
-import { exit } from "node:process";
-
+import * as path from "@std/path";
 
 const BENCHMARK_DATASET = Deno.env.get("BENCHMARK_DATASET")!;
 const BENCHMARK_MODE = Deno.env.get("BENCHMARK_MODE")! as "test" | "validation";
@@ -140,6 +141,85 @@ async function setupWorkspaceForTask(
   }
 }
 
+async function createFileAttachmentsForTask(
+  task: GAIATask,
+  workspaceDir: string,
+  storageService: S3StorageService,
+): Promise<FileAttachment[]> {
+  const attachments: FileAttachment[] = [];
+  
+  if (!task.file_name) {
+    return attachments;
+  }
+
+  // const taskWorkspace = join(workspaceDir, task.task_id);
+  const filePath = task.file_name;
+
+  try {
+    // Check if file exists
+    const fileInfo = await Deno.stat(filePath);
+    if (!fileInfo.isFile) {
+      console.warn(`⚠️  ${task.file_name} is not a file`);
+      return attachments;
+    }
+
+    // Determine MIME type from file extension
+    const ext = path.extname(task.file_name).toLowerCase();
+    let contentType: string;
+
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        contentType = 'image/jpeg';
+        break;
+      case '.png':
+        contentType = 'image/png';
+        break;
+      case '.gif':
+        contentType = 'image/gif';
+        break;
+      case '.webp':
+        contentType = 'image/webp';
+        break;
+      case '.pdf':
+        contentType = 'application/pdf';
+        break;
+      default:
+        console.log(`⚠️  File ${task.file_name} has unsupported type: ${ext}`);
+        return attachments;
+    }
+
+    // Check if the content type is supported
+    if (!isFileTypeSupported(contentType)) {
+      console.log(`⚠️  File ${task.file_name} has unsupported content type: ${contentType}`);
+      return attachments;
+    }
+
+    // Read file and upload to S3
+    const fileBuffer = await Deno.readFile(filePath);
+    
+    const uploadResult = await storageService.uploadFromBuffer(fileBuffer, {
+      filename: task.file_name,
+      contentType: contentType,
+      size: fileBuffer.length,
+    });
+
+    // Create file attachment
+    const fileAttachment: FileAttachment = {
+      type: "file_attachment",
+      fileId: uploadResult.id,
+      mimeType: contentType as any, // We know it's supported from the check above
+    };
+    
+    attachments.push(fileAttachment);
+    console.log(`📎 Created file attachment for ${task.file_name} (${contentType}) -> ${uploadResult.id}`);
+  } catch (error) {
+    console.warn(`⚠️  Failed to create file attachment for ${task.file_name}: ${formatError(error)}`);
+  }
+
+  return attachments;
+}
+
 async function cleanupWorkspaceForTask(
   task: GAIATask,
   workspaceDir: string,
@@ -161,6 +241,7 @@ async function runBenchmarkTask(
   task: GAIATask,
   agent: ZypherAgent,
   workspaceDir: string,
+  storageService: S3StorageService | undefined,
   model?: string,
 ): Promise<BenchmarkResult> {
   const startTime = Date.now();
@@ -182,7 +263,19 @@ async function runBenchmarkTask(
     const originalCwd = Deno.cwd();
     Deno.chdir(taskWorkspace);
 
+    let isFirstToolUseChunk = true;
+
     try {
+      // Create file attachments for supported files if storage service is available
+      let fileAttachments: FileAttachment[] = [];
+      if (storageService) {
+        fileAttachments = await createFileAttachmentsForTask(
+          task,
+          workspaceDir,
+          storageService,
+        );
+      }
+
       // Setup streaming handler to capture the response
       const streamHandler: StreamHandler = {
         onContent: (content, isFirstChunk) => {
@@ -193,8 +286,16 @@ async function runBenchmarkTask(
           agentAnswer += content;
         },
         onToolUse: (name, partialInput) => {
-          Deno.stdout.write(textEncoder.encode(`\n🔧 Using tool: ${name}\n`));
-          Deno.stdout.write(textEncoder.encode(partialInput));
+          if (isFirstToolUseChunk) {
+            Deno.stdout.write(
+              textEncoder.encode(`\n\n🔧 Using tool: ${name}\n`),
+            );
+          }
+          isFirstToolUseChunk = false;
+
+          Deno.stdout.write(
+            textEncoder.encode(partialInput),
+          );
         },
         onMessage: (message) => {
           messagesCount++;
@@ -202,8 +303,14 @@ async function runBenchmarkTask(
         },
       };
 
-      // Run the task
-      await agent.runTaskWithStreaming(task.Question, model, streamHandler);
+      // Run the task with file attachments
+      await agent.runTaskWithStreaming(
+        task.Question,
+        model,
+        streamHandler,
+        fileAttachments.length > 0 ? fileAttachments : undefined,
+        { think: true },
+      );
 
       success = true;
       console.log(`\n✅ Task ${task.task_id} completed`);
@@ -258,30 +365,50 @@ async function main(): Promise<void> {
       BENCHMARK_DATASET!,
       BENCHMARK_MODE as "test" | "validation",
       BENCHMARK_METADATA,
-      BENCHMARK_LEVEL ? parseInt(BENCHMARK_LEVEL) : undefined
+      BENCHMARK_LEVEL ? parseInt(BENCHMARK_LEVEL) : undefined,
     );
     console.log(`✅ Loaded ${tasks.length} tasks`);
 
     // Ensure workspace directory exists
     await ensureDir(BENCHMARK_WORKSPACE);
 
+    // Initialize S3 storage service for file attachments
+    let storageService: S3StorageService | undefined;
+    
+    // Only initialize S3 if AWS credentials are available
+    const awsAccessKeyId = Deno.env.get("S3_ACCESS_KEY_ID")!;
+    const awsSecretAccessKey = Deno.env.get("S3_SECRET_ACCESS_KEY")!;
+    const awsRegion = Deno.env.get("S3_REGION")!;
+    const s3Bucket = Deno.env.get("S3_BUCKET_NAME")!;
+    
+    storageService = new S3StorageService({
+      bucket: s3Bucket,
+      region: awsRegion,
+      credentials: {
+        accessKeyId: awsAccessKeyId,
+        secretAccessKey: awsSecretAccessKey,
+      },
+    });
+    console.log(`🗄️  Initialized S3 storage service (bucket: ${s3Bucket}, region: ${awsRegion})`);
+
+
     // Initialize MCP Server Manager
     const mcpServerManager = new McpServerManager();
     await mcpServerManager.init();
 
     // Register all available tools
-    await mcpServerManager.registerTool(ReadFileTool);
-    await mcpServerManager.registerTool(ListDirTool);
-    await mcpServerManager.registerTool(EditFileTool);
-    await mcpServerManager.registerTool(RunTerminalCmdTool);
-    await mcpServerManager.registerTool(GrepSearchTool);
-    await mcpServerManager.registerTool(FileSearchTool);
-    await mcpServerManager.registerTool(CopyFileTool);
-    await mcpServerManager.registerTool(DeleteFileTool);
-    await mcpServerManager.registerTool(YouTubeVideoAccessTool);
-    await mcpServerManager.registerTool(WebSearchTool);
-    await mcpServerManager.registerTool(WebsiteAccessTool);
-    await mcpServerManager.registerTool(AudioToTextTool);
+    mcpServerManager.registerTool(ReadFileTool);
+    mcpServerManager.registerTool(ListDirTool);
+    mcpServerManager.registerTool(EditFileTool);
+    mcpServerManager.registerTool(RunTerminalCmdTool);
+    mcpServerManager.registerTool(GrepSearchTool);
+    mcpServerManager.registerTool(FileSearchTool);
+    mcpServerManager.registerTool(CopyFileTool);
+    mcpServerManager.registerTool(DeleteFileTool);
+    mcpServerManager.registerTool(YouTubeVideoAccessTool);
+    mcpServerManager.registerTool(WebSearchTool);
+    mcpServerManager.registerTool(WebsiteAccessTool);
+    mcpServerManager.registerTool(AudioToTextTool);
 
     console.log(
       "🔧 Registered tools:",
@@ -312,6 +439,7 @@ async function main(): Promise<void> {
             enableCheckpointing: false,
           },
           mcpServerManager,
+          storageService,
         );
 
         await agent.init();
@@ -321,6 +449,7 @@ async function main(): Promise<void> {
           task,
           agent,
           BENCHMARK_WORKSPACE,
+          storageService,
           BENCHMARK_MODEL,
         );
 

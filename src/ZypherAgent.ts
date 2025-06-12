@@ -41,8 +41,10 @@ export class TaskConcurrencyError extends Error {
 }
 
 const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
-const DEFAULT_MAX_TOKENS = 8192;
+const DEFAULT_MAX_TOKENS = 64000;
 const DEFAULT_MAX_ITERATIONS = 25;
+const DEFAULT_THINKING = false;
+const DEFAULT_THINKING_BUDGET = 10000;
 
 /**
  * Handler for streaming content and events
@@ -540,10 +542,14 @@ export class ZypherAgent {
       maxIterations?: number;
       signal?: AbortSignal;
       handleToolApproval?: ToolApprovalHandler;
+      think?: boolean;
+      thinkingBudget?: number;
     },
   ): Promise<Message[]> {
-    // Use default maxIterations if not provided
+    // Use defaults for some options if not provided
     const maxIterations = options?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+    const thinking = options?.think ?? DEFAULT_THINKING;
+    const thinkingBudget = options?.thinkingBudget ?? DEFAULT_THINKING_BUDGET;
     if (!this.#checkAndSetTaskRunning()) {
       throw new TaskConcurrencyError(
         "Cannot run multiple tasks concurrently. A task is already running.",
@@ -639,6 +645,10 @@ export class ZypherAgent {
           .stream({
             model: model,
             max_tokens: this.#maxTokens,
+            thinking: {
+              type: thinking ? "enabled" : "disabled",
+              budget_tokens: thinkingBudget,
+            },
             system: this.#system,
             messages: await Promise.all(
               this.#messages.map((msg: Message, index: number) =>
