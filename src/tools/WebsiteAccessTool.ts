@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineTool } from "./mod.ts";
-import FirecrawlApp from "npm:@mendable/firecrawl-js";
+import FirecrawlApp from "@mendable/firecrawl-js";
 
 /**
  * Agent tool: **WebsiteAccessTool**
@@ -44,21 +44,97 @@ export const WebsiteAccessTool = defineTool({
 
     // ── Firecrawl call ─────────────────────────────────────────────────────────
     const app = new FirecrawlApp({ apiKey });
+    
     try {
-      const scrape = await app.scrapeUrl(url, { formats: ["markdown"] });
+      // Scrape with HTML format
+      const scrape = await app.scrapeUrl(url, {
+        formats: ["html"],
+        onlyMainContent: true,
+        removeBase64Images: true,
+        blockAds: true,
+      });
 
       if (!scrape.success) {
         return `Firecrawl scrape failed: ${scrape.error}`;
       }
-      // Normalise possible response shapes
-      
-      if (!scrape.markdown) {
-        return "Error: Firecrawl did not return markdown for this URL.";
+
+      if (!scrape.html) {
+        return "Error: Firecrawl did not return HTML for this URL.";
       }
 
-      return scrape.markdown;
+      // Parse HTML and extract text content
+      const textContent = extractTextFromHtml(scrape.html);
+      
+      return textContent;
     } catch (err) {
-      return `Error scraping ${url}: ${err instanceof Error ? err.message : String(err)}`;
+      return `Error scraping ${url}: ${
+        err instanceof Error ? err.message : String(err)
+      }`;
     }
+
+    // try {
+    //   const scrape = await app.scrapeUrl(url, {
+    //     formats: ["markdown"],
+    //     onlyMainContent: true,
+    //     removeBase64Images: true,
+    //     blockAds: true,
+    //   });
+
+    //   if (!scrape.success) {
+    //     return `Firecrawl scrape failed: ${scrape.error}`;
+    //   }
+    //   // Normalise possible response shapes
+
+    //   if (!scrape.markdown) {
+    //     return "Error: Firecrawl did not return markdown for this URL.";
+    //   }
+
+    //   console.log(scrape.markdown);
+    //   await Deno.writeTextFile("scrape.md", scrape.markdown);
+    //   return scrape.markdown;
+    // } catch (err) {
+    //   return `Error scraping ${url}: ${
+    //     err instanceof Error ? err.message : String(err)
+    //   }`;
+    // }
   },
 });
+
+/**
+ * Extracts plain text content from HTML string
+ * Removes HTML tags, scripts, styles, and extra whitespace
+ */
+function extractTextFromHtml(html: string): string {
+  try {
+    let text = html;
+
+    // Remove script and style tags with their content
+    text = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    
+    // Remove HTML comments
+    text = text.replace(/<!--[\s\S]*?-->/g, '');
+    
+    // Remove all HTML tags
+    text = text.replace(/<[^>]*>/g, '');
+    
+    // Decode common HTML entities
+    text = text.replace(/&amp;/g, '&');
+    text = text.replace(/&lt;/g, '<');
+    text = text.replace(/&gt;/g, '>');
+    text = text.replace(/&quot;/g, '"');
+    text = text.replace(/&#39;/g, "'");
+    text = text.replace(/&nbsp;/g, ' ');
+    
+    // Clean up whitespace
+    text = text.replace(/\s+/g, ' ');  // Replace multiple whitespace with single space
+    text = text.replace(/\n\s*\n/g, '\n');  // Remove empty lines
+    text = text.trim();
+
+    return text;
+  } catch (err) {
+    return `Error extracting text from HTML: ${
+      err instanceof Error ? err.message : String(err)
+    }`;
+  }
+}
