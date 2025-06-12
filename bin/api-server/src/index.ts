@@ -2,7 +2,7 @@ import "@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { prettyJSON } from "hono/pretty-json";
-import { ZypherAgent } from "../../../src/ZypherAgent.ts";
+import { ZypherAgent } from "@zypher/ZypherAgent.ts";
 import { parseArgs } from "@std/cli";
 
 import {
@@ -16,9 +16,9 @@ import {
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
-} from "../../../src/tools/mod.ts";
-import { formatError } from "../../../src/error.ts";
-import { McpServerManager } from "../../../src/mcp/McpServerManager.ts";
+} from "@zypher/tools/mod.ts";
+import { formatError } from "@zypher/error.ts";
+import { McpServerManager } from "@zypher/mcp/McpServerManager.ts";
 import process from "node:process";
 import { createMcpRouter } from "./routes/mcp.ts";
 import { createAgentRouter } from "./routes/agent.ts";
@@ -28,8 +28,8 @@ import { parsePort } from "./utils.ts";
 import {
   S3Options,
   S3StorageService,
-} from "../../../src/storage/S3StorageService.ts";
-import { StorageService } from "../../../src/storage/StorageService.ts";
+} from "@zypher/storage/S3StorageService.ts";
+import { StorageService } from "@zypher/storage/StorageService.ts";
 
 interface ServerOptions {
   port: string;

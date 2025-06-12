@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { StorageService } from "../../../../src/storage/StorageService.ts";
-import { SUPPORTED_FILE_TYPES } from "../../../../src/message.ts";
+import { StorageService } from "@zypher/storage/StorageService.ts";
+import { SUPPORTED_FILE_TYPES } from "@zypher/message.ts";
 import { ApiError } from "../error.ts";
 
 // File upload request schema

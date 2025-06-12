@@ -2,11 +2,8 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { listCheckpoints } from "../../../../src/checkpoints.ts";
-import {
-  type StreamHandler,
-  ZypherAgent,
-} from "../../../../src/ZypherAgent.ts";
+import { listCheckpoints } from "@zypher/checkpoints.ts";
+import { type StreamHandler, ZypherAgent } from "@zypher/ZypherAgent.ts";
 import { ApiError } from "../error.ts";
 import {
   replayTaskEvents,
@@ -17,8 +14,8 @@ import {
 import { Observable, ReplaySubject } from "rxjs";
 import { map } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
-import { FileAttachment } from "../../../../src/message.ts";
-import { Completer } from "../../../../src/utils/mod.ts";
+import { FileAttachment } from "@zypher/message.ts";
+import { Completer } from "@zypher/utils/mod.ts";
 
 const agentRouter = new Hono();
 

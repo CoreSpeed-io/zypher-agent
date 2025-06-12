@@ -3,11 +3,8 @@ import { zValidator } from "@hono/zod-validator";
 import {
   McpServerError,
   McpServerManager,
-} from "../../../../src/mcp/McpServerManager.ts";
-import {
-  McpServerConfigSchema,
-  McpServerIdSchema,
-} from "../../../../src/mcp/types.ts";
+} from "@zypher/mcp/McpServerManager.ts";
+import { McpServerConfigSchema, McpServerIdSchema } from "@zypher/mcp/types.ts";
 import { z } from "zod";
 import { ApiError } from "../error.ts";
 

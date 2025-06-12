@@ -1,5 +1,5 @@
 import "@std/dotenv/load";
-import { type StreamHandler, ZypherAgent } from "../src/ZypherAgent.ts";
+import { type StreamHandler, ZypherAgent } from "@zypher/ZypherAgent.ts";
 import {
   CopyFileTool,
   DeleteFileTool,
@@ -11,14 +11,14 @@ import {
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
-} from "../src/tools/mod.ts";
+} from "@zypher/tools/mod.ts";
 import { parseArgs } from "@std/cli";
 import readline from "node:readline";
 import { stdin as input, stdout as output } from "node:process";
-import { formatError } from "../src/error.ts";
+import { formatError } from "@zypher/error.ts";
 import chalk from "chalk";
-import { McpServerManager } from "../src/mcp/McpServerManager.ts";
-import { printMessage } from "../src/message.ts";
+import { McpServerManager } from "@zypher/mcp/McpServerManager.ts";
+import { printMessage } from "@zypher/message.ts";
 
 interface CliOptions {
   workspace?: string;
