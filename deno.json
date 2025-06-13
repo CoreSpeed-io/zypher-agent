@@ -35,6 +35,5 @@
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0",
     "zod": "npm:zod@^3.25.42",
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.5"
-  },
-  "nodeModulesDir": "auto"
+  }
 }
