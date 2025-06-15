@@ -200,10 +200,11 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       );
     }
 
-    // Task is running, cancel it by aborting the controller
-    taskAbortController.abort();
-    taskAbortController = null;
-    console.log("Task cancellation requested by user via API");
+    if (!taskAbortController.signal.aborted) {
+      // Task is running, cancel it by aborting the controller
+      taskAbortController.abort();
+      console.log("Task cancellation requested by user via API");
+    }
 
     // abort signal does not guarantee the task will be cancelled immediately,
     // so we need to wait until the task is actually cancelled
@@ -249,15 +250,17 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     return streamSSE(
       c,
       async (stream) => {
-        for await (const event of eachValueFrom(eventSubject)) {
-          await stream.writeSSE({
-            event: event.event,
-            data: JSON.stringify(event.data),
-          });
+        try {
+          for await (const event of eachValueFrom(eventSubject)) {
+            await stream.writeSSE({
+              event: event.event,
+              data: JSON.stringify(event.data),
+            });
+          }
+        } finally {
+          taskEventSubject = null;
+          taskAbortController = null;
         }
-
-        taskEventSubject = null;
-        taskAbortController = null;
       },
     );
   });
