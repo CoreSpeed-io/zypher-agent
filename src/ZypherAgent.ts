@@ -146,8 +146,8 @@ export class ZypherAgent {
     this.#userId = userId;
     this.#mcpServerManager = mcpServerManager;
     this.#storageService = storageService;
-    // Default timeout is 5 minutes, 0 = disabled
-    this.#taskTimeoutMs = config.taskTimeoutMs ?? 300000;
+    // Default timeout is 15 minutes, 0 = disabled
+    this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
   }
 
