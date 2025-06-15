@@ -8,12 +8,11 @@ import { parseArgs } from "@std/cli";
 
 import {
   CopyFileTool,
+  defineImageTools,
   DeleteFileTool,
   EditFileTool,
   FileSearchTool,
   GrepSearchTool,
-  ImageEditTool,
-  ImageGenTool,
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
@@ -129,8 +128,13 @@ async function initializeAgent(): Promise<ZypherAgent> {
     mcpServerManager.registerTool(FileSearchTool);
     mcpServerManager.registerTool(CopyFileTool);
     mcpServerManager.registerTool(DeleteFileTool);
-    mcpServerManager.registerTool(ImageGenTool);
-    mcpServerManager.registerTool(ImageEditTool);
+
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (openaiApiKey) {
+      const { ImageGenTool, ImageEditTool } = defineImageTools(openaiApiKey);
+      mcpServerManager.registerTool(ImageGenTool);
+      mcpServerManager.registerTool(ImageEditTool);
+    }
 
     console.log(
       "🔧 Registered tools:",
