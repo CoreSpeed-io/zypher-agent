@@ -51,9 +51,9 @@ const DEFAULT_OAUTH_TIMEOUT_MS = 30000;
  */
 export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
   protected config: McpOAuthConfig;
-  protected serverMetadata: OAuth2ServerMetadata | null = null;
-  protected scopes: string[] = [];
   protected oauth2Client: OAuth2Client | null = null;
+  protected oauth2ServerMetadata: OAuth2ServerMetadata | null = null;
+  protected scopes: string[] = [];
   #timeoutMs: number;
 
   constructor(config: McpOAuthConfig) {
@@ -95,8 +95,8 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
    * Initialize server metadata using MCP-compliant OAuth 2.0 Authorization Server Metadata
    */
   protected async initializeServerMetadata(): Promise<OAuth2ServerMetadata> {
-    if (this.serverMetadata) {
-      return this.serverMetadata;
+    if (this.oauth2ServerMetadata) {
+      return this.oauth2ServerMetadata;
     }
 
     try {
@@ -122,22 +122,23 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
         );
       }
 
-      const serverMetadata = await response.json() as OAuth2ServerMetadata;
+      const oauth2ServerMetadata = await response
+        .json() as OAuth2ServerMetadata;
       console.log(
         "✅ Successfully discovered OAuth 2.0 Authorization Server Metadata",
       );
 
-      if (serverMetadata.authorization_endpoint) {
+      if (oauth2ServerMetadata.authorization_endpoint) {
         console.log(
-          `  Authorization Endpoint: ${serverMetadata.authorization_endpoint}`,
+          `  Authorization Endpoint: ${oauth2ServerMetadata.authorization_endpoint}`,
         );
       }
-      if (serverMetadata.token_endpoint) {
-        console.log(`  Token Endpoint: ${serverMetadata.token_endpoint}`);
+      if (oauth2ServerMetadata.token_endpoint) {
+        console.log(`  Token Endpoint: ${oauth2ServerMetadata.token_endpoint}`);
       }
 
-      this.serverMetadata = serverMetadata;
-      return serverMetadata;
+      this.oauth2ServerMetadata = oauth2ServerMetadata;
+      return oauth2ServerMetadata;
     } catch (error) {
       console.error(
         "Failed to discover OAuth 2.0 Authorization Server Metadata:",
@@ -159,11 +160,12 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
       return this.oauth2Client;
     }
 
-    const serverMetadata = await this.initializeServerMetadata();
+    const oauth2ServerMetadata = await this.initializeServerMetadata();
     const clientId = await this.getOrCreateClientId();
 
     if (
-      !serverMetadata.authorization_endpoint || !serverMetadata.token_endpoint
+      !oauth2ServerMetadata.authorization_endpoint ||
+      !oauth2ServerMetadata.token_endpoint
     ) {
       throw new Error(
         "Authorization or token endpoint not found in server metadata",
@@ -173,8 +175,8 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
     this.oauth2Client = new OAuth2Client({
       clientId,
       clientSecret: await this.getClientSecret(),
-      authorizationEndpointUri: serverMetadata.authorization_endpoint,
-      tokenUri: serverMetadata.token_endpoint,
+      authorizationEndpointUri: oauth2ServerMetadata.authorization_endpoint,
+      tokenUri: oauth2ServerMetadata.token_endpoint,
       redirectUri: this.redirectUrl,
       defaults: {
         scope: this.scopes.join(" ") || "",
@@ -349,9 +351,9 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
       );
 
       try {
-        const serverMetadata = await this.initializeServerMetadata();
+        const oauth2ServerMetadata = await this.initializeServerMetadata();
 
-        if (!serverMetadata.registration_endpoint) {
+        if (!oauth2ServerMetadata.registration_endpoint) {
           throw new Error(
             "Server does not support Dynamic Client Registration",
           );
@@ -370,7 +372,7 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
         };
 
         const response = await this.fetchWithTimeout(
-          serverMetadata.registration_endpoint,
+          oauth2ServerMetadata.registration_endpoint,
           {
             method: "POST",
             headers: {
@@ -605,9 +607,9 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
 
     try {
       // Use direct HTTP calls for token refresh since oauth2-client doesn't expose this
-      const serverMetadata = await this.initializeServerMetadata();
+      const oauth2ServerMetadata = await this.initializeServerMetadata();
 
-      if (!serverMetadata.token_endpoint) {
+      if (!oauth2ServerMetadata.token_endpoint) {
         throw new Error("Token endpoint not found in server metadata");
       }
 
@@ -623,7 +625,7 @@ export abstract class BaseMcpOAuthProvider implements OAuthClientProvider {
       }
 
       const response = await this.fetchWithTimeout(
-        serverMetadata.token_endpoint,
+        oauth2ServerMetadata.token_endpoint,
         {
           method: "POST",
           headers: {

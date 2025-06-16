@@ -2,13 +2,9 @@ import { ConnectionMode, McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import { z } from "zod";
 import {
-  type IMcpServer,
-  type IMcpServerApi,
-  type IMcpServerConfig,
-  McpServerConfigSchema,
-  McpServerRegistryConfigSchema,
-  McpServerSchema,
-} from "./types.ts";
+  type ServerDetail,
+  ServerDetailSchema,
+} from "./types/store.ts";
 import { getWorkspaceDataDir } from "../utils/mod.ts";
 import { join } from "@std/path";
 import { formatError } from "../error.ts";
@@ -29,7 +25,7 @@ const McpConfigSchema = z.object({
   mcpServers: z.record(z.object({
     id: z.string(),
     name: z.string(),
-    config: McpServerConfigSchema,
+    config: ServerDetailSchema,
   })),
 });
 
@@ -54,9 +50,8 @@ export type OAuthProviderFactory = (
 export class McpServerManager {
   #config: IMcpConfig | null = null;
   // toolbox only contains active tools for agent to call
-  #toolbox = new Map<string, Tool>();
   // serverToolsMap maintains all tools for each server
-  #serverToolsMap = new Map<IMcpServer, Tool[]>();
+  #serverToolsMap = new Map<ServerDetail, Tool[]>();
   #initialized = false;
   #configFile = "mcp.json";
   #dataDir: string | null = null;
@@ -75,7 +70,7 @@ export class McpServerManager {
   async #createMcpClient(
     serverId: string,
     serverName: string,
-    serverConfig: IMcpServerConfig,
+    serverConfig: ServerDetail,
   ): Promise<McpClient> {
     let oauthProvider: OAuthClientProvider | undefined = undefined;
     const isRemoteServer = "url" in serverConfig;
@@ -745,10 +740,10 @@ export class McpServerManager {
    * @param serverName Name of the server to deregister
    * @throws Error if server is not found or deregistration fails
    */
-  async deregisterServerByName(serverName: string): Promise<void> {
-    const server = this.#getServerByName(serverName);
+  async deregisterServerById(serverId: string): Promise<void> {
+    const server = this.#getServer(serverId);
     if (!server) {
-      throw new Error(`Server with name '${serverName}' not found`);
+      throw new Error(`Server with id '${serverId}' not found`);
     }
 
     // Use the existing deregisterServer method with the actual ID

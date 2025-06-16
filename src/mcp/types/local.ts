@@ -1,0 +1,47 @@
+import { z } from "zod";
+import {
+  PackageSchema,
+  RepositorySchema,
+  type ServerDetail,
+  VersionDetailSchema,
+} from "./store.ts";
+
+// Base server schema
+export const LocalServerSchema = z.object({
+  _id: z.string().describe("The unique identifier of the MCP server"),
+  name: z.string().describe(
+    "The technical name of the MCP server (e.g., io.github.owner/repo)",
+  ),
+  description: z.string().optional().describe(
+    "The description of the MCP server",
+  ),
+  repository: RepositorySchema.optional().describe(
+    "The repository information",
+  ),
+  iconUrl: z.string().url().optional().describe(
+    "The image URL of the MCP server",
+  ),
+  versionDetail: VersionDetailSchema.optional().describe("The version details"),
+  packages: z.array(PackageSchema).optional().describe(
+    "The packages of the MCP server",
+  ),
+});
+
+export const LocalServerCreateSchema = LocalServerSchema.omit({
+  _id: true,
+});
+export type LocalServer = z.infer<typeof LocalServerSchema>;
+export type LocalServerCreate = z.infer<typeof LocalServerCreateSchema>;
+export type LocalServerDetail = z.infer<typeof LocalServerSchema>;
+
+export function fromServerDetail(serverDetail: ServerDetail): LocalServer {
+  return {
+    _id: serverDetail._id,
+    name: serverDetail.name,
+    description: serverDetail.description,
+    repository: serverDetail.repository,
+    iconUrl: serverDetail.iconUrl,
+    versionDetail: serverDetail.versionDetail,
+    packages: serverDetail.packages,
+  };
+}

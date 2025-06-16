@@ -7,7 +7,7 @@ import {
 import {
   McpServerConfigSchema,
   McpServerIdSchema,
-} from "../../../../src/mcp/types.ts";
+} from "../../../../src/mcp/types/store.ts";
 import { z } from "zod";
 import { ApiError } from "../error.ts";
 import { RemoteOAuthProvider } from "../auth/RemoteOAuthProvider.ts";
@@ -271,7 +271,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
         };
         const serverId = details.serverId;
 
-        const oauthResponse = await generateOAuthResponse(
+        const _oauthResponse = await generateOAuthResponse(
           clientName,
           serverId,
           details.serverUrl,

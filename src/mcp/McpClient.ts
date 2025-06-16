@@ -21,8 +21,8 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { createTool, type Tool } from "../tools/mod.ts";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
-import { z } from "zod";
-import type { IMcpServerConfig } from "./types.ts";
+import type { ServerDetail } from "./types/store.ts";
+import { jsonToZod } from "./utils/zod.ts";
 
 /**
  * Interface for an OAuth provider with clearAuthData and stopCallbackServer methods
@@ -43,6 +43,8 @@ export interface IMcpClientConfig {
   version?: string;
   /** Optional server name */
   serverName?: string;
+  /** Optional server details */
+  server?: ServerDetail;
   /** Optional OAuth provider for authentication */
   oAuthProvider?: OAuthClientProvider;
 }
@@ -101,7 +103,6 @@ export class McpClient {
    * @throws Error if connection fails or server is not responsive
    */
   async retrieveTools(
-    config: IMcpServerConfig,
     mode: ConnectionMode = ConnectionMode.CLI,
   ): Promise<Tool[]> {
     try {
@@ -110,7 +111,7 @@ export class McpClient {
       }
 
       // Connect to the server
-      await this.#connect(mode, config);
+      await this.#connect(mode, this.#config);
       console.log("Connected to MCP server", this.#config.serverName);
 
       // Once connected, discover tools
@@ -327,43 +328,4 @@ export class McpClient {
         throw new Error(`Unsupported connection mode: ${mode as string}`);
     }
   };
-}
-
-function jsonToZod(inputSchema: {
-  type: "object";
-  properties?: Record<string, unknown>;
-  required?: string[];
-}) {
-  const properties = inputSchema.properties ?? {};
-  const required = inputSchema.required ?? [];
-
-  const schemaProperties = Object.entries(properties).reduce(
-    (acc: Record<string, z.ZodTypeAny>, [key, value]) => {
-      const property = value as { type: string; description?: string };
-      const zodType = createZodType(property);
-      acc[key] = required.includes(key) ? zodType : zodType.optional();
-      return acc;
-    },
-    {} as Record<string, z.ZodTypeAny>,
-  );
-
-  return z.object(schemaProperties);
-}
-
-function createZodType(property: {
-  type: string;
-  description?: string;
-}): z.ZodTypeAny {
-  const typeMap: Record<string, () => z.ZodTypeAny> = {
-    string: () => z.string(),
-    number: () => z.number(),
-    boolean: () => z.boolean(),
-    array: () => z.array(z.any()),
-    object: () => z.record(z.any()),
-  };
-
-  const zodType = typeMap[property.type]?.() ?? z.any();
-  return property.description
-    ? zodType.describe(property.description)
-    : zodType;
 }
