@@ -52,8 +52,8 @@ export async function parseLocalServers(
   return await Promise.all(
     Object.entries(cursorConfig.mcpServers).map(([name, config]) => {
       // Determine if this is CLI or SSE config
-      const isCliConfig = 'command' in config;
-      
+      const isCliConfig = "command" in config;
+
       const localServer: LocalServer = {
         _id: crypto.randomUUID(),
         name,
@@ -63,15 +63,19 @@ export async function parseLocalServers(
             registryName: isCliConfig ? config.command : config.url,
             name: name,
             version: "local-server",
-            environmentVariables: config.env ? Object.entries(config.env).map(([key, value]) => ({
-              name: key,
-              value: value,
-            })) : [],
-            packageArguments: isCliConfig ? config.args.map((arg) => ({
-              type: ArgumentType.POSITIONAL,
-              name: arg,
-              valueHint: arg,
-            })) : [],
+            environmentVariables: config.env
+              ? Object.entries(config.env).map(([key, value]) => ({
+                name: key,
+                value: value,
+              }))
+              : [],
+            packageArguments: isCliConfig
+              ? config.args.map((arg) => ({
+                type: ArgumentType.POSITIONAL,
+                name: arg,
+                valueHint: arg,
+              }))
+              : [],
           },
         ],
       };

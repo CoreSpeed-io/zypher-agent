@@ -1,10 +1,7 @@
 import { ConnectionMode, McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import { z } from "zod";
-import {
-  type ServerDetail,
-  ServerDetailSchema,
-} from "./types/store.ts";
+import { type ServerDetail, ServerDetailSchema } from "./types/store.ts";
 import { getWorkspaceDataDir } from "../utils/mod.ts";
 import { join } from "@std/path";
 import { formatError } from "../error.ts";
