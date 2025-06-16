@@ -1,16 +1,25 @@
 import { z } from "zod";
 import type { LocalServer } from "./local.ts";
+import { ArgumentType } from "./store.ts";
 
 export const BaseCursorConfigSchema = z.object({
   env: z
     .record(z.string())
     .optional()
     .describe("Optional environment variables to pass to the server"),
-  enabled: z.boolean().default(true).describe("Whether this server is enabled"),
 });
 
 // CLI-specific configuration
-export const CursorServerConfigSchema = BaseCursorConfigSchema.extend({
+export const CursorCliConfigSchema = BaseCursorConfigSchema.extend({
+  command: z
+    .string()
+    .min(1, "Command must not be empty")
+    .describe("Command to execute for CLI mode"),
+  args: z.array(z.string()).default([]).describe("Command line arguments"),
+});
+
+// SSE-specific configuration
+export const CursorRemoteConfigSchema = BaseCursorConfigSchema.extend({
   url: z
     .string()
     .url("Must be a valid URL")
@@ -19,12 +28,13 @@ export const CursorServerConfigSchema = BaseCursorConfigSchema.extend({
     .record(z.string())
     .optional()
     .describe("Optional HTTP headers to send with requests"),
-  command: z
-    .string()
-    .min(1, "Command must not be empty")
-    .describe("Command to execute for CLI mode"),
-  args: z.array(z.string()).default([]).describe("Command line arguments"),
 });
+
+// Union type for server configuration
+export const CursorServerConfigSchema = z.union([
+  CursorCliConfigSchema,
+  CursorRemoteConfigSchema,
+]);
 
 // Updated to match the mcpServers structure from the examples
 export const CursorConfigSchema = z.object({
@@ -36,20 +46,32 @@ export const CursorConfigSchema = z.object({
 export type CursorServerConfig = z.infer<typeof CursorServerConfigSchema>;
 export type CursorConfig = z.infer<typeof CursorConfigSchema>;
 
-export async function toLocalServer(
+export async function parseLocalServers(
   cursorConfig: CursorConfig,
 ): Promise<LocalServer[]> {
   return await Promise.all(
     Object.entries(cursorConfig.mcpServers).map(([name, config]) => {
+      // Determine if this is CLI or SSE config
+      const isCliConfig = 'command' in config;
+      
       const localServer: LocalServer = {
         _id: crypto.randomUUID(),
         name,
-        description: `MCP server for ${name}`,
+        description: `user-defined MCP server`,
         packages: [
           {
-            registryName: config.url || config.command,
+            registryName: isCliConfig ? config.command : config.url,
             name: name,
             version: "local-server",
+            environmentVariables: config.env ? Object.entries(config.env).map(([key, value]) => ({
+              name: key,
+              value: value,
+            })) : [],
+            packageArguments: isCliConfig ? config.args.map((arg) => ({
+              type: ArgumentType.POSITIONAL,
+              name: arg,
+              valueHint: arg,
+            })) : [],
           },
         ],
       };

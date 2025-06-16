@@ -25,6 +25,12 @@ export const LocalServerSchema = z.object({
   packages: z.array(PackageSchema).optional().describe(
     "The packages of the MCP server",
   ),
+  isEnabled: z.boolean().default(true).optional().describe(
+    "Whether the MCP server is enabled",
+  ),
+  isFromMcpStore: z.boolean().optional().describe(
+    "Whether the MCP server is from the MCP store",
+  ),
 });
 
 export const LocalServerCreateSchema = LocalServerSchema.omit({
