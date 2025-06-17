@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { LocalServer } from "./local.ts";
+import type { ZypherMcpServer } from "./local.ts";
 import { ArgumentType } from "./store.ts";
 
 export const BaseCursorConfigSchema = z.object({
@@ -48,13 +48,13 @@ export type CursorConfig = z.infer<typeof CursorConfigSchema>;
 
 export async function parseLocalServers(
   cursorConfig: CursorConfig,
-): Promise<LocalServer[]> {
+): Promise<ZypherMcpServer[]> {
   return await Promise.all(
     Object.entries(cursorConfig.mcpServers).map(([name, config]) => {
       // Determine if this is CLI or SSE config
       const isCliConfig = "command" in config;
 
-      const localServer: LocalServer = {
+      const localServer: ZypherMcpServer = {
         _id: crypto.randomUUID(),
         name,
         description: `user-defined MCP server`,

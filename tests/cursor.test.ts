@@ -4,8 +4,9 @@ import {
   CursorConfigSchema,
   parseLocalServers,
 } from "../src/mcp/types/cursor.ts";
-import { LocalServerSchema } from "../src/mcp/types/local.ts";
+import { ZypherMcpServerSchema } from "../src/mcp/types/local.ts";
 import { ArgumentType } from "../src/mcp/types/store.ts";
+import { extractConfigFromZypherMcpServer } from "../src/mcp/utils/config.ts";
 
 Deno.test("CursorConfigSchema validates CLI configuration", () => {
   const cliConfig = {
@@ -113,7 +114,7 @@ Deno.test("parseLocalServers converts CLI configuration correctly", async () => 
   assertEquals(server.packages?.[0]?.environmentVariables?.length, 2);
 
   // Validate output conforms to LocalServer schema
-  const validation = LocalServerSchema.safeParse(server);
+  const validation = ZypherMcpServerSchema.safeParse(server);
   assertEquals(validation.success, true);
 });
 
@@ -148,7 +149,7 @@ Deno.test("parseLocalServers converts Remote configuration correctly", async () 
   assertEquals(server.packages?.[0]?.environmentVariables?.length, 1);
 
   // Validate output conforms to LocalServer schema
-  const validation = LocalServerSchema.safeParse(server);
+  const validation = ZypherMcpServerSchema.safeParse(server);
   assertEquals(validation.success, true);
 });
 
@@ -194,7 +195,7 @@ Deno.test("parseLocalServers handles mixed CLI and Remote configurations", async
 
   // Validate both outputs conform to LocalServer schema
   for (const server of servers) {
-    const validation = LocalServerSchema.safeParse(server);
+    const validation = ZypherMcpServerSchema.safeParse(server);
     assertEquals(
       validation.success,
       true,
@@ -252,7 +253,7 @@ Deno.test("parseLocalServers handles configurations without environment variable
   for (const server of servers) {
     assertEquals(server.packages?.[0]?.environmentVariables?.length, 0);
 
-    const validation = LocalServerSchema.safeParse(server);
+    const validation = ZypherMcpServerSchema.safeParse(server);
     assertEquals(validation.success, true);
   }
 });
@@ -272,6 +273,146 @@ Deno.test("parseLocalServers handles empty args array", async () => {
   assertEquals(servers.length, 1);
   assertEquals(servers[0].packages?.[0]?.packageArguments?.length, 0);
 
-  const validation = LocalServerSchema.safeParse(servers[0]);
+  const validation = ZypherMcpServerSchema.safeParse(servers[0]);
   assertEquals(validation.success, true);
+});
+
+Deno.test("extractConfigFromZypherMcpServer converts CLI LocalServer back to CursorServerConfig", () => {
+  const localServer = {
+    _id: "test-id",
+    name: "test-cli",
+    description: "user-defined MCP server",
+    packages: [{
+      registryName: "npx",
+      name: "test-cli",
+      version: "local-server",
+      environmentVariables: [
+        { name: "API_KEY", value: "test-key" },
+        { name: "NODE_ENV", value: "development" },
+      ],
+      packageArguments: [
+        { type: ArgumentType.POSITIONAL, name: "-y", valueHint: "-y" },
+        {
+          type: ArgumentType.POSITIONAL,
+          name: "@smithery/cli@latest",
+          valueHint: "@smithery/cli@latest",
+        },
+        { type: ArgumentType.POSITIONAL, name: "run", valueHint: "run" },
+        { type: ArgumentType.POSITIONAL, name: "exa", valueHint: "exa" },
+      ],
+    }],
+  };
+
+  const config = extractConfigFromZypherMcpServer(localServer);
+
+  assertEquals("command" in config, true);
+  if ("command" in config) {
+    assertEquals(config.command, "npx");
+    assertEquals(config.args, ["-y", "@smithery/cli@latest", "run", "exa"]);
+    assertEquals(config.env?.API_KEY, "test-key");
+    assertEquals(config.env?.NODE_ENV, "development");
+  }
+});
+
+Deno.test("extractConfigFromZypherMcpServer converts Remote LocalServer back to CursorServerConfig", () => {
+  const localServer = {
+    _id: "test-id",
+    name: "test-remote",
+    description: "user-defined MCP server",
+    packages: [{
+      registryName: "https://api.example.com/mcp/my-server",
+      name: "test-remote",
+      version: "local-server",
+      environmentVariables: [
+        { name: "DATABASE_URL", value: "postgresql://localhost:5432/db" },
+      ],
+      packageArguments: [],
+    }],
+  };
+
+  const config = extractConfigFromZypherMcpServer(localServer);
+
+  assertEquals("url" in config, true);
+  if ("url" in config) {
+    assertEquals(config.url, "https://api.example.com/mcp/my-server");
+    assertEquals(config.env?.DATABASE_URL, "postgresql://localhost:5432/db");
+  }
+});
+
+Deno.test("extractConfigFromZypherMcpServer handles LocalServer without environment variables", () => {
+  const localServer = {
+    _id: "test-id",
+    name: "minimal-cli",
+    description: "user-defined MCP server",
+    packages: [{
+      registryName: "echo",
+      name: "minimal-cli",
+      version: "local-server",
+      environmentVariables: [],
+      packageArguments: [
+        { type: ArgumentType.POSITIONAL, name: "hello", valueHint: "hello" },
+      ],
+    }],
+  };
+
+  const config = extractConfigFromZypherMcpServer(localServer);
+
+  assertEquals("command" in config, true);
+  if ("command" in config) {
+    assertEquals(config.command, "echo");
+    assertEquals(config.args, ["hello"]);
+    assertEquals(config.env, undefined);
+  }
+});
+
+Deno.test("extractConfigFromZypherMcpServer throws error for LocalServer without packages", () => {
+  const localServer = {
+    _id: "test-id",
+    name: "no-packages",
+    description: "user-defined MCP server",
+    packages: [],
+  };
+
+  let errorThrown = false;
+  try {
+    extractConfigFromZypherMcpServer(localServer);
+  } catch (error) {
+    errorThrown = true;
+    assertEquals(
+      (error as Error).message,
+      "LocalServer must have at least one package",
+    );
+  }
+  assertEquals(errorThrown, true);
+});
+
+Deno.test("Round-trip conversion: CursorConfig -> LocalServer -> CursorServerConfig", async () => {
+  const originalConfig = {
+    mcpServers: {
+      "test-cli": {
+        command: "python",
+        args: ["script.py", "--verbose"],
+        env: {
+          "PYTHON_PATH": "/usr/local/bin/python",
+          "DEBUG": "true",
+        },
+      },
+    },
+  };
+
+  // Forward conversion
+  const localServers = await parseLocalServers(originalConfig);
+  assertEquals(localServers.length, 1);
+
+  // Reverse conversion
+  const extractedConfig = extractConfigFromZypherMcpServer(localServers[0]);
+
+  // Verify round-trip
+  assertEquals("command" in extractedConfig, true);
+  if ("command" in extractedConfig) {
+    assertEquals(extractedConfig.command, "python");
+    assertEquals(extractedConfig.args, ["script.py", "--verbose"]);
+    assertEquals(extractedConfig.env?.PYTHON_PATH, "/usr/local/bin/python");
+    assertEquals(extractedConfig.env?.DEBUG, "true");
+  }
 });

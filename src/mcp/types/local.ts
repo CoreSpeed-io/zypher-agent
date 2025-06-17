@@ -7,7 +7,7 @@ import {
 } from "./store.ts";
 
 // Base server schema
-export const LocalServerSchema = z.object({
+export const ZypherMcpServerSchema = z.object({
   _id: z.string().describe("The unique identifier of the MCP server"),
   name: z.string().describe(
     "The technical name of the MCP server (e.g., io.github.owner/repo)",
@@ -22,7 +22,7 @@ export const LocalServerSchema = z.object({
     "The image URL of the MCP server",
   ),
   versionDetail: VersionDetailSchema.optional().describe("The version details"),
-  packages: z.array(PackageSchema).optional().describe(
+  packages: z.array(PackageSchema).describe(
     "The packages of the MCP server",
   ),
   isEnabled: z.boolean().default(true).optional().describe(
@@ -33,14 +33,13 @@ export const LocalServerSchema = z.object({
   ),
 });
 
-export const LocalServerCreateSchema = LocalServerSchema.omit({
+export const ZypherMcpServerCreateSchema = ZypherMcpServerSchema.omit({
   _id: true,
 });
-export type LocalServer = z.infer<typeof LocalServerSchema>;
-export type LocalServerCreate = z.infer<typeof LocalServerCreateSchema>;
-export type LocalServerDetail = z.infer<typeof LocalServerSchema>;
+export type ZypherMcpServer = z.infer<typeof ZypherMcpServerSchema>;
+export type ZypherMcpServerCreate = z.infer<typeof ZypherMcpServerSchema>;
 
-export function fromServerDetail(serverDetail: ServerDetail): LocalServer {
+export function fromServerDetail(serverDetail: ServerDetail): ZypherMcpServer {
   return {
     _id: serverDetail._id,
     name: serverDetail.name,
@@ -48,6 +47,6 @@ export function fromServerDetail(serverDetail: ServerDetail): LocalServer {
     repository: serverDetail.repository,
     iconUrl: serverDetail.iconUrl,
     versionDetail: serverDetail.versionDetail,
-    packages: serverDetail.packages,
+    packages: serverDetail.packages ?? [],
   };
 }
