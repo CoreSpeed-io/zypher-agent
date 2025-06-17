@@ -23,6 +23,8 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type { ServerDetail } from "./types/store.ts";
 import { jsonToZod } from "./utils/zod.ts";
+import { ConnectionMode } from "./utils/transport.ts";
+import type { ZypherMcpServer } from "./types/local.ts";
 
 /**
  * Interface for an OAuth provider with clearAuthData and stopCallbackServer methods
@@ -136,7 +138,7 @@ export class McpClient {
    */
   #connect = async (
     mode: ConnectionMode,
-    serverConfig: IMcpServerConfig,
+    serverConfig: ZypherMcpServer,
   ): Promise<void> => {
     if (!this.#client) {
       throw new Error("Client not initialized");
@@ -145,7 +147,7 @@ export class McpClient {
     this.#transport = this.#buildTransport(mode, serverConfig);
     console.log(`[${this.#config.serverName}] Connecting to MCP server...`);
 
-    if (mode === ConnectionMode.SSE && this.#authProvider) {
+    if (mode === ConnectionMode.REMOTE && this.#authProvider) {
       console.log(
         `[${this.#config.serverName}] Checking OAuth token status before connection...`,
       );

@@ -10,7 +10,7 @@ import { ConnectionMode, getConnectionMode } from "./utils/transport.ts";
 
 export class McpServerError extends Error {
   constructor(
-    public code: "already_exists" | "oauth_required" | "auth_failed",
+    public code: "already_exists" | "server_error",
     message: string,
     public details?: unknown,
   ) {
@@ -18,6 +18,7 @@ export class McpServerError extends Error {
     this.name = "McpServerError";
   }
 }
+
 /**
  * Optional OAuth provider factory function type
  * Applications can provide this to create OAuth providers for remote servers
@@ -32,7 +33,7 @@ export type OAuthProviderFactory = (
  * McpServerManager is a class that manages MCP (Model Context Protocol) servers and their tools.
  * It handles server registration, tool management, and configuration persistence.
  *
- * OAuth authentication is handled by the application layer via the optional oauthProviderFactory.
+ * Authentication is handled by the McpClient layer.
  */
 export class McpServerManager {
   #config: ZypherMcpServer[] | null = null;
@@ -55,12 +56,27 @@ export class McpServerManager {
     this.#clientName = clientName ?? "zypher-agent-api";
   }
 
-  #createMcpClient(
+  async #createMcpClient(
     server: ZypherMcpServer,
-  ): McpClient {
+  ): Promise<McpClient> {
+    let oauthProvider: OAuthClientProvider | undefined = undefined;
+    const isRemoteServer = "url" in server.packages[0];
+
+    if (
+      isRemoteServer && server.packages[0].registryName &&
+      this.#oauthProviderFactory
+    ) {
+      oauthProvider = await this.#oauthProviderFactory(
+        server._id,
+        server.packages[0].registryName,
+        this.#clientName,
+      );
+    }
+
     return new McpClient({
       id: server._id,
       serverName: server.name,
+      oAuthProvider: oauthProvider,
     });
   }
 
@@ -77,7 +93,6 @@ export class McpServerManager {
     this.#dataDir = await getWorkspaceDataDir();
 
     // Get MCP API base URL
-
     this.#mcpRegistryBaseUrl = Deno.env.get("MCP_SERVER_REGISTRY_URL") ?? null;
 
     // Load and parse server configs from mcp.json
@@ -121,60 +136,9 @@ export class McpServerManager {
         return;
       }
 
-      const configContent = await Deno.readTextFile(configPath);
-      const parsedConfig = JSON.parse(configContent) as Record<string, unknown>;
-
-      // Handle legacy config format where servers were stored as Record<string, IMcpServerConfig>
-      if (
-        parsedConfig.mcpServers && typeof parsedConfig.mcpServers === "object"
-      ) {
-        const mcpServers = parsedConfig.mcpServers as Record<string, unknown>;
-        const transformedServers: Record<
-          string,
-          { id: string; name: string; config: ZypherMcpServer }
-        > = {};
-
-        for (const [serverId, serverData] of Object.entries(mcpServers)) {
-          // Check if this is legacy format (direct config) or new format (with id, name, config)
-          if (
-            serverData && typeof serverData === "object" &&
-            "id" in serverData && "name" in serverData && "config" in serverData
-          ) {
-            // New format
-            transformedServers[serverId] = serverData as {
-              id: string;
-              name: string;
-              config: ZypherMcpServer;
-            };
-          } else {
-            // Legacy format - convert to new format
-            transformedServers[serverId] = {
-              id: serverId,
-              name: serverId,
-              config: serverData as ZypherMcpServer,
-            };
-          }
-        }
-
-        parsedConfig.mcpServers = transformedServers;
-      }
-
-      this.#config = ZypherMcpServerSchema.parse(parsedConfig);
-
-      // Create server instances with their enabled states from config
-      for (
-        const serverData of this.#config
-      ) {
-        const client = await this.#createMcpClient(serverData);
-        const server = McpServerSchema.parse({
-          id: serverData.id,
-          name: serverData.name,
-          client: client,
-          config: serverData.config,
-          enabled: serverData.config.enabled ?? true,
-        });
-        this.#serverToolsMap.set(server, []);
-      }
+      this.#config = ZypherMcpServerSchema.array().parse(
+        JSON.parse(await Deno.readTextFile(configPath)),
+      );
     } catch (error) {
       if (error instanceof z.ZodError) {
         throw new Error(`Invalid MCP config structure: ${formatError(error)}`);
@@ -222,6 +186,11 @@ export class McpServerManager {
       throw new Error("Config not loaded. Call loadConfig() first.");
     }
 
+    // Initialize all servers from config
+    for (const serverConfig of this.#config) {
+      this.#serverToolsMap.set(serverConfig, []);
+    }
+
     // Then fetch and register tools for all servers
     const serverInitPromises = Array.from(this.#serverToolsMap.entries()).map(
       async ([server, _]) => {
@@ -241,272 +210,51 @@ export class McpServerManager {
   };
 
   /**
-   * Check if an error is an authentication-related error
-   */
-  #isAuthenticationError = (error: unknown): boolean => {
-    const errorStr = formatError(error).toLowerCase();
-    return errorStr.includes("401") ||
-      errorStr.includes("unauthorized") ||
-      errorStr.includes("authentication") ||
-      errorStr.includes("non-200 status code (401)") ||
-      errorStr.includes("please use the new oauth flow") ||
-      errorStr.includes("generateauthurl") ||
-      errorStr.includes("oauth flow") ||
-      errorStr.includes("oauth") ||
-      errorStr.includes("auth") ||
-      errorStr.includes("generate auth url") ||
-      errorStr.includes("process callback");
-  };
-
-  /**
-   * Check if a server supports OAuth by looking for OAuth metadata
-   */
-  #checkOAuthSupport = async (serverUrl: string): Promise<boolean> => {
-    try {
-      const url = new URL(serverUrl);
-      const metadataUrl = new URL(
-        `${url.origin}/.well-known/oauth-authorization-server`,
-      );
-
-      console.log(`Checking OAuth support at: ${metadataUrl.href}`);
-
-      const response = await fetch(metadataUrl.href, {
-        method: "HEAD", // Just check if the endpoint exists
-      });
-
-      return response.ok;
-    } catch (error) {
-      console.log(`OAuth metadata check failed: ${formatError(error)}`);
-      return false;
-    }
-  };
-
-  /**
-   * Check if a server is open (accessible without authentication)
-   */
-  #checkOpenServerAccess = async (serverUrl: string): Promise<boolean> => {
-    try {
-      console.log(`Testing open access to: ${serverUrl}`);
-
-      // Try a simple GET request to see if the server responds
-      const response = await fetch(serverUrl, {
-        method: "GET",
-        headers: {
-          "Accept": "application/json",
-        },
-      });
-
-      // If we get a 200 or other non-auth error, server might be open
-      if (response.ok) {
-        console.log(`✅ Server appears to be open (${response.status})`);
-        return true;
-      }
-
-      // Check if it's specifically an auth error
-      if (response.status === 401 || response.status === 403) {
-        console.log(`🔒 Server requires authentication (${response.status})`);
-        return false;
-      }
-
-      // Other errors might indicate server is reachable but has different endpoint structure
-      console.log(
-        `⚠️ Server responded with ${response.status}, might still be open`,
-      );
-      return true; // Give it the benefit of the doubt
-    } catch (error) {
-      console.log(`❌ Failed to access server: ${formatError(error)}`);
-      return false;
-    }
-  };
-
-  /**
    * Registers a new MCP server and its tools
-   * @param id Unique identifier for the server
-   * @param config Server configuration
-   * @throws Error if server registration fails or server already exists
+   * @param server Server configuration
+   * @throws McpServerError if server registration fails or server already exists
    */
   async registerServer(
-    _server: ZypherMcpServer,
+    server: ZypherMcpServer,
   ): Promise<void> {
     try {
       if (!this.#config) {
         throw new Error("Config not loaded");
       }
-      if (this.#getServer(_server._id)) {
+      if (this.#getServer(server._id)) {
         throw new McpServerError(
           "already_exists",
-          `Server ${_server.name} already exists`,
+          `Server ${server.name} already exists`,
         );
       }
-      const client = await this.#createMcpClient(_server);
-      this.#serverToolsMap.set(_server, []);
 
-      // Try to register server tools - this is where OAuth errors occur
-      try {
-        await this.#registerServerTools(_server);
-      } catch (error) {
-        // Check if this is an authentication error for SSE servers
-        if (this.#isAuthenticationError(error) && "url" in _server) {
-          // Remove the partially registered server
-          this.#serverToolsMap.delete(_server);
-          await client.cleanup();
+      // Create MCP client with OAuth provider if needed
+      server.client = await this.#createMcpClient(server);
+      this.#serverToolsMap.set(server, []);
 
-          console.log(
-            `🔍 Authentication failed for ${_server.name}, checking server capabilities...`,
-          );
+      // Register server tools - let McpClient handle all authentication
+      await this.#registerServerTools(server);
 
-          // Check if the error message explicitly mentions OAuth
-          const errorStr = formatError(error).toLowerCase();
-          if (
-            errorStr.includes("oauth") ||
-            errorStr.includes("generateauthurl") ||
-            errorStr.includes("auth url")
-          ) {
-            console.log(
-              "✅ OAuth support detected from error message - triggering OAuth flow",
-            );
-            throw new McpServerError(
-              "oauth_required",
-              `Server ${_server.name} requires OAuth authentication. Please complete OAuth flow first.`,
-              {
-                serverId: _server._id,
-                serverUrl: _server.packages[0].registryName,
-                requiresOAuth: true,
-              },
-            );
-          }
-
-          // Check if server supports OAuth
-          const oauthSupported = await this.#checkOAuthSupport(
-            _server.packages[0].registryName,
-          );
-
-          if (oauthSupported) {
-            throw new McpServerError(
-              "oauth_required",
-              `Server ${_server.name} requires OAuth authentication. Please complete OAuth flow first.`,
-              {
-                serverId: _server._id,
-                serverUrl: _server.packages[0].registryName,
-                requiresOAuth: true,
-              },
-            );
-          }
-
-          // Check if server might be open/accessible without auth
-          const isOpenServer = await this.#checkOpenServerAccess(
-            _server.packages[0].registryName,
-          );
-
-          if (isOpenServer) {
-            console.log(
-              `🌐 Retrying registration for ${_server.name} as open server...`,
-            );
-
-            // Try to create a new client with allowOpenAccess enabled
-            try {
-              const openServer: ZypherMcpServer = {
-                ..._server,
-                isEnabled: true,
-              };
-
-              this.#serverToolsMap.set(openServer, []);
-              await this.#registerServerTools(openServer);
-
-              // If successful, save the config and return
-              this.#config.push(openServer);
-              await this.#saveConfig();
-              console.log(
-                `✅ Successfully registered open server: ${openServer.name}`,
-              );
-              return;
-            } catch (openError) {
-              console.error(
-                `Failed to register as open server: ${formatError(openError)}`,
-              );
-              // Fall through to regular error handling
-            }
-          }
-
-          throw new McpServerError(
-            "auth_failed",
-            `Server ${_server.name} authentication failed and OAuth is not supported.`,
-            {
-              serverId: _server._id,
-              serverUrl: _server.packages[0].registryName,
-            },
-          );
-        }
-        // Re-throw if not an auth error
-        throw error;
-      }
-
-      this.#config.push(_server);
+      this.#config.push(server);
       await this.#saveConfig();
     } catch (error) {
-      // Don't log OAuth-related errors as generic failures
-      if (
-        error instanceof McpServerError &&
-        (error.code === "oauth_required" || error.code === "auth_failed")
-      ) {
+      // Clean up on failure
+      this.#serverToolsMap.delete(server);
+      await server.client?.cleanup();
+
+      if (error instanceof McpServerError) {
         throw error;
       }
+
       console.error(
-        `Failed to register server ${_server.name}:`,
+        `Failed to register server ${server.name}:`,
         formatError(error),
       );
-      throw new Error(
-        `Failed to register server ${_server.name}: ${formatError(error)}`,
+      throw new McpServerError(
+        "server_error",
+        `Failed to register server ${server.name}: ${formatError(error)}`,
       );
     }
-  }
-
-  /**
-   * Create MCP client with open access enabled for servers that don't require auth
-   */
-  async #createMcpClientWithOpenAccess(
-    _server: ZypherMcpServer,
-  ): Promise<McpClient> {
-    let oauthProvider: OAuthClientProvider | undefined = undefined;
-    const isRemoteServer = "url" in _server;
-
-    if (
-      isRemoteServer && _server.packages[0].registryName &&
-      this.#oauthProviderFactory
-    ) {
-      console.log(
-        `Creating OAuth provider with open access for server ${_server.name}`,
-      );
-      oauthProvider = await this.#oauthProviderFactory(
-        _server._id,
-        _server.packages[0].registryName,
-        this.#clientName,
-      );
-
-      // Enable open access if the provider supports it
-      if (oauthProvider && "config" in oauthProvider && oauthProvider.config) {
-        (oauthProvider.config as { allowOpenAccess?: boolean })
-          .allowOpenAccess = true;
-      }
-    }
-
-    return new McpClient({
-      id: _server._id,
-      serverName: _server.name,
-      oAuthProvider: oauthProvider,
-    });
-  }
-
-  /**
-   * Removes a tool from the manager
-   * @param name The name of the tool to remove
-   * @throws Error if tool is not found
-   */
-  removeTool(name: string): void {
-    if (!this.#toolbox.has(name)) {
-      throw new Error(`Tool ${name} not found`);
-    }
-    this.#toolbox.delete(name);
   }
 
   /**
@@ -774,15 +522,6 @@ export class McpServerManager {
         formatError(error),
       );
 
-      // Check if this is an OAuth-related error that should be handled specially
-      if (this.#isAuthenticationError(error)) {
-        console.log(
-          `Detected authentication error for server ${server.name}, will trigger OAuth flow`,
-        );
-        // Don't wrap OAuth errors - let them propagate as-is for proper handling
-        throw error;
-      }
-
       // For non-OAuth errors, wrap them with additional context
       throw new Error(
         `Failed to register tools for server ${server.name}: ${
@@ -883,53 +622,6 @@ export class McpServerManager {
         }`,
       );
 
-      // Log OAuth configuration for SSE servers
-      if ("url" in config) {
-        console.log(
-          `Server ${serverName} is a remote SSE server at ${config.url}`,
-        );
-
-        // Use server name for environment variables
-        const clientId = Deno.env.get(
-          `MCP_${serverName.toUpperCase()}_CLIENT_ID`,
-        );
-        const clientSecret = Deno.env.get(
-          `MCP_${serverName.toUpperCase()}_CLIENT_SECRET`,
-        );
-
-        // Check for custom OAuth authorization server URL
-        const authServerUrl = Deno.env.get(
-          `MCP_${serverName.toUpperCase()}_AUTH_SERVER_URL`,
-        );
-
-        // Determine if we should use dynamic registration
-        const useDynamicRegistration =
-          Deno.env.get("MCP_USE_DYNAMIC_REGISTRATION") !== "false";
-
-        if (clientId && clientSecret) {
-          console.log(
-            `Found OAuth client credentials for server ${serverName} in environment variables.`,
-          );
-        } else if (useDynamicRegistration) {
-          console.log(
-            `No client credentials found for server ${serverName}, will use dynamic client registration.`,
-          );
-        } else {
-          console.warn(
-            `OAuth client credentials not found in environment variables for server ${serverName}.`,
-          );
-          console.warn(
-            `Set MCP_${serverName.toUpperCase()}_CLIENT_ID and MCP_${serverName.toUpperCase()}_CLIENT_SECRET environment variables or enable dynamic registration.`,
-          );
-        }
-
-        if (authServerUrl) {
-          console.log(
-            `Using custom OAuth authorization server for ${serverName}: ${authServerUrl}`,
-          );
-        }
-      }
-
       // Use the friendly name for server registration (affects tool names)
       await this.registerServer({
         _id: id,
@@ -942,48 +634,10 @@ export class McpServerManager {
         }`,
       );
     } catch (error) {
-      // Don't wrap OAuth-related errors - let them propagate directly
-      if (
-        error instanceof McpServerError &&
-        (error.code === "oauth_required" || error.code === "auth_failed")
-      ) {
-        throw error;
-      }
       console.error(`Failed to register server ${id} from registry:`, error);
       throw new Error(
         `Failed to register server ${id} from registry: ${formatError(error)}`,
       );
     }
-  }
-
-  /**
-   * Retry server registration after OAuth authentication is completed
-   * This method attempts to register a server that previously failed due to OAuth requirements
-   * @param id Unique identifier for the server
-   * @param config Server configuration
-   * @throws Error if server registration fails
-   */
-  async retryServerRegistrationWithOAuth(
-    config: ZypherMcpServer,
-  ): Promise<void> {
-    console.log(
-      `Retrying server registration with OAuth for server: ${config.name}`,
-    );
-
-    // First check if we already have this server registered
-    const existingServer = this.#getServer(config._id);
-    if (existingServer) {
-      console.log(
-        `Server ${config.name} already exists, updating configuration...`,
-      );
-      await this.updateServerConfig(config);
-      return;
-    }
-
-    // Attempt fresh registration - OAuth tokens should now be available
-    await this.registerServer(config);
-    console.log(
-      `Successfully registered server ${config.name} with OAuth authentication`,
-    );
   }
 }
