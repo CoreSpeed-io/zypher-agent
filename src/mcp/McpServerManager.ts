@@ -40,6 +40,7 @@ export class McpServerManager {
   // toolbox only contains active tools for agent to call
   // serverToolsMap maintains all tools for each server
   #serverToolsMap = new Map<ZypherMcpServer, Tool[]>();
+  #mcpClientMap = new Map<string, McpClient>();
   #initialized = false;
   #configFile = "mcp.json";
   #dataDir: string | null = null;
