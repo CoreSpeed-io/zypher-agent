@@ -49,23 +49,13 @@ export interface IMcpClientConfig {
   oAuthProvider?: OAuthClientProvider;
 }
 
-export enum ConnectionMode {
-  CLI = 1,
-  SSE = 2,
-}
-
 /**
  * MCPClient handles communication with MCP servers and tool execution
  */
 export class McpClient {
   #client: Client | null = null;
   #transport: StdioClientTransport | SSEClientTransport | null = null;
-  #config: IMcpClientConfig & {
-    id: string;
-    name: string;
-    version: string;
-    serverName: string;
-  };
+  #config: IMcpClientConfig;
   #authProvider?: OAuthClientProvider;
   #serverUrl?: URL;
 
@@ -75,21 +65,15 @@ export class McpClient {
    * Creates a new MCPClient instance
    * @param config Optional configuration for the client
    */
-  constructor(config: IMcpClientConfig = {}) {
-    this.#config = {
-      id: config.id ?? crypto.randomUUID(),
-      name: config.name ?? "mcp-client",
-      version: config.version ?? "1.0.0",
-      serverName: config.serverName ?? "default-server",
-      ...config,
-    };
+  constructor(config: IMcpClientConfig) {
+    this.#config = config;
 
     this.#authProvider = config.oAuthProvider;
 
     this.#client = new Client(
       {
-        name: this.#config.name,
-        version: this.#config.version,
+        name: config.name ?? "mcp-client",
+        version: config.version ?? "1.0.0",
       },
       {},
     );

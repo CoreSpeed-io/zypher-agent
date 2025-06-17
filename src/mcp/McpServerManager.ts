@@ -1,4 +1,4 @@
-import { ConnectionMode, McpClient } from "./McpClient.ts";
+import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import { z } from "zod";
 import { type ServerDetail, ServerDetailSchema } from "./types/store.ts";
@@ -6,6 +6,7 @@ import { getWorkspaceDataDir } from "../utils/mod.ts";
 import { join } from "@std/path";
 import { formatError } from "../error.ts";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
+import type { ZypherMcpServer } from "./types/local.ts";
 
 export class McpServerError extends Error {
   constructor(
@@ -64,27 +65,12 @@ export class McpServerManager {
     this.#clientName = clientName ?? "zypher-agent-api";
   }
 
-  async #createMcpClient(
-    serverId: string,
-    serverName: string,
-    serverConfig: ServerDetail,
-  ): Promise<McpClient> {
-    let oauthProvider: OAuthClientProvider | undefined = undefined;
-    const isRemoteServer = "url" in serverConfig;
-
-    if (isRemoteServer && serverConfig.url && this.#oauthProviderFactory) {
-      console.log(`Creating OAuth provider for remote server ${serverId}`);
-      oauthProvider = await this.#oauthProviderFactory(
-        serverId,
-        serverConfig.url,
-        this.#clientName,
-      );
-    }
-
+  #createMcpClient(
+    server: ZypherMcpServer,
+  ): McpClient {
     return new McpClient({
-      id: serverId,
-      serverName: serverName,
-      oAuthProvider: oauthProvider,
+      id: server._id,
+      serverName: server.name,
     });
   }
 
@@ -270,18 +256,6 @@ export class McpServerManager {
     );
 
     await Promise.all(serverInitPromises);
-  };
-
-  /**
-   * Determines the connection mode for a server based on its configuration
-   * @param config The server configuration
-   * @returns The appropriate connection mode
-   */
-  #getConnectionMode = (config: IMcpServerConfig): ConnectionMode => {
-    if ("url" in config) {
-      return ConnectionMode.SSE;
-    }
-    return ConnectionMode.CLI;
   };
 
   /**
