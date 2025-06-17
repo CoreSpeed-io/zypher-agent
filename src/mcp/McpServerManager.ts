@@ -159,19 +159,13 @@ export class McpServerManager {
         parsedConfig.mcpServers = transformedServers;
       }
 
-      this.#config = McpConfigSchema.parse(parsedConfig);
+      this.#config = ZypherMcpServerSchema.parse(parsedConfig);
 
       // Create server instances with their enabled states from config
       for (
-        const serverData of Object.values(
-          this.#config.mcpServers,
-        )
+        const serverData of this.#config
       ) {
-        const client = await this.#createMcpClient(
-          serverData.id,
-          serverData.name,
-          serverData.config,
-        );
+        const client = await this.#createMcpClient(serverData);
         const server = McpServerSchema.parse({
           id: serverData.id,
           name: serverData.name,
@@ -344,9 +338,7 @@ export class McpServerManager {
           `Server ${_server.name} already exists`,
         );
       }
-      const client = this.#createMcpClient(
-        _server,
-      );
+      const client = await this.#createMcpClient(_server);
       this.#serverToolsMap.set(_server, []);
 
       // Try to register server tools - this is where OAuth errors occur
