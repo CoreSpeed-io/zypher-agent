@@ -1,12 +1,12 @@
 import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import { z } from "zod";
-import { type ServerDetail, ServerDetailSchema } from "./types/store.ts";
 import { getWorkspaceDataDir } from "../utils/mod.ts";
 import { join } from "@std/path";
 import { formatError } from "../error.ts";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
-import type { ZypherMcpServer } from "./types/local.ts";
+import { type ZypherMcpServer, ZypherMcpServerSchema } from "./types/local.ts";
+import { ConnectionMode, getConnectionMode } from "./utils/transport.ts";
 
 export class McpServerError extends Error {
   constructor(
@@ -18,17 +18,6 @@ export class McpServerError extends Error {
     this.name = "McpServerError";
   }
 }
-
-const McpConfigSchema = z.object({
-  mcpServers: z.record(z.object({
-    id: z.string(),
-    name: z.string(),
-    config: ServerDetailSchema,
-  })),
-});
-
-type IMcpConfig = z.infer<typeof McpConfigSchema>;
-
 /**
  * Optional OAuth provider factory function type
  * Applications can provide this to create OAuth providers for remote servers
@@ -46,16 +35,17 @@ export type OAuthProviderFactory = (
  * OAuth authentication is handled by the application layer via the optional oauthProviderFactory.
  */
 export class McpServerManager {
-  #config: IMcpConfig | null = null;
+  #config: ZypherMcpServer[] | null = null;
   // toolbox only contains active tools for agent to call
   // serverToolsMap maintains all tools for each server
-  #serverToolsMap = new Map<ServerDetail, Tool[]>();
+  #serverToolsMap = new Map<ZypherMcpServer, Tool[]>();
   #initialized = false;
   #configFile = "mcp.json";
   #dataDir: string | null = null;
   #mcpRegistryBaseUrl: string | null = null;
   #oauthProviderFactory?: OAuthProviderFactory;
   #clientName: string;
+  #toolbox: Map<string, Tool> = new Map();
 
   constructor(
     oauthProviderFactory?: OAuthProviderFactory,
@@ -122,9 +112,7 @@ export class McpServerManager {
       try {
         await Deno.stat(configPath);
       } catch {
-        const defaultConfig: IMcpConfig = {
-          mcpServers: {},
-        };
+        const defaultConfig: ZypherMcpServer[] = [];
         await Deno.writeTextFile(
           configPath,
           JSON.stringify(defaultConfig, null, 2),
@@ -143,7 +131,7 @@ export class McpServerManager {
         const mcpServers = parsedConfig.mcpServers as Record<string, unknown>;
         const transformedServers: Record<
           string,
-          { id: string; name: string; config: IMcpServerConfig }
+          { id: string; name: string; config: ZypherMcpServer }
         > = {};
 
         for (const [serverId, serverData] of Object.entries(mcpServers)) {
@@ -156,14 +144,14 @@ export class McpServerManager {
             transformedServers[serverId] = serverData as {
               id: string;
               name: string;
-              config: IMcpServerConfig;
+              config: ZypherMcpServer;
             };
           } else {
             // Legacy format - convert to new format
             transformedServers[serverId] = {
               id: serverId,
               name: serverId,
-              config: serverData as IMcpServerConfig,
+              config: serverData as ZypherMcpServer,
             };
           }
         }
@@ -247,7 +235,7 @@ export class McpServerManager {
           await this.#registerServerTools(server);
         } catch (error) {
           console.error(
-            `Failed to initialize server ${server.id}: ${formatError(error)}`,
+            `Failed to initialize server ${server.name}: ${formatError(error)}`,
           );
           // Remove the failed server
           this.#serverToolsMap.delete(server);
@@ -344,46 +332,35 @@ export class McpServerManager {
    * @throws Error if server registration fails or server already exists
    */
   async registerServer(
-    id: string,
-    config: IMcpServerConfig,
-    options?: { serverName?: string },
+    _server: ZypherMcpServer,
   ): Promise<void> {
     try {
       if (!this.#config) {
         throw new Error("Config not loaded");
       }
-      if (this.#getServer(id)) {
+      if (this.#getServer(_server._id)) {
         throw new McpServerError(
           "already_exists",
-          `Server ${id} already exists`,
+          `Server ${_server.name} already exists`,
         );
       }
-      const client = await this.#createMcpClient(
-        id,
-        options?.serverName ?? id,
-        config,
+      const client = this.#createMcpClient(
+        _server,
       );
-      const server: IMcpServer = {
-        id,
-        name: options?.serverName ?? id,
-        client: client,
-        config,
-        enabled: config.enabled ?? true,
-      };
-      this.#serverToolsMap.set(server, []);
+      this.#serverToolsMap.set(_server, []);
 
       // Try to register server tools - this is where OAuth errors occur
       try {
-        await this.#registerServerTools(server);
+        await this.#registerServerTools(_server);
       } catch (error) {
         // Check if this is an authentication error for SSE servers
-        if (this.#isAuthenticationError(error) && "url" in config) {
+        if (this.#isAuthenticationError(error) && "url" in _server) {
           // Remove the partially registered server
-          this.#serverToolsMap.delete(server);
-          await server.client.cleanup();
+          this.#serverToolsMap.delete(_server);
+          await client.cleanup();
 
           console.log(
-            `🔍 Authentication failed for ${id}, checking server capabilities...`,
+            `🔍 Authentication failed for ${_server.name}, checking server capabilities...`,
           );
 
           // Check if the error message explicitly mentions OAuth
@@ -398,63 +375,58 @@ export class McpServerManager {
             );
             throw new McpServerError(
               "oauth_required",
-              `Server ${id} requires OAuth authentication. Please complete OAuth flow first.`,
+              `Server ${_server.name} requires OAuth authentication. Please complete OAuth flow first.`,
               {
-                serverId: id,
-                serverUrl: config.url,
+                serverId: _server._id,
+                serverUrl: _server.packages[0].registryName,
                 requiresOAuth: true,
               },
             );
           }
 
           // Check if server supports OAuth
-          const oauthSupported = await this.#checkOAuthSupport(config.url);
+          const oauthSupported = await this.#checkOAuthSupport(
+            _server.packages[0].registryName,
+          );
 
           if (oauthSupported) {
             throw new McpServerError(
               "oauth_required",
-              `Server ${id} requires OAuth authentication. Please complete OAuth flow first.`,
+              `Server ${_server.name} requires OAuth authentication. Please complete OAuth flow first.`,
               {
-                serverId: id,
-                serverUrl: config.url,
+                serverId: _server._id,
+                serverUrl: _server.packages[0].registryName,
                 requiresOAuth: true,
               },
             );
           }
 
           // Check if server might be open/accessible without auth
-          const isOpenServer = await this.#checkOpenServerAccess(config.url);
+          const isOpenServer = await this.#checkOpenServerAccess(
+            _server.packages[0].registryName,
+          );
 
           if (isOpenServer) {
-            console.log(`🌐 Retrying registration for ${id} as open server...`);
+            console.log(
+              `🌐 Retrying registration for ${_server.name} as open server...`,
+            );
 
             // Try to create a new client with allowOpenAccess enabled
             try {
-              const openClient = await this.#createMcpClientWithOpenAccess(
-                id,
-                options?.serverName ?? id,
-                config,
-              );
-
-              const openServer: IMcpServer = {
-                id,
-                name: options?.serverName ?? id,
-                client: openClient,
-                config,
-                enabled: config.enabled ?? true,
+              const openServer: ZypherMcpServer = {
+                ..._server,
+                isEnabled: true,
               };
 
               this.#serverToolsMap.set(openServer, []);
               await this.#registerServerTools(openServer);
 
               // If successful, save the config and return
-              this.#config.mcpServers[id] = {
-                id: id,
-                name: openServer.name,
-                config: config,
-              };
+              this.#config.push(openServer);
               await this.#saveConfig();
-              console.log(`✅ Successfully registered open server: ${id}`);
+              console.log(
+                `✅ Successfully registered open server: ${openServer.name}`,
+              );
               return;
             } catch (openError) {
               console.error(
@@ -466,19 +438,18 @@ export class McpServerManager {
 
           throw new McpServerError(
             "auth_failed",
-            `Server ${id} authentication failed and OAuth is not supported.`,
-            { serverId: id, serverUrl: config.url },
+            `Server ${_server.name} authentication failed and OAuth is not supported.`,
+            {
+              serverId: _server._id,
+              serverUrl: _server.packages[0].registryName,
+            },
           );
         }
         // Re-throw if not an auth error
         throw error;
       }
 
-      this.#config.mcpServers[id] = {
-        id: id,
-        name: server.name,
-        config: config,
-      };
+      this.#config.push(_server);
       await this.#saveConfig();
     } catch (error) {
       // Don't log OAuth-related errors as generic failures
@@ -488,8 +459,13 @@ export class McpServerManager {
       ) {
         throw error;
       }
-      console.error(`Failed to register server ${id}:`, formatError(error));
-      throw new Error(`Failed to register server ${id}: ${formatError(error)}`);
+      console.error(
+        `Failed to register server ${_server.name}:`,
+        formatError(error),
+      );
+      throw new Error(
+        `Failed to register server ${_server.name}: ${formatError(error)}`,
+      );
     }
   }
 
@@ -497,20 +473,21 @@ export class McpServerManager {
    * Create MCP client with open access enabled for servers that don't require auth
    */
   async #createMcpClientWithOpenAccess(
-    serverId: string,
-    serverName: string,
-    serverConfig: IMcpServerConfig,
+    _server: ZypherMcpServer,
   ): Promise<McpClient> {
     let oauthProvider: OAuthClientProvider | undefined = undefined;
-    const isRemoteServer = "url" in serverConfig;
+    const isRemoteServer = "url" in _server;
 
-    if (isRemoteServer && serverConfig.url && this.#oauthProviderFactory) {
+    if (
+      isRemoteServer && _server.packages[0].registryName &&
+      this.#oauthProviderFactory
+    ) {
       console.log(
-        `Creating OAuth provider with open access for server ${serverId}`,
+        `Creating OAuth provider with open access for server ${_server.name}`,
       );
       oauthProvider = await this.#oauthProviderFactory(
-        serverId,
-        serverConfig.url,
+        _server._id,
+        _server.packages[0].registryName,
         this.#clientName,
       );
 
@@ -522,8 +499,8 @@ export class McpServerManager {
     }
 
     return new McpClient({
-      id: serverId,
-      serverName: serverName,
+      id: _server._id,
+      serverName: _server.name,
       oAuthProvider: oauthProvider,
     });
   }
@@ -553,7 +530,7 @@ export class McpServerManager {
 
     try {
       // First cleanup the server client
-      await server.client.cleanup();
+      await server.client?.cleanup();
 
       // Remove all tools from toolbox
       const tools = this.#serverToolsMap.get(server);
@@ -568,7 +545,7 @@ export class McpServerManager {
 
       // Update mcp.json file
       if (this.#config) {
-        delete this.#config.mcpServers[id];
+        this.#config = this.#config.filter((server) => server._id !== id);
         await this.#saveConfig();
       }
     } catch (error) {
@@ -585,24 +562,22 @@ export class McpServerManager {
    * @throws Error if server is not found or update fails
    */
   async updateServerConfig(
-    id: string,
-    config: IMcpServerConfig,
+    _server: ZypherMcpServer,
   ): Promise<void> {
-    const server = this.#getServer(id);
+    const server = this.#getServer(_server._id);
     if (!server) {
-      throw new Error(`Server with id ${id} not found`);
+      throw new Error(`Server with id ${_server._id} not found`);
     }
 
     try {
-      // Store the original server name before deregistering
-      const originalServerName = server.name;
-
       // Deregister existing server
-      await this.deregisterServer(id);
+      await this.deregisterServer(_server._id);
       // Register with new config but preserve the original name
-      await this.registerServer(id, config, { serverName: originalServerName });
+      await this.registerServer(_server);
     } catch (error) {
-      throw new Error(`Failed to update server ${id}: ${formatError(error)}`);
+      throw new Error(
+        `Failed to update server ${_server.name}: ${formatError(error)}`,
+      );
     }
   }
 
@@ -624,9 +599,9 @@ export class McpServerManager {
     // Cleanup all server clients
     for (const server of this.#serverToolsMap.keys()) {
       try {
-        await server.client.cleanup();
+        await server.client?.cleanup();
       } catch (error) {
-        console.error(`Error cleaning up server ${server.id}:`, error);
+        console.error(`Error cleaning up server ${server.name}:`, error);
       }
     }
     this.#serverToolsMap.clear();
@@ -634,12 +609,10 @@ export class McpServerManager {
     this.#initialized = false;
   }
 
-  getAllServerWithTools(): IMcpServerApi[] {
+  getAllServerWithTools(): ZypherMcpServer[] {
     return Array.from(this.#serverToolsMap.entries()).map(
       ([server, tools]) => ({
-        id: server.id,
-        name: server.name,
-        enabled: server.enabled,
+        ...server,
         tools: tools.map((tool) => tool.name),
       }),
     );
@@ -656,7 +629,7 @@ export class McpServerManager {
       throw new Error(`Server ${serverId} not found`);
     }
 
-    server.enabled = enabled;
+    server.isEnabled = enabled;
     const tools = this.#serverToolsMap.get(server);
     if (enabled && tools) {
       // Re-add tools to toolbox when enabling
@@ -669,23 +642,18 @@ export class McpServerManager {
     }
 
     // Update the config
-    if (this.#config?.mcpServers[serverId]) {
-      const serverData = this.#config.mcpServers[serverId];
-      this.#config.mcpServers[serverId] = {
-        id: serverData.id,
-        name: serverData.name,
-        config: {
-          ...serverData.config,
-          enabled,
-        },
-      };
+    if (this.#config?.find((server) => server._id === serverId)) {
+      const server = this.#config.find((server) => server._id === serverId);
+      if (server) {
+        server.isEnabled = enabled;
+      }
       await this.#saveConfig();
     }
   }
 
-  #getServer = (id: string): IMcpServer | undefined => {
+  #getServer = (id: string): ZypherMcpServer | undefined => {
     for (const server of this.#serverToolsMap.keys()) {
-      if (server.id === id) {
+      if (server._id === id) {
         return server;
       }
     }
@@ -697,7 +665,7 @@ export class McpServerManager {
    * @param serverName The name of the server to find
    * @returns The server if found, undefined otherwise
    */
-  #getServerByName = (serverName: string): IMcpServer | undefined => {
+  #getServerByName = (serverName: string): ZypherMcpServer | undefined => {
     for (const server of this.#serverToolsMap.keys()) {
       if (server.name === serverName) {
         return server;
@@ -718,16 +686,16 @@ export class McpServerManager {
     }
 
     // Use the existing deregisterServer method with the actual ID
-    await this.deregisterServer(server.id);
+    await this.deregisterServer(server._id);
   }
 
-  getServerConfig(serverId: string): IMcpServerConfig {
+  getServerConfig(serverId: string): ZypherMcpServer {
     const server = this.#getServer(serverId);
     if (!server) {
       throw new Error(`Server ${serverId} not found`);
     }
     // Return config without enabled property
-    return server.config;
+    return server;
   }
 
   /**
@@ -740,15 +708,7 @@ export class McpServerManager {
 
     // Update server configurations with current server state
     for (const server of this.#serverToolsMap.keys()) {
-      const serverId = server.id;
-      this.#config.mcpServers[serverId] = {
-        id: server.id,
-        name: server.name,
-        config: {
-          ...server.config,
-          enabled: server.enabled,
-        },
-      };
+      this.#config.push(server);
     }
 
     // Write config to file
@@ -778,23 +738,19 @@ export class McpServerManager {
    * Registers all tools for a server
    * @param server The server to register tools for
    */
-  #registerServerTools = async (server: IMcpServer): Promise<void> => {
+  #registerServerTools = async (server: ZypherMcpServer): Promise<void> => {
     try {
       console.log(`Registering tools for server: ${server.name}`);
-      const connectionMode = this.#getConnectionMode(server.config);
+      const connectionMode = getConnectionMode(server.packages[0]);
       console.log(
         `Connection mode: ${
-          connectionMode === ConnectionMode.SSE ? "SSE" : "CLI"
+          connectionMode === ConnectionMode.REMOTE ? "REMOTE" : "CLI"
         }`,
       );
 
       console.log("Retrieving tools from server...");
-      const tools = await server.client.retrieveTools(
-        server.config,
-        connectionMode,
-      );
-
-      console.log(`Retrieved ${tools.length} tools for server ${server.id}`);
+      const tools = await server.client?.retrieveTools(connectionMode) ?? [];
+      console.log(`Retrieved ${tools.length} tools for server ${server.name}`);
       if (tools.length > 0) {
         console.log(`Tool names: ${tools.map((t) => t.name).join(", ")}`);
       }
@@ -803,9 +759,9 @@ export class McpServerManager {
       this.#serverToolsMap.set(server, tools);
 
       // Only add to toolbox if server is enabled
-      if (server.enabled) {
+      if (server.isEnabled) {
         console.log(
-          `Server ${server.id} is enabled, adding ${tools.length} tools to toolbox`,
+          `Server ${server.name} is enabled, adding ${tools.length} tools to toolbox`,
         );
         for (const tool of tools) {
           this.#toolbox.set(tool.name, tool);
@@ -813,23 +769,23 @@ export class McpServerManager {
         }
       } else {
         console.log(
-          `Server ${server.id} is disabled, not adding tools to toolbox`,
+          `Server ${server.name} is disabled, not adding tools to toolbox`,
         );
       }
 
       console.log(
-        `Successfully registered ${tools.length} tools for server ${server.id}`,
+        `Successfully registered ${tools.length} tools for server ${server.name}`,
       );
     } catch (error) {
       console.error(
-        `Failed to register tools for server ${server.id}:`,
+        `Failed to register tools for server ${server.name}:`,
         formatError(error),
       );
 
       // Check if this is an OAuth-related error that should be handled specially
       if (this.#isAuthenticationError(error)) {
         console.log(
-          `Detected authentication error for server ${server.id}, will trigger OAuth flow`,
+          `Detected authentication error for server ${server.name}, will trigger OAuth flow`,
         );
         // Don't wrap OAuth errors - let them propagate as-is for proper handling
         throw error;
@@ -837,7 +793,7 @@ export class McpServerManager {
 
       // For non-OAuth errors, wrap them with additional context
       throw new Error(
-        `Failed to register tools for server ${server.id}: ${
+        `Failed to register tools for server ${server.name}: ${
           formatError(error)
         }`,
       );
@@ -871,9 +827,9 @@ export class McpServerManager {
     console.log(`Number of tools in toolbox: ${this.#toolbox.size}`);
 
     for (const [server, tools] of this.#serverToolsMap.entries()) {
-      console.log(`\nServer: ${server.id}`);
+      console.log(`\nServer: ${server.name}`);
       console.log(`  - Name: ${server.name}`);
-      console.log(`  - Enabled: ${server.enabled}`);
+      console.log(`  - Enabled: ${server.isEnabled}`);
       console.log(`  - Tools count: ${tools.length}`);
       if (tools.length > 0) {
         console.log(`  - Tool names: ${tools.map((t) => t.name).join(", ")}`);
@@ -923,9 +879,9 @@ export class McpServerManager {
       console.log(`Received config for server: ${id}`);
 
       // Parse and validate the server configuration (handles nested structures automatically)
-      const parsed = McpServerRegistryConfigSchema.parse(data.config);
-      const config = parsed.config;
-      const extractedName = parsed.extractedName;
+      const parsed = ZypherMcpServerSchema.parse(data);
+      const config = parsed.packages[0];
+      const extractedName = parsed.name;
 
       // Use friendly name for server registration if available, otherwise use registry ID
       const serverName = extractedName || data.name || id;
@@ -983,7 +939,11 @@ export class McpServerManager {
       }
 
       // Use the friendly name for server registration (affects tool names)
-      await this.registerServer(id, config, { serverName: serverName });
+      await this.registerServer({
+        _id: id,
+        name: serverName,
+        packages: [config],
+      });
       console.log(
         `Successfully registered server from registry: ${id}${
           extractedName ? ` as '${serverName}'` : ""
@@ -1012,23 +972,26 @@ export class McpServerManager {
    * @throws Error if server registration fails
    */
   async retryServerRegistrationWithOAuth(
-    id: string,
-    config: IMcpServerConfig,
+    config: ZypherMcpServer,
   ): Promise<void> {
-    console.log(`Retrying server registration with OAuth for server: ${id}`);
+    console.log(
+      `Retrying server registration with OAuth for server: ${config.name}`,
+    );
 
     // First check if we already have this server registered
-    const existingServer = this.#getServer(id);
+    const existingServer = this.#getServer(config._id);
     if (existingServer) {
-      console.log(`Server ${id} already exists, updating configuration...`);
-      await this.updateServerConfig(id, config);
+      console.log(
+        `Server ${config.name} already exists, updating configuration...`,
+      );
+      await this.updateServerConfig(config);
       return;
     }
 
     // Attempt fresh registration - OAuth tokens should now be available
-    await this.registerServer(id, config);
+    await this.registerServer(config);
     console.log(
-      `Successfully registered server ${id} with OAuth authentication`,
+      `Successfully registered server ${config.name} with OAuth authentication`,
     );
   }
 }

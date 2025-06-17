@@ -5,6 +5,7 @@ import {
   type ServerDetail,
   VersionDetailSchema,
 } from "./store.ts";
+import { McpClient } from "../McpClient.ts";
 
 // Base server schema
 export const ZypherMcpServerSchema = z.object({
@@ -25,6 +26,7 @@ export const ZypherMcpServerSchema = z.object({
   packages: z.array(PackageSchema).describe(
     "The packages of the MCP server",
   ),
+  client: z.instanceof(McpClient).optional(),
   isEnabled: z.boolean().default(true).optional().describe(
     "Whether the MCP server is enabled",
   ),
