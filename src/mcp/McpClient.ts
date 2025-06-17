@@ -21,7 +21,6 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { createTool, type Tool } from "../tools/mod.ts";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
-import type { ServerDetail } from "./types/store.ts";
 import { jsonToZod } from "./utils/zod.ts";
 import { ConnectionMode } from "./utils/transport.ts";
 import type { ZypherMcpServer } from "./types/local.ts";
@@ -46,7 +45,7 @@ export interface IMcpClientConfig {
   /** Optional server name */
   serverName?: string;
   /** Optional server details */
-  server?: ServerDetail;
+  server?: ZypherMcpServer;
   /** Optional OAuth provider for authentication */
   oAuthProvider?: OAuthClientProvider;
 }
@@ -59,8 +58,6 @@ export class McpClient {
   #transport: StdioClientTransport | SSEClientTransport | null = null;
   #config: IMcpClientConfig;
   #authProvider?: OAuthClientProvider;
-  #serverUrl?: URL;
-
   static #oauthInProgress = new Map<string, Promise<void>>();
 
   /**
@@ -97,7 +94,7 @@ export class McpClient {
       }
 
       // Connect to the server
-      await this.#connect(mode, this.#config);
+      await this.#connect(mode, this.#config.server!);
       console.log("Connected to MCP server", this.#config.serverName);
 
       // Once connected, discover tools
@@ -257,7 +254,7 @@ export class McpClient {
    * @param config Server configuration
    * @returns The configured transport
    */
-  #buildTransport = (mode: ConnectionMode, config: IMcpServerConfig) => {
+  #buildTransport = (mode: ConnectionMode, config: ZypherMcpServer) => {
     switch (mode) {
       case ConnectionMode.CLI: {
         if (!("command" in config)) {
@@ -278,40 +275,41 @@ export class McpClient {
         };
 
         return new StdioClientTransport({
-          command: config.command,
-          args: config.args,
+          command: config.packages[0].name,
+          args: config.packages[0].runtimeArguments?.map((arg) => arg.name)
+            .filter((arg): arg is string => arg !== undefined),
           env: {
             ...filteredEnvVars,
-            ...config.env,
+            ...config.packages[0].environmentVariables,
           } as Record<string, string>,
         });
       }
 
-      case ConnectionMode.SSE: {
+      case ConnectionMode.REMOTE: {
         if (!("url" in config)) {
           throw new Error("SSE mode requires a URL");
         }
 
         // Store the server URL for later OAuth operations
-        this.#serverUrl = new URL(config.url);
+        const serverUrl = new URL(config.packages[0].name);
 
         // Create SSE transport with or without OAuth
         if (this.#authProvider) {
           console.log(
-            `Creating SSE transport with OAuth for ${this.#serverUrl}`,
+            `Creating SSE transport with OAuth for ${serverUrl}`,
           );
-          return new SSEClientTransport(this.#serverUrl, {
+          return new SSEClientTransport(serverUrl, {
             authProvider: this.#authProvider,
           });
         }
         console.log(
-          `Creating SSE transport without OAuth for ${this.#serverUrl}`,
+          `Creating SSE transport without OAuth for ${serverUrl}`,
         );
-        return new SSEClientTransport(this.#serverUrl);
+        return new SSEClientTransport(serverUrl);
       }
 
       default:
-        throw new Error(`Unsupported connection mode: ${mode as string}`);
+        throw new Error(`Unsupported connection mode: ${mode}`);
     }
   };
 }
