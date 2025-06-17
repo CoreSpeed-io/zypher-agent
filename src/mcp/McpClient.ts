@@ -18,6 +18,7 @@
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/StreamableHTTP.js";
 import { createTool, type Tool } from "../tools/mod.ts";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
@@ -42,12 +43,6 @@ export interface IMcpClientConfig {
   name?: string;
   /** Optional version string */
   version?: string;
-  /** Optional server name */
-  serverName?: string;
-  /** Optional server details */
-  server?: ZypherMcpServer;
-  /** Optional OAuth provider for authentication */
-  oAuthProvider?: OAuthClientProvider;
 }
 
 /**
@@ -55,7 +50,11 @@ export interface IMcpClientConfig {
  */
 export class McpClient {
   #client: Client | null = null;
-  #transport: StdioClientTransport | SSEClientTransport | null = null;
+  #transport:
+    | StdioClientTransport
+    | SSEClientTransport
+    | StreamableHTTPClientTransport
+    | null = null;
   #config: IMcpClientConfig;
   #tools: Tool[] = [];
   #authProvider?: OAuthClientProvider;
