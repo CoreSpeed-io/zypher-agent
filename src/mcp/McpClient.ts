@@ -57,6 +57,7 @@ export class McpClient {
   #client: Client | null = null;
   #transport: StdioClientTransport | SSEClientTransport | null = null;
   #config: IMcpClientConfig;
+  #tools: Tool[] = [];
   #authProvider?: OAuthClientProvider;
   static #oauthInProgress = new Map<string, Promise<void>>();
 
@@ -99,33 +100,78 @@ export class McpClient {
 
       // Once connected, discover tools
       console.log("Connected to MCP server, discovering tools...");
-      const toolResult = await this.#client.listTools();
-      console.log(`Discovered ${toolResult.tools.length} tools from server`);
+      await this.#discoverTools();
 
-      // Convert MCP tools to our internal tool format
-      const tools = toolResult.tools.map((tool) => {
-        const inputSchema = jsonToZod(tool.inputSchema);
-        return createTool(
-          `mcp_${this.#config.serverName}_${tool.name}`,
-          tool.description ?? "",
-          inputSchema,
-          async (params: Record<string, unknown>) => {
-            const result = await this.executeToolCall({
-              name: tool.name,
-              input: params,
-            });
-            return JSON.stringify(result);
-          },
-        );
-      });
-
-      return tools;
+      return this.#tools;
     } catch (error) {
       const errorMessage = error instanceof Error
         ? error.message
         : "Unknown error";
       throw new Error(`Failed to connect to MCP server: ${errorMessage}`);
     }
+  }
+
+  /**
+   * Discovers and registers tools from the MCP server
+   * @private
+   */
+  async #discoverTools(): Promise<void> {
+    if (!this.#client) {
+      throw new Error("Client is not initialized");
+    }
+
+    const toolResult = await this.#client.listTools();
+    console.log(`Discovered ${toolResult.tools.length} tools from server`);
+
+    // Convert MCP tools to our internal tool format
+    this.#tools = toolResult.tools.map((tool) => {
+      const inputSchema = jsonToZod(tool.inputSchema);
+      return createTool(
+        `mcp_${this.#config.serverName}_${tool.name}`,
+        tool.description ?? "",
+        inputSchema,
+        async (params: Record<string, unknown>) => {
+          const result = await this.executeToolCall({
+            name: tool.name,
+            input: params,
+          });
+          return JSON.stringify(result);
+        },
+      );
+    });
+  }
+
+  /**
+   * Gets all tools managed by this client
+   * @returns Array of tools
+   */
+  getTools(): Tool[] {
+    return [...this.#tools];
+  }
+
+  /**
+   * Gets a specific tool by name
+   * @param name The name of the tool to retrieve
+   * @returns The tool if found, undefined otherwise
+   */
+  getTool(name: string): Tool | undefined {
+    return this.#tools.find((tool) => tool.name === name);
+  }
+
+  /**
+   * Gets the number of tools managed by this client
+   * @returns Number of tools
+   */
+  getToolCount(): number {
+    return this.#tools.length;
+  }
+
+  /**
+   * Checks if this client is connected to a server
+   * @returns True if connected, false otherwise
+   */
+  isConnected(): boolean {
+    return this.#client !== null && this.#transport !== null;
   }
 
   /**
