@@ -61,25 +61,23 @@ export class McpServerManager {
   async #createMcpClient(
     server: ZypherMcpServer,
   ): Promise<McpClient> {
-    let oauthProvider: OAuthClientProvider | undefined = undefined;
-    const isRemoteServer = "url" in server.packages[0];
+    let _oauthProvider: OAuthClientProvider | undefined = undefined;
 
     if (
-      isRemoteServer && server.packages[0].registryName &&
+      server.remotes && server.remotes.length > 0 &&
       this.#oauthProviderFactory
     ) {
-      oauthProvider = await this.#oauthProviderFactory(
+      _oauthProvider = await this.#oauthProviderFactory(
         server._id,
-        server.packages[0].registryName,
+        server.packages?.[0]?.registryName ?? "",
         this.#clientName,
       );
     }
 
     return new McpClient({
       id: server._id,
-      serverName: server.name,
-      oAuthProvider: oauthProvider,
-    });
+      name: server.name,
+    }, server);
   }
 
   /**
@@ -230,7 +228,7 @@ export class McpServerManager {
 
       // Only retrieve tools if server is enabled
       if (server.isEnabled) {
-        const connectionMode = getConnectionMode(server.packages[0]);
+        const connectionMode = getConnectionMode(server);
         console.log(
           `Connection mode: ${
             connectionMode === ConnectionMode.REMOTE ? "REMOTE" : "CLI"
@@ -661,7 +659,7 @@ export class McpServerManager {
 
       // Parse and validate the server configuration (handles nested structures automatically)
       const parsed = ZypherMcpServerSchema.parse(data);
-      const config = parsed.packages[0];
+      const config = parsed.packages?.[0];
       const extractedName = parsed.name;
 
       // Use friendly name for server registration if available, otherwise use registry ID
@@ -676,7 +674,7 @@ export class McpServerManager {
       await this.registerServer({
         _id: id,
         name: serverName,
-        packages: [config],
+        packages: config ? [config] : undefined,
       });
       console.log(
         `Successfully registered server from registry: ${id}${

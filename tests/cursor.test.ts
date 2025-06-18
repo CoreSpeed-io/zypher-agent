@@ -141,12 +141,12 @@ Deno.test("parseLocalServers converts Remote configuration correctly", async () 
   const server = servers[0];
   assertEquals(server.name, "test-remote");
   assertEquals(server.description, "user-defined MCP server");
+  assertEquals(server.packages, undefined); // Remote configs should not have packages
   assertEquals(
-    server.packages?.[0]?.registryName,
+    server.remotes?.[0]?.url,
     "https://api.example.com/mcp/my-server",
   );
-  assertEquals(server.packages?.[0]?.packageArguments?.length, 0); // Remote should have no args
-  assertEquals(server.packages?.[0]?.environmentVariables?.length, 1);
+  assertEquals(server.remotes?.[0]?.transportType, "streamablehttp");
 
   // Validate output conforms to LocalServer schema
   const validation = ZypherMcpServerSchema.safeParse(server);
@@ -185,13 +185,12 @@ Deno.test("parseLocalServers handles mixed CLI and Remote configurations", async
   // Validate CLI server
   assertEquals(cliServer.packages?.[0]?.registryName, "python");
   assertEquals(cliServer.packages?.[0]?.packageArguments?.length, 3);
+  assertEquals(cliServer.remotes, undefined);
 
   // Validate Remote server
-  assertEquals(
-    remoteServer.packages?.[0]?.registryName,
-    "http://localhost:8080/mcp",
-  );
-  assertEquals(remoteServer.packages?.[0]?.packageArguments?.length, 0);
+  assertEquals(remoteServer.packages, undefined); // Remote should not have packages
+  assertEquals(remoteServer.remotes?.[0]?.url, "http://localhost:8080/mcp");
+  assertEquals(remoteServer.remotes?.[0]?.transportType, "streamablehttp");
 
   // Validate both outputs conform to LocalServer schema
   for (const server of servers) {
@@ -251,7 +250,16 @@ Deno.test("parseLocalServers handles configurations without environment variable
   assertEquals(servers.length, 2);
 
   for (const server of servers) {
-    assertEquals(server.packages?.[0]?.environmentVariables?.length, 0);
+    // Check CLI server
+    if (server.name === "minimal-cli") {
+      assertEquals(server.packages?.[0]?.environmentVariables?.length, 0);
+      assertEquals(server.remotes, undefined);
+    }
+    // Check Remote server
+    if (server.name === "minimal-remote") {
+      assertEquals(server.packages, undefined);
+      assertEquals(server.remotes?.[0]?.url, "https://example.com/mcp");
+    }
 
     const validation = ZypherMcpServerSchema.safeParse(server);
     assertEquals(validation.success, true);
@@ -319,14 +327,9 @@ Deno.test("extractConfigFromZypherMcpServer converts Remote LocalServer back to 
     _id: "test-id",
     name: "test-remote",
     description: "user-defined MCP server",
-    packages: [{
-      registryName: "https://api.example.com/mcp/my-server",
-      name: "test-remote",
-      version: "local-server",
-      environmentVariables: [
-        { name: "DATABASE_URL", value: "postgresql://localhost:5432/db" },
-      ],
-      packageArguments: [],
+    remotes: [{
+      url: "https://api.example.com/mcp/my-server",
+      transportType: "streamablehttp" as const,
     }],
   };
 
@@ -335,7 +338,6 @@ Deno.test("extractConfigFromZypherMcpServer converts Remote LocalServer back to 
   assertEquals("url" in config, true);
   if ("url" in config) {
     assertEquals(config.url, "https://api.example.com/mcp/my-server");
-    assertEquals(config.env?.DATABASE_URL, "postgresql://localhost:5432/db");
   }
 });
 
@@ -365,12 +367,11 @@ Deno.test("extractConfigFromZypherMcpServer handles LocalServer without environm
   }
 });
 
-Deno.test("extractConfigFromZypherMcpServer throws error for LocalServer without packages", () => {
+Deno.test("extractConfigFromZypherMcpServer throws error for LocalServer without packages or remotes", () => {
   const localServer = {
     _id: "test-id",
-    name: "no-packages",
+    name: "no-config",
     description: "user-defined MCP server",
-    packages: [],
   };
 
   let errorThrown = false;
@@ -380,7 +381,7 @@ Deno.test("extractConfigFromZypherMcpServer throws error for LocalServer without
     errorThrown = true;
     assertEquals(
       (error as Error).message,
-      "LocalServer must have at least one package",
+      "LocalServer must have either packages or remotes",
     );
   }
   assertEquals(errorThrown, true);

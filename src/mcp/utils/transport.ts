@@ -1,4 +1,5 @@
-import type { Package } from "../types/store.ts";
+import { McpServerError } from "../McpServerManager.ts";
+import type { ZypherMcpServer } from "../types/local.ts";
 
 export enum ConnectionMode {
   CLI = 1,
@@ -10,9 +11,11 @@ export enum ConnectionMode {
  * @param config The server configuration
  * @returns The appropriate connection mode
  */
-export function getConnectionMode(config: Package): ConnectionMode {
-  if (config.name === "unknown") {
+export function getConnectionMode(config: ZypherMcpServer): ConnectionMode {
+  if (config.remotes && config.remotes.length > 0) {
     return ConnectionMode.REMOTE;
+  } else if (config.packages && config.packages.length > 0) {
+    return ConnectionMode.CLI;
   }
-  return ConnectionMode.CLI;
+  throw new McpServerError("server_error", "Unknown connection mode");
 }

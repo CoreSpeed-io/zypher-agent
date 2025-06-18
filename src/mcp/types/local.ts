@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   PackageSchema,
+  RemoteSchema,
   RepositorySchema,
   type ServerDetail,
   VersionDetailSchema,
@@ -22,8 +23,11 @@ export const ZypherMcpServerSchema = z.object({
     "The image URL of the MCP server",
   ),
   versionDetail: VersionDetailSchema.optional().describe("The version details"),
-  packages: z.array(PackageSchema).describe(
+  packages: z.array(PackageSchema).optional().describe(
     "The packages of the MCP server",
+  ),
+  remotes: z.array(RemoteSchema).optional().describe(
+    "The remotes of the MCP server",
   ),
   isEnabled: z.boolean().default(true).optional().describe(
     "Whether the MCP server is enabled",

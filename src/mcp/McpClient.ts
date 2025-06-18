@@ -25,7 +25,6 @@ import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.
 import { jsonToZod } from "./utils/zod.ts";
 import { ConnectionMode } from "./utils/transport.ts";
 import type { ZypherMcpServer } from "./types/local.ts";
-
 /**
  * Interface for an OAuth provider with clearAuthData and stopCallbackServer methods
  */
@@ -56,6 +55,7 @@ export class McpClient {
     | StreamableHTTPClientTransport
     | null = null;
   #config: IMcpClientConfig;
+  #server: ZypherMcpServer;
   #tools: Tool[] = [];
   #authProvider?: OAuthClientProvider;
   static #oauthInProgress = new Map<string, Promise<void>>();
@@ -64,18 +64,13 @@ export class McpClient {
    * Creates a new MCPClient instance
    * @param config Optional configuration for the client
    */
-  constructor(config: IMcpClientConfig) {
+  constructor(config: IMcpClientConfig, server: ZypherMcpServer) {
     this.#config = config;
-
-    this.#authProvider = config.oAuthProvider;
-
-    this.#client = new Client(
-      {
-        name: config.name ?? "mcp-client",
-        version: config.version ?? "1.0.0",
-      },
-      {},
-    );
+    this.#server = server;
+    this.#client = new Client({
+      name: config.name ?? "mcp-client",
+      version: config.version ?? "1.0.0",
+    });
   }
 
   /**
@@ -94,8 +89,8 @@ export class McpClient {
       }
 
       // Connect to the server
-      await this.#connect(mode, this.#config.server!);
-      console.log("Connected to MCP server", this.#config.serverName);
+      await this.#connect(mode, this.#server);
+      console.log("Connected to MCP server", this.#server.name);
 
       // Once connected, discover tools
       console.log("Connected to MCP server, discovering tools...");
@@ -126,7 +121,7 @@ export class McpClient {
     this.#tools = toolResult.tools.map((tool) => {
       const inputSchema = jsonToZod(tool.inputSchema);
       return createTool(
-        `mcp_${this.#config.serverName}_${tool.name}`,
+        `mcp_${this.#server.name}_${tool.name}`,
         tool.description ?? "",
         inputSchema,
         async (params: Record<string, unknown>) => {
@@ -187,17 +182,17 @@ export class McpClient {
     }
 
     this.#transport = this.#buildTransport(mode, serverConfig);
-    console.log(`[${this.#config.serverName}] Connecting to MCP server...`);
+    console.log(`[${this.#server.name}] Connecting to MCP server...`);
 
     if (mode === ConnectionMode.REMOTE && this.#authProvider) {
       console.log(
-        `[${this.#config.serverName}] Checking OAuth token status before connection...`,
+        `[${this.#server.name}] Checking OAuth token status before connection...`,
       );
       const tokens = await this.#authProvider.tokens();
 
       if (!tokens || !tokens.access_token) {
         console.log(
-          `[${this.#config.serverName}] No valid tokens found. OAuth authorization required.`,
+          `[${this.#server.name}] No valid tokens found. OAuth authorization required.`,
         );
 
         // Let the OAuth provider handle the authorization flow
@@ -208,13 +203,13 @@ export class McpClient {
       }
 
       console.log(
-        `[${this.#config.serverName}] Valid tokens found locally, proceeding with connection...`,
+        `[${this.#server.name}] Valid tokens found locally, proceeding with connection...`,
       );
     }
 
     await this.#client.connect(this.#transport);
     console.log(
-      `[${this.#config.serverName}] Successfully connected to MCP server`,
+      `[${this.#server.name}] Successfully connected to MCP server`,
     );
 
     // Verify connection by attempting to list tools as a basic connectivity test
@@ -300,61 +295,18 @@ export class McpClient {
    * @returns The configured transport
    */
   #buildTransport = (mode: ConnectionMode, config: ZypherMcpServer) => {
+    // transport priority: streamablehttp > sse > stdio
     switch (mode) {
       case ConnectionMode.CLI: {
-        if (!("command" in config)) {
-          throw new Error("CLI mode requires command and args");
-        }
-
-        // Common environment variables to pass through
-        const commonEnvVars = ["PATH", "HOME", "SHELL", "TERM"];
-
-        // Get environment variables, with default only for LANG
-        const filteredEnvVars = {
-          ...Object.fromEntries(
-            commonEnvVars
-              .map((key) => [key, Deno.env.get(key)])
-              .filter(([_, value]) => value !== null),
-          ),
-          LANG: Deno.env.get("LANG") || "en_US.UTF-8",
-        };
-
         return new StdioClientTransport({
-          command: config.packages[0].name,
-          args: config.packages[0].runtimeArguments?.map((arg) => arg.name)
-            .filter((arg): arg is string => arg !== undefined),
-          env: {
-            ...filteredEnvVars,
-            ...config.packages[0].environmentVariables,
-          } as Record<string, string>,
+          command: config.name,
         });
       }
-
       case ConnectionMode.REMOTE: {
-        if (!("url" in config)) {
-          throw new Error("SSE mode requires a URL");
-        }
-
-        // Store the server URL for later OAuth operations
-        const serverUrl = new URL(config.packages[0].name);
-
-        // Create SSE transport with or without OAuth
-        if (this.#authProvider) {
-          console.log(
-            `Creating SSE transport with OAuth for ${serverUrl}`,
-          );
-          return new SSEClientTransport(serverUrl, {
-            authProvider: this.#authProvider,
-          });
-        }
-        console.log(
-          `Creating SSE transport without OAuth for ${serverUrl}`,
+        return new StreamableHTTPClientTransport(
+          new URL(config.remotes![0].url),
         );
-        return new SSEClientTransport(serverUrl);
       }
-
-      default:
-        throw new Error(`Unsupported connection mode: ${mode}`);
     }
   };
 }

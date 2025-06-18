@@ -4,27 +4,19 @@ import type { ZypherMcpServer } from "../types/local.ts";
 export function extractConfigFromZypherMcpServer(
   localServer: ZypherMcpServer,
 ): CursorServerConfig {
-  // Get the first package from the ZypherMcpServer
-  const firstPackage = localServer.packages?.[0];
-
-  if (!firstPackage) {
-    throw new Error("ZypherMcpServer must have at least one package");
-  }
-
-  // Convert environment variables from array to object
-  const env = firstPackage.environmentVariables?.reduce((acc, envVar) => {
-    if (envVar.value !== undefined) {
-      acc[envVar.name] = envVar.value;
-    }
-    return acc;
-  }, {} as Record<string, string>);
-
-  // Check if this is CLI config (has packageArguments) or Remote config
-  const hasArguments = firstPackage.packageArguments &&
-    firstPackage.packageArguments.length > 0;
-
-  if (hasArguments) {
+  // Check if this is a CLI server (has packages) or Remote server (has remotes)
+  if (localServer.packages?.length) {
     // CLI configuration
+    const firstPackage = localServer.packages[0];
+
+    // Convert environment variables from array to object
+    const env = firstPackage.environmentVariables?.reduce((acc, envVar) => {
+      if (envVar.value !== undefined) {
+        acc[envVar.name] = envVar.value;
+      }
+      return acc;
+    }, {} as Record<string, string>);
+
     return {
       command: firstPackage.registryName,
       args: firstPackage.packageArguments?.map((arg) =>
@@ -32,12 +24,15 @@ export function extractConfigFromZypherMcpServer(
       ) || [],
       ...(env && Object.keys(env).length > 0 && { env }),
     };
-  } else {
+  } else if (localServer.remotes?.length) {
     // Remote configuration
+    const firstRemote = localServer.remotes[0];
+
     return {
-      url: firstPackage.registryName,
-      ...(env && Object.keys(env).length > 0 && { env }),
-      // Note: headers are not preserved in ZypherMcpServer conversion
+      url: firstRemote.url,
+      // Note: headers and env are not preserved in Remote ZypherMcpServer conversion for now
     };
+  } else {
+    throw new Error("LocalServer must have either packages or remotes");
   }
 }

@@ -58,24 +58,32 @@ export async function parseLocalServers(
         _id: crypto.randomUUID(),
         name,
         description: `user-defined MCP server`,
-        packages: [
+        packages: isCliConfig
+          ? [
+            {
+              registryName: config.command,
+              name: name,
+              version: "local-server",
+              environmentVariables: config.env
+                ? Object.entries(config.env).map(([key, value]) => ({
+                  name: key,
+                  value: value,
+                }))
+                : [],
+              packageArguments: isCliConfig
+                ? config.args.map((arg) => ({
+                  type: ArgumentType.POSITIONAL,
+                  name: arg,
+                  valueHint: arg,
+                }))
+                : [],
+            },
+          ]
+          : undefined,
+        remotes: isCliConfig ? undefined : [
           {
-            registryName: isCliConfig ? config.command : config.url,
-            name: name,
-            version: "local-server",
-            environmentVariables: config.env
-              ? Object.entries(config.env).map(([key, value]) => ({
-                name: key,
-                value: value,
-              }))
-              : [],
-            packageArguments: isCliConfig
-              ? config.args.map((arg) => ({
-                type: ArgumentType.POSITIONAL,
-                name: arg,
-                valueHint: arg,
-              }))
-              : [],
+            url: config.url,
+            transportType: "streamablehttp",
           },
         ],
       };
