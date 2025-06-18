@@ -1,3 +1,4 @@
+import { McpServerError } from "../McpServerManager.ts";
 import type { CursorServerConfig } from "../types/cursor.ts";
 import type { ZypherMcpServer } from "../types/local.ts";
 
@@ -33,6 +34,9 @@ export function extractConfigFromZypherMcpServer(
       // Note: headers and env are not preserved in Remote ZypherMcpServer conversion for now
     };
   } else {
-    throw new Error("LocalServer must have either packages or remotes");
+    throw new McpServerError(
+      "server_error",
+      "LocalServer must have either packages or remotes",
+    );
   }
 }

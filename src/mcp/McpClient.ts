@@ -55,6 +55,7 @@ export class McpClient {
     | StreamableHTTPClientTransport
     | null = null;
   #config: IMcpClientConfig;
+  #mode: ConnectionMode = ConnectionMode.HTTP_FIRST;
   #server: ZypherMcpServer;
   #tools: Tool[] = [];
   #authProvider?: OAuthClientProvider;
@@ -74,22 +75,71 @@ export class McpClient {
   }
 
   /**
+   * Connects to the MCP server
+   * @param mode Connection mode (CLI or SSE)
+   * @param config Server configuration
+   */
+  #connect = async (
+    serverConfig: ZypherMcpServer,
+  ): Promise<void> => {
+    if (!this.#client) {
+      throw new Error("Client not initialized");
+    }
+
+    this.#transport = this.#buildTransport(mode, serverConfig);
+    console.log(`[${this.#server.name}] Connecting to MCP server...`);
+
+    if (mode === ConnectionMode.REMOTE && this.#authProvider) {
+      console.log(
+        `[${this.#server.name}] Checking OAuth token status before connection...`,
+      );
+      const tokens = await this.#authProvider.tokens();
+
+      if (!tokens || !tokens.access_token) {
+        console.log(
+          `[${this.#server.name}] No valid tokens found. OAuth authorization required.`,
+        );
+
+        // Let the OAuth provider handle the authorization flow
+        // This will typically involve opening a browser for user authorization
+        throw new Error(
+          "Please use the new OAuth flow: generateAuthUrl() -> open browser -> processCallback()",
+        );
+      }
+
+      console.log(
+        `[${this.#server.name}] Valid tokens found locally, proceeding with connection...`,
+      );
+    }
+
+    await this.#client.connect(this.#transport);
+    console.log(
+      `[${this.#server.name}] Successfully connected to MCP server`,
+    );
+
+    // Verify connection by attempting to list tools as a basic connectivity test
+    console.log("Verifying connection with basic tools list request...");
+    const toolsResult = await this.#client.listTools();
+    console.log(
+      `Connection verified: found ${toolsResult.tools.length} tools`,
+    );
+  };
+
+  /**
    * Connects to an MCP server and discovers available tools
    * @param config Configuration for the server connection
    * @param mode Connection mode (CLI or SSE)
    * @returns Promise resolving to the list of available tools
    * @throws Error if connection fails or server is not responsive
    */
-  async retrieveTools(
-    mode: ConnectionMode = ConnectionMode.CLI,
-  ): Promise<Tool[]> {
+  async retrieveTools(): Promise<Tool[]> {
     try {
       if (!this.#client) {
         throw new Error("Client is not initialized");
       }
 
       // Connect to the server
-      await this.#connect(mode, this.#server);
+      await this.#connect(this.#mode, this.#server);
       console.log("Connected to MCP server", this.#server.name);
 
       // Once connected, discover tools
@@ -169,58 +219,6 @@ export class McpClient {
   }
 
   /**
-   * Connects to the MCP server
-   * @param mode Connection mode (CLI or SSE)
-   * @param config Server configuration
-   */
-  #connect = async (
-    mode: ConnectionMode,
-    serverConfig: ZypherMcpServer,
-  ): Promise<void> => {
-    if (!this.#client) {
-      throw new Error("Client not initialized");
-    }
-
-    this.#transport = this.#buildTransport(mode, serverConfig);
-    console.log(`[${this.#server.name}] Connecting to MCP server...`);
-
-    if (mode === ConnectionMode.REMOTE && this.#authProvider) {
-      console.log(
-        `[${this.#server.name}] Checking OAuth token status before connection...`,
-      );
-      const tokens = await this.#authProvider.tokens();
-
-      if (!tokens || !tokens.access_token) {
-        console.log(
-          `[${this.#server.name}] No valid tokens found. OAuth authorization required.`,
-        );
-
-        // Let the OAuth provider handle the authorization flow
-        // This will typically involve opening a browser for user authorization
-        throw new Error(
-          "Please use the new OAuth flow: generateAuthUrl() -> open browser -> processCallback()",
-        );
-      }
-
-      console.log(
-        `[${this.#server.name}] Valid tokens found locally, proceeding with connection...`,
-      );
-    }
-
-    await this.#client.connect(this.#transport);
-    console.log(
-      `[${this.#server.name}] Successfully connected to MCP server`,
-    );
-
-    // Verify connection by attempting to list tools as a basic connectivity test
-    console.log("Verifying connection with basic tools list request...");
-    const toolsResult = await this.#client.listTools();
-    console.log(
-      `Connection verified: found ${toolsResult.tools.length} tools`,
-    );
-  };
-
-  /**
    * Executes a tool call and returns the result
    * @param toolCall The tool call to execute
    * @returns The result of the tool execution
@@ -286,27 +284,5 @@ export class McpClient {
   ): provider is OAuthProviderWithClear => {
     return "clearAuthData" in provider &&
       typeof (provider as OAuthProviderWithClear).clearAuthData === "function";
-  };
-
-  /**
-   * Builds the appropriate transport based on connection mode and configuration
-   * @param mode Connection mode (CLI or SSE)
-   * @param config Server configuration
-   * @returns The configured transport
-   */
-  #buildTransport = (mode: ConnectionMode, config: ZypherMcpServer) => {
-    // transport priority: streamablehttp > sse > stdio
-    switch (mode) {
-      case ConnectionMode.CLI: {
-        return new StdioClientTransport({
-          command: config.name,
-        });
-      }
-      case ConnectionMode.REMOTE: {
-        return new StreamableHTTPClientTransport(
-          new URL(config.remotes![0].url),
-        );
-      }
-    }
   };
 }
