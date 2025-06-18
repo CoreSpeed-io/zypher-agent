@@ -152,6 +152,19 @@ export class ZypherAgent {
   }
 
   async init(): Promise<void> {
+    await this.#loadSystemPrompt();
+
+    // Load message history if enabled
+    if (this.#persistHistory) {
+      this.#messages = await loadMessageHistory();
+    }
+  }
+
+  /**
+   * Load or reload the system prompt with current custom rules
+   * This method reads custom rules from the current working directory
+   */
+  async #loadSystemPrompt(): Promise<void> {
     const userInfo = getCurrentUserInfo();
     const systemPromptText = await getSystemPrompt(userInfo);
     // Convert system prompt to content blocks
@@ -165,11 +178,6 @@ export class ZypherAgent {
         }),
       },
     ];
-
-    // Load message history if enabled
-    if (this.#persistHistory) {
-      this.#messages = await loadMessageHistory();
-    }
   }
 
   /**
@@ -584,10 +592,8 @@ export class ZypherAgent {
     }
 
     try {
-      // Ensure system prompt is initialized
-      if (!this.#system.length) {
-        await this.init();
-      }
+      // Reload system prompt to get current custom rules from working directory
+      await this.#loadSystemPrompt();
 
       let iterations = 0;
 
