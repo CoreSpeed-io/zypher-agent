@@ -1,8 +1,15 @@
 import { fileExists, type UserInfo } from "./utils/mod.ts";
 
+const SUPPORTED_AGENT_RULE_TYPES = [
+  ".zypherrules",
+  ".cursorrules",
+  ".windsurfrules",
+  "CLAUDE.md",
+];
+
 /**
- * Reads custom rules from either .zypherrules or .cursorrules file.
- * Tries .zypherrules first, then falls back to .cursorrules if not found.
+ * Reads custom rules from supported rule files.
+ * Tries .zypherrules first, then falls back to other supported rules if not found.
  *
  * @returns {Promise<string | null>} Contents of the rules file if found, null otherwise
  *
@@ -14,13 +21,11 @@ import { fileExists, type UserInfo } from "./utils/mod.ts";
  */
 export async function getCustomRules(): Promise<string | null> {
   try {
-    if (await fileExists(".zypherrules")) {
-      const zypherRules = await Deno.readTextFile(".zypherrules");
-      return zypherRules;
-    }
-    if (await fileExists(".cursorrules")) {
-      const cursorRules = await Deno.readTextFile(".cursorrules");
-      return cursorRules;
+    for (const rule of SUPPORTED_AGENT_RULE_TYPES) {
+      if (await fileExists(rule)) {
+        const rules = await Deno.readTextFile(rule);
+        return rules;
+      }
     }
 
     return null;
