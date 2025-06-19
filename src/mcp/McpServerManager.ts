@@ -6,7 +6,7 @@ import { join } from "@std/path";
 import { formatError } from "../error.ts";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import { type ZypherMcpServer, ZypherMcpServerSchema } from "./types/local.ts";
-import { ConnectionMode, getConnectionMode } from "./utils/transport.ts";
+import { ConnectionMode } from "./utils/transport.ts";
 
 export class McpServerError extends Error {
   constructor(
@@ -74,10 +74,18 @@ export class McpServerManager {
       );
     }
 
-    return new McpClient({
-      id: server._id,
-      name: server.name,
-    }, server);
+    const mode = (server.remotes && server.remotes.length > 0)
+      ? ConnectionMode.SSE_FIRST
+      : ConnectionMode.CLI;
+
+    return new McpClient(
+      {
+        id: server._id,
+        name: server.name,
+      },
+      server,
+      mode,
+    );
   }
 
   /**
@@ -228,15 +236,17 @@ export class McpServerManager {
 
       // Only retrieve tools if server is enabled
       if (server.isEnabled) {
-        const connectionMode = getConnectionMode(server);
+        const connectionMode = (server.remotes && server.remotes.length > 0)
+          ? ConnectionMode.SSE_FIRST
+          : ConnectionMode.CLI;
         console.log(
           `Connection mode: ${
-            connectionMode === ConnectionMode.REMOTE ? "REMOTE" : "CLI"
+            connectionMode !== ConnectionMode.CLI ? "REMOTE" : "CLI"
           }`,
         );
 
         console.log("Retrieving tools from server...");
-        await client.retrieveTools(connectionMode);
+        await client.retrieveTools();
         console.log(
           `Successfully initialized ${client.getToolCount()} tools for server ${server.name}`,
         );
@@ -582,6 +592,10 @@ export class McpServerManager {
   /**
    * Debug method to log current state of servers and tools
    */
+  getClient(id: string): McpClient | undefined {
+    return this.#clientMap.get(id);
+  }
+
   debugLogState(): void {
     console.log("\n=== MCP SERVER MANAGER STATE ===");
     console.log(`Initialized: ${this.#initialized}`);
