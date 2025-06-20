@@ -14,14 +14,14 @@ import {
 } from "./checkpoints.ts";
 import {
   type ContentBlock,
-  FileAttachment,
+  type FileAttachment,
   isFileAttachment,
   isFileTypeSupported,
   type Message,
   SUPPORTED_FILE_TYPES,
   type SupportedFileTypes,
 } from "./message.ts";
-import { McpServerManager } from "./mcp/McpServerManager.ts";
+import type { McpServerManager } from "./mcp/McpServerManager.ts";
 import { Anthropic } from "@anthropic-ai/sdk";
 import type { StorageService } from "./storage/StorageService.ts";
 import { Completer } from "./utils/mod.ts";

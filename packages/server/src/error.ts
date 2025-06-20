@@ -1,7 +1,7 @@
-import { Context } from "hono";
-import { StatusCode } from "hono/utils/http-status";
+import type { Context } from "hono";
+import type { StatusCode } from "hono/utils/http-status";
 import { z } from "zod";
-import { formatError } from "@zypher/error.ts";
+import { formatError } from "@zypher/core";
 
 export class ApiError extends Error {
   constructor(

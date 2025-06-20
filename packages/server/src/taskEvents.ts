@@ -1,4 +1,4 @@
-import type { Message } from "@zypher/message.ts";
+import type { Message } from "@zypher/core";
 import { filter, Observable, ReplaySubject } from "rxjs";
 
 /**

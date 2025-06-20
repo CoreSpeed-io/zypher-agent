@@ -3,12 +3,10 @@
   "specifiers": {
     "jsr:@deno/loader@~0.1.1": "0.1.1",
     "jsr:@deno/rolldown-plugin@^0.0.7": "0.0.7",
-    "jsr:@openai/openai@^4.102.0": "4.102.0",
+    "jsr:@openai/openai@^5.5.1": "5.5.1",
     "jsr:@std/assert@^1.0.13": "1.0.13",
     "jsr:@std/async@^1.0.13": "1.0.13",
-    "jsr:@std/bytes@^1.0.6": "1.0.6",
     "jsr:@std/cli@^1.0.20": "1.0.20",
-    "jsr:@std/crypto@^1.0.5": "1.0.5",
     "jsr:@std/data-structures@^1.0.8": "1.0.8",
     "jsr:@std/dotenv@~0.225.5": "0.225.5",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
@@ -19,7 +17,6 @@
     "jsr:@std/internal@^1.0.8": "1.0.8",
     "jsr:@std/path@^1.1.0": "1.1.0",
     "jsr:@std/testing@^1.0.14": "1.0.14",
-    "jsr:@std/uuid@^1.0.9": "1.0.9",
     "npm:@anthropic-ai/sdk@0.54": "0.54.0",
     "npm:@aws-sdk/client-s3@^3.828.0": "3.828.0",
     "npm:@aws-sdk/s3-request-presigner@^3.828.0": "3.828.0",
@@ -28,8 +25,7 @@
     "npm:@types/node@*": "22.15.15",
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.11": "4.7.11",
-    "npm:rolldown@1.0.0-beta.15": "1.0.0-beta.15",
-    "npm:rolldown@^1.0.0-beta.15": "1.0.0-beta.15",
+    "npm:rolldown@^1.0.0-beta.18": "1.0.0-beta.9-commit.d91dfb5",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
     "npm:zod-to-json-schema@^3.24.5": "3.24.5_zod@3.25.64",
@@ -46,8 +42,8 @@
         "jsr:@deno/loader"
       ]
     },
-    "@openai/openai@4.102.0": {
-      "integrity": "ea5201bc5c8a696d3a5139a9cd2252e3ab9b2b880769a9cd7f05602ea1a02acf",
+    "@openai/openai@5.5.1": {
+      "integrity": "1efc9281b43154f530491398fb274f8b343b305ddcb827290a87e557d82a9047",
       "dependencies": [
         "npm:zod@3"
       ]
@@ -61,14 +57,8 @@
     "@std/async@1.0.13": {
       "integrity": "1d76ca5d324aef249908f7f7fe0d39aaf53198e5420604a59ab5c035adc97c96"
     },
-    "@std/bytes@1.0.6": {
-      "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
-    },
     "@std/cli@1.0.20": {
       "integrity": "a8c384a2c98cec6ec6a2055c273a916e2772485eb784af0db004c5ab8ba52333"
-    },
-    "@std/crypto@1.0.5": {
-      "integrity": "0dcfbb319fe0bba1bd3af904ceb4f948cde1b92979ec1614528380ed308a3b40"
     },
     "@std/data-structures@1.0.8": {
       "integrity": "2fb7219247e044c8fcd51341788547575653c82ae2c759ff209e0263ba7d9b66"
@@ -107,13 +97,6 @@
         "jsr:@std/fs",
         "jsr:@std/internal@^1.0.8",
         "jsr:@std/path"
-      ]
-    },
-    "@std/uuid@1.0.9": {
-      "integrity": "44b627bf2d372fe1bd099e2ad41b2be41a777fc94e62a3151006895a037f1642",
-      "dependencies": [
-        "jsr:@std/bytes",
-        "jsr:@std/crypto"
       ]
     }
   },
@@ -717,76 +700,76 @@
         "@tybys/wasm-util"
       ]
     },
-    "@oxc-project/runtime@0.72.3": {
-      "integrity": "sha512-FtOS+0v7rZcnjXzYTTqv1vu/KDptD1UztFgoZkYBGe/6TcNFm+SP/jQoLvzau1SPir95WgDOBOUm2Gmsm+bQag=="
+    "@oxc-project/runtime@0.71.0": {
+      "integrity": "sha512-QwoF5WUXIGFQ+hSxWEib4U/aeLoiDN9JlP18MnBgx9LLPRDfn1iICtcow7Jgey6HLH4XFceWXQD5WBJ39dyJcw=="
     },
-    "@oxc-project/types@0.72.3": {
-      "integrity": "sha512-CfAC4wrmMkUoISpQkFAIfMVvlPfQV3xg7ZlcqPXPOIMQhdKIId44G8W0mCPgtpWdFFAyJ+SFtiM+9vbyCkoVng=="
+    "@oxc-project/types@0.71.0": {
+      "integrity": "sha512-5CwQ4MI+P4MQbjLWXgNurA+igGwu/opNetIE13LBs9+V93R64MLvDKOOLZIXSzEfovU3Zef3q3GjPnMTgJTn2w=="
     },
-    "@rolldown/binding-darwin-arm64@1.0.0-beta.15": {
-      "integrity": "sha512-YInZppDBLp5DadbJZGc7xBfDrMCSj3P6i2rPlvOCMlvjBQxJi2kX8Jquh+LufsWUiHD3JsvvH5EuUUc/tF5fkA==",
+    "@rolldown/binding-darwin-arm64@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-Mp0/gqiPdepHjjVm7e0yL1acWvI0rJVVFQEADSezvAjon9sjQ7CEg9JnXICD4B1YrPmN9qV/e7cQZCp87tTV4w==",
       "os": ["darwin"],
       "cpu": ["arm64"]
     },
-    "@rolldown/binding-darwin-x64@1.0.0-beta.15": {
-      "integrity": "sha512-Zwv8KHU/XdVwLseHG6slJ0FAFklPpiO0sjNvhrcMp1X3F2ajPzUdIO8Cnu3KLmX1GWVSvu6q1kyARLUqPvlh7Q==",
+    "@rolldown/binding-darwin-x64@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-40re4rMNrsi57oavRzIOpRGmg3QRlW6Ea8Q3znaqgOuJuKVrrm2bIQInTfkZJG7a4/5YMX7T951d0+toGLTdCA==",
       "os": ["darwin"],
       "cpu": ["x64"]
     },
-    "@rolldown/binding-freebsd-x64@1.0.0-beta.15": {
-      "integrity": "sha512-FwhNC23Fz9ldHW1/rX4QaoQe4kyOybCgxO9eglue3cbb3ol28KWpQl3xJfvXc9+O6PDefAs4oFBCbtTh8seiUw==",
+    "@rolldown/binding-freebsd-x64@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-8BDM939bbMariZupiHp3OmP5N+LXPT4mULA0hZjDaq970PCxv4krZOSMG+HkWUUwmuQROtV+/00xw39EO0P+8g==",
       "os": ["freebsd"],
       "cpu": ["x64"]
     },
-    "@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.15": {
-      "integrity": "sha512-E60pNliWl4j7EFEVX2oeJZ5VzR+NG6fvDJoqfqRfCl8wtKIf9E1WPWVQIrT+zkz+Fhc5op8g7h25z6rtxsDy9g==",
+    "@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-sntsPaPgrECpBB/+2xrQzVUt0r493TMPI+4kWRMhvMsmrxOqH1Ep5lM0Wua/ZdbfZNwm1aVa5pcESQfNfM4Fhw==",
       "os": ["linux"],
       "cpu": ["arm"]
     },
-    "@rolldown/binding-linux-arm64-gnu@1.0.0-beta.15": {
-      "integrity": "sha512-d+qo1LZ/a3EcQW08byIIZy0PBthmG/7dr69pifmNIet/azWR8jbceQaRFFczVc/NwVV3fsZDCmjG8mgJzsNEAg==",
+    "@rolldown/binding-linux-arm64-gnu@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-5clBW/I+er9F2uM1OFjJFWX86y7Lcy0M+NqsN4s3o07W+8467Zk8oQa4B45vdaXoNUF/yqIAgKkA/OEdQDxZqA==",
       "os": ["linux"],
       "cpu": ["arm64"]
     },
-    "@rolldown/binding-linux-arm64-musl@1.0.0-beta.15": {
-      "integrity": "sha512-P1hbtYF+5ftJI2Ergs4iARbAk6Xd6WnTQb3CF9kjN3KfJTsRYdo5/fvU8Lz/gzhZVvkCXXH3NxDd9308UBO8cw==",
+    "@rolldown/binding-linux-arm64-musl@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-wv+rnAfQDk9p/CheX8/Kmqk2o1WaFa4xhWI9gOyDMk/ljvOX0u0ubeM8nI1Qfox7Tnh71eV5AjzSePXUhFOyOg==",
       "os": ["linux"],
       "cpu": ["arm64"]
     },
-    "@rolldown/binding-linux-x64-gnu@1.0.0-beta.15": {
-      "integrity": "sha512-Q9NM9uMFN9cjcrW7gd9U087B5WzkEj9dQQHOgoENZSy+vYJYS2fINCIG40ljEVC6jXmVrJgUhJKv7elRZM1nng==",
+    "@rolldown/binding-linux-x64-gnu@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-gxD0/xhU4Py47IH3bKZbWtvB99tMkUPGPJFRfSc5UB9Osoje0l0j1PPbxpUtXIELurYCqwLBKXIMTQGifox1BQ==",
       "os": ["linux"],
       "cpu": ["x64"]
     },
-    "@rolldown/binding-linux-x64-musl@1.0.0-beta.15": {
-      "integrity": "sha512-1tuCWuR8gx9PyW2pxAx2ZqnOnwhoY6NWBVP6ZmrjCKQ16NclYc61BzegFXSdugCy8w1QpBPT8/c5oh2W4E5aeA==",
+    "@rolldown/binding-linux-x64-musl@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-HotuVe3XUjDwqqEMbm3o3IRkP9gdm8raY/btd/6KE3JGLF/cv4+3ff1l6nOhAZI8wulWDPEXPtE7v+HQEaTXnA==",
       "os": ["linux"],
       "cpu": ["x64"]
     },
-    "@rolldown/binding-wasm32-wasi@1.0.0-beta.15": {
-      "integrity": "sha512-zrSeYrpTf27hRxMLh0qpkCoWgzRKG8EyR6o09Zt9xkqCOeE5tEK/S3jV1Nii9WSqVCWFRA+OYxKzMNoykV590g==",
+    "@rolldown/binding-wasm32-wasi@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-8Cx+ucbd8n2dIr21FqBh6rUvTVL0uTgEtKR7l+MUZ5BgY4dFh1e4mPVX8oqmoYwOxBiXrsD2JIOCz4AyKLKxWA==",
       "dependencies": [
         "@napi-rs/wasm-runtime"
       ],
       "cpu": ["wasm32"]
     },
-    "@rolldown/binding-win32-arm64-msvc@1.0.0-beta.15": {
-      "integrity": "sha512-diR41DsMUnkvb9hvW8vuIrA0WaacAN1fu6lPseXhYifAOZN6kvxEwKn7Xib8i0zjdrYErLv7GNSQ48W+xiNOnA==",
+    "@rolldown/binding-win32-arm64-msvc@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-Vhq5vikrVDxAa75fxsyqj0c0Y/uti/TwshXI71Xb8IeUQJOBnmLUsn5dgYf5ljpYYkNa0z9BPAvUDIDMmyDi+w==",
       "os": ["win32"],
       "cpu": ["arm64"]
     },
-    "@rolldown/binding-win32-ia32-msvc@1.0.0-beta.15": {
-      "integrity": "sha512-oCbbcDC3Lk8YgdxCkG23UqVrvXVvllIBgmmwq89bhq5okPP899OI/P+oTTDsUTbhljzNq1pH8a+mR6YBxAFfvw==",
+    "@rolldown/binding-win32-ia32-msvc@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-lN7RIg9Iugn08zP2aZN9y/MIdG8iOOCE93M1UrFlrxMTqPf8X+fDzmR/OKhTSd1A2pYNipZHjyTcb5H8kyQSow==",
       "os": ["win32"],
       "cpu": ["ia32"]
     },
-    "@rolldown/binding-win32-x64-msvc@1.0.0-beta.15": {
-      "integrity": "sha512-w5hVsOv3dzKo10wAXizmnDvUo1yasn/ps+mcn9H9TiJ/GeRE5/15Y6hG6vUQYRQNLVbYRHUt2qG0MyOoasPcHg==",
+    "@rolldown/binding-win32-x64-msvc@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-7/7cLIn48Y+EpQ4CePvf8reFl63F15yPUlg4ZAhl+RXJIfydkdak1WD8Ir3AwAO+bJBXzrfNL+XQbxm0mcQZmw==",
       "os": ["win32"],
       "cpu": ["x64"]
     },
-    "@rolldown/pluginutils@1.0.0-beta.15": {
-      "integrity": "sha512-lvFtIbidq5EqyAAeiVk41ZNjGRgUoGRBIuqpe1VRJ7R8Av7TLAgGWAwGlHNhO7MFkl7MNRX350CsTtIWIYkNIQ=="
+    "@rolldown/pluginutils@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-8sExkWRK+zVybw3+2/kBkYBFeLnEUWz1fT7BLHplpzmtqkOfTbAQ9gkt4pzwGIIZmg4Qn5US5ACjUBenrhezwQ=="
     },
     "@smithy/abort-controller@4.0.4": {
       "integrity": "sha512-gJnEjZMvigPDQWHrW3oPrFhQtkrgqBkyjj3pCIdF3A5M6vsZODG93KNlfJprv6bp4245bdT32fsHK4kkH3KYDA==",
@@ -1596,8 +1579,8 @@
         "unpipe"
       ]
     },
-    "rolldown@1.0.0-beta.15": {
-      "integrity": "sha512-ep788NsIGl0W5gT+99hBrSGe4Hdhcwc55PqM3O0mR5H0C4ZpGpDGgu9YzTJ8a6mFDLnFnc/LYC+Dszb7oWK/dg==",
+    "rolldown@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-FHkj6gGEiEgmAXQchglofvUUdwj2Oiw603Rs+zgFAnn9Cb7T7z3fiaEc0DbN3ja4wYkW6sF2rzMEtC1V4BGx/g==",
       "dependencies": [
         "@oxc-project/runtime",
         "@oxc-project/types",
@@ -1784,31 +1767,47 @@
     }
   },
   "workspace": {
-    "dependencies": [
-      "jsr:@deno/rolldown-plugin@^0.0.7",
-      "jsr:@openai/openai@^4.102.0",
-      "jsr:@std/assert@^1.0.13",
-      "jsr:@std/async@^1.0.13",
-      "jsr:@std/cli@^1.0.20",
-      "jsr:@std/dotenv@~0.225.5",
-      "jsr:@std/encoding@^1.0.10",
-      "jsr:@std/expect@^1.0.16",
-      "jsr:@std/fs@^1.0.18",
-      "jsr:@std/path@^1.1.0",
-      "jsr:@std/testing@^1.0.14",
-      "jsr:@std/uuid@^1.0.9",
-      "npm:@anthropic-ai/sdk@0.54",
-      "npm:@aws-sdk/client-s3@^3.828.0",
-      "npm:@aws-sdk/s3-request-presigner@^3.828.0",
-      "npm:@hono/zod-validator@0.7",
-      "npm:@modelcontextprotocol/sdk@^1.12.1",
-      "npm:chalk@^5.4.1",
-      "npm:hono@^4.7.11",
-      "npm:rolldown@^1.0.0-beta.15",
-      "npm:rxjs-for-await@1",
-      "npm:rxjs@^7.8.2",
-      "npm:zod-to-json-schema@^3.24.5",
-      "npm:zod@^3.25.64"
-    ]
+    "members": {
+      "packages/cli": {
+        "dependencies": [
+          "jsr:@deno/rolldown-plugin@^0.0.7",
+          "jsr:@std/cli@^1.0.20",
+          "jsr:@std/dotenv@~0.225.5",
+          "npm:chalk@^5.4.1",
+          "npm:rolldown@^1.0.0-beta.18"
+        ]
+      },
+      "packages/core": {
+        "dependencies": [
+          "jsr:@openai/openai@^5.5.1",
+          "jsr:@std/assert@^1.0.13",
+          "jsr:@std/async@^1.0.13",
+          "jsr:@std/encoding@^1.0.10",
+          "jsr:@std/expect@^1.0.16",
+          "jsr:@std/fs@^1.0.18",
+          "jsr:@std/path@^1.1.0",
+          "jsr:@std/testing@^1.0.14",
+          "npm:@anthropic-ai/sdk@0.54",
+          "npm:@aws-sdk/client-s3@^3.828.0",
+          "npm:@aws-sdk/s3-request-presigner@^3.828.0",
+          "npm:@modelcontextprotocol/sdk@^1.12.1",
+          "npm:zod-to-json-schema@^3.24.5",
+          "npm:zod@^3.25.64"
+        ]
+      },
+      "packages/server": {
+        "dependencies": [
+          "jsr:@deno/rolldown-plugin@^0.0.7",
+          "jsr:@std/cli@^1.0.20",
+          "jsr:@std/dotenv@~0.225.5",
+          "npm:@hono/zod-validator@0.7",
+          "npm:hono@^4.7.11",
+          "npm:rolldown@^1.0.0-beta.18",
+          "npm:rxjs-for-await@1",
+          "npm:rxjs@^7.8.2",
+          "npm:zod@^3.25.64"
+        ]
+      }
+    }
   }
 }

@@ -2,34 +2,33 @@ import "@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { prettyJSON } from "hono/pretty-json";
-import { ZypherAgent } from "@zypher/ZypherAgent.ts";
 import { parseArgs } from "@std/cli";
+import process from "node:process";
 
 import {
   CopyFileTool,
   DeleteFileTool,
   EditFileTool,
   FileSearchTool,
+  formatError,
   GrepSearchTool,
   ImageEditTool,
   ImageGenTool,
   ListDirTool,
+  McpServerManager,
   ReadFileTool,
   RunTerminalCmdTool,
-} from "@zypher/tools/mod.ts";
-import { formatError } from "@zypher/error.ts";
-import { McpServerManager } from "@zypher/mcp/McpServerManager.ts";
-import process from "node:process";
+  type S3Options,
+  S3StorageService,
+  type StorageService,
+  ZypherAgent,
+} from "@zypher/core";
+
 import { createMcpRouter } from "./routes/mcp.ts";
 import { createAgentRouter } from "./routes/agent.ts";
 import { createFilesRouter } from "./routes/files.ts";
 import { errorHandler } from "./error.ts";
 import { parsePort } from "./utils.ts";
-import {
-  S3Options,
-  S3StorageService,
-} from "@zypher/storage/S3StorageService.ts";
-import { StorageService } from "@zypher/storage/StorageService.ts";
 
 interface ServerOptions {
   port: string;

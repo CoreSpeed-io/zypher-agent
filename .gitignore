@@ -142,3 +142,7 @@ dist
 # ide
 .idea/
 .vscode/
+
+# bundled js
+**/dist/*
+
