@@ -18,21 +18,17 @@ packages:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/zypher-agent.git
-cd zypher-agent
-
-# Install Deno (if not already installed)
-curl -fsSL https://deno.land/install.sh | sh
+git clone https://github.com/CoreSpeed-io/zypher-agent.git && cd zypher-agent
 
 # Set up environment variables
 cp .env.example .env
 # Edit .env with your API keys and configuration
 
 # Start the CLI
-deno task start
+deno task start:cli
 
 # Or start the API server
-deno task start:api
+deno task start:server
 ```
 
 ## Features
@@ -55,23 +51,6 @@ deno task start:api
   Agent into your applications
 - [Core Library Documentation](./packages/core/README.md) - Build custom
   implementations with the core library
-
-## Development
-
-```bash
-# Run all tests
-deno task test
-
-# Format and lint code
-deno task checkall
-
-# Build executables
-deno task build:cli    # Build CLI
-deno task build:api    # Build API server
-
-# Bundle packages for distribution
-deno task bundle:all
-```
 
 ## License
 
