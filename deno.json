@@ -6,10 +6,9 @@
   ],
   "tasks": {
     "test": "deno test -A --trace-leaks",
-    "checkall": "deno fmt && deno lint && deno check .",
+    "checkall": "deno fmt && deno lint && deno check",
     "start:cli": "deno task -c packages/cli/deno.json start",
     "start:server": "deno task -c packages/server/deno.json start",
-    "bundle:core": "deno task -c packages/core/deno.json bundle",
     "bundle:cli": "deno task -c packages/cli/deno.json bundle",
     "bundle:server": "deno task -c packages/server/deno.json bundle",
     "build:cli": "deno task -c packages/cli/deno.json build",
