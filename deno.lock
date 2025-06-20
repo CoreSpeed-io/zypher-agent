@@ -1800,6 +1800,7 @@
       "packages/server": {
         "dependencies": [
           "jsr:@deno/rolldown-plugin@^0.0.7",
+          "jsr:@std/assert@^1.0.13",
           "jsr:@std/cli@^1.0.20",
           "jsr:@std/dotenv@~0.225.5",
           "npm:@hono/zod-validator@0.7",
