@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { Tool as AnthropicTool } from "@anthropic-ai/sdk/resources/messages";
 

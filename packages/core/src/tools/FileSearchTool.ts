@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { defineTool } from "./mod.ts";
+import { defineTool, type Tool } from "./mod.ts";
 
-export const FileSearchTool = defineTool({
+export const FileSearchTool: Tool = defineTool({
   name: "file_search",
   description:
     "Fast file search based on fuzzy matching against file path. Use if you know part of the file path but don't know where it's located exactly. Response will be capped to 10 results. Make your query more specific if need to filter results further.",

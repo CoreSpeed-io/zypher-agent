@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool } from "./mod.ts";
+import { defineTool, type Tool } from "./mod.ts";
 import OpenAI, { toFile } from "@openai/openai";
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
@@ -140,7 +140,7 @@ async function saveImages(
   return generatedFiles;
 }
 
-export const ImageGenTool = defineTool({
+export const ImageGenTool: Tool = defineTool({
   name: "generate_image",
   description:
     "Generate an image using OpenAI's gpt-image-1 model based on a text description.\n\n" +
@@ -216,7 +216,7 @@ export const ImageGenTool = defineTool({
   },
 });
 
-export const ImageEditTool = defineTool({
+export const ImageEditTool: Tool = defineTool({
   name: "edit_image",
   description:
     "Edit an existing image using OpenAI's gpt-image-1 model based on a text description.\n\n" +
