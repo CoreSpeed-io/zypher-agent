@@ -4,7 +4,7 @@
   "exports": {},
   "tasks": {
     "start": "deno run -A src/main.ts",
-    "build": "deno compile --allow-all --frozen=true --output dist/zypher src/main.ts",
+    "build": "deno compile --allow-all --frozen=true --output dist/cli src/main.ts",
     "bundle": "rolldown -c rolldown.config.mts"
   },
   "imports": {

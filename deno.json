@@ -1,8 +1,8 @@
 {
   "workspace": [
-    "./packages/core",
-    "./packages/cli",
-    "./packages/server"
+    "packages/core",
+    "packages/cli",
+    "packages/server"
   ],
   "tasks": {
     "test": "deno test -A --trace-leaks",

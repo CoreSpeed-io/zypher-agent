@@ -5,7 +5,7 @@
   "tasks": {
     "start": "deno run -A src/index.ts",
     "dev": "deno run --watch -A src/index.ts",
-    "build": "deno compile --allow-all --frozen=true --output dist/zypher-api src/index.ts",
+    "build": "deno compile --allow-all --frozen=true --output dist/server src/index.ts",
     "bundle": "rolldown -c rolldown.config.mts"
   },
   "imports": {
