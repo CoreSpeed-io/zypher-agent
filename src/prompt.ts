@@ -1,10 +1,11 @@
 import { fileExists, type UserInfo } from "./utils/mod.ts";
 
 const SUPPORTED_AGENT_RULE_TYPES = [
-  ".zypherrules",
-  ".cursorrules",
-  ".windsurfrules",
-  "CLAUDE.md",
+  ".zypherrules", // Zypher's rules
+  ".cursorrules", // Cursor
+  ".windsurfrules", // Windsurf
+  "CLAUDE.md", // Claude Code
+  "AGENTS.md", // OpenAI Codex
 ];
 
 /**
