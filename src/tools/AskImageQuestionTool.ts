@@ -55,6 +55,9 @@ async function getImageResponse(
     },
     body: JSON.stringify({
       model: "o3-pro-2025-06-10",
+      "reasoning": {
+        "effort": "high"
+      },
       input: [
         {
           role: "user",
@@ -131,7 +134,7 @@ export const AskImageQuestionTool = defineTool({
         throw new Error("OpenAI did not return an answer. Please try again.");
       }
 
-      return  JSON.stringify(answer["output"], null, 2);
+      return JSON.stringify(answer["output"], null, 2);
     } catch (error: unknown) {
       return handleQuestionToolError(error);
     }

@@ -13,7 +13,8 @@ import {
   WebSearchTool,
   WebsiteAccessTool,
   YouTubeVideoAccessTool,
-  AskImageQuestionTool
+  AskImageQuestionTool,
+  AskFileUrlQuestionTool
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -411,6 +412,7 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(WebsiteAccessTool);
     mcpServerManager.registerTool(AudioToTextTool);
     mcpServerManager.registerTool(AskImageQuestionTool);
+    mcpServerManager.registerTool(AskFileUrlQuestionTool);
 
     console.log(
       "🔧 Registered tools:",

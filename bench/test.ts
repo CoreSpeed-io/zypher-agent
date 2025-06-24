@@ -1,12 +1,13 @@
 import "jsr:@std/dotenv/load";
-import { AskImageQuestionTool } from "../src/tools/AskImageQuestionTool.ts";
+import { AskFileUrlQuestionTool } from "../src/tools/AskFileUrlQuestionTool.ts";
 
 async function main() {
-console.log(await AskImageQuestionTool.execute(
+
+console.log(await AskFileUrlQuestionTool.execute(
   {
-    imagePath: "/home/ubuntu/Workspace/zypher-agent/bench/GAIA/2023/validation/df6561b2-7ee5-4540-baab-5095f742716a.png",
-    mimeType: "image/jpeg",
-    question: "how many red number is in this image"
+    fileUrl: "https://www.bbc.co.uk/writers/documents/doctor-who-s9-ep11-heaven-sent-steven-moffat.pdf",
+    question: "In Series 9, Episode 11 of Doctor Who, the Doctor is trapped inside an ever-shifting maze. What is this location called in the official script for the episode? Give the setting exactly as it appears in the first scene heading.",
+
   }
 ))
 }
