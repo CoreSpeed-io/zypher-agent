@@ -147,3 +147,5 @@ bench/GAIA
 bench/output
 bench/workspace
 zyper-sandbox
+
+answer_comparison.csv

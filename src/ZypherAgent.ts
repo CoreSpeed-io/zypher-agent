@@ -9,9 +9,9 @@ import { detectErrors } from "./errorDetection/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
 import {
   applyCheckpoint,
+  type Checkpoint,
   createCheckpoint,
   getCheckpointDetails,
-  type Checkpoint,
 } from "./checkpoints.ts";
 import {
   type ContentBlock,
@@ -272,24 +272,25 @@ export class ZypherAgent {
    * - the storage service is not initialized
    */
   async #cacheFileAttachment(fileId: string): Promise<string | null> {
-    if (!this.#storageService) {
-      console.error("Storage service not initialized");
-      return null;
-    }
+    // if (!this.#storageService) {
+    //   console.error("Storage service not initialized");
+    //   return null;
+    // }
 
-    const cachePath = await this.#getFileAttachmentCachePath(fileId);
-    if (!await fileExists(cachePath)) {
-      // Download the file attachment from storage service to cache path
-      try {
-        await this.#storageService.downloadFile(fileId, cachePath);
-        console.log("Cached file attachment", fileId, cachePath);
-      } catch (error) {
-        console.log("Failed to cache file attachment", fileId, error);
-        return null;
-      }
-    }
+    // const cachePath = await this.#getFileAttachmentCachePath(fileId);
+    // if (!await fileExists(cachePath)) {
+    //   // Download the file attachment from storage service to cache path
+    //   try {
+    //     await this.#storageService.downloadFile(fileId, cachePath);
+    //     console.log("Cached file attachment", fileId, cachePath);
+    //   } catch (error) {
+    //     console.log("Failed to cache file attachment", fileId, error);
+    //     return null;
+    //   }
+    // }
 
-    return cachePath;
+    // return cachePath;
+    return "";
   }
 
   /**
@@ -587,11 +588,11 @@ export class ZypherAgent {
       // Create a checkpoint before executing the task if checkpointing is enabled
       let checkpointId: string | undefined;
       let checkpoint: Checkpoint | undefined;
-      
+
       if (this.#enableCheckpointing) {
-        const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${
-          taskDescription.length > 50 ? "..." : ""
-        }`;
+        const checkpointName = `Before task: ${
+          taskDescription.substring(0, 50)
+        }${taskDescription.length > 50 ? "..." : ""}`;
         checkpointId = await createCheckpoint(checkpointName);
         checkpoint = await getCheckpointDetails(checkpointId);
       }

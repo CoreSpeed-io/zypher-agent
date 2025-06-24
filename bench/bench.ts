@@ -13,6 +13,7 @@ import {
   WebSearchTool,
   WebsiteAccessTool,
   YouTubeVideoAccessTool,
+  AskImageQuestionTool
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -409,6 +410,7 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(WebSearchTool);
     mcpServerManager.registerTool(WebsiteAccessTool);
     mcpServerManager.registerTool(AudioToTextTool);
+    mcpServerManager.registerTool(AskImageQuestionTool);
 
     console.log(
       "🔧 Registered tools:",
@@ -437,6 +439,7 @@ async function main(): Promise<void> {
             anthropicApiKey: Deno.env.get("ANTHROPIC_API_KEY"),
             persistHistory: false,
             enableCheckpointing: false,
+            taskTimeoutMs: 3000000
           },
           mcpServerManager,
           storageService,
