@@ -1,28 +1,23 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import {
-  McpServerError,
-  type McpServerManager,
-} from "../../../../src/mcp/McpServerManager.ts";
-import {
-  McpServerConfigSchema,
-  McpServerIdSchema,
-} from "../../../../src/mcp/types/store.ts";
+import { type McpServerManager } from "../../../../src/mcp/McpServerManager.ts";
 import { z } from "zod";
 import { ApiError } from "../error.ts";
 import { RemoteOAuthProvider } from "../auth/RemoteOAuthProvider.ts";
 import { getWorkspaceDataDir } from "../../../../src/utils/mod.ts";
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
-
-// Schema for request validation
-const McpServerApiSchema = z.record(z.string(), McpServerConfigSchema);
+import {
+  CursorConfigSchema,
+  parseLocalServers,
+} from "../../../../src/mcp/types/cursor.ts";
+import { formatError } from "../../../../src/error.ts";
 
 // Server info interface for OAuth callback processing
 interface ServerInfo {
   serverId: string;
   serverUrl: string;
-  serverConfig?: z.infer<typeof McpServerConfigSchema>;
+  serverConfig?: z.infer<typeof CursorConfigSchema>;
   fromRegistry?: boolean;
   registryToken?: string;
   /** The exact redirect URI that was used when generating the authorization request. */
@@ -30,13 +25,13 @@ interface ServerInfo {
 }
 
 // Helper function to generate OAuth response
-async function generateOAuthResponse(
+async function _generateOAuthResponse(
   clientName: string,
   serverId: string,
   serverUrl: string,
   requestUrl: URL,
   callbackUrl?: string,
-  serverConfig?: z.infer<typeof McpServerConfigSchema>,
+  serverConfig?: z.infer<typeof CursorConfigSchema>,
   registryToken?: string,
   isFromRegistry = false,
 ) {
@@ -130,7 +125,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     "/servers/:id/status",
     zValidator("json", z.object({ enabled: z.boolean() })),
     async (c) => {
-      const id = McpServerIdSchema.parse(c.req.param("id"));
+      const id = c.req.param("id");
       const { enabled } = c.req.valid("json");
       await mcpServerManager.setServerStatus(id, enabled);
       return c.body(null, 204);
@@ -140,71 +135,36 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   // Register new MCP server
   mcpRouter.post(
     "/register",
-    zValidator("json", McpServerApiSchema),
+    zValidator("json", CursorConfigSchema),
     async (c) => {
       const servers = c.req.valid("json");
-      const clientName = c.req.query("clientName") ?? "zypher-agent-api";
-      const callbackUrl = c.req.query("callbackUrl"); //
+      const _clientName = c.req.query("clientName") ?? "zypher-agent-api";
+      const _callbackUrl = c.req.query("callbackUrl"); //
       // Get callback URL from frontend
 
       try {
+        // Convert CursorConfig to ZypherMcpServer[] and register each server
+        const zypherServers = await parseLocalServers(servers);
         await Promise.all(
-          Object.entries(servers).map(
-            ([name, config]) =>
-              config && mcpServerManager.registerServer(name, config),
+          zypherServers.map(
+            async (server) => await mcpServerManager.registerServer(server),
           ),
         );
         return c.body(null, 201);
       } catch (error) {
-        // Only handle OAuth requirement - let other errors go to centralized handler
-        if (
-          error instanceof McpServerError && error.code === "oauth_required"
-        ) {
-          const details = error.details as {
-            serverId: string;
-            serverUrl: string;
-          };
-          const serverId = details.serverId;
-          const serverConfig = servers[serverId];
-
-          const oauthResponse = await generateOAuthResponse(
-            clientName,
-            serverId,
-            details.serverUrl,
-            new URL(c.req.url),
-            callbackUrl,
-            serverConfig,
-            undefined,
-            false,
-          );
-
-          return c.json({
-            success: false,
-            requiresOAuth: true,
-            oauth: {
-              authUrl: oauthResponse.authUrl,
-              state: oauthResponse.state,
-              callbackUrl: oauthResponse.callbackUrl,
-              instructions:
-                "Please open the authUrl in a browser to complete OAuth authentication",
-            },
-            error: {
-              code: error.code,
-              message: error.message,
-              details: error.details,
-            },
-          }, 202);
-        }
-        // Let centralized error handler deal with all other errors
-        throw error;
+        throw new ApiError(
+          500,
+          "internal_server_error",
+          `Failed to register server ${formatError(error)}`,
+        );
       }
     },
   );
 
   // Deregister MCP server
   mcpRouter.delete("/servers/:id", async (c) => {
-    const serverName = McpServerIdSchema.parse(c.req.param("id"));
-    await mcpServerManager.deregisterServerByName(serverName);
+    const id = c.req.param("id");
+    await mcpServerManager.deregisterServer(id);
 
     return c.body(null, 204);
   });
@@ -212,10 +172,10 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   // Update MCP server configuration
   mcpRouter.put(
     "/servers/:id",
-    zValidator("json", McpServerApiSchema),
+    zValidator("json", CursorConfigSchema),
     async (c) => {
       const id = c.req.param("id") ?? "";
-      const config = c.req.valid("json")[id];
+      const config = c.req.valid("json");
       if (!config) {
         throw new ApiError(
           400,
@@ -223,7 +183,8 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           "Invalid server configuration",
         );
       }
-      await mcpServerManager.updateServerConfig(id, config);
+      const zypherServers = await parseLocalServers(config);
+      await mcpServerManager.updateServerConfig(id, zypherServers);
       return c.body(null, 204);
     },
   );
@@ -242,9 +203,9 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
   // Get server config
   mcpRouter.get("/servers/:id", (c) => {
-    const id = McpServerIdSchema.parse(c.req.param("id"));
-    const { enabled: _enabled, ...rest } = mcpServerManager.getServerConfig(id);
-    return c.json({ [id]: rest });
+    const id = c.req.param("id");
+    const server = mcpServerManager.getServerConfig(id);
+    return c.json({ [id]: server });
   });
 
   // Register MCP server from registry
@@ -263,32 +224,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       await mcpServerManager.registerServerFromRegistry(id, token ?? "");
       return c.body(null, 202);
     } catch (error) {
-      // Only handle OAuth requirement - let other errors go to centralized handler
-      if (error instanceof McpServerError && error.code === "oauth_required") {
-        const details = error.details as {
-          serverId: string;
-          serverUrl: string;
-        };
-        const serverId = details.serverId;
-
-        const _oauthResponse = await generateOAuthResponse(
-          clientName,
-          serverId,
-          details.serverUrl,
-          new URL(c.req.url),
-          callbackUrl,
-          undefined,
-          token,
-          true,
-        );
-        throw new ApiError(
-          500,
-          "internal_server_error",
-          `Failed to generate OAuth response ${formatError(error)}`,
-        );
-      }
-      // Let centralized error handler deal with all other errors
-      throw error;
+      throw new ApiError(
+        500,
+        "internal_server_error",
+        `Failed to register server from registry ${formatError(error)}`,
+      );
     }
   });
 
@@ -379,10 +319,8 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       );
     } else if (serverInfo.serverConfig) {
       // Config-based registration
-      await mcpServerManager.registerServer(
-        serverId,
-        serverInfo.serverConfig,
-      );
+      const zypherServers = await parseLocalServers(serverInfo.serverConfig);
+      await mcpServerManager.registerServer(zypherServers[0]);
     } else {
       throw new Error(
         "Invalid server info: missing both registry token and server config",
@@ -419,7 +357,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     // We don't need a specific callback URL for status checking
     const oauthProvider = new RemoteOAuthProvider({
       serverId,
-      serverUrl: serverConfig.url,
+      serverUrl: serverConfig.url as string,
       oauthBaseDir,
       clientName,
     });
@@ -455,7 +393,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     // We don't need a specific callback URL for clearing data
     const oauthProvider = new RemoteOAuthProvider({
       serverId,
-      serverUrl: serverConfig.url,
+      serverUrl: serverConfig.url as string,
       oauthBaseDir,
       clientName,
     });

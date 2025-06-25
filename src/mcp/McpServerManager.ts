@@ -362,21 +362,23 @@ export class McpServerManager {
    * @throws Error if server is not found or update fails
    */
   async updateServerConfig(
-    _server: ZypherMcpServer,
+    id: string,
+    servers: ZypherMcpServer[],
   ): Promise<void> {
-    const server = this.#getServer(_server._id);
+    const server = this.#getServer(id);
     if (!server) {
-      throw new Error(`Server with id ${_server._id} not found`);
+      throw new Error(`Server with id ${id} not found`);
     }
 
     try {
-      // Deregister existing server
-      await this.deregisterServer(_server._id);
-      // Register with new config but preserve the original name
-      await this.registerServer(_server);
+      for (const server of servers) {
+        await this.deregisterServer(server._id);
+        // Register with new config but preserve the original name
+        await this.registerServer(server);
+      }
     } catch (error) {
       throw new Error(
-        `Failed to update server ${_server.name}: ${formatError(error)}`,
+        `Failed to update server ${server.name}: ${formatError(error)}`,
       );
     }
   }

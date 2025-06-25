@@ -95,42 +95,25 @@ export class McpClient {
   };
 
   #connectRecursive = async (): Promise<void> => {
-    if (!this.#client) {
-      throw new Error("Client is not initialized");
-    }
+    this.#ensureClient();
 
-    // 1. Handle CLI transport
+    // If mode is CLI, handle CLI connection and skip remote logic.
     if (this.#mode === ConnectionMode.CLI) {
-      const config = this.#server.packages?.[0];
-      const commonEnvVars = ["PATH", "HOME", "SHELL", "TERM"];
-      const filteredEnvVars = {
-        ...Object.fromEntries(
-          commonEnvVars
-            .map((key) => [key, Deno.env.get(key)])
-            .filter(([_, value]) => value !== null),
-        ),
-        LANG: Deno.env.get("LANG") || "en_US.UTF-8",
-      };
-      const cliEnv = Object.fromEntries(
-        config?.environmentVariables?.map((
-          env,
-        ) => [env.name, env.value ?? ""]) ?? [],
-      );
-      this.transport = new StdioClientTransport({
-        command: this.#server.name,
-        args: config?.packageArguments?.map((arg) => arg.value ?? "") ?? [],
-        env: { ...filteredEnvVars, ...cliEnv },
-      });
-      await this.#client.connect(this.transport);
+      if (!this.#server.packages || this.#server.packages.length === 0) {
+        throw new Error("Connection Error: No packages defined for CLI mode.");
+      }
+      await this.#handleCliConnect();
       return;
     }
 
-    // 2. Handle remote transports (SSE/HTTP) with fallback
-    const remote = this.#server.remotes?.[0];
-    if (!remote) {
-      throw new Error("No remote server configured");
+    // For other modes, handle remote transports (SSE/HTTP) with fallback.
+    if (!this.#server.remotes || this.#server.remotes.length === 0) {
+      throw new Error(
+        `Connection failed: No remote servers configured for mode '${this.#mode}'`,
+      );
     }
 
+    const remote = this.#server.remotes[0];
     const sseFailed = this.#connectionAttempts.has(SSEClientTransport.name);
     const httpFailed = this.#connectionAttempts.has(
       StreamableHTTPClientTransport.name,
@@ -148,7 +131,7 @@ export class McpClient {
       : new StreamableHTTPClientTransport(url, authOptions);
 
     try {
-      await this.#client.connect(this.transport);
+      await this.#client!.connect(this.transport);
       console.log(
         `Connected to remote server using ${this.transport.constructor.name}`,
       );
@@ -199,6 +182,46 @@ export class McpClient {
       }
 
       throw error;
+    }
+  };
+
+  #handleCliConnect = async (): Promise<void> => {
+    this.#ensureClient();
+    const config = this.#server.packages?.[0];
+    if (!config) {
+      throw new Error(
+        "Connection Error: First package configuration is missing for CLI mode.",
+      );
+    }
+    const commonEnvVars = ["PATH", "HOME", "SHELL", "TERM"];
+    const filteredEnvVars = {
+      ...Object.fromEntries(
+        commonEnvVars
+          .map((key) => [key, Deno.env.get(key)])
+          .filter(([_, value]) => value !== null),
+      ),
+      LANG: Deno.env.get("LANG") || "en_US.UTF-8",
+    };
+    const cliEnv = Object.fromEntries(
+      config.environmentVariables?.map((
+        env,
+      ) => [env.name, env.value ?? ""]) ?? [],
+    );
+    const packageArgs =
+      config.packageArguments?.map((arg) => arg.value ?? "") ?? [];
+    const allArgs = config.name ? [config.name, ...packageArgs] : packageArgs;
+    this.transport = new StdioClientTransport({
+      command: this.#server.name,
+      args: allArgs,
+      env: { ...filteredEnvVars, ...cliEnv },
+    });
+    await this.#client!.connect(this.transport);
+    return;
+  };
+
+  #ensureClient = (): void => {
+    if (!this.#client) {
+      throw new Error("Client is not initialized");
     }
   };
 

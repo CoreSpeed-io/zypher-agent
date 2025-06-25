@@ -83,7 +83,7 @@ export async function parseLocalServers(
         remotes: isCliConfig ? undefined : [
           {
             url: config.url,
-            transportType: "streamablehttp",
+            transportType: "unknown",
           },
         ],
       };
