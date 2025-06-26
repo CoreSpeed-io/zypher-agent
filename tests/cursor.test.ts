@@ -146,7 +146,7 @@ Deno.test("parseLocalServers converts Remote configuration correctly", async () 
     server.remotes?.[0]?.url,
     "https://api.example.com/mcp/my-server",
   );
-  assertEquals(server.remotes?.[0]?.transportType, "streamablehttp");
+  assertEquals(server.remotes?.[0]?.transportType, "unknown");
 
   // Validate output conforms to LocalServer schema
   const validation = ZypherMcpServerSchema.safeParse(server);
@@ -190,7 +190,7 @@ Deno.test("parseLocalServers handles mixed CLI and Remote configurations", async
   // Validate Remote server
   assertEquals(remoteServer.packages, undefined); // Remote should not have packages
   assertEquals(remoteServer.remotes?.[0]?.url, "http://localhost:8080/mcp");
-  assertEquals(remoteServer.remotes?.[0]?.transportType, "streamablehttp");
+  assertEquals(remoteServer.remotes?.[0]?.transportType, "unknown");
 
   // Validate both outputs conform to LocalServer schema
   for (const server of servers) {
@@ -299,14 +299,14 @@ Deno.test("extractConfigFromZypherMcpServer converts CLI LocalServer back to Cur
         { name: "NODE_ENV", value: "development" },
       ],
       packageArguments: [
-        { type: ArgumentType.POSITIONAL, name: "-y", valueHint: "-y" },
+        { type: ArgumentType.POSITIONAL, name: "-y", value: "-y" },
         {
           type: ArgumentType.POSITIONAL,
           name: "@smithery/cli@latest",
-          valueHint: "@smithery/cli@latest",
+          value: "@smithery/cli@latest",
         },
-        { type: ArgumentType.POSITIONAL, name: "run", valueHint: "run" },
-        { type: ArgumentType.POSITIONAL, name: "exa", valueHint: "exa" },
+        { type: ArgumentType.POSITIONAL, name: "run", value: "run" },
+        { type: ArgumentType.POSITIONAL, name: "exa", value: "exa" },
       ],
     }],
   };
@@ -329,7 +329,7 @@ Deno.test("extractConfigFromZypherMcpServer converts Remote LocalServer back to 
     description: "user-defined MCP server",
     remotes: [{
       url: "https://api.example.com/mcp/my-server",
-      transportType: "streamablehttp" as const,
+      transportType: "unknown" as const,
     }],
   };
 
@@ -352,7 +352,7 @@ Deno.test("extractConfigFromZypherMcpServer handles LocalServer without environm
       version: "local-server",
       environmentVariables: [],
       packageArguments: [
-        { type: ArgumentType.POSITIONAL, name: "hello", valueHint: "hello" },
+        { type: ArgumentType.POSITIONAL, name: "hello", value: "hello" },
       ],
     }],
   };

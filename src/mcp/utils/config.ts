@@ -21,7 +21,7 @@ export function extractConfigFromZypherMcpServer(
     return {
       command: firstPackage.registryName,
       args: firstPackage.packageArguments?.map((arg) =>
-        arg.name || arg.valueHint || ""
+        arg.value || arg.name || ""
       ) || [],
       ...(env && Object.keys(env).length > 0 && { env }),
     };
