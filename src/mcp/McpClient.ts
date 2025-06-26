@@ -209,9 +209,12 @@ export class McpClient {
     );
     const packageArgs =
       config.packageArguments?.map((arg) => arg.value ?? "") ?? [];
-    const allArgs = config.name ? [config.name, ...packageArgs] : packageArgs;
+    const runtimeArgs =
+      config.runtimeArguments?.map((arg) => arg.value ?? "") ?? [];
+    const allArgs = [...runtimeArgs, ...packageArgs];
+    console.log("config", config);
     this.transport = new StdioClientTransport({
-      command: this.#server.name,
+      command: config.registryName,
       args: allArgs,
       env: { ...filteredEnvVars, ...cliEnv },
     });
@@ -239,7 +242,7 @@ export class McpClient {
       }
 
       // Connect to the server
-      this.connect();
+      await this.connect();
       console.log("Connected to MCP server", this.#server.name);
 
       // Once connected, discover tools

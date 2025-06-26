@@ -74,7 +74,7 @@ export async function parseLocalServers(
                 ? config.args.map((arg) => ({
                   type: ArgumentType.POSITIONAL,
                   name: arg,
-                  valueHint: arg,
+                  value: arg,
                 }))
                 : [],
             },
@@ -86,6 +86,8 @@ export async function parseLocalServers(
             transportType: "unknown",
           },
         ],
+        isEnabled: true,
+        isFromMcpStore: false,
       };
       return localServer;
     }),
