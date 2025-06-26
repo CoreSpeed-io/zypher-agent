@@ -11,10 +11,13 @@ import {
   ReadFileTool,
   RunTerminalCmdTool,
   WebSearchTool,
-  WebsiteAccessTool,
+  // WebsiteAccessTool,
   YouTubeVideoAccessTool,
   AskImageQuestionTool,
-  AskFileUrlQuestionTool
+  AskFileUrlQuestionTool,
+  AccessWebsiteInBrowserTool,
+  ClickWebsiteElementInBrowserTool,
+  FillInputElementInBrowserTool 
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -409,11 +412,15 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(DeleteFileTool);
     mcpServerManager.registerTool(YouTubeVideoAccessTool);
     mcpServerManager.registerTool(WebSearchTool);
-    mcpServerManager.registerTool(WebsiteAccessTool);
+    // mcpServerManager.registerTool(WebsiteAccessTool);
     mcpServerManager.registerTool(AudioToTextTool);
     mcpServerManager.registerTool(AskImageQuestionTool);
     mcpServerManager.registerTool(AskFileUrlQuestionTool);
 
+    mcpServerManager.registerTool(AccessWebsiteInBrowserTool);
+    mcpServerManager.registerTool(ClickWebsiteElementInBrowserTool);
+    mcpServerManager.registerTool(FillInputElementInBrowserTool);
+    
     console.log(
       "🔧 Registered tools:",
       Array.from(mcpServerManager.getAllTools().keys()).join(", "),

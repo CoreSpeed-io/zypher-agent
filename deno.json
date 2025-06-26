@@ -29,6 +29,7 @@
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.53.0",
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.12.1",
     "chalk": "npm:chalk@^5.4.1",
+    "playwright-core": "npm:playwright-core@1.52.0",
     "rolldown": "npm:rolldown@^1.0.0-beta.14",
     "rxjs": "npm:rxjs@^7.8.2",
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0",

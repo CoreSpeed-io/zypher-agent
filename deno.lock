@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@b-fuze/deno-dom@*": "0.1.49",
     "jsr:@bureaudouble-forks/importmap@~0.2.1": "0.2.1",
     "jsr:@openai/openai@^4.102.0": "4.102.0",
     "jsr:@std/assert@^1.0.12": "1.0.13",
@@ -34,6 +35,7 @@
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:googleapis@latest": "150.0.1",
     "npm:hono@^4.7.11": "4.7.11",
+    "npm:playwright-core@1.52.0": "1.52.0",
     "npm:rolldown@*": "1.0.0-beta.12",
     "npm:rolldown@^1.0.0-beta.14": "1.0.0-beta.14",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
@@ -44,6 +46,9 @@
     "npm:zod@^3.25.57": "3.25.57"
   },
   "jsr": {
+    "@b-fuze/deno-dom@0.1.49": {
+      "integrity": "45c40175fdd1e74ab2d4b54c4fdaabbad6e5b76ee28df12a48e076b3fa7901a9"
+    },
     "@bureaudouble-forks/importmap@0.2.1": {
       "integrity": "ba78361d289f946e9c2488066b339553576392c5780b151cdd4c01da0c58f131"
     },
@@ -1966,6 +1971,10 @@
     "pkce-challenge@5.0.0": {
       "integrity": "sha512-ueGLflrrnvwB3xuo/uGob5pd5FN7l0MsLf0Z87o/UQmRtwjvfylfc9MurIxRAWywCYTgrvpXBcqjV4OfCYGCIQ=="
     },
+    "playwright-core@1.52.0": {
+      "integrity": "sha512-l2osTgLXSMeuLZOML9qYODUQoPPnUsKsb5/P6LJ2e6uPKXUdPK5WYhN4z03G+YNbWmGDY4YENauNu4ZKczreHg==",
+      "bin": true
+    },
     "proxy-addr@2.0.7": {
       "integrity": "sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==",
       "dependencies": [
@@ -2250,6 +2259,7 @@
       "npm:@modelcontextprotocol/sdk@^1.12.1",
       "npm:chalk@^5.4.1",
       "npm:hono@^4.7.11",
+      "npm:playwright-core@1.52.0",
       "npm:rolldown@^1.0.0-beta.14",
       "npm:rxjs-for-await@1",
       "npm:rxjs@^7.8.2",
