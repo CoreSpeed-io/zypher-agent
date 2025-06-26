@@ -19,7 +19,7 @@ import { log } from "node:console";
  * Implements the OAuthClientProvider interface for Node.js environments.
  * Handles OAuth flow and token storage for MCP clients.
  */
-export class NodeOAuthClientProvider implements OAuthClientProvider {
+export class McpOAuthClientProvider implements OAuthClientProvider {
   #serverUrlHash: string;
   #callbackPath: string;
   #clientName: string;
@@ -28,7 +28,7 @@ export class NodeOAuthClientProvider implements OAuthClientProvider {
   #softwareVersion: string;
 
   /**
-   * Creates a new NodeOAuthClientProvider
+   * Creates a new McpOAuthClientProvider
    * @param options Configuration options for the provider
    */
   constructor(readonly options: OAuthProviderOptions) {
