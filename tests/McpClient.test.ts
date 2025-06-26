@@ -12,6 +12,7 @@ import {
   UnauthorizedError,
 } from "@modelcontextprotocol/sdk/client/auth.js";
 import { stub } from "@std/testing/mock";
+import type { McpOAuthClientProvider } from "../src/mcp/auth/McpOAuthClientProvider.ts";
 
 // Define a type for our mock provider
 interface MockAuthProvider extends OAuthClientProvider {
@@ -43,7 +44,6 @@ describe("McpClient #connectRecursive", () => {
       const mcpClient = new McpClient(
         {},
         serverWithoutPackages,
-        ConnectionMode.CLI,
       );
 
       await assertRejects(
@@ -64,8 +64,8 @@ describe("McpClient #connectRecursive", () => {
     );
 
     try {
-      const mcpClient = new McpClient({}, mockServer, ConnectionMode.CLI);
-      await mcpClient.connect();
+      const mcpClient = new McpClient({}, mockServer);
+      await mcpClient.connect(ConnectionMode.CLI);
 
       assertEquals(mcpClient.transport instanceof StdioClientTransport, true);
       assertEquals(mockClientConnect.calls.length, 1);
@@ -86,11 +86,10 @@ describe("McpClient #connectRecursive", () => {
       const mcpClient = new McpClient(
         {},
         serverWithoutRemotes,
-        ConnectionMode.HTTP_FIRST,
       );
 
       await assertRejects(
-        () => mcpClient.connect(),
+        () => mcpClient.connect(ConnectionMode.HTTP_FIRST),
         Error,
         "Connection failed: No remote servers configured for mode 'http-first'",
       );
@@ -107,8 +106,8 @@ describe("McpClient #connectRecursive", () => {
     );
 
     try {
-      const mcpClient = new McpClient({}, mockServer, ConnectionMode.SSE_ONLY);
-      await mcpClient.connect();
+      const mcpClient = new McpClient({}, mockServer);
+      await mcpClient.connect(ConnectionMode.SSE_ONLY);
 
       assertEquals(mcpClient.transport instanceof SSEClientTransport, true);
       assertEquals(mockClientConnect.calls.length, 1);
@@ -128,9 +127,8 @@ describe("McpClient #connectRecursive", () => {
       const mcpClient = new McpClient(
         {},
         mockServer,
-        ConnectionMode.HTTP_FIRST,
       );
-      await mcpClient.connect();
+      await mcpClient.connect(ConnectionMode.HTTP_FIRST);
 
       assertEquals(
         mcpClient.transport instanceof StreamableHTTPClientTransport,
@@ -160,9 +158,8 @@ describe("McpClient #connectRecursive", () => {
       const mcpClient = new McpClient(
         {},
         mockServer,
-        ConnectionMode.HTTP_FIRST,
       );
-      await mcpClient.connect();
+      await mcpClient.connect(ConnectionMode.HTTP_FIRST);
 
       assertEquals(mcpClient.transport instanceof SSEClientTransport, true);
       assertEquals(connectStub.calls.length, 2);
@@ -186,8 +183,8 @@ describe("McpClient #connectRecursive", () => {
     );
 
     try {
-      const mcpClient = new McpClient({}, mockServer, ConnectionMode.SSE_FIRST);
-      await mcpClient.connect();
+      const mcpClient = new McpClient({}, mockServer);
+      await mcpClient.connect(ConnectionMode.SSE_FIRST);
 
       assertEquals(
         mcpClient.transport instanceof StreamableHTTPClientTransport,
@@ -210,11 +207,10 @@ describe("McpClient #connectRecursive", () => {
       const mcpClient = new McpClient(
         {},
         mockServer,
-        ConnectionMode.HTTP_FIRST,
       );
 
       await assertRejects(
-        () => mcpClient.connect(),
+        () => mcpClient.connect(ConnectionMode.HTTP_FIRST),
         Error,
         "Request failed with status code 404",
       );
@@ -259,11 +255,11 @@ describe("McpClient #connectRecursive", () => {
       const mcpClient = new McpClient(
         {},
         mockServer,
-        ConnectionMode.HTTP_FIRST,
       );
-      mcpClient.authProvider = mockAuthProvider;
 
-      await mcpClient.connect();
+      await mcpClient.connect(ConnectionMode.HTTP_FIRST, {
+        authProvider: mockAuthProvider as unknown as McpOAuthClientProvider,
+      });
 
       assertEquals(connectStub.calls.length, 2);
     } finally {
@@ -302,12 +298,13 @@ describe("McpClient #connectRecursive", () => {
       const mcpClient = new McpClient(
         {},
         mockServer,
-        ConnectionMode.HTTP_FIRST,
       );
-      mcpClient.authProvider = mockAuthProvider;
 
       await assertRejects(
-        () => mcpClient.connect(),
+        () =>
+          mcpClient.connect(ConnectionMode.HTTP_FIRST, {
+            authProvider: mockAuthProvider as unknown as McpOAuthClientProvider,
+          }),
         Error,
         "Authentication failed after retry. Giving up.",
       );
@@ -347,12 +344,13 @@ describe("McpClient #connectRecursive", () => {
       const mcpClient = new McpClient(
         {},
         mockServer,
-        ConnectionMode.HTTP_FIRST,
       );
-      mcpClient.authProvider = baseAuthProvider;
 
       await assertRejects(
-        () => mcpClient.connect(),
+        () =>
+          mcpClient.connect(ConnectionMode.HTTP_FIRST, {
+            authProvider: baseAuthProvider as unknown as McpOAuthClientProvider,
+          }),
         Error,
         "Authentication failed: No OAuth provider with clearAuthData method is configured.",
       );
@@ -373,11 +371,10 @@ describe("McpClient #connectRecursive", () => {
       const mcpClient = new McpClient(
         {},
         mockServer,
-        ConnectionMode.HTTP_FIRST,
       );
 
       await assertRejects(
-        () => mcpClient.connect(),
+        () => mcpClient.connect(ConnectionMode.HTTP_FIRST),
         Error,
         "Something went wrong",
       );

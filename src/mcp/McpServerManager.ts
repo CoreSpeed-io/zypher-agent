@@ -7,6 +7,7 @@ import { formatError } from "../error.ts";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import { type ZypherMcpServer, ZypherMcpServerSchema } from "./types/local.ts";
 import { ConnectionMode } from "./utils/transport.ts";
+import type { McpOAuthClientProvider } from "./auth/McpOAuthClientProvider.ts";
 
 export class McpServerError extends Error {
   constructor(
@@ -74,17 +75,12 @@ export class McpServerManager {
       );
     }
 
-    const mode = (server.remotes && server.remotes.length > 0)
-      ? ConnectionMode.SSE_FIRST
-      : ConnectionMode.CLI;
-
     return new McpClient(
       {
         id: server._id,
         name: server.name,
       },
       server,
-      mode,
     );
   }
 
@@ -277,6 +273,7 @@ export class McpServerManager {
    */
   async registerServer(
     server: ZypherMcpServer,
+    _options?: { authProvider?: McpOAuthClientProvider },
   ): Promise<void> {
     try {
       if (!this.#config) {

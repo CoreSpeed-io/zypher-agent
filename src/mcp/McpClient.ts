@@ -26,6 +26,7 @@ import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.
 import { jsonToZod } from "./utils/zod.ts";
 import { ConnectionMode } from "./utils/transport.ts";
 import type { ZypherMcpServer } from "./types/local.ts";
+import type { McpOAuthClientProvider } from "./auth/McpOAuthClientProvider.ts";
 
 /**
  * Interface for an OAuth provider with clearAuthData and stopCallbackServer methods
@@ -59,12 +60,8 @@ export class McpClient {
     | SSEClientTransport
     | StreamableHTTPClientTransport
     | null = null;
-  #config: IMcpClientConfig;
-  #mode: ConnectionMode = ConnectionMode.HTTP_FIRST;
   #server: ZypherMcpServer;
   #tools: Tool[] = [];
-  authProvider?: OAuthClientProvider;
-  static #oauthInProgress = new Map<string, Promise<void>>();
 
   /**
    * Creates a new MCPClient instance
@@ -73,13 +70,11 @@ export class McpClient {
   constructor(
     config: IMcpClientConfig,
     server: ZypherMcpServer,
-    mode: ConnectionMode,
   ) {
-    this.#config = config;
     this.#server = server;
-    this.#mode = mode;
     this.#client = new Client({
-      name: config.name ?? "mcp-client",
+      id: config.id ?? "",
+      name: config.name ?? "d8c3fc66-e479-4359-ae88-a757d4dfdf28",
       version: config.version ?? "1.0.0",
     });
   }
@@ -89,16 +84,28 @@ export class McpClient {
    * @param mode Connection mode (CLI or SSE)
    * @param config Server configuration
    */
-  connect = async (): Promise<void> => {
+  connect = async (
+    mode: ConnectionMode = ConnectionMode.HTTP_FIRST,
+    options?: {
+      authProvider?: McpOAuthClientProvider;
+      serverUrl?: string;
+    },
+  ): Promise<void> => {
     this.#connectionAttempts.clear();
-    await this.#connectRecursive();
+    await this.#connectRecursive(mode, options);
   };
 
-  #connectRecursive = async (): Promise<void> => {
+  #connectRecursive = async (
+    mode: ConnectionMode,
+    options?: {
+      authProvider?: McpOAuthClientProvider;
+      serverUrl?: string;
+    },
+  ): Promise<void> => {
     this.#ensureClient();
 
     // If mode is CLI, handle CLI connection and skip remote logic.
-    if (this.#mode === ConnectionMode.CLI) {
+    if (mode === ConnectionMode.CLI) {
       if (!this.#server.packages || this.#server.packages.length === 0) {
         throw new Error("Connection Error: No packages defined for CLI mode.");
       }
@@ -109,7 +116,7 @@ export class McpClient {
     // For other modes, handle remote transports (SSE/HTTP) with fallback.
     if (!this.#server.remotes || this.#server.remotes.length === 0) {
       throw new Error(
-        `Connection failed: No remote servers configured for mode '${this.#mode}'`,
+        `Connection failed: No remote servers configured for mode '${mode}'`,
       );
     }
 
@@ -119,16 +126,19 @@ export class McpClient {
       StreamableHTTPClientTransport.name,
     );
 
-    const useSse = this.#mode === ConnectionMode.SSE_ONLY ||
-      (this.#mode === ConnectionMode.SSE_FIRST && !sseFailed) ||
-      (this.#mode === ConnectionMode.HTTP_FIRST && httpFailed);
+    const useSse = mode === ConnectionMode.SSE_ONLY ||
+      (mode === ConnectionMode.SSE_FIRST && !sseFailed) ||
+      (mode === ConnectionMode.HTTP_FIRST && httpFailed);
 
-    const url = new URL(remote.url);
-    const authOptions = { authProvider: this.authProvider };
+    const mcpServerUrl = new URL(remote.url);
 
     this.transport = useSse
-      ? new SSEClientTransport(url, authOptions)
-      : new StreamableHTTPClientTransport(url, authOptions);
+      ? new SSEClientTransport(mcpServerUrl, {
+        authProvider: options?.authProvider,
+      })
+      : new StreamableHTTPClientTransport(mcpServerUrl, {
+        authProvider: options?.authProvider,
+      });
 
     try {
       await this.#client!.connect(this.transport);
@@ -138,7 +148,7 @@ export class McpClient {
     } catch (error) {
       const transportId = this.transport.constructor.name;
 
-      if (this.#isFallbackError(error)) {
+      if (this.#isFallbackError(mode, error)) {
         this.#connectionAttempts.add(transportId);
 
         const sseFailed = this.#connectionAttempts.has(SSEClientTransport.name);
@@ -148,15 +158,15 @@ export class McpClient {
 
         // Only attempt fallback if we are in a fallback-enabled mode and haven't exhausted all options.
         if (
-          (this.#mode === ConnectionMode.SSE_FIRST && !httpFailed) ||
-          (this.#mode === ConnectionMode.HTTP_FIRST && !sseFailed)
+          (mode === ConnectionMode.SSE_FIRST && !httpFailed) ||
+          (mode === ConnectionMode.HTTP_FIRST && !sseFailed)
         ) {
           console.log(
             `Transport failed: ${
               error instanceof Error ? error.message : "Unknown error"
             }. Attempting fallback.`,
           );
-          return await this.#connectRecursive();
+          return await this.#connectRecursive(mode, options);
         }
 
         throw error; // All fallback options exhausted or not a fallback mode.
@@ -164,7 +174,7 @@ export class McpClient {
 
       if (error instanceof UnauthorizedError) {
         if (
-          !this.authProvider || !this.#hasAuthClearMethod(this.authProvider)
+          !options?.authProvider
         ) {
           throw new Error(
             "Authentication failed: No OAuth provider with clearAuthData method is configured.",
@@ -177,8 +187,8 @@ export class McpClient {
         console.log(
           "Authentication required. Refreshing tokens and retrying...",
         );
-        await this.authProvider.clearAuthData();
-        return await this.#connectRecursive();
+        await options?.authProvider?.clearOAuthData();
+        return await this.#connectRecursive(mode, options);
       }
 
       throw error;
@@ -359,27 +369,11 @@ export class McpClient {
         console.error("Error during cleanup:", errorMessage);
       }
     }
-
-    // Clean up OAuth provider if it has callback server running
-    if (this.authProvider && this.#hasAuthClearMethod(this.authProvider)) {
-      try {
-        // Stop any running callback server
-        if (
-          "stopCallbackServer" in this.authProvider &&
-          typeof this.authProvider.stopCallbackServer === "function"
-        ) {
-          await (this.authProvider as OAuthProviderWithClear)
-            .stopCallbackServer();
-        }
-      } catch (error) {
-        console.error("Error cleaning up OAuth provider:", error);
-      }
-    }
   }
 
-  #isFallbackError = (error: unknown): boolean => {
-    const shouldAttemptFallback = this.#mode === ConnectionMode.HTTP_FIRST ||
-      this.#mode === ConnectionMode.SSE_FIRST;
+  #isFallbackError = (mode: ConnectionMode, error: unknown): boolean => {
+    const shouldAttemptFallback = mode === ConnectionMode.HTTP_FIRST ||
+      mode === ConnectionMode.SSE_FIRST;
 
     if (!shouldAttemptFallback || !(error instanceof Error)) {
       return false;
@@ -394,15 +388,7 @@ export class McpClient {
     );
   };
 
-  /**
-   * Checks if an OAuth provider has the clearAuthData method
-   * @param provider The provider to check
-   * @returns True if the provider has the clearAuthData method
-   */
-  #hasAuthClearMethod = (
-    provider: OAuthClientProvider,
-  ): provider is OAuthProviderWithClear => {
-    return "clearAuthData" in provider &&
-      typeof (provider as OAuthProviderWithClear).clearAuthData === "function";
+  #isAuthError = (error: unknown): boolean => {
+    return error instanceof UnauthorizedError;
   };
 }

@@ -6,12 +6,12 @@ import { ApiError } from "../error.ts";
 import { RemoteOAuthProvider } from "../auth/RemoteOAuthProvider.ts";
 import { getWorkspaceDataDir } from "../../../../src/utils/mod.ts";
 import { join } from "@std/path";
-import { ensureDir } from "@std/fs";
 import {
   CursorConfigSchema,
   parseLocalServers,
 } from "../../../../src/mcp/types/cursor.ts";
 import { formatError } from "../../../../src/error.ts";
+import { McpOAuthClientProvider } from "../../../../src/mcp/auth/McpOAuthClientProvider.ts";
 
 // Server info interface for OAuth callback processing
 interface ServerInfo {
@@ -22,93 +22,6 @@ interface ServerInfo {
   registryToken?: string;
   /** The exact redirect URI that was used when generating the authorization request. */
   redirectUri?: string;
-}
-
-// Helper function to generate OAuth response
-async function _generateOAuthResponse(
-  clientName: string,
-  serverId: string,
-  serverUrl: string,
-  requestUrl: URL,
-  callbackUrl?: string,
-  serverConfig?: z.infer<typeof CursorConfigSchema>,
-  registryToken?: string,
-  isFromRegistry = false,
-) {
-  const dataDir = await getWorkspaceDataDir();
-  const oauthBaseDir = join(dataDir, "oauth", serverId);
-  await ensureDir(oauthBaseDir);
-
-  // Use provided callback URL or auto-detect from request
-  let finalCallbackUrl: string;
-  if (callbackUrl) {
-    // Frontend provided callback URL - add serverId and clientName as query parameters
-    const callbackUrlObj = new URL(callbackUrl);
-    callbackUrlObj.searchParams.set("serverId", serverId);
-    finalCallbackUrl = callbackUrlObj.toString();
-  } else {
-    // Fallback to auto-detection for backward compatibility
-    const host = requestUrl.hostname;
-    const useHttps = requestUrl.protocol === "https:";
-    const port = requestUrl.port
-      ? Number.parseInt(requestUrl.port)
-      : (useHttps ? 443 : 80);
-    const callbackPort =
-      (useHttps && port === 443) || (!useHttps && port === 80)
-        ? undefined
-        : port;
-
-    const protocol = useHttps ? "https" : "http";
-    const portSuffix = callbackPort ? `:${callbackPort}` : "";
-    finalCallbackUrl =
-      `${protocol}://${host}${portSuffix}/mcp/servers/${serverId}/oauth/callback?clientName=${
-        encodeURIComponent(clientName)
-      }`;
-  }
-
-  // Create OAuth provider with the final callback URL
-  const oauthProvider = new RemoteOAuthProvider({
-    serverId,
-    serverUrl,
-    oauthBaseDir,
-    clientName,
-    redirectUri: finalCallbackUrl,
-  });
-
-  // Generate authorization URL with PKCE and save data
-  const authInfo = await oauthProvider.generateAuthRequest();
-
-  // Save server information for callback processing
-  const serverInfoPath = join(oauthBaseDir, "server_info.json");
-  const serverInfoData: ServerInfo = {
-    serverId,
-    serverUrl,
-    redirectUri: finalCallbackUrl,
-  };
-
-  if (isFromRegistry) {
-    serverInfoData.fromRegistry = true;
-    serverInfoData.registryToken = registryToken || "";
-  } else {
-    serverInfoData.serverConfig = serverConfig;
-  }
-
-  await Deno.writeTextFile(
-    serverInfoPath,
-    JSON.stringify(serverInfoData, null, 2),
-  );
-
-  // Read the saved state to include in response
-  const statePath = join(oauthBaseDir, "state");
-  const savedState = await Deno.readTextFile(statePath);
-
-  return {
-    success: false,
-    requiresOAuth: true,
-    authUrl: authInfo.uri,
-    state: savedState,
-    callbackUrl: finalCallbackUrl,
-  };
 }
 
 export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
@@ -138,7 +51,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     zValidator("json", CursorConfigSchema),
     async (c) => {
       const servers = c.req.valid("json");
-      const _clientName = c.req.query("clientName") ?? "zypher-agent-api";
+      const clientName = c.req.query("clientName") ?? "zypher-agent-api";
       const _callbackUrl = c.req.query("callbackUrl"); //
       // Get callback URL from frontend
 
@@ -147,7 +60,15 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
         const zypherServers = await parseLocalServers(servers);
         await Promise.all(
           zypherServers.map(
-            async (server) => await mcpServerManager.registerServer(server),
+            async (server) =>
+              await mcpServerManager.registerServer(server, {
+                authProvider: new McpOAuthClientProvider({
+                  serverUrl: server.remotes?.[0]?.url ?? "",
+                  callbackPort: 3000,
+                  clientName: clientName,
+                  host: "localhost",
+                }),
+              }),
           ),
         );
         return c.body(null, 201);

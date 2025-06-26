@@ -7,6 +7,7 @@ import {
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 import type { OAuthProviderOptions } from "../types/auth.ts";
 import {
+  deleteConfigFile,
   readJsonFile,
   readTextFile,
   writeJsonFile,
@@ -143,5 +144,11 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
       "code_verifier.txt",
       "No code verifier saved for session",
     );
+  }
+
+  async clearOAuthData(): Promise<void> {
+    await deleteConfigFile(this.#serverUrlHash, "tokens.json");
+    await deleteConfigFile(this.#serverUrlHash, "client_info.json");
+    await deleteConfigFile(this.#serverUrlHash, "code_verifier.txt");
   }
 }
