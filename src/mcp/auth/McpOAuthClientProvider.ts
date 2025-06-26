@@ -20,12 +20,12 @@ import { log } from "node:console";
  * Handles OAuth flow and token storage for MCP clients.
  */
 export class NodeOAuthClientProvider implements OAuthClientProvider {
-  private serverUrlHash: string;
-  private callbackPath: string;
-  private clientName: string;
-  private clientUri: string;
-  private softwareId: string;
-  private softwareVersion: string;
+  #serverUrlHash: string;
+  #callbackPath: string;
+  #clientName: string;
+  #clientUri: string;
+  #softwareId: string;
+  #softwareVersion: string;
 
   /**
    * Creates a new NodeOAuthClientProvider
@@ -33,22 +33,22 @@ export class NodeOAuthClientProvider implements OAuthClientProvider {
    */
   constructor(readonly options: OAuthProviderOptions) {
     // Initialize serverUrlHash asynchronously since getServerUrlHash returns a Promise
-    this.serverUrlHash = ""; // Will be set in initialize()
-    this.callbackPath = options.callbackPath || "/oauth/callback";
-    this.clientName = options.clientName || "MCP CLI Client";
-    this.clientUri = options.clientUri ||
+    this.#serverUrlHash = ""; // Will be set in initialize()
+    this.#callbackPath = options.callbackPath || "/oauth/callback";
+    this.#clientName = options.clientName || "MCP CLI Client";
+    this.#clientUri = options.clientUri ||
       "https://github.com/modelcontextprotocol/mcp-cli";
-    this.softwareId = options.softwareId ||
-      "2e6dc280-f3c3-4e01-99a7-8181dbd1d23d";
-    this.softwareVersion = options.softwareVersion || "0.1.0";
+    this.#softwareId = options.softwareId ||
+      "9466000b-baa3-4d20-bd33-46cd9a3411ce";
+    this.#softwareVersion = options.softwareVersion || "0.1.0";
   }
 
   async initialize() {
-    this.serverUrlHash = await getServerUrlHash(this.options.serverUrl);
+    this.#serverUrlHash = await getServerUrlHash(this.options.serverUrl);
   }
 
   get redirectUrl(): string {
-    return `http://${this.options.host}:${this.options.callbackPort}${this.callbackPath}`;
+    return `http://${this.options.host}:${this.options.callbackPort}${this.#callbackPath}`;
   }
 
   get clientMetadata() {
@@ -57,10 +57,10 @@ export class NodeOAuthClientProvider implements OAuthClientProvider {
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      client_name: this.clientName,
-      client_uri: this.clientUri,
-      software_id: this.softwareId,
-      software_version: this.softwareVersion,
+      client_name: this.#clientName,
+      client_uri: this.#clientUri,
+      software_id: this.#softwareId,
+      software_version: this.#softwareVersion,
     };
   }
 
@@ -71,7 +71,7 @@ export class NodeOAuthClientProvider implements OAuthClientProvider {
   async clientInformation(): Promise<OAuthClientInformationFull | undefined> {
     // log('Reading client info')
     return await readJsonFile<OAuthClientInformationFull>(
-      this.serverUrlHash,
+      this.#serverUrlHash,
       "client_info.json",
       OAuthClientInformationFullSchema,
     );
@@ -86,7 +86,7 @@ export class NodeOAuthClientProvider implements OAuthClientProvider {
   ): Promise<void> {
     // log('Saving client info')
     await writeJsonFile(
-      this.serverUrlHash,
+      this.#serverUrlHash,
       "client_info.json",
       clientInformation,
     );
@@ -100,7 +100,7 @@ export class NodeOAuthClientProvider implements OAuthClientProvider {
     // log('Reading tokens')
     // console.log(new Error().stack)
     return await readJsonFile<OAuthTokens>(
-      this.serverUrlHash,
+      this.#serverUrlHash,
       "tokens.json",
       OAuthTokensSchema,
     );
@@ -112,7 +112,7 @@ export class NodeOAuthClientProvider implements OAuthClientProvider {
    */
   async saveTokens(tokens: OAuthTokens): Promise<void> {
     // log('Saving tokens')
-    await writeJsonFile(this.serverUrlHash, "tokens.json", tokens);
+    await writeJsonFile(this.#serverUrlHash, "tokens.json", tokens);
   }
 
   /**
@@ -129,7 +129,7 @@ export class NodeOAuthClientProvider implements OAuthClientProvider {
    */
   async saveCodeVerifier(codeVerifier: string): Promise<void> {
     // log('Saving code verifier')
-    await writeTextFile(this.serverUrlHash, "code_verifier.txt", codeVerifier);
+    await writeTextFile(this.#serverUrlHash, "code_verifier.txt", codeVerifier);
   }
 
   /**
@@ -139,7 +139,7 @@ export class NodeOAuthClientProvider implements OAuthClientProvider {
   async codeVerifier(): Promise<string> {
     // log('Reading code verifier')
     return await readTextFile(
-      this.serverUrlHash,
+      this.#serverUrlHash,
       "code_verifier.txt",
       "No code verifier saved for session",
     );
