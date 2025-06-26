@@ -7,6 +7,16 @@ const browser = await chromium.connect(
   `wss://production-sfo.browserless.io/chromium/playwright?token=${Deno.env.get("BROWSERLESSIO_TOKEN")}`,
 );
 
+const context = await browser.newContext({
+  userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+              'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+              'Chrome/103.0.0.0 Safari/537.36',
+  extraHTTPHeaders: {
+    // You can add more headers here as key-value pairs
+    // e.g. 'Accept-Language': 'en-US,en;q=0.9'
+  }
+})
+
 let currentPage: Page | null = null;
 
 function cleanHtml(raw: string): string {
@@ -42,7 +52,7 @@ export const AccessWebsiteInBrowserTool = defineTool({
   }),
   execute: async ({ url }) => {
     try {
-      currentPage = await browser.newPage();
+      currentPage = await context.newPage();
       await currentPage.goto(url, {
         waitUntil: "networkidle",
         timeout: 30_000,
@@ -98,7 +108,7 @@ export const ClickWebsiteElementInBrowserTool = defineTool({
 
       // Wait for network to go idle so any navigation/XHR finishes
       await currentPage.waitForLoadState("networkidle");      // wait post-click :contentReference[oaicite:3]{index=3}
-
+      await page.waitForTimeout(3000);
       // Return the sanitised HTML to the caller
       const domAfter = await currentPage.content();
       return cleanHtml(domAfter) || "⚠️ Empty DOM string returned after click.";
