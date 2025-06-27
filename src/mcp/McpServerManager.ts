@@ -7,7 +7,8 @@ import { formatError } from "../error.ts";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import { type ZypherMcpServer, ZypherMcpServerSchema } from "./types/local.ts";
 import { ConnectionMode } from "./utils/transport.ts";
-import type { McpOAuthClientProvider } from "./auth/McpOAuthClientProvider.ts";
+import type { OAuthProviderOptions } from "./types/auth.ts";
+import { ApiError } from "../../bin/api-server/src/error.ts";
 
 export class McpServerError extends Error {
   constructor(
@@ -59,22 +60,9 @@ export class McpServerManager {
     this.#clientName = clientName ?? "zypher-agent-api";
   }
 
-  async #createMcpClient(
+  #createMcpClient(
     server: ZypherMcpServer,
-  ): Promise<McpClient> {
-    let _oauthProvider: OAuthClientProvider | undefined = undefined;
-
-    if (
-      server.remotes && server.remotes.length > 0 &&
-      this.#oauthProviderFactory
-    ) {
-      _oauthProvider = await this.#oauthProviderFactory(
-        server._id,
-        server.packages?.[0]?.registryName ?? "",
-        this.#clientName,
-      );
-    }
-
+  ): McpClient {
     return new McpClient(
       {
         id: server._id,
@@ -185,7 +173,9 @@ export class McpServerManager {
    * Initializes all configured servers and registers their tools
    * @throws Error if config is not loaded or server initialization fails
    */
-  #initializeServers = async (): Promise<void> => {
+  #initializeServers = async (
+    oAuthProviderOptions?: OAuthProviderOptions,
+  ): Promise<void> => {
     if (!this.#config) {
       throw new Error("Config not loaded. Call loadConfig() first.");
     }
@@ -199,7 +189,11 @@ export class McpServerManager {
     const serverInitPromises = Array.from(this.#serverMap.entries()).map(
       async ([serverId, server]) => {
         try {
-          await this.#initializeServerClient(serverId, server);
+          await this.#initializeServerClient(
+            serverId,
+            server,
+            oAuthProviderOptions,
+          );
         } catch (error) {
           console.error(
             `Failed to initialize server ${server.name}: ${formatError(error)}`,
@@ -222,6 +216,7 @@ export class McpServerManager {
   async #initializeServerClient(
     serverId: string,
     server: ZypherMcpServer,
+    oAuthProviderOptions?: OAuthProviderOptions,
   ): Promise<void> {
     try {
       console.log(`Initializing client for server: ${server.name}`);
@@ -242,7 +237,7 @@ export class McpServerManager {
         );
 
         console.log("Retrieving tools from server...");
-        await client.retrieveTools();
+        await client.retrieveTools(oAuthProviderOptions);
         console.log(
           `Successfully initialized ${client.getToolCount()} tools for server ${server.name}`,
         );
@@ -273,7 +268,7 @@ export class McpServerManager {
    */
   async registerServer(
     server: ZypherMcpServer,
-    _options?: { authProvider?: McpOAuthClientProvider },
+    oAuthProviderOptions?: OAuthProviderOptions,
   ): Promise<void> {
     try {
       if (!this.#config) {
@@ -290,7 +285,11 @@ export class McpServerManager {
       this.#serverMap.set(server._id, server);
 
       // Initialize server client
-      await this.#initializeServerClient(server._id, server);
+      await this.#initializeServerClient(
+        server._id,
+        server,
+        oAuthProviderOptions,
+      );
 
       this.#config.push(server);
       await this.#saveConfig();
@@ -326,7 +325,11 @@ export class McpServerManager {
   async deregisterServer(id: string): Promise<void> {
     const server = this.#getServer(id);
     if (!server) {
-      throw new Error(`Server with id ${id} not found`);
+      throw new ApiError(
+        404,
+        "not_found",
+        `Server with id ${id} not found`,
+      );
     }
 
     try {
@@ -361,6 +364,7 @@ export class McpServerManager {
   async updateServerConfig(
     id: string,
     servers: ZypherMcpServer[],
+    oAuthProviderOptions?: OAuthProviderOptions,
   ): Promise<void> {
     const server = this.#getServer(id);
     if (!server) {
@@ -371,7 +375,7 @@ export class McpServerManager {
       for (const server of servers) {
         await this.deregisterServer(server._id);
         // Register with new config but preserve the original name
-        await this.registerServer(server);
+        await this.registerServer(server, oAuthProviderOptions);
       }
     } catch (error) {
       throw new Error(
@@ -640,7 +644,11 @@ export class McpServerManager {
    * @returns Promise resolving when the server is registered
    * @throws Error if the fetch fails or registration fails
    */
-  async registerServerFromRegistry(id: string, token: string) {
+  async registerServerFromRegistry(
+    id: string,
+    token: string,
+    oAuthProviderOptions: OAuthProviderOptions,
+  ) {
     try {
       console.log(`Fetching configuration for server ${id} from registry...`);
 
@@ -688,7 +696,7 @@ export class McpServerManager {
         _id: id,
         name: serverName,
         packages: config ? [config] : undefined,
-      });
+      }, oAuthProviderOptions);
       console.log(
         `Successfully registered server from registry: ${id}${
           extractedName ? ` as '${serverName}'` : ""

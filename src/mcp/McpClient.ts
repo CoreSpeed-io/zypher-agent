@@ -21,20 +21,11 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/StreamableHTTP.js";
 import { createTool, type Tool } from "../tools/mod.ts";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
-import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import { jsonToZod } from "./utils/zod.ts";
 import { ConnectionMode } from "./utils/transport.ts";
 import type { ZypherMcpServer } from "./types/local.ts";
-import type { McpOAuthClientProvider } from "./auth/McpOAuthClientProvider.ts";
-
-/**
- * Interface for an OAuth provider with clearAuthData and stopCallbackServer methods
- */
-interface OAuthProviderWithClear extends OAuthClientProvider {
-  clearAuthData(): Promise<void>;
-  stopCallbackServer(): Promise<void>;
-}
+import type { OAuthProviderOptions } from "./types/auth.ts";
+import { McpOAuthClientProvider } from "./auth/McpOAuthClientProvider.ts";
 
 /**
  * Configuration options for the MCP client
@@ -86,21 +77,15 @@ export class McpClient {
    */
   connect = async (
     mode: ConnectionMode = ConnectionMode.HTTP_FIRST,
-    options?: {
-      authProvider?: McpOAuthClientProvider;
-      serverUrl?: string;
-    },
+    oAuthProviderOptions?: OAuthProviderOptions,
   ): Promise<void> => {
     this.#connectionAttempts.clear();
-    await this.#connectRecursive(mode, options);
+    await this.#connectRecursive(mode, oAuthProviderOptions);
   };
 
   #connectRecursive = async (
     mode: ConnectionMode,
-    options?: {
-      authProvider?: McpOAuthClientProvider;
-      serverUrl?: string;
-    },
+    oAuthProviderOptions?: OAuthProviderOptions,
   ): Promise<void> => {
     this.#ensureClient();
 
@@ -133,12 +118,8 @@ export class McpClient {
     const mcpServerUrl = new URL(remote.url);
 
     this.transport = useSse
-      ? new SSEClientTransport(mcpServerUrl, {
-        authProvider: options?.authProvider,
-      })
-      : new StreamableHTTPClientTransport(mcpServerUrl, {
-        authProvider: options?.authProvider,
-      });
+      ? new SSEClientTransport(mcpServerUrl, {})
+      : new StreamableHTTPClientTransport(mcpServerUrl, {});
 
     try {
       await this.#client!.connect(this.transport);
@@ -166,29 +147,21 @@ export class McpClient {
               error instanceof Error ? error.message : "Unknown error"
             }. Attempting fallback.`,
           );
-          return await this.#connectRecursive(mode, options);
+          return await this.#connectRecursive(mode, oAuthProviderOptions);
         }
 
         throw error; // All fallback options exhausted or not a fallback mode.
-      }
-
-      if (error instanceof UnauthorizedError) {
-        if (
-          !options?.authProvider
-        ) {
-          throw new Error(
-            "Authentication failed: No OAuth provider with clearAuthData method is configured.",
-          );
-        }
+      } else if (this.#isAuthError(error)) {
         if (this.#connectionAttempts.has(McpClient.REASON_AUTH_NEEDED)) {
           throw new Error("Authentication failed after retry. Giving up.");
         }
         this.#connectionAttempts.add(McpClient.REASON_AUTH_NEEDED);
+        const oAuthProvider = new McpOAuthClientProvider(oAuthProviderOptions);
+        await oAuthProvider.initialize();
         console.log(
           "Authentication required. Refreshing tokens and retrying...",
         );
-        await options?.authProvider?.clearOAuthData();
-        return await this.#connectRecursive(mode, options);
+        return await this.#connectRecursive(mode, oAuthProviderOptions);
       }
 
       throw error;
@@ -245,14 +218,16 @@ export class McpClient {
    * @returns Promise resolving to the list of available tools
    * @throws Error if connection fails or server is not responsive
    */
-  async retrieveTools(): Promise<Tool[]> {
+  async retrieveTools(
+    oAuthProviderOptions?: OAuthProviderOptions,
+  ): Promise<Tool[]> {
     try {
       if (!this.#client) {
         throw new Error("Client is not initialized");
       }
 
       // Connect to the server
-      await this.connect();
+      await this.connect(ConnectionMode.CLI, oAuthProviderOptions);
       console.log("Connected to MCP server", this.#server.name);
 
       // Once connected, discover tools
@@ -389,6 +364,7 @@ export class McpClient {
   };
 
   #isAuthError = (error: unknown): boolean => {
-    return error instanceof UnauthorizedError;
+    const errorMessage = error instanceof Error ? error.message : "";
+    return errorMessage.includes("401") || errorMessage.includes("403");
   };
 }

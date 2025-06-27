@@ -2,8 +2,6 @@
  * Options for creating an OAuth client provider
  */
 export interface OAuthProviderOptions {
-  /** Server URL to connect to */
-  serverUrl: string;
   /** Port for the OAuth callback server */
   callbackPort: number;
   /** Desired hostname for the OAuth callback server */
@@ -18,6 +16,8 @@ export interface OAuthProviderOptions {
   clientUri?: string;
   /** Software ID to use for OAuth registration */
   softwareId?: string;
+  /** Server URL to connect to */
+  serverUrl?: string;
   /** Software version to use for OAuth registration */
   softwareVersion?: string;
 }

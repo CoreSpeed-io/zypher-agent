@@ -11,7 +11,6 @@ import {
   parseLocalServers,
 } from "../../../../src/mcp/types/cursor.ts";
 import { formatError } from "../../../../src/error.ts";
-import { McpOAuthClientProvider } from "../../../../src/mcp/auth/McpOAuthClientProvider.ts";
 
 // Server info interface for OAuth callback processing
 interface ServerInfo {
@@ -62,12 +61,10 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           zypherServers.map(
             async (server) =>
               await mcpServerManager.registerServer(server, {
-                authProvider: new McpOAuthClientProvider({
-                  serverUrl: server.remotes?.[0]?.url ?? "",
-                  callbackPort: 3000,
-                  clientName: clientName,
-                  host: "localhost",
-                }),
+                serverUrl: server.remotes?.[0]?.url ?? "",
+                callbackPort: 3000,
+                clientName: clientName,
+                host: "localhost",
               }),
           ),
         );
@@ -86,7 +83,6 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   mcpRouter.delete("/servers/:id", async (c) => {
     const id = c.req.param("id");
     await mcpServerManager.deregisterServer(id);
-
     return c.body(null, 204);
   });
 
@@ -96,6 +92,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     zValidator("json", CursorConfigSchema),
     async (c) => {
       const id = c.req.param("id") ?? "";
+      console.log("[id]", id);
       const config = c.req.valid("json");
       if (!config) {
         throw new ApiError(
@@ -104,7 +101,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           "Invalid server configuration",
         );
       }
-      const zypherServers = await parseLocalServers(config);
+      const zypherServers = await parseLocalServers(config, id);
       await mcpServerManager.updateServerConfig(id, zypherServers);
       return c.body(null, 204);
     },
@@ -142,7 +139,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     // }
 
     try {
-      await mcpServerManager.registerServerFromRegistry(id, token ?? "");
+      await mcpServerManager.registerServerFromRegistry(id, token ?? "", {
+        callbackPort: 3000,
+        clientName: clientName,
+        host: "localhost",
+      });
       return c.body(null, 202);
     } catch (error) {
       throw new ApiError(
@@ -237,6 +238,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       await mcpServerManager.registerServerFromRegistry(
         serverId,
         serverInfo.registryToken || "",
+        {
+          callbackPort: 3000,
+          clientName: clientName,
+          host: "localhost",
+        },
       );
     } else if (serverInfo.serverConfig) {
       // Config-based registration

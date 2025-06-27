@@ -48,6 +48,7 @@ export type CursorConfig = z.infer<typeof CursorConfigSchema>;
 
 export async function parseLocalServers(
   cursorConfig: CursorConfig,
+  id?: string,
 ): Promise<ZypherMcpServer[]> {
   return await Promise.all(
     Object.entries(cursorConfig.mcpServers).map(([name, config]) => {
@@ -55,7 +56,7 @@ export async function parseLocalServers(
       const isCliConfig = "command" in config;
 
       const localServer: ZypherMcpServer = {
-        _id: crypto.randomUUID(),
+        _id: id ?? crypto.randomUUID(),
         name,
         description: `user-defined MCP server`,
         packages: isCliConfig

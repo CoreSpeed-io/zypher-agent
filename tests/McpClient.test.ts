@@ -12,7 +12,6 @@ import {
   UnauthorizedError,
 } from "@modelcontextprotocol/sdk/client/auth.js";
 import { stub } from "@std/testing/mock";
-import type { McpOAuthClientProvider } from "../src/mcp/auth/McpOAuthClientProvider.ts";
 
 // Define a type for our mock provider
 interface MockAuthProvider extends OAuthClientProvider {
@@ -231,7 +230,7 @@ describe("McpClient #connectRecursive", () => {
       return Promise.resolve();
     });
 
-    const mockAuthProvider: MockAuthProvider = {
+    const _mockAuthProvider: MockAuthProvider = {
       redirectUrl: "http://localhost/callback",
       clientMetadata: {
         client_name: "Test Client",
@@ -258,7 +257,8 @@ describe("McpClient #connectRecursive", () => {
       );
 
       await mcpClient.connect(ConnectionMode.HTTP_FIRST, {
-        authProvider: mockAuthProvider as unknown as McpOAuthClientProvider,
+        callbackPort: 3000,
+        host: "localhost",
       });
 
       assertEquals(connectStub.calls.length, 2);
@@ -274,7 +274,7 @@ describe("McpClient #connectRecursive", () => {
       () => Promise.reject(new UnauthorizedError("Auth needed")),
     );
 
-    const mockAuthProvider: MockAuthProvider = {
+    const _mockAuthProvider: MockAuthProvider = {
       redirectUrl: "http://localhost/callback",
       clientMetadata: {
         client_name: "Test Client",
@@ -303,7 +303,8 @@ describe("McpClient #connectRecursive", () => {
       await assertRejects(
         () =>
           mcpClient.connect(ConnectionMode.HTTP_FIRST, {
-            authProvider: mockAuthProvider as unknown as McpOAuthClientProvider,
+            callbackPort: 3000,
+            host: "localhost",
           }),
         Error,
         "Authentication failed after retry. Giving up.",
@@ -322,7 +323,7 @@ describe("McpClient #connectRecursive", () => {
       () => Promise.reject(new UnauthorizedError("Auth needed")),
     );
 
-    const baseAuthProvider: OAuthClientProvider = {
+    const _baseAuthProvider: OAuthClientProvider = {
       redirectUrl: "http://localhost/callback",
       clientMetadata: {
         client_name: "Test Client",
@@ -349,7 +350,8 @@ describe("McpClient #connectRecursive", () => {
       await assertRejects(
         () =>
           mcpClient.connect(ConnectionMode.HTTP_FIRST, {
-            authProvider: baseAuthProvider as unknown as McpOAuthClientProvider,
+            callbackPort: 3000,
+            host: "localhost",
           }),
         Error,
         "Authentication failed: No OAuth provider with clearAuthData method is configured.",

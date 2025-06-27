@@ -32,24 +32,24 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
    * Creates a new McpOAuthClientProvider
    * @param options Configuration options for the provider
    */
-  constructor(readonly options: OAuthProviderOptions) {
+  constructor(readonly options?: OAuthProviderOptions) {
     // Initialize serverUrlHash asynchronously since getServerUrlHash returns a Promise
     this.#serverUrlHash = ""; // Will be set in initialize()
-    this.#callbackPath = options.callbackPath || "/oauth/callback";
-    this.#clientName = options.clientName || "MCP CLI Client";
-    this.#clientUri = options.clientUri ||
+    this.#callbackPath = options?.callbackPath || "/oauth/callback";
+    this.#clientName = options?.clientName || "MCP CLI Client";
+    this.#clientUri = options?.clientUri ||
       "https://github.com/modelcontextprotocol/mcp-cli";
-    this.#softwareId = options.softwareId ||
+    this.#softwareId = options?.softwareId ||
       "9466000b-baa3-4d20-bd33-46cd9a3411ce";
-    this.#softwareVersion = options.softwareVersion || "0.1.0";
+    this.#softwareVersion = options?.softwareVersion || "0.1.0";
   }
 
   async initialize() {
-    this.#serverUrlHash = await getServerUrlHash(this.options.serverUrl);
+    this.#serverUrlHash = await getServerUrlHash(this.options?.serverUrl ?? "");
   }
 
   get redirectUrl(): string {
-    return `http://${this.options.host}:${this.options.callbackPort}${this.#callbackPath}`;
+    return `http://${this.options?.host}:${this.options?.callbackPort}${this.#callbackPath}`;
   }
 
   get clientMetadata() {
