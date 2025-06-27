@@ -228,7 +228,7 @@ export class McpServerManager {
       // Only retrieve tools if server is enabled
       if (server.isEnabled) {
         const connectionMode = (server.remotes && server.remotes.length > 0)
-          ? ConnectionMode.SSE_FIRST
+          ? ConnectionMode.HTTP_FIRST
           : ConnectionMode.CLI;
         console.log(
           `Connection mode: ${
@@ -237,7 +237,7 @@ export class McpServerManager {
         );
 
         console.log("Retrieving tools from server...");
-        await client.retrieveTools(oAuthProviderOptions);
+        await client.retrieveTools(connectionMode, oAuthProviderOptions);
         console.log(
           `Successfully initialized ${client.getToolCount()} tools for server ${server.name}`,
         );

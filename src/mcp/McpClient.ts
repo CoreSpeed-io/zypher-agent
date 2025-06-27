@@ -88,6 +88,7 @@ export class McpClient {
     oAuthProviderOptions?: OAuthProviderOptions,
   ): Promise<void> => {
     this.#ensureClient();
+    console.log("[connectRecursive]", mode);
 
     // If mode is CLI, handle CLI connection and skip remote logic.
     if (mode === ConnectionMode.CLI) {
@@ -219,6 +220,7 @@ export class McpClient {
    * @throws Error if connection fails or server is not responsive
    */
   async retrieveTools(
+    mode: ConnectionMode,
     oAuthProviderOptions?: OAuthProviderOptions,
   ): Promise<Tool[]> {
     try {
@@ -227,7 +229,7 @@ export class McpClient {
       }
 
       // Connect to the server
-      await this.connect(ConnectionMode.CLI, oAuthProviderOptions);
+      await this.connect(mode, oAuthProviderOptions);
       console.log("Connected to MCP server", this.#server.name);
 
       // Once connected, discover tools
