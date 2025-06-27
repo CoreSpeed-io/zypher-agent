@@ -26,6 +26,7 @@ import { ConnectionMode } from "./utils/transport.ts";
 import type { ZypherMcpServer } from "./types/local.ts";
 import type { OAuthProviderOptions } from "./types/auth.ts";
 import { McpOAuthClientProvider } from "./auth/McpOAuthClientProvider.ts";
+import { formatError } from "../error.ts";
 
 /**
  * Configuration options for the MCP client
@@ -86,9 +87,9 @@ export class McpClient {
   #connectRecursive = async (
     mode: ConnectionMode,
     oAuthProviderOptions?: OAuthProviderOptions,
+    oAuthProvider?: McpOAuthClientProvider,
   ): Promise<void> => {
     this.#ensureClient();
-    console.log("[connectRecursive]", mode);
 
     // If mode is CLI, handle CLI connection and skip remote logic.
     if (mode === ConnectionMode.CLI) {
@@ -119,8 +120,12 @@ export class McpClient {
     const mcpServerUrl = new URL(remote.url);
 
     this.transport = useSse
-      ? new SSEClientTransport(mcpServerUrl, {})
-      : new StreamableHTTPClientTransport(mcpServerUrl, {});
+      ? new SSEClientTransport(mcpServerUrl, {
+        authProvider: oAuthProvider,
+      })
+      : new StreamableHTTPClientTransport(mcpServerUrl, {
+        authProvider: oAuthProvider,
+      });
 
     try {
       await this.#client!.connect(this.transport);
@@ -129,7 +134,9 @@ export class McpClient {
       );
     } catch (error) {
       const transportId = this.transport.constructor.name;
-
+      if (oAuthProvider) {
+        console.log("[oAuthProvider]", oAuthProvider);
+      }
       if (this.#isFallbackError(mode, error)) {
         this.#connectionAttempts.add(transportId);
 
@@ -143,16 +150,16 @@ export class McpClient {
           (mode === ConnectionMode.SSE_FIRST && !httpFailed) ||
           (mode === ConnectionMode.HTTP_FIRST && !sseFailed)
         ) {
-          console.log(
-            `Transport failed: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }. Attempting fallback.`,
+          return await this.#connectRecursive(
+            mode,
+            oAuthProviderOptions,
+            oAuthProvider,
           );
-          return await this.#connectRecursive(mode, oAuthProviderOptions);
         }
 
         throw error; // All fallback options exhausted or not a fallback mode.
       } else if (this.#isAuthError(error)) {
+        console.log("[isAuthError]", formatError(error));
         if (this.#connectionAttempts.has(McpClient.REASON_AUTH_NEEDED)) {
           throw new Error("Authentication failed after retry. Giving up.");
         }
@@ -162,9 +169,12 @@ export class McpClient {
         console.log(
           "Authentication required. Refreshing tokens and retrying...",
         );
-        return await this.#connectRecursive(mode, oAuthProviderOptions);
+        return await this.#connectRecursive(
+          mode,
+          oAuthProviderOptions,
+          oAuthProvider,
+        );
       }
-
       throw error;
     }
   };
@@ -366,7 +376,11 @@ export class McpClient {
   };
 
   #isAuthError = (error: unknown): boolean => {
-    const errorMessage = error instanceof Error ? error.message : "";
-    return errorMessage.includes("401") || errorMessage.includes("403");
+    const errorMessage = (error instanceof Error ? error.message : "")
+      .toLowerCase();
+    return errorMessage.includes("401") ||
+      errorMessage.includes("403") ||
+      errorMessage.includes("unauthorized") ||
+      errorMessage.includes("oauth");
   };
 }

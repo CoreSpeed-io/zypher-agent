@@ -20,17 +20,12 @@ import {
 } from "../../../src/tools/mod.ts";
 import { formatError } from "../../../src/error.ts";
 import { McpServerManager } from "../../../src/mcp/McpServerManager.ts";
-import type { OAuthProviderFactory } from "../../../src/mcp/McpServerManager.ts";
 import process from "node:process";
 import { createMcpRouter } from "./routes/mcp.ts";
 import { createAgentRouter } from "./routes/agent.ts";
 import { createFilesRouter } from "./routes/files.ts";
 import { errorHandler } from "./error.ts";
 import { parsePort } from "./utils.ts";
-import { RemoteOAuthProvider } from "./auth/RemoteOAuthProvider.ts";
-import { getWorkspaceDataDir } from "../../../src/utils/mod.ts";
-import { join } from "@std/path";
-import { ensureDir } from "@std/fs";
 import {
   type S3Options,
   S3StorageService,
@@ -72,38 +67,7 @@ const options: ServerOptions = {
 // Initialize Hono app
 const app = new Hono();
 
-/**
- * OAuth provider factory for API server
- * Creates RemoteOAuthProvider instances that can access saved tokens
- */
-const createOAuthProviderFactory = (): OAuthProviderFactory => {
-  return async (
-    serverId: string,
-    serverUrl: string,
-    clientName?: string,
-  ) => {
-    try {
-      console.log(`Setting up OAuth for API server: ${serverId}`);
-
-      // Get OAuth storage directory for this specific server
-      const dataDir = await getWorkspaceDataDir();
-      const oauthBaseDir = join(dataDir, "oauth", serverId);
-      await ensureDir(oauthBaseDir);
-
-      return new RemoteOAuthProvider({
-        serverId,
-        serverUrl,
-        oauthBaseDir,
-        clientName: clientName ?? "zypher-agent-api",
-      });
-    } catch (error) {
-      console.error(`Failed to create OAuth provider for ${serverId}:`, error);
-      return undefined;
-    }
-  };
-};
-
-const mcpServerManager = new McpServerManager(createOAuthProviderFactory());
+const mcpServerManager = new McpServerManager();
 
 // Prepare S3 storage service options
 const s3Options: S3Options = {

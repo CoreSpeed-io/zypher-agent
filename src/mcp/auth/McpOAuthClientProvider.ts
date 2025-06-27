@@ -14,7 +14,6 @@ import {
   writeTextFile,
 } from "./config.ts";
 import { getServerUrlHash } from "./config.ts";
-import { log } from "node:console";
 
 /**
  * Implements the OAuthClientProvider interface for Node.js environments.
@@ -32,7 +31,10 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
    * Creates a new McpOAuthClientProvider
    * @param options Configuration options for the provider
    */
-  constructor(readonly options?: OAuthProviderOptions) {
+  constructor(
+    readonly options?: OAuthProviderOptions,
+    onRedirect?: (url: string) => Promise<void>,
+  ) {
     // Initialize serverUrlHash asynchronously since getServerUrlHash returns a Promise
     this.#serverUrlHash = ""; // Will be set in initialize()
     this.#callbackPath = options?.callbackPath || "/oauth/callback";
@@ -42,7 +44,12 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
     this.#softwareId = options?.softwareId ||
       "9466000b-baa3-4d20-bd33-46cd9a3411ce";
     this.#softwareVersion = options?.softwareVersion || "0.1.0";
+    this._onRedirect = onRedirect || (async (url) => {
+      await console.log(`Redirect to: ${url.toString()}`);
+    });
   }
+
+  private _onRedirect: (url: string) => void;
 
   async initialize() {
     this.#serverUrlHash = await getServerUrlHash(this.options?.serverUrl ?? "");
@@ -121,7 +128,7 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
    * @param authorizationUrl The URL to redirect to
    */
   async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
-    await log(authorizationUrl.toString());
+    await this._onRedirect(authorizationUrl.toString());
   }
 
   /**
