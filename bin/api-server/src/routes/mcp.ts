@@ -9,17 +9,6 @@ import {
 } from "../../../../src/mcp/types/cursor.ts";
 import { formatError } from "../../../../src/error.ts";
 
-// Server info interface for OAuth callback processing
-interface ServerInfo {
-  serverId: string;
-  serverUrl: string;
-  serverConfig?: z.infer<typeof CursorConfigSchema>;
-  fromRegistry?: boolean;
-  registryToken?: string;
-  /** The exact redirect URI that was used when generating the authorization request. */
-  redirectUri?: string;
-}
-
 export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   const mcpRouter = new Hono();
 
@@ -150,5 +139,6 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       );
     }
   });
+
   return mcpRouter;
 }

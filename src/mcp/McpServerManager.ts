@@ -12,7 +12,7 @@ import { ApiError } from "../../bin/api-server/src/error.ts";
 
 export class McpServerError extends Error {
   constructor(
-    public code: "already_exists" | "server_error",
+    public code: "already_exists" | "server_error" | "oauth_required",
     message: string,
     public details?: unknown,
   ) {

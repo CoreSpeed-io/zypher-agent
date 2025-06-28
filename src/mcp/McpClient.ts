@@ -164,15 +164,42 @@ export class McpClient {
           throw new Error("Authentication failed after retry. Giving up.");
         }
         this.#connectionAttempts.add(McpClient.REASON_AUTH_NEEDED);
-        const oAuthProvider = new McpOAuthClientProvider(oAuthProviderOptions);
-        await oAuthProvider.initialize();
+
+        // If we have an existing OAuth provider, try to use it
+        if (oAuthProvider) {
+          console.log("Retrying with existing OAuth provider...");
+          return await this.#connectRecursive(
+            mode,
+            oAuthProviderOptions,
+            oAuthProvider,
+          );
+        }
+
+        // Create OAuth provider and initiate flow
+        const newOAuthProvider = new McpOAuthClientProvider(
+          oAuthProviderOptions,
+        );
+        await newOAuthProvider.initialize();
+
+        // Check if we already have tokens
+        const existingTokens = await newOAuthProvider.tokens();
+        if (existingTokens) {
+          console.log("Found existing tokens, retrying connection...");
+          return await this.#connectRecursive(
+            mode,
+            oAuthProviderOptions,
+            newOAuthProvider,
+          );
+        }
+
+        // No tokens available, OAuth flow will be handled by the provider
         console.log(
-          "Authentication required. Refreshing tokens and retrying...",
+          "OAuth authentication required. Attempting connection with OAuth provider...",
         );
         return await this.#connectRecursive(
           mode,
           oAuthProviderOptions,
-          oAuthProvider,
+          newOAuthProvider,
         );
       }
       throw error;
