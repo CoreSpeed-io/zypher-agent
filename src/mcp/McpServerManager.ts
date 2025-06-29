@@ -274,7 +274,7 @@ export class McpServerManager {
       if (!this.#config) {
         throw new Error("Config not loaded");
       }
-      if (this.#getServer(server._id)) {
+      if (this.#checkServerExists(server.name)) {
         throw new McpServerError(
           "already_exists",
           `Server ${server.name} already exists`,
@@ -488,19 +488,11 @@ export class McpServerManager {
     return this.#serverMap.get(id);
   };
 
-  /**
-   * Get server by name (serverName)
-   * @param serverName The name of the server to find
-   * @returns The server if found, undefined otherwise
-   */
-  #getServerByName = (serverName: string): ZypherMcpServer | undefined => {
-    for (const server of this.#serverMap.values()) {
-      if (server.name === serverName) {
-        return server;
-      }
-    }
-    return undefined;
-  };
+  #checkServerExists(serverName: string): boolean {
+    return this.#serverMap.values().some((server) =>
+      server.name === serverName
+    );
+  }
 
   /**
    * Deregisters a server by its name and removes its tools

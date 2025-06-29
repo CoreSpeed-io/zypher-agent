@@ -37,8 +37,8 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     async (c) => {
       const servers = c.req.valid("json");
       const clientName = c.req.query("clientName") ?? "zypher-agent-api";
-      const _callbackUrl = c.req.query("callbackUrl"); //
-      // Get callback URL from frontend
+      const callbackPort = c.req.query("callbackPort") ?? 8964;
+      const host = c.req.query("host") ?? "localhost";
 
       try {
         // Convert CursorConfig to ZypherMcpServer[] and register each server
@@ -48,9 +48,9 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
             async (server) =>
               await mcpServerManager.registerServer(server, {
                 serverUrl: server.remotes?.[0]?.url ?? "",
-                callbackPort: 3000,
+                callbackPort: Number(callbackPort),
                 clientName: clientName,
-                host: "localhost",
+                host: host,
               }),
           ),
         );
@@ -116,19 +116,15 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   mcpRouter.post("/registry/:id", async (c) => {
     const id = c.req.param("id");
     const token = c.req.header("Authorization")?.split(" ")[1];
-    const clientName = c.req.query("clientName") ?? "zypher-agent-api";
-    const callbackUrl = c.req.query("callbackUrl"); // Get callback URL from frontend
-    console.log("[clientName]", clientName);
-    console.log("[callbackUrl]", callbackUrl);
-    // if (!token) {
-    //   throw new ApiError(401, "unauthorized", "No token provided");
-    // }
+    const clientName = c.req.query("clientName") ?? "zypher-agent-api-registry";
+    const callbackPort = c.req.query("callbackPort") ?? 8964;
+    const host = c.req.query("host") ?? "localhost";
 
     try {
       await mcpServerManager.registerServerFromRegistry(id, token ?? "", {
-        callbackPort: 3000,
+        callbackPort: Number(callbackPort),
         clientName: clientName,
-        host: "localhost",
+        host: host,
       });
       return c.body(null, 202);
     } catch (error) {

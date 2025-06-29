@@ -174,10 +174,17 @@ export class McpClient {
             oAuthProvider,
           );
         }
+        // Ensure OAuth options are properly set
+        const effectiveOAuthOptions = oAuthProviderOptions || {
+          serverUrl: this.#server.remotes?.[0]?.url || "",
+          callbackPort: 8964, // Use different port to avoid conflict with API server
+          clientName: "zypher-agent-api",
+          host: "localhost",
+        };
 
         // Create OAuth provider and initiate flow
         const newOAuthProvider = new McpOAuthClientProvider(
-          oAuthProviderOptions,
+          effectiveOAuthOptions,
         );
         await newOAuthProvider.initialize();
 
@@ -185,20 +192,37 @@ export class McpClient {
         const existingTokens = await newOAuthProvider.tokens();
         if (existingTokens) {
           console.log("Found existing tokens, retrying connection...");
-          return await this.#connectRecursive(
-            mode,
-            oAuthProviderOptions,
-            newOAuthProvider,
-          );
+          try {
+            return await this.#connectRecursive(
+              mode,
+              effectiveOAuthOptions,
+              newOAuthProvider,
+            );
+          } catch (error) {
+            // If the existing tokens failed and it's still an auth error,
+            // clear the tokens and start fresh OAuth flow
+            if (this.#isAuthError(error)) {
+              console.log(
+                "Existing tokens are invalid, clearing and starting fresh OAuth flow...",
+              );
+              await newOAuthProvider.clearOAuthData();
+              // Continue to start fresh OAuth flow below
+            } else {
+              throw error;
+            }
+          }
         }
 
-        // No tokens available, OAuth flow will be handled by the provider
-        console.log(
-          "OAuth authentication required. Attempting connection with OAuth provider...",
-        );
+        // No tokens available, need to start OAuth flow
+        console.log("OAuth authentication required. Starting OAuth flow...");
+
+        // Reset auth attempts to allow the OAuth flow to proceed
+        this.#connectionAttempts.delete(McpClient.REASON_AUTH_NEEDED);
+
+        // Attempt connection which will trigger OAuth flow
         return await this.#connectRecursive(
           mode,
-          oAuthProviderOptions,
+          effectiveOAuthOptions,
           newOAuthProvider,
         );
       }
@@ -298,7 +322,7 @@ export class McpClient {
     this.#tools = toolResult.tools.map((tool) => {
       const inputSchema = jsonToZod(tool.inputSchema);
       return createTool(
-        `mcp_${this.#server.name}_${tool.name}`,
+        `${this.#server.name}_${tool.name}`,
         tool.description ?? "",
         inputSchema,
         async (params: Record<string, unknown>) => {
