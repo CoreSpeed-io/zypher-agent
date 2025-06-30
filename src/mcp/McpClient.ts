@@ -238,6 +238,7 @@ export class McpClient {
         "Connection Error: First package configuration is missing for CLI mode.",
       );
     }
+    const isFromMcpStore = this.#server.isFromMcpStore;
     const commonEnvVars = ["PATH", "HOME", "SHELL", "TERM"];
     const filteredEnvVars = {
       ...Object.fromEntries(
@@ -256,7 +257,16 @@ export class McpClient {
       config.packageArguments?.map((arg) => arg.value ?? "") ?? [];
     const runtimeArgs =
       config.runtimeArguments?.map((arg) => arg.value ?? "") ?? [];
-    const allArgs = [config.name, ...runtimeArgs, ...packageArgs];
+    const allArgs: string[] = isFromMcpStore
+      ? [
+        config.name,
+        ...runtimeArgs,
+        ...packageArgs,
+      ]
+      : [
+        ...runtimeArgs,
+        ...packageArgs,
+      ];
     console.log("config", config);
     const command = this.#parseCommand(config.registryName);
     console.log("[command]", command, "with args:", allArgs);

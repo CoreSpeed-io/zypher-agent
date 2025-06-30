@@ -685,6 +685,7 @@ export class McpServerManager {
       await this.registerServer({
         ...parsed,
         isEnabled: true,
+        isFromMcpStore: true,
       }, oAuthProviderOptions);
       console.log(
         `Successfully registered server from registry: ${id}${
