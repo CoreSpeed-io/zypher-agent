@@ -652,7 +652,7 @@ export class McpServerManager {
       }
 
       // Fetch server config from registry
-      const url = `${this.#mcpRegistryBaseUrl}/servers/${id}/config`;
+      const url = `${this.#mcpRegistryBaseUrl}/servers/${id}`;
       console.log(`Fetching from: ${url}`);
 
       const response = await fetch(url, {
@@ -661,6 +661,8 @@ export class McpServerManager {
         },
       });
 
+      console.log(["[response]", response]);
+
       if (!response.ok) {
         throw new Error(
           `Failed to fetch server config: ${response.status} ${response.statusText}`,
@@ -668,30 +670,25 @@ export class McpServerManager {
       }
 
       const data = await response.json();
-      console.log(`Received config for server: ${id}`);
-
       // Parse and validate the server configuration (handles nested structures automatically)
-      const parsed = ZypherMcpServerSchema.parse(data);
-      const config = parsed.packages?.[0];
-      const extractedName = parsed.name;
+      const parsed = ZypherMcpServerSchema.parse(data.server);
 
       // Use friendly name for server registration if available, otherwise use registry ID
-      const serverName = extractedName || data.name || id;
+      const serverName = parsed.name || data.name || id;
       console.log(
         `Registering server as: ${serverName}${
-          extractedName ? " (friendly name extracted from config)" : ""
+          parsed.name ? " (friendly name extracted from config)" : ""
         }`,
       );
 
       // Use the friendly name for server registration (affects tool names)
       await this.registerServer({
-        _id: id,
-        name: serverName,
-        packages: config ? [config] : undefined,
+        ...parsed,
+        isEnabled: true,
       }, oAuthProviderOptions);
       console.log(
         `Successfully registered server from registry: ${id}${
-          extractedName ? ` as '${serverName}'` : ""
+          parsed.name ? ` as '${serverName}'` : ""
         }`,
       );
     } catch (error) {

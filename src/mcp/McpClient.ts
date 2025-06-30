@@ -256,15 +256,40 @@ export class McpClient {
       config.packageArguments?.map((arg) => arg.value ?? "") ?? [];
     const runtimeArgs =
       config.runtimeArguments?.map((arg) => arg.value ?? "") ?? [];
-    const allArgs = [...runtimeArgs, ...packageArgs];
+    const allArgs = [config.name, ...runtimeArgs, ...packageArgs];
     console.log("config", config);
+    const command = this.#parseCommand(config.registryName);
+    console.log("[command]", command, "with args:", allArgs);
     this.transport = new StdioClientTransport({
-      command: config.registryName,
+      command: command,
       args: allArgs,
       env: { ...filteredEnvVars, ...cliEnv },
     });
     await this.#client!.connect(this.transport);
     return;
+  };
+
+  #parseCommand = (command: string): string => {
+    switch (command) {
+      case "npm":
+        return "npx";
+      case "yarn":
+        return "npx";
+      case "pnpm":
+        return "npx";
+      case "bun":
+        return "npx";
+      case "pypi":
+        return "uvx";
+      case "pipx":
+        return "uvx";
+      case "uv":
+        return "uvx";
+      case "docker":
+        return "docker";
+      default:
+        return command;
+    }
   };
 
   #ensureClient = (): void => {
