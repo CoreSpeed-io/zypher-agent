@@ -45,6 +45,7 @@ export interface IMcpClientConfig {
 export class McpClient {
   #client: Client | null = null;
   #connectionAttempts = new Set<string>();
+  #status: "connected" | "disconnected" | "auth_needed" = "disconnected";
   static readonly REASON_TRANSPORT_FALLBACK = "transport-fallback";
   static readonly REASON_AUTH_NEEDED = "auth-needed";
   transport:

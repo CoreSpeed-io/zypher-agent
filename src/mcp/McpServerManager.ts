@@ -269,7 +269,7 @@ export class McpServerManager {
   async registerServer(
     server: ZypherMcpServer,
     oAuthProviderOptions?: OAuthProviderOptions,
-  ): Promise<void> {
+  ): Promise<void | string> {
     try {
       if (!this.#config) {
         throw new Error("Config not loaded");
@@ -285,7 +285,7 @@ export class McpServerManager {
       this.#serverMap.set(server._id, server);
 
       // Initialize server client
-      await this.#initializeServerClient(
+      const authUrl = await this.#initializeServerClient(
         server._id,
         server,
         oAuthProviderOptions,
@@ -293,6 +293,7 @@ export class McpServerManager {
 
       this.#config.push(server);
       await this.#saveConfig();
+      return authUrl;
     } catch (error) {
       // Clean up on failure
       this.#serverMap.delete(server._id);
