@@ -3,23 +3,12 @@ import type { Tool } from "../tools/mod.ts";
 import { z } from "zod";
 import { getWorkspaceDataDir } from "../utils/mod.ts";
 import { join } from "@std/path";
-import { formatError } from "../error.ts";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import { type ZypherMcpServer, ZypherMcpServerSchema } from "./types/local.ts";
 import { ConnectionMode } from "./utils/transport.ts";
 import type { OAuthProviderOptions } from "./types/auth.ts";
-import { ApiError } from "../../bin/api-server/src/error.ts";
-
-export class McpServerError extends Error {
-  constructor(
-    public code: "already_exists" | "server_error" | "oauth_required",
-    message: string,
-    public details?: unknown,
-  ) {
-    super(message);
-    this.name = "McpServerError";
-  }
-}
+import { McpError } from "./types/error.ts";
+import { formatError } from "../error.ts";
 
 /**
  * Optional OAuth provider factory function type
@@ -104,7 +93,10 @@ export class McpServerManager {
    */
   #getConfigPath = (filename: string): string => {
     if (!this.#dataDir) {
-      throw new Error("Data directory not initialized");
+      throw new McpError(
+        "server_error",
+        "Data directory not initialized",
+      );
     }
     return join(this.#dataDir, filename);
   };
@@ -133,12 +125,16 @@ export class McpServerManager {
       );
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new Error(`Invalid MCP config structure: ${formatError(error)}`);
+        throw new McpError(
+          "invalid_config",
+          `Invalid MCP config structure: ${formatError(error)}`,
+        );
       }
       const errorMessage = error instanceof Error
         ? error.message
         : "Unknown error";
-      throw new Error(
+      throw new McpError(
+        "server_error",
         `Failed to load MCP config: ${formatError(errorMessage)}`,
       );
     }
@@ -163,7 +159,8 @@ export class McpServerManager {
       const errorMessage = error instanceof Error
         ? error.message
         : "Unknown error";
-      throw new Error(
+      throw new McpError(
+        "server_error",
         `Failed to reload MCP config: ${formatError(errorMessage)}`,
       );
     }
@@ -177,7 +174,10 @@ export class McpServerManager {
     oAuthProviderOptions?: OAuthProviderOptions,
   ): Promise<void> => {
     if (!this.#config) {
-      throw new Error("Config not loaded. Call loadConfig() first.");
+      throw new McpError(
+        "server_error",
+        "Config not loaded. Call loadConfig() first.",
+      );
     }
 
     // Initialize all servers from config
@@ -264,7 +264,7 @@ export class McpServerManager {
   /**
    * Registers a new MCP server and its tools
    * @param server Server configuration
-   * @throws McpServerError if server registration fails or server already exists
+   * @throws McpError if server registration fails or server already exists
    */
   async registerServer(
     server: ZypherMcpServer,
@@ -272,10 +272,13 @@ export class McpServerManager {
   ): Promise<void | string> {
     try {
       if (!this.#config) {
-        throw new Error("Config not loaded");
+        throw new McpError(
+          "server_error",
+          "Config not loaded. Call loadConfig() first.",
+        );
       }
       if (this.#checkServerExists(server.name)) {
-        throw new McpServerError(
+        throw new McpError(
           "already_exists",
           `Server ${server.name} already exists`,
         );
@@ -303,7 +306,7 @@ export class McpServerManager {
         this.#clientMap.delete(server._id);
       }
 
-      if (error instanceof McpServerError) {
+      if (error instanceof McpError) {
         throw error;
       }
 
@@ -311,7 +314,7 @@ export class McpServerManager {
         `Failed to register server ${server.name}:`,
         formatError(error),
       );
-      throw new McpServerError(
+      throw new McpError(
         "server_error",
         `Failed to register server ${server.name}: ${formatError(error)}`,
       );
@@ -326,8 +329,7 @@ export class McpServerManager {
   async deregisterServer(id: string): Promise<void> {
     const server = this.#getServer(id);
     if (!server) {
-      throw new ApiError(
-        404,
+      throw new McpError(
         "not_found",
         `Server with id ${id} not found`,
       );
@@ -350,7 +352,8 @@ export class McpServerManager {
         await this.#saveConfig();
       }
     } catch (error) {
-      throw new Error(
+      throw new McpError(
+        "server_error",
         `Failed to deregister server ${id}: ${formatError(error)}`,
       );
     }
@@ -369,7 +372,10 @@ export class McpServerManager {
   ): Promise<void> {
     const server = this.#getServer(id);
     if (!server) {
-      throw new Error(`Server with id ${id} not found`);
+      throw new McpError(
+        "not_found",
+        `Server with id ${id} not found`,
+      );
     }
 
     try {
@@ -379,7 +385,8 @@ export class McpServerManager {
         await this.registerServer(server, oAuthProviderOptions);
       }
     } catch (error) {
-      throw new Error(
+      throw new McpError(
+        "server_error",
         `Failed to update server ${server.name}: ${formatError(error)}`,
       );
     }
@@ -391,7 +398,10 @@ export class McpServerManager {
    */
   registerTool(tool: Tool): void {
     if (this.#toolbox.has(tool.name)) {
-      throw new Error(`Tool ${tool.name} already registered`);
+      throw new McpError(
+        "already_exists",
+        `Tool ${tool.name} already registered`,
+      );
     }
 
     // Check if any MCP server already provides a tool with this name
@@ -399,7 +409,8 @@ export class McpServerManager {
       if (server.isEnabled) {
         const client = this.#clientMap.get(serverId);
         if (client?.getTool(tool.name)) {
-          throw new Error(
+          throw new McpError(
+            "already_exists",
             `Tool ${tool.name} already exists in MCP server ${server.name}`,
           );
         }
@@ -451,7 +462,10 @@ export class McpServerManager {
   async setServerStatus(serverId: string, enabled: boolean): Promise<void> {
     const server = this.#getServer(serverId);
     if (!server) {
-      throw new Error(`Server ${serverId} not found`);
+      throw new McpError(
+        "not_found",
+        `Server ${serverId} not found`,
+      );
     }
 
     const wasEnabled = server.isEnabled;
@@ -466,7 +480,8 @@ export class McpServerManager {
         } catch (error) {
           // Revert the status on failure
           server.isEnabled = wasEnabled;
-          throw new Error(
+          throw new McpError(
+            "server_error",
             `Failed to enable server ${serverId}: ${formatError(error)}`,
           );
         }
@@ -503,7 +518,10 @@ export class McpServerManager {
   async deregisterServerById(serverId: string): Promise<void> {
     const server = this.#getServer(serverId);
     if (!server) {
-      throw new Error(`Server with id '${serverId}' not found`);
+      throw new McpError(
+        "not_found",
+        `Server with id '${serverId}' not found`,
+      );
     }
 
     // Use the existing deregisterServer method with the actual ID
@@ -513,7 +531,10 @@ export class McpServerManager {
   getServerConfig(serverId: string): ZypherMcpServer {
     const server = this.#getServer(serverId);
     if (!server) {
-      throw new Error(`Server ${serverId} not found`);
+      throw new McpError(
+        "not_found",
+        `Server ${serverId} not found`,
+      );
     }
     // Return config without enabled property
     return server;
@@ -524,7 +545,10 @@ export class McpServerManager {
    */
   #saveConfig = async (): Promise<void> => {
     if (!this.#config) {
-      throw new Error("Config not loaded");
+      throw new McpError(
+        "server_error",
+        "Config not loaded. Call loadConfig() first.",
+      );
     }
 
     // Write config to file - config already contains the current state
@@ -647,7 +671,8 @@ export class McpServerManager {
 
       // Validate registry URL
       if (!this.#mcpRegistryBaseUrl) {
-        throw new Error(
+        throw new McpError(
+          "server_error",
           "MCP registry URL not configured. Set MCP_SERVER_REGISTRY_URL environment variable.",
         );
       }
@@ -665,7 +690,8 @@ export class McpServerManager {
       console.log(["[response]", response]);
 
       if (!response.ok) {
-        throw new Error(
+        throw new McpError(
+          "server_error",
           `Failed to fetch server config: ${response.status} ${response.statusText}`,
         );
       }
@@ -695,7 +721,8 @@ export class McpServerManager {
       );
     } catch (error) {
       console.error(`Failed to register server ${id} from registry:`, error);
-      throw new Error(
+      throw new McpError(
+        "server_error",
         `Failed to register server ${id} from registry: ${formatError(error)}`,
       );
     }
