@@ -38,16 +38,6 @@ export class McpServerManager {
   #configFile = "mcp.json";
   #dataDir: string | null = null;
   #mcpRegistryBaseUrl: string | null = null;
-  #oauthProviderFactory?: OAuthProviderFactory;
-  #clientName: string;
-
-  constructor(
-    oauthProviderFactory?: OAuthProviderFactory,
-    clientName?: string,
-  ) {
-    this.#oauthProviderFactory = oauthProviderFactory;
-    this.#clientName = clientName ?? "zypher-agent-api";
-  }
 
   #createMcpClient(
     server: ZypherMcpServer,

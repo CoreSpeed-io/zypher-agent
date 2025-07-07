@@ -26,6 +26,8 @@ import { ConnectionMode } from "./utils/transport.ts";
 import type { ZypherMcpServer } from "./types/local.ts";
 import type { OAuthProviderOptions } from "./types/auth.ts";
 import { McpOAuthClientProvider } from "./auth/McpOAuthClientProvider.ts";
+import { McpError } from "./types/error.ts";
+import { formatError } from "../error.ts";
 
 /**
  * Configuration options for the MCP client
@@ -94,7 +96,10 @@ export class McpClient {
     // If mode is CLI, handle CLI connection and skip remote logic.
     if (mode === ConnectionMode.CLI) {
       if (!this.#server.packages || this.#server.packages.length === 0) {
-        throw new Error("Connection Error: No packages defined for CLI mode.");
+        throw new McpError(
+          "server_error",
+          "Connection Error: No packages defined for CLI mode.",
+        );
       }
       await this.#handleCliConnect();
       return;
@@ -157,7 +162,10 @@ export class McpClient {
         throw error; // All fallback options exhausted or not a fallback mode.
       } else if (this.#isAuthError(error)) {
         if (this.#connectionAttempts.has(McpClient.REASON_AUTH_NEEDED)) {
-          throw new Error("Authentication failed after retry. Giving up.");
+          throw new McpError(
+            "server_error",
+            "Authentication failed after retry. Giving up.",
+          );
         }
         this.#connectionAttempts.add(McpClient.REASON_AUTH_NEEDED);
 
@@ -233,7 +241,8 @@ export class McpClient {
     this.#ensureClient();
     const config = this.#server.packages?.[0];
     if (!config) {
-      throw new Error(
+      throw new McpError(
+        "server_error",
         "Connection Error: First package configuration is missing for CLI mode.",
       );
     }
@@ -298,7 +307,10 @@ export class McpClient {
 
   #ensureClient = (): void => {
     if (!this.#client) {
-      throw new Error("Client is not initialized");
+      throw new McpError(
+        "server_error",
+        "Client is not initialized",
+      );
     }
   };
 
@@ -315,7 +327,10 @@ export class McpClient {
   ): Promise<Tool[]> {
     try {
       if (!this.#client) {
-        throw new Error("Client is not initialized");
+        throw new McpError(
+          "server_error",
+          "Client is not initialized",
+        );
       }
 
       // Connect to the server
@@ -331,7 +346,10 @@ export class McpClient {
       const errorMessage = error instanceof Error
         ? error.message
         : "Unknown error";
-      throw new Error(`Failed to connect to MCP server: ${errorMessage}`);
+      throw new McpError(
+        "server_error",
+        `Failed to connect to MCP server: ${errorMessage}`,
+      );
     }
   }
 
@@ -341,7 +359,10 @@ export class McpClient {
    */
   async #discoverTools(): Promise<void> {
     if (!this.#client) {
-      throw new Error("Client is not initialized");
+      throw new McpError(
+        "server_error",
+        "Client is not initialized",
+      );
     }
 
     const toolResult = await this.#client.listTools();
@@ -409,7 +430,10 @@ export class McpClient {
     input: Record<string, unknown>;
   }): Promise<unknown> {
     if (!this.#client) {
-      throw new Error("Client not connected");
+      throw new McpError(
+        "server_error",
+        "Client not connected",
+      );
     }
 
     const result = await this.#client.callTool({
@@ -433,7 +457,10 @@ export class McpClient {
         const errorMessage = error instanceof Error
           ? error.message
           : "Unknown error";
-        console.error("Error during cleanup:", errorMessage);
+        console.error(
+          "Error during cleanup:",
+          formatError(errorMessage),
+        );
       }
     }
   }
