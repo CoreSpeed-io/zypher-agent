@@ -9,6 +9,29 @@ import {
 } from "../../../../src/mcp/types/cursor.ts";
 import { formatError } from "../../../../src/error.ts";
 
+// Utility to capture the first OAuth redirect URL emitted during registration
+function createRedirectCapture() {
+  let authUrl: string | undefined;
+  let resolveRedirect!: () => void;
+
+  const redirectPromise = new Promise<void>((resolve) => {
+    resolveRedirect = resolve;
+  });
+
+  const onRedirect = async (url: string) => {
+    if (!authUrl) {
+      authUrl = url;
+      await resolveRedirect();
+    }
+  };
+
+  return {
+    onRedirect,
+    redirectPromise,
+    getAuthUrl: () => authUrl,
+  } as const;
+}
+
 export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   const mcpRouter = new Hono();
 
@@ -43,17 +66,38 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       try {
         // Convert CursorConfig to ZypherMcpServer[] and register each server
         const zypherServers = await parseLocalServers(servers);
-        await Promise.all(
-          zypherServers.map(
-            async (server) =>
-              await mcpServerManager.registerServer(server, {
-                serverUrl: server.remotes?.[0]?.url ?? "",
-                callbackPort: Number(callbackPort),
-                clientName: clientName,
-                host: host,
-              }),
+
+        // Setup redirect capture helper
+        const {
+          onRedirect,
+          redirectPromise,
+          getAuthUrl,
+        } = createRedirectCapture();
+
+        // Kick off all registrations in parallel
+        const registrationPromise = Promise.all(
+          zypherServers.map((server) =>
+            mcpServerManager.registerServer(server, {
+              serverUrl: server.remotes?.[0]?.url ?? "",
+              callbackPort: Number(callbackPort),
+              clientName: clientName,
+              host: host,
+              onRedirect,
+            })
           ),
         );
+
+        // Wait until either a redirect URL is available or all registrations
+        // complete without requiring OAuth.
+        await Promise.race([redirectPromise, registrationPromise]);
+
+        if (getAuthUrl()) {
+          return c.json({ authenticationUrl: getAuthUrl() }, 202);
+        }
+
+        // If we reached here, all registrations completed successfully without
+        // requiring OAuth.
+        await registrationPromise; // ensure any errors propagate
         return c.body(null, 201);
       } catch (error) {
         throw new ApiError(
@@ -121,11 +165,34 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     const host = c.req.query("host") ?? "localhost";
 
     try {
-      await mcpServerManager.registerServerFromRegistry(id, token ?? "", {
-        callbackPort: Number(callbackPort),
-        clientName: clientName,
-        host: host,
-      });
+      // Setup redirect capture helper
+      const {
+        onRedirect,
+        redirectPromise,
+        getAuthUrl,
+      } = createRedirectCapture();
+
+      const registrationPromise = mcpServerManager.registerServerFromRegistry(
+        id,
+        token ?? "",
+        {
+          callbackPort: Number(callbackPort),
+          clientName: clientName,
+          host: host,
+          onRedirect,
+        },
+      );
+
+      // Wait until either the redirect URL is available or the registration
+      // completes without requiring OAuth.
+      await Promise.race([redirectPromise, registrationPromise]);
+
+      if (getAuthUrl()) {
+        return c.json({ authenticationUrl: getAuthUrl() }, 202);
+      }
+
+      // Ensure any errors propagate and registration finishes.
+      await registrationPromise;
       return c.body(null, 202);
     } catch (error) {
       throw new ApiError(

@@ -176,16 +176,25 @@ export class McpClient {
           );
         }
         // Ensure OAuth options are properly set
-        const effectiveOAuthOptions = oAuthProviderOptions || {
-          serverUrl: this.#server.remotes?.[0]?.url || "",
-          callbackPort: 8964, // Use different port to avoid conflict with API server
-          clientName: "zypher-agent-api",
-          host: "localhost",
-        };
+        const effectiveOAuthOptions: OAuthProviderOptions =
+          oAuthProviderOptions || {
+            serverUrl: this.#server.remotes?.[0]?.url || "",
+            callbackPort: 8964, // Use different port to avoid conflict with API server
+            clientName: "zypher-agent-api",
+            host: "localhost",
+          };
 
         // Create OAuth provider and initiate flow
         const newOAuthProvider = new McpOAuthClientProvider(
           effectiveOAuthOptions,
+          // Propagate optional onRedirect handler so that higher layers can capture
+          // the authorization URL and expose it to the frontend. Ensure the passed
+          // handler conforms to the expected Promise<void> signature.
+          effectiveOAuthOptions.onRedirect
+            ? async (url: string) => {
+              await effectiveOAuthOptions.onRedirect?.(url);
+            }
+            : undefined,
         );
         await newOAuthProvider.initialize();
 
