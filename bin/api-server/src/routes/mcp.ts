@@ -8,29 +8,7 @@ import {
   parseLocalServers,
 } from "../../../../src/mcp/types/cursor.ts";
 import { formatError } from "../../../../src/error.ts";
-
-// Utility to capture the first OAuth redirect URL emitted during registration
-function createRedirectCapture() {
-  let authUrl: string | undefined;
-  let resolveRedirect!: () => void;
-
-  const redirectPromise = new Promise<void>((resolve) => {
-    resolveRedirect = resolve;
-  });
-
-  const onRedirect = async (url: string) => {
-    if (!authUrl) {
-      authUrl = url;
-      await resolveRedirect();
-    }
-  };
-
-  return {
-    onRedirect,
-    redirectPromise,
-    getAuthUrl: () => authUrl,
-  } as const;
-}
+import { createRedirectCapture } from "../../../../src/mcp/auth/redirectCapture.ts";
 
 export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   const mcpRouter = new Hono();

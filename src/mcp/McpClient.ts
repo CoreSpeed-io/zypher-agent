@@ -26,7 +26,6 @@ import { ConnectionMode } from "./utils/transport.ts";
 import type { ZypherMcpServer } from "./types/local.ts";
 import type { OAuthProviderOptions } from "./types/auth.ts";
 import { McpOAuthClientProvider } from "./auth/McpOAuthClientProvider.ts";
-import { formatError } from "../error.ts";
 
 /**
  * Configuration options for the MCP client
@@ -135,9 +134,6 @@ export class McpClient {
       );
     } catch (error) {
       const transportId = this.transport.constructor.name;
-      if (oAuthProvider) {
-        console.log("[oAuthProvider]", oAuthProvider);
-      }
       if (this.#isFallbackError(mode, error)) {
         this.#connectionAttempts.add(transportId);
 
@@ -160,7 +156,6 @@ export class McpClient {
 
         throw error; // All fallback options exhausted or not a fallback mode.
       } else if (this.#isAuthError(error)) {
-        console.log("[isAuthError]", formatError(error));
         if (this.#connectionAttempts.has(McpClient.REASON_AUTH_NEEDED)) {
           throw new Error("Authentication failed after retry. Giving up.");
         }
@@ -168,7 +163,6 @@ export class McpClient {
 
         // If we have an existing OAuth provider, try to use it
         if (oAuthProvider) {
-          console.log("Retrying with existing OAuth provider...");
           return await this.#connectRecursive(
             mode,
             oAuthProviderOptions,
@@ -201,7 +195,6 @@ export class McpClient {
         // Check if we already have tokens
         const existingTokens = await newOAuthProvider.tokens();
         if (existingTokens) {
-          console.log("Found existing tokens, retrying connection...");
           try {
             return await this.#connectRecursive(
               mode,
@@ -212,9 +205,6 @@ export class McpClient {
             // If the existing tokens failed and it's still an auth error,
             // clear the tokens and start fresh OAuth flow
             if (this.#isAuthError(error)) {
-              console.log(
-                "Existing tokens are invalid, clearing and starting fresh OAuth flow...",
-              );
               await newOAuthProvider.clearOAuthData();
               // Continue to start fresh OAuth flow below
             } else {
@@ -224,7 +214,6 @@ export class McpClient {
         }
 
         // No tokens available, need to start OAuth flow
-        console.log("OAuth authentication required. Starting OAuth flow...");
 
         // Reset auth attempts to allow the OAuth flow to proceed
         this.#connectionAttempts.delete(McpClient.REASON_AUTH_NEEDED);
@@ -472,6 +461,7 @@ export class McpClient {
     return errorMessage.includes("401") ||
       errorMessage.includes("403") ||
       errorMessage.includes("unauthorized") ||
-      errorMessage.includes("oauth");
+      errorMessage.includes("oauth") ||
+      errorMessage.includes("oauth 2.0");
   };
 }
