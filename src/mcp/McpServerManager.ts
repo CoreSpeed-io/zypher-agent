@@ -9,6 +9,7 @@ import { ConnectionMode } from "./utils/transport.ts";
 import type { OAuthProviderOptions } from "./types/auth.ts";
 import { McpError } from "./types/error.ts";
 import { formatError } from "../error.ts";
+import type { Server } from "./types/store.ts";
 
 /**
  * Optional OAuth provider factory function type
@@ -716,5 +717,12 @@ export class McpServerManager {
         `Failed to register server ${id} from registry: ${formatError(error)}`,
       );
     }
+  }
+
+  async getAllServersFromRegistry(): Promise<Server[]> {
+    const url = `${this.#mcpRegistryBaseUrl}/servers`;
+    const response = await fetch(url);
+    const result = await response.json();
+    return result.data;
   }
 }

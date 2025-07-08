@@ -50,6 +50,7 @@ export function errorHandler(err: Error, c: Context) {
   }
 
   // Default to internal server error
+  c.status(500);
   return c.json({
     code: 500,
     type: "internal_server_error",
