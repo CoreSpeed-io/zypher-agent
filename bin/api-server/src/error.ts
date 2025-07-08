@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { StatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import { formatError } from "../../../src/error.ts";
+import { McpError } from "../../../src/mcp/types/error.ts";
 
 export class ApiError extends Error {
   constructor(
@@ -35,6 +36,16 @@ export function errorHandler(err: Error, c: Context) {
       type: "invalid_request",
       message: "Validation error",
       details: err.errors,
+    });
+  }
+
+  if (err instanceof McpError) {
+    c.status(err.statusCode as StatusCode);
+    return c.json({
+      code: err.statusCode,
+      type: err.code,
+      message: err.message,
+      details: err.details,
     });
   }
 
