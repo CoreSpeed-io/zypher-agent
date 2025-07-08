@@ -26,6 +26,7 @@ import { ConnectionMode } from "./utils/transport.ts";
 import type { ZypherMcpServer } from "./types/local.ts";
 import type { OAuthProviderOptions } from "./types/auth.ts";
 import { McpOAuthClientProvider } from "./auth/McpOAuthClientProvider.ts";
+import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
 import { McpError } from "./types/error.ts";
 import { formatError } from "../error.ts";
 
@@ -491,13 +492,23 @@ export class McpClient {
   };
 
   #isAuthError = (error: unknown): boolean => {
+    // Directly check for known UnauthorizedError type from MCP SDK
+    if (error instanceof UnauthorizedError) {
+      return true;
+    }
+
     const errorMessage = (error instanceof Error ? error.message : "")
       .toLowerCase();
-    return errorMessage.includes("401") ||
+
+    return (
+      errorMessage.includes("401") ||
       errorMessage.includes("403") ||
       errorMessage.includes("unauthorized") ||
+      errorMessage.includes("auth needed") ||
+      errorMessage.includes("auth error") ||
       errorMessage.includes("oauth") ||
-      errorMessage.includes("oauth 2.0");
+      errorMessage.includes("oauth 2.0")
+    );
   };
 
   getStatus(): "connected" | "disconnected" | "auth_needed" {

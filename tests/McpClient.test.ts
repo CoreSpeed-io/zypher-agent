@@ -479,6 +479,7 @@ describe("McpClient #connection status", () => {
   it("should report disconnected status initially", () => {
     const mcpClient = new McpClient({}, mockServer);
     assertEquals(mcpClient.isConnected(), false);
+    assertEquals(mcpClient.getStatus(), "disconnected");
   });
 
   it("should report connected status after successful connection", async () => {
@@ -492,6 +493,7 @@ describe("McpClient #connection status", () => {
       const mcpClient = new McpClient({}, mockServer);
       await mcpClient.connect(ConnectionMode.HTTP_FIRST);
       assertEquals(mcpClient.isConnected(), true);
+      assertEquals(mcpClient.getStatus(), "connected");
     } finally {
       mockConnect.restore();
     }
@@ -517,9 +519,32 @@ describe("McpClient #connection status", () => {
 
       await mcpClient.cleanup();
       assertEquals(mcpClient.isConnected(), false);
+      assertEquals(mcpClient.getStatus(), "disconnected");
     } finally {
       mockConnect.restore();
       mockClose.restore();
+    }
+  });
+
+  it("should report auth_needed status after authentication failure", async () => {
+    const authError = new UnauthorizedError("Auth needed");
+
+    // First call will throw UnauthorizedError, second call will also throw to force failure
+    const connectStub = stub(Client.prototype, "connect", () => {
+      return Promise.reject(authError);
+    });
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+
+      await assertRejects(
+        () => mcpClient.connect(ConnectionMode.HTTP_FIRST),
+        Error,
+      );
+
+      assertEquals(mcpClient.getStatus(), "auth_needed");
+    } finally {
+      connectStub.restore();
     }
   });
 });
