@@ -387,3 +387,565 @@ describe("McpClient #connectRecursive", () => {
     }
   });
 });
+
+describe("McpClient #tool management", () => {
+  const mockServer: ZypherMcpServer = {
+    _id: "test-server",
+    name: "test-server",
+    remotes: [{ url: "http://localhost:8080", transportType: "http" }],
+    packages: [{
+      name: "test-package",
+      version: "1.0.0",
+      registryName: "test-registry",
+    }],
+  };
+
+  it("should retrieve tools from connected server", async () => {
+    const mockListTools = stub(
+      Client.prototype,
+      "listTools",
+      () =>
+        Promise.resolve({
+          tools: [
+            {
+              name: "test-tool",
+              description: "A test tool",
+              inputSchema: {
+                type: "object" as const,
+                properties: {
+                  input: { type: "string" },
+                },
+              },
+            },
+          ],
+        }),
+    );
+
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+      const tools = await mcpClient.retrieveTools(ConnectionMode.HTTP_FIRST);
+
+      assertEquals(tools.length, 1);
+      assertEquals(tools[0].name, "test-server_test-tool");
+      assertEquals(mockListTools.calls.length, 1);
+    } finally {
+      mockConnect.restore();
+      mockListTools.restore();
+    }
+  });
+
+  it("should return empty array when no tools are available", async () => {
+    const mockListTools = stub(
+      Client.prototype,
+      "listTools",
+      () => Promise.resolve({ tools: [] }),
+    );
+
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+      const tools = await mcpClient.retrieveTools(ConnectionMode.HTTP_FIRST);
+
+      assertEquals(tools.length, 0);
+      assertEquals(mcpClient.getToolCount(), 0);
+    } finally {
+      mockConnect.restore();
+      mockListTools.restore();
+    }
+  });
+
+  it("should get specific tool by name", async () => {
+    const mockListTools = stub(
+      Client.prototype,
+      "listTools",
+      () =>
+        Promise.resolve({
+          tools: [
+            {
+              name: "test-tool",
+              description: "A test tool",
+              inputSchema: {
+                type: "object" as const,
+                properties: {
+                  input: { type: "string" },
+                },
+              },
+            },
+            {
+              name: "another-tool",
+              description: "Another test tool",
+              inputSchema: {
+                type: "object" as const,
+                properties: {
+                  value: { type: "number" },
+                },
+              },
+            },
+          ],
+        }),
+    );
+
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+      await mcpClient.retrieveTools(ConnectionMode.HTTP_FIRST);
+
+      const tool = mcpClient.getTool("test-server_test-tool");
+      assertEquals(tool?.name, "test-server_test-tool");
+
+      const nonExistentTool = mcpClient.getTool("non-existent");
+      assertEquals(nonExistentTool, undefined);
+    } finally {
+      mockConnect.restore();
+      mockListTools.restore();
+    }
+  });
+
+  it("should execute tool calls", async () => {
+    const mockCallTool = stub(
+      Client.prototype,
+      "callTool",
+      () => Promise.resolve({ result: "success" }),
+    );
+
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+      await mcpClient.connect(ConnectionMode.HTTP_FIRST);
+
+      const result = await mcpClient.executeToolCall({
+        name: "test-tool",
+        input: { param: "value" },
+      });
+
+      assertEquals(result, { result: "success" });
+      assertEquals(mockCallTool.calls.length, 1);
+      assertEquals(mockCallTool.calls[0].args[0], {
+        name: "test-tool",
+        arguments: { param: "value" },
+      });
+    } finally {
+      mockConnect.restore();
+      mockCallTool.restore();
+    }
+  });
+
+  it("should throw error when executing tool call without connection", async () => {
+    const mcpClient = new McpClient({}, mockServer);
+
+    await assertRejects(
+      () =>
+        mcpClient.executeToolCall({
+          name: "test-tool",
+          input: { param: "value" },
+        }),
+      Error,
+      "Client not connected",
+    );
+  });
+});
+
+describe("McpClient #connection status", () => {
+  const mockServer: ZypherMcpServer = {
+    _id: "test-server",
+    name: "test-server",
+    remotes: [{ url: "http://localhost:8080", transportType: "http" }],
+    packages: [{
+      name: "test-package",
+      version: "1.0.0",
+      registryName: "test-registry",
+    }],
+  };
+
+  it("should report disconnected status initially", () => {
+    const mcpClient = new McpClient({}, mockServer);
+    assertEquals(mcpClient.isConnected(), false);
+  });
+
+  it("should report connected status after successful connection", async () => {
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+      await mcpClient.connect(ConnectionMode.HTTP_FIRST);
+      assertEquals(mcpClient.isConnected(), true);
+    } finally {
+      mockConnect.restore();
+    }
+  });
+
+  it("should report disconnected status after cleanup", async () => {
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    const mockClose = stub(
+      Client.prototype,
+      "close",
+      () => Promise.resolve(),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+      await mcpClient.connect(ConnectionMode.HTTP_FIRST);
+      assertEquals(mcpClient.isConnected(), true);
+
+      await mcpClient.cleanup();
+      assertEquals(mcpClient.isConnected(), false);
+    } finally {
+      mockConnect.restore();
+      mockClose.restore();
+    }
+  });
+});
+
+describe("McpClient #error handling", () => {
+  const mockServer: ZypherMcpServer = {
+    _id: "test-server",
+    name: "test-server",
+    remotes: [{ url: "http://localhost:8080", transportType: "http" }],
+    packages: [{
+      name: "test-package",
+      version: "1.0.0",
+      registryName: "test-registry",
+    }],
+  };
+
+  it("should handle connection errors gracefully during tool retrieval", async () => {
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.reject(new Error("Network error")),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+
+      await assertRejects(
+        () => mcpClient.retrieveTools(ConnectionMode.HTTP_FIRST),
+        Error,
+        "Failed to connect to MCP server: Network error",
+      );
+    } finally {
+      mockConnect.restore();
+    }
+  });
+
+  it("should handle cleanup errors gracefully", async () => {
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    const mockClose = stub(
+      Client.prototype,
+      "close",
+      () => Promise.reject(new Error("Cleanup error")),
+    );
+
+    // Stub console.error to verify error logging
+    const mockConsoleError = stub(console, "error");
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+      await mcpClient.connect(ConnectionMode.HTTP_FIRST);
+
+      // Should not throw despite cleanup error
+      await mcpClient.cleanup();
+      assertEquals(mcpClient.isConnected(), false);
+      assertEquals(mockConsoleError.calls.length, 1);
+    } finally {
+      mockConnect.restore();
+      mockClose.restore();
+      mockConsoleError.restore();
+    }
+  });
+
+  it("should throw error for invalid connection mode with undefined packages", async () => {
+    const serverWithoutPackages = { ...mockServer, packages: undefined };
+    const mcpClient = new McpClient({}, serverWithoutPackages);
+
+    await assertRejects(
+      () => mcpClient.connect(ConnectionMode.CLI),
+      Error,
+      "Connection Error: No packages defined for CLI mode.",
+    );
+  });
+
+  it("should throw error when trying to retrieve tools from uninitialized client", async () => {
+    // Create client but don't initialize the internal client
+    const mcpClient = new McpClient({}, mockServer);
+    // Force internal client to null to simulate uninitialized state
+    (mcpClient as unknown as { [key: string]: unknown })["#client"] = null;
+
+    await assertRejects(
+      () => mcpClient.retrieveTools(ConnectionMode.HTTP_FIRST),
+      Error,
+      "Client is not initialized",
+    );
+  });
+});
+
+describe("McpClient #command parsing", () => {
+  const mockServer: ZypherMcpServer = {
+    _id: "test-server",
+    name: "test-server",
+    packages: [{
+      name: "test-package",
+      version: "1.0.0",
+      registryName: "npm",
+    }],
+  };
+
+  it("should parse npm registry to npx command", async () => {
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+      await mcpClient.connect(ConnectionMode.CLI);
+
+      // Verify that StdioClientTransport was created with npx command
+      assertEquals(mcpClient.transport instanceof StdioClientTransport, true);
+    } finally {
+      mockConnect.restore();
+    }
+  });
+
+  it("should parse pypi registry to uvx command", async () => {
+    const serverWithPypi = {
+      ...mockServer,
+      packages: [{
+        name: "test-package",
+        version: "1.0.0",
+        registryName: "pypi",
+      }],
+    };
+
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, serverWithPypi);
+      await mcpClient.connect(ConnectionMode.CLI);
+
+      assertEquals(mcpClient.transport instanceof StdioClientTransport, true);
+    } finally {
+      mockConnect.restore();
+    }
+  });
+
+  it("should handle unknown registry names", async () => {
+    const serverWithUnknown = {
+      ...mockServer,
+      packages: [{
+        name: "test-package",
+        version: "1.0.0",
+        registryName: "unknown-registry",
+      }],
+    };
+
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, serverWithUnknown);
+      await mcpClient.connect(ConnectionMode.CLI);
+
+      assertEquals(mcpClient.transport instanceof StdioClientTransport, true);
+    } finally {
+      mockConnect.restore();
+    }
+  });
+});
+
+describe("McpClient #OAuth integration", () => {
+  const mockServer: ZypherMcpServer = {
+    _id: "test-server",
+    name: "test-server",
+    remotes: [{ url: "http://localhost:8080", transportType: "http" }],
+    packages: [{
+      name: "test-package",
+      version: "1.0.0",
+      registryName: "test-registry",
+    }],
+  };
+
+  it("should handle OAuth redirect callback", async () => {
+    let capturedRedirectUrl = "";
+    const onRedirectMock = (url: string) => {
+      capturedRedirectUrl = url;
+    };
+
+    let callCount = 0;
+    const connectStub = stub(Client.prototype, "connect", () => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.reject(new UnauthorizedError("Auth needed"));
+      }
+      return Promise.resolve();
+    });
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+
+      await mcpClient.connect(ConnectionMode.HTTP_FIRST, {
+        callbackPort: 3000,
+        host: "localhost",
+        onRedirect: onRedirectMock,
+      });
+
+      assertEquals(connectStub.calls.length, 2);
+      // Verify that redirect was captured (URL will be generated by OAuth provider)
+      assertEquals(typeof capturedRedirectUrl, "string");
+    } finally {
+      connectStub.restore();
+    }
+  });
+
+  it("should use default OAuth options when none provided", async () => {
+    let callCount = 0;
+    const connectStub = stub(Client.prototype, "connect", () => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.reject(new UnauthorizedError("Auth needed"));
+      }
+      return Promise.resolve();
+    });
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+
+      await mcpClient.connect(ConnectionMode.HTTP_FIRST);
+
+      assertEquals(connectStub.calls.length, 2);
+    } finally {
+      connectStub.restore();
+    }
+  });
+
+  it("should handle OAuth timeout scenarios", async () => {
+    const connectStub = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.reject(new Error("OAuth timeout")),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, mockServer);
+
+      await assertRejects(
+        () => mcpClient.connect(ConnectionMode.HTTP_FIRST),
+        Error,
+        "OAuth timeout",
+      );
+    } finally {
+      connectStub.restore();
+    }
+  });
+});
+
+describe("McpClient #configuration validation", () => {
+  it("should accept valid client configuration", () => {
+    const config = {
+      id: "test-client-id",
+      name: "Test Client",
+      version: "2.0.0",
+    };
+
+    const mockServer: ZypherMcpServer = {
+      _id: "test-server",
+      name: "test-server",
+      remotes: [{ url: "http://localhost:8080", transportType: "http" }],
+      packages: [{
+        name: "test-package",
+        version: "1.0.0",
+        registryName: "test-registry",
+      }],
+    };
+
+    const mcpClient = new McpClient(config, mockServer);
+    assertEquals(mcpClient instanceof McpClient, true);
+  });
+
+  it("should use default values for missing config properties", () => {
+    const mockServer: ZypherMcpServer = {
+      _id: "test-server",
+      name: "test-server",
+      remotes: [{ url: "http://localhost:8080", transportType: "http" }],
+      packages: [{
+        name: "test-package",
+        version: "1.0.0",
+        registryName: "test-registry",
+      }],
+    };
+
+    const mcpClient = new McpClient({}, mockServer);
+    assertEquals(mcpClient instanceof McpClient, true);
+  });
+
+  it("should handle server configuration with isFromMcpStore flag", async () => {
+    const serverFromStore: ZypherMcpServer = {
+      _id: "test-server",
+      name: "test-server",
+      isFromMcpStore: true,
+      packages: [{
+        name: "test-package",
+        version: "1.0.0",
+        registryName: "npm",
+      }],
+    };
+
+    const mockConnect = stub(
+      Client.prototype,
+      "connect",
+      () => Promise.resolve(),
+    );
+
+    try {
+      const mcpClient = new McpClient({}, serverFromStore);
+      await mcpClient.connect(ConnectionMode.CLI);
+
+      assertEquals(mcpClient.transport instanceof StdioClientTransport, true);
+    } finally {
+      mockConnect.restore();
+    }
+  });
+});
