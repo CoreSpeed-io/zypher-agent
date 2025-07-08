@@ -134,6 +134,8 @@ export class McpClient {
 
     try {
       await this.#client!.connect(this.transport);
+      // Update status upon successful connection
+      this.#status = "connected";
       console.log(
         `Connected to remote server using ${this.transport.constructor.name}`,
       );
@@ -168,6 +170,8 @@ export class McpClient {
           );
         }
         this.#connectionAttempts.add(McpClient.REASON_AUTH_NEEDED);
+        // Mark status as needing authentication so higher layers can react
+        this.#status = "auth_needed";
 
         // If we have an existing OAuth provider, try to use it
         if (oAuthProvider) {
@@ -279,6 +283,8 @@ export class McpClient {
       env: { ...filteredEnvVars, ...cliEnv },
     });
     await this.#client!.connect(this.transport);
+    // Update status upon successful connection
+    this.#status = "connected";
     return;
   };
 
@@ -451,6 +457,8 @@ export class McpClient {
     if (this.transport) {
       try {
         await this.#client?.close();
+        // Mark status as disconnected after cleanup
+        this.#status = "disconnected";
         this.transport = null;
         this.#client = null;
       } catch (error) {
@@ -491,4 +499,8 @@ export class McpClient {
       errorMessage.includes("oauth") ||
       errorMessage.includes("oauth 2.0");
   };
+
+  getStatus(): "connected" | "disconnected" | "auth_needed" {
+    return this.#status;
+  }
 }
