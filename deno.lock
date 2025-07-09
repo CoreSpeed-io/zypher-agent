@@ -33,7 +33,7 @@
     "npm:@types/node@*": "22.15.15",
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.10": "4.8.4",
-    "npm:rolldown@*": "1.0.0-beta.24",
+    "npm:rolldown@^1.0.0-beta.9-commit.d91dfb5": "1.0.0-beta.9-commit.d91dfb5",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
     "npm:zod-to-json-schema@^3.24.5": "3.24.6_zod@3.25.76",
@@ -731,11 +731,11 @@
         "@tybys/wasm-util"
       ]
     },
-    "@oxc-project/runtime@0.75.1": {
-      "integrity": "sha512-UH07DRi7xXqAsJ/sFbJJg0liIXnapB6P5uADXIiF1s6WQjZzcTIkKHca0s522QVxmijPxVX5ijCYxSr7eSq5CQ=="
+    "@oxc-project/runtime@0.71.0": {
+      "integrity": "sha512-QwoF5WUXIGFQ+hSxWEib4U/aeLoiDN9JlP18MnBgx9LLPRDfn1iICtcow7Jgey6HLH4XFceWXQD5WBJ39dyJcw=="
     },
-    "@oxc-project/types@0.75.1": {
-      "integrity": "sha512-7ZJy+51qWpZRvynaQUezeYfjCtaSdiXIWFUZIlOuTSfDXpXqnSl/m1IUPLx6XrOy6s0SFv3CLE14vcZy63bz7g=="
+    "@oxc-project/types@0.71.0": {
+      "integrity": "sha512-5CwQ4MI+P4MQbjLWXgNurA+igGwu/opNetIE13LBs9+V93R64MLvDKOOLZIXSzEfovU3Zef3q3GjPnMTgJTn2w=="
     },
     "@rolldown/binding-darwin-arm64@1.0.0-beta.24": {
       "integrity": "sha512-gE4HGjIioZaMGZupq2zQQdqhlRV2b2qnjFHHkJEW50zVDmiVNWwdHjwvZDPx9JfW5y4GuHgp/zKDLZZbJlQ1/Q==",
@@ -861,8 +861,8 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
-    "@rolldown/pluginutils@1.0.0-beta.24": {
-      "integrity": "sha512-NMiim/enJlffMP16IanVj1ajFNEg8SaMEYyxyYfJoEyt5EiFT3HUH/T2GRdeStNWp+/kg5U8DiJqnQBgLQ8uCw=="
+    "@rolldown/pluginutils@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-8sExkWRK+zVybw3+2/kBkYBFeLnEUWz1fT7BLHplpzmtqkOfTbAQ9gkt4pzwGIIZmg4Qn5US5ACjUBenrhezwQ=="
     },
     "@smithy/abort-controller@4.0.4": {
       "integrity": "sha512-gJnEjZMvigPDQWHrW3oPrFhQtkrgqBkyjj3pCIdF3A5M6vsZODG93KNlfJprv6bp4245bdT32fsHK4kkH3KYDA==",
@@ -1675,8 +1675,8 @@
         "unpipe"
       ]
     },
-    "rolldown@1.0.0-beta.24": {
-      "integrity": "sha512-eDyipoOnoHQ5p6INkJ8g31eKGlqPSCAN9PapyOTw5HET4FYIWALZnSgpMZ67mdn+xT3jAsqGidNnBcIM6EAUhA==",
+    "rolldown@1.0.0-beta.9-commit.d91dfb5": {
+      "integrity": "sha512-FHkj6gGEiEgmAXQchglofvUUdwj2Oiw603Rs+zgFAnn9Cb7T7z3fiaEc0DbN3ja4wYkW6sF2rzMEtC1V4BGx/g==",
       "dependencies": [
         "@oxc-project/runtime",
         "@oxc-project/types",
@@ -1684,18 +1684,18 @@
         "ansis"
       ],
       "optionalDependencies": [
-        "@rolldown/binding-darwin-arm64@1.0.0-beta.24",
-        "@rolldown/binding-darwin-x64@1.0.0-beta.24",
-        "@rolldown/binding-freebsd-x64@1.0.0-beta.24",
-        "@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.24",
-        "@rolldown/binding-linux-arm64-gnu@1.0.0-beta.24",
-        "@rolldown/binding-linux-arm64-musl@1.0.0-beta.24",
-        "@rolldown/binding-linux-x64-gnu@1.0.0-beta.24",
-        "@rolldown/binding-linux-x64-musl@1.0.0-beta.24",
-        "@rolldown/binding-wasm32-wasi@1.0.0-beta.24",
-        "@rolldown/binding-win32-arm64-msvc@1.0.0-beta.24",
-        "@rolldown/binding-win32-ia32-msvc@1.0.0-beta.24",
-        "@rolldown/binding-win32-x64-msvc@1.0.0-beta.24"
+        "@rolldown/binding-darwin-arm64@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-darwin-x64@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-freebsd-x64@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-linux-arm64-gnu@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-linux-arm64-musl@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-linux-x64-gnu@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-linux-x64-musl@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-wasm32-wasi@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-win32-arm64-msvc@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-win32-ia32-msvc@1.0.0-beta.9-commit.d91dfb5",
+        "@rolldown/binding-win32-x64-msvc@1.0.0-beta.9-commit.d91dfb5"
       ],
       "bin": true
     },
@@ -1887,7 +1887,7 @@
       "npm:@modelcontextprotocol/sdk@^1.15.0",
       "npm:chalk@^5.4.1",
       "npm:hono@^4.7.10",
-      "npm:rolldown@^1.0.0-beta.24",
+      "npm:rolldown@^1.0.0-beta.9-commit.d91dfb5",
       "npm:rxjs-for-await@1",
       "npm:rxjs@^7.8.2",
       "npm:zod-to-json-schema@^3.24.5",
