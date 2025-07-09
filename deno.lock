@@ -2,13 +2,35 @@
   "version": "5",
   "specifiers": {
     "jsr:@bureaudouble-forks/importmap@~0.2.1": "0.2.1",
+    "jsr:@openai/openai@^4.102.0": "4.102.0",
+    "jsr:@panva/jose@^6.0.11": "6.0.11",
+    "jsr:@panva/oauth4webapi@^3.5.4": "3.5.5",
+    "jsr:@panva/openid-client@^6.5.0": "6.6.2",
+    "jsr:@std/assert@^1.0.13": "1.0.13",
+    "jsr:@std/async@^1.0.13": "1.0.13",
+    "jsr:@std/bytes@^1.0.6": "1.0.6",
+    "jsr:@std/cli@^1.0.19": "1.0.20",
+    "jsr:@std/crypto@^1.0.5": "1.0.5",
+    "jsr:@std/data-structures@^1.0.8": "1.0.8",
+    "jsr:@std/dotenv@~0.225.5": "0.225.5",
+    "jsr:@std/encoding@^1.0.10": "1.0.10",
+    "jsr:@std/expect@^1.0.16": "1.0.16",
+    "jsr:@std/fs@^1.0.18": "1.0.19",
+    "jsr:@std/internal@^1.0.6": "1.0.9",
+    "jsr:@std/internal@^1.0.7": "1.0.9",
+    "jsr:@std/internal@^1.0.8": "1.0.9",
     "jsr:@std/internal@^1.0.9": "1.0.9",
     "jsr:@std/path@^1.0.8": "1.1.1",
+    "jsr:@std/path@^1.1.0": "1.1.1",
+    "jsr:@std/path@^1.1.1": "1.1.1",
+    "jsr:@std/testing@^1.0.13": "1.0.14",
+    "jsr:@std/uuid@^1.0.8": "1.0.9",
     "npm:@anthropic-ai/sdk@0.52": "0.52.0",
     "npm:@aws-sdk/client-s3@^3.821.0": "3.844.0",
     "npm:@aws-sdk/s3-request-presigner@^3.821.0": "3.844.0",
     "npm:@hono/zod-validator@0.7": "0.7.0_hono@4.8.4_zod@3.25.76",
     "npm:@modelcontextprotocol/sdk@^1.15.0": "1.15.0_express@5.1.0_zod@3.25.76",
+    "npm:@types/node@*": "22.15.15",
     "npm:chalk@^5.4.1": "5.4.1",
     "npm:hono@^4.7.10": "4.8.4",
     "npm:rolldown@*": "1.0.0-beta.24",
@@ -16,11 +38,72 @@
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
     "npm:zod-to-json-schema@^3.24.5": "3.24.6_zod@3.25.76",
+    "npm:zod@3": "3.25.76",
     "npm:zod@^3.25.42": "3.25.76"
   },
   "jsr": {
     "@bureaudouble-forks/importmap@0.2.1": {
       "integrity": "ba78361d289f946e9c2488066b339553576392c5780b151cdd4c01da0c58f131"
+    },
+    "@openai/openai@4.102.0": {
+      "integrity": "ea5201bc5c8a696d3a5139a9cd2252e3ab9b2b880769a9cd7f05602ea1a02acf",
+      "dependencies": [
+        "npm:zod@3"
+      ]
+    },
+    "@panva/jose@6.0.11": {
+      "integrity": "90d3a31fbe29ab3ab64f5c8c7c413b8a962663d7c62eacd51cc7f41d9c42ccbf"
+    },
+    "@panva/oauth4webapi@3.5.5": {
+      "integrity": "08b0a3bb1cb41541ca060926332201ef58b9d6b50c9d4d26b5bcd35a9adc238e"
+    },
+    "@panva/openid-client@6.6.2": {
+      "integrity": "0d783bd2d9d2d6df3b4e45517ce8116eeb96747799be44a3a86bb51892c82c68",
+      "dependencies": [
+        "jsr:@panva/jose",
+        "jsr:@panva/oauth4webapi"
+      ]
+    },
+    "@std/assert@1.0.13": {
+      "integrity": "ae0d31e41919b12c656c742b22522c32fb26ed0cba32975cb0de2a273cb68b29",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.6"
+      ]
+    },
+    "@std/async@1.0.13": {
+      "integrity": "1d76ca5d324aef249908f7f7fe0d39aaf53198e5420604a59ab5c035adc97c96"
+    },
+    "@std/bytes@1.0.6": {
+      "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
+    },
+    "@std/cli@1.0.20": {
+      "integrity": "a8c384a2c98cec6ec6a2055c273a916e2772485eb784af0db004c5ab8ba52333"
+    },
+    "@std/crypto@1.0.5": {
+      "integrity": "0dcfbb319fe0bba1bd3af904ceb4f948cde1b92979ec1614528380ed308a3b40"
+    },
+    "@std/data-structures@1.0.8": {
+      "integrity": "2fb7219247e044c8fcd51341788547575653c82ae2c759ff209e0263ba7d9b66"
+    },
+    "@std/dotenv@0.225.5": {
+      "integrity": "9ce6f9d0ec3311f74a32535aa1b8c62ed88b1ab91b7f0815797d77a6f60c922f"
+    },
+    "@std/encoding@1.0.10": {
+      "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
+    },
+    "@std/expect@1.0.16": {
+      "integrity": "ceeef6dda21f256a5f0f083fcc0eaca175428b523359a9b1d9b3a1df11cc7391",
+      "dependencies": [
+        "jsr:@std/assert",
+        "jsr:@std/internal@^1.0.7"
+      ]
+    },
+    "@std/fs@1.0.19": {
+      "integrity": "051968c2b1eae4d2ea9f79a08a3845740ef6af10356aff43d3e2ef11ed09fb06",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.9",
+        "jsr:@std/path@^1.1.1"
+      ]
     },
     "@std/internal@1.0.9": {
       "integrity": "bdfb97f83e4db7a13e8faab26fb1958d1b80cc64366501af78a0aee151696eb8"
@@ -28,7 +111,25 @@
     "@std/path@1.1.1": {
       "integrity": "fe00026bd3a7e6a27f73709b83c607798be40e20c81dde655ce34052fd82ec76",
       "dependencies": [
-        "jsr:@std/internal"
+        "jsr:@std/internal@^1.0.9"
+      ]
+    },
+    "@std/testing@1.0.14": {
+      "integrity": "144b3737105b9071cb50c957681f58a1b8ec0f3e5b19ad830f401c5fa931e8f0",
+      "dependencies": [
+        "jsr:@std/assert",
+        "jsr:@std/async",
+        "jsr:@std/data-structures",
+        "jsr:@std/fs",
+        "jsr:@std/internal@^1.0.8",
+        "jsr:@std/path@^1.1.0"
+      ]
+    },
+    "@std/uuid@1.0.9": {
+      "integrity": "44b627bf2d372fe1bd099e2ad41b2be41a777fc94e62a3151006895a037f1642",
+      "dependencies": [
+        "jsr:@std/bytes",
+        "jsr:@std/crypto"
       ]
     }
   },
@@ -1223,6 +1324,12 @@
         "tslib"
       ]
     },
+    "@types/node@22.15.15": {
+      "integrity": "sha512-R5muMcZob3/Jjchn5LcO8jdKwSCbzqmPB6ruBxMcf9kbxtniZHP327s6C37iOfuw8mbKK3cAQa7sEl7afLrQ8A==",
+      "dependencies": [
+        "undici-types"
+      ]
+    },
     "@types/uuid@9.0.8": {
       "integrity": "sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA=="
     },
@@ -1754,6 +1861,9 @@
         "media-typer",
         "mime-types"
       ]
+    },
+    "undici-types@6.21.0": {
+      "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="
     },
     "unpipe@1.0.0": {
       "integrity": "sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ=="
