@@ -48,8 +48,12 @@ export class McpClient {
   #client: Client | null = null;
   #connectionAttempts = new Set<string>();
   // Current connection state of the client
-  #status: "connected" | "disconnected" | "auth_needed" | "connecting" =
-    "disconnected";
+  #status:
+    | "connected"
+    | "disconnected"
+    | "auth_needed"
+    | "disabled"
+    | "connecting" = "disconnected";
   static readonly REASON_TRANSPORT_FALLBACK = "transport-fallback";
   static readonly REASON_AUTH_NEEDED = "auth-needed";
   transport:
@@ -432,6 +436,10 @@ export class McpClient {
     return this.#client !== null && this.transport !== null;
   }
 
+  toggleEnabled(enabled: boolean): void {
+    this.#status = enabled ? "connected" : "disconnected";
+  }
+
   /**
    * Executes a tool call and returns the result
    * @param toolCall The tool call to execute
@@ -517,7 +525,12 @@ export class McpClient {
     );
   };
 
-  getStatus(): "connected" | "disconnected" | "auth_needed" | "connecting" {
+  getStatus():
+    | "connected"
+    | "disconnected"
+    | "auth_needed"
+    | "connecting"
+    | "disabled" {
     return this.#status;
   }
 }
