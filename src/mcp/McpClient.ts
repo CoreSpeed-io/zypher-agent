@@ -47,7 +47,9 @@ export interface IMcpClientConfig {
 export class McpClient {
   #client: Client | null = null;
   #connectionAttempts = new Set<string>();
-  #status: "connected" | "disconnected" | "auth_needed" = "disconnected";
+  // Current connection state of the client
+  #status: "connected" | "disconnected" | "auth_needed" | "connecting" =
+    "disconnected";
   static readonly REASON_TRANSPORT_FALLBACK = "transport-fallback";
   static readonly REASON_AUTH_NEEDED = "auth-needed";
   transport:
@@ -83,6 +85,8 @@ export class McpClient {
     mode: ConnectionMode = ConnectionMode.HTTP_FIRST,
     oAuthProviderOptions?: OAuthProviderOptions,
   ): Promise<void> => {
+    // Mark the client as attempting to connect
+    this.#status = "connecting";
     this.#connectionAttempts.clear();
     await this.#connectRecursive(mode, oAuthProviderOptions);
   };
@@ -238,6 +242,8 @@ export class McpClient {
           newOAuthProvider,
         );
       }
+      // For all other errors, mark the client as disconnected before propagating
+      this.#status = "disconnected";
       throw error;
     }
   };
@@ -511,7 +517,7 @@ export class McpClient {
     );
   };
 
-  getStatus(): "connected" | "disconnected" | "auth_needed" {
+  getStatus(): "connected" | "disconnected" | "auth_needed" | "connecting" {
     return this.#status;
   }
 }
