@@ -439,6 +439,7 @@ export class McpServerManager {
         const client = this.#clientMap.get(server._id);
         return {
           ...server,
+          status: client?.getStatus(),
           tools: client?.getTools().map((tool) => tool.name) ?? [],
         };
       },

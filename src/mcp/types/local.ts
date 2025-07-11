@@ -35,6 +35,13 @@ export const ZypherMcpServerSchema = z.object({
   isFromMcpStore: z.boolean().optional().describe(
     "Whether the MCP server is from the MCP store",
   ),
+  status: z.enum([
+    "connected",
+    "disconnected",
+    "connecting",
+    "auth_needed",
+    "disabled",
+  ]).optional().describe("The status of the MCP server"),
 });
 
 export const ZypherMcpServerCreateSchema = ZypherMcpServerSchema.omit({
