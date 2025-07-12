@@ -752,31 +752,27 @@ paths:
     get:
       summary: OAuth callback handler
       description: |
-        Processes OAuth authorization callback from the MCP server's OAuth provider.
-        This endpoint is called by the OAuth provider after user authorization.
-        Returns JSON response for frontend handling instead of HTML.
+        Processes OAuth authorization callback from the frontend.
+        The frontend calls this endpoint with the OAuth code and state parameters obtained from the OAuth provider.
       operationId: handleOAuthCallback
       parameters:
         - name: code
           in: query
+          required: true
           schema:
             type: string
           description: Authorization code from OAuth provider
         - name: state
           in: query
+          required: true
           schema:
             type: string
           description: State parameter for CSRF protection
-        - name: error
+        - name: clientName
           in: query
           schema:
             type: string
-          description: Error code if authorization failed
-        - name: error_description
-          in: query
-          schema:
-            type: string
-          description: Human-readable error description
+          description: Optional client name for identification
       responses:
         "200":
           description: OAuth callback processed successfully
@@ -785,7 +781,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/OAuthCallbackResponse"
         "400":
-          description: OAuth callback processing failed
+          description: OAuth callback processing failed or missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Server not found
           content:
             application/json:
               schema:

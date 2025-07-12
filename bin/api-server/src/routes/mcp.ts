@@ -37,7 +37,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     async (c) => {
       const servers = c.req.valid("json");
       const clientName = c.req.query("clientName") ?? "zypher-agent-api";
-      const callbackPort = c.req.query("callbackPort") ?? 8964;
+      const callbackPort = c.req.query("callbackPort");
       const host = c.req.query("host") ?? "localhost";
 
       // Convert CursorConfig to ZypherMcpServer[] and register each server
@@ -68,7 +68,10 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       await Promise.race([redirectPromise, registrationPromise]);
 
       if (getAuthUrl()) {
-        return c.json({ authenticationUrl: getAuthUrl() }, 202);
+        return c.json(
+          { requiresOAuth: true, authenticationUrl: getAuthUrl() },
+          202,
+        );
       }
 
       // If we reached here, all registrations completed successfully without
@@ -122,15 +125,16 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   mcpRouter.get("/servers/:id", (c) => {
     const id = c.req.param("id");
     const server = mcpServerManager.getServerConfig(id);
-    return c.json({ [id]: server });
+    return c.json({ [server.name ?? id]: server });
   });
 
   // Register MCP server from registry
   mcpRouter.post("/registry/:id", async (c) => {
     const id = c.req.param("id");
     const token = c.req.header("Authorization")?.split(" ")[1];
-    const clientName = c.req.query("clientName") ?? "zypher-agent-api-registry";
-    const callbackPort = c.req.query("callbackPort") ?? 8964;
+    const clientName = c.req.query("clientName");
+    const callbackPort = c.req.query("callbackPort");
+    const callbackPath = c.req.query("callbackPath");
     const host = c.req.query("host") ?? "localhost";
     const {
       onRedirect,
@@ -145,6 +149,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
         callbackPort: Number(callbackPort),
         clientName: clientName,
         host: host,
+        callbackPath: callbackPath,
         onRedirect,
       },
     );
@@ -154,18 +159,75 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
     await Promise.race([redirectPromise, registrationPromise]);
 
     if (getAuthUrl()) {
-      return c.json({ authenticationUrl: getAuthUrl() }, 202);
+      return c.json(
+        { requiresOAuth: true, authenticationUrl: getAuthUrl() },
+        202,
+      );
     }
 
     // Ensure any errors propagate and registration finishes.
     await registrationPromise;
-    return c.body(null, 202);
+    return c.json({ requiresOAuth: false }, 202);
   });
 
   mcpRouter.get("/registry/servers", async (c) => {
     const servers = await mcpServerManager.getAllServersFromRegistry();
     return c.json({ servers });
   });
+
+  // Handle OAuth callback from frontend
+  mcpRouter.get(
+    "/servers/:id/oauth/callback",
+    async (c) => {
+      const id = c.req.param("id");
+      const code = c.req.query("code");
+      const state = c.req.query("state");
+      const clientName = c.req.query("clientName");
+
+      if (!code || !state) {
+        throw new ApiError(400, "invalid_request", "Missing code or state");
+      }
+
+      try {
+        // Get the MCP client for this server
+        const client = mcpServerManager.getClient(id);
+        if (!client) {
+          throw new ApiError(404, "not_found", `Server ${id} not found`);
+        }
+
+        // Handle the OAuth callback through the client
+        const success = await client.handleOAuthCallback(
+          code,
+          state,
+          clientName,
+        );
+
+        if (success) {
+          return c.json({
+            success: true,
+            message: "OAuth authentication completed successfully",
+            serverId: id,
+            serverRegistered: true,
+          });
+        } else {
+          throw new ApiError(
+            400,
+            "oauth_failed",
+            "OAuth authentication failed",
+          );
+        }
+      } catch (error) {
+        console.error(`OAuth callback failed for server ${id}:`, error);
+        throw new ApiError(
+          500,
+          "server_error",
+          `OAuth callback processing failed: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        );
+      }
+    },
+  );
 
   return mcpRouter;
 }

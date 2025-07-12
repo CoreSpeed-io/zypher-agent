@@ -63,6 +63,8 @@ export class McpClient {
     | null = null;
   #server: ZypherMcpServer;
   #tools: Tool[] = [];
+  // Cached OAuth provider for the current connection (if any)
+  #oauthProvider?: McpOAuthClientProvider;
 
   /**
    * Creates a new MCPClient instance
@@ -140,6 +142,11 @@ export class McpClient {
       : new StreamableHTTPClientTransport(mcpServerUrl, {
         authProvider: oAuthProvider,
       });
+
+    // Cache the OAuth provider for later use (e.g., callback handling)
+    if (oAuthProvider) {
+      this.#oauthProvider = oAuthProvider;
+    }
 
     try {
       await this.#client!.connect(this.transport);
@@ -532,5 +539,57 @@ export class McpClient {
     | "connecting"
     | "disabled" {
     return this.#status;
+  }
+
+  /**
+   * Handles OAuth callback from frontend
+   * @param code OAuth authorization code
+   * @param state OAuth state parameter
+   * @param clientName Optional client name
+   * @returns Promise resolving to success status
+   */
+  async handleOAuthCallback(
+    code: string,
+    state: string,
+    clientName?: string,
+  ): Promise<boolean> {
+    try {
+      console.log(`Handling OAuth callback for server ${this.#server.name}`);
+      console.log(`Code: ${code.substring(0, 10)}...`);
+      console.log(`State: ${state}`);
+      console.log(`Client name: ${clientName}`);
+
+      const oauthProvider = this.#oauthProvider;
+
+      if (!oauthProvider) {
+        console.error("No OAuth provider found for this transport");
+        this.#status = "auth_needed";
+        return false;
+      }
+
+      // Handle the OAuth callback through the provider
+      const success = await oauthProvider.handleOAuthCallback(code, state);
+
+      if (success) {
+        this.#status = "connected";
+        console.log(
+          `OAuth authentication successful for server ${this.#server.name}`,
+        );
+        return true;
+      } else {
+        this.#status = "auth_needed";
+        console.log(
+          `OAuth authentication failed for server ${this.#server.name}`,
+        );
+        return false;
+      }
+    } catch (error) {
+      console.error(
+        `OAuth callback failed for server ${this.#server.name}:`,
+        error,
+      );
+      this.#status = "auth_needed";
+      return false;
+    }
   }
 }

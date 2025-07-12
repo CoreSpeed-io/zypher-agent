@@ -6,6 +6,7 @@ import {
   OAuthTokensSchema,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 import type { OAuthProviderOptions } from "../types/auth.ts";
+import { Completer } from "../../utils/completer.ts";
 import {
   deleteConfigFile,
   readJsonFile,
@@ -51,7 +52,7 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
 
   private _onRedirect: (url: string) => void;
   private _callbackServer: Deno.HttpServer | null = null;
-  private _authPromise: Promise<boolean> | null = null;
+  private _completer?: Completer<boolean>;
   private _currentState: string | null = null;
 
   async initialize() {
@@ -347,150 +348,67 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
   }
 
   /**
-   * Starts the OAuth flow with a local callback server
+   * Starts the OAuth flow by providing the authorization URL to the frontend.
+   * Returns a Promise that resolves once the frontend completes authentication
+   * and calls back to `handleOAuthCallback`.
+   *
    * @param authorizationUrl The authorization URL to redirect to
-   * @returns Promise that resolves when OAuth flow is complete
+   * @returns Promise that resolves to the authentication result (true/false)
    */
   startOAuthFlow(authorizationUrl: URL): Promise<boolean> {
-    if (this._authPromise) {
-      return this._authPromise;
+    // If a flow is already in progress, return the existing promise
+    if (this._completer) {
+      return this._completer.wait();
     }
 
-    this._authPromise = this._handleOAuthFlow(authorizationUrl);
-    return this._authPromise;
+    this._completer = new Completer<boolean>();
+
+    console.log(
+      "Starting OAuth flow - providing authorization URL to frontend",
+    );
+    this._onRedirect(authorizationUrl.toString());
+
+    return this._completer.wait();
   }
 
-  private _handleOAuthFlow(authorizationUrl: URL): Promise<boolean> {
-    return new Promise<boolean>((resolve, reject) => {
-      const port = this.options?.callbackPort || 3000;
-      const callbackPath = this.#callbackPath;
-
-      // Start callback server
-      const handler = async (request: Request): Promise<Response> => {
-        const url = new URL(request.url);
-
-        if (url.pathname === callbackPath) {
-          const code = url.searchParams.get("code");
-          const state = url.searchParams.get("state");
-          const error = url.searchParams.get("error");
-          const errorDescription = url.searchParams.get("error_description");
-
-          if (error) {
-            console.log(`OAuth error: ${error} - ${errorDescription}`);
-            this._cleanupCallbackServer();
-            resolve(false);
-            return new Response(
-              `<html><body><h1>Authentication Failed</h1><p>${
-                errorDescription || error
-              }</p></body></html>`,
-              { headers: { "Content-Type": "text/html" } },
-            );
-          }
-
-          if (!code || !state) {
-            console.log("Missing OAuth callback parameters");
-            this._cleanupCallbackServer();
-            resolve(false);
-            return new Response(
-              `<html><body><h1>Authentication Failed</h1><p>Missing required parameters</p></body></html>`,
-              { headers: { "Content-Type": "text/html" } },
-            );
-          }
-
-          try {
-            // Validate state parameter for CSRF protection
-            const savedState = await this._getSavedState();
-            if (!savedState || state !== savedState) {
-              console.log("OAuth state validation failed");
-              this._cleanupCallbackServer();
-              resolve(false);
-              return new Response(
-                `<html><body><h1>Authentication Failed</h1><p>State validation failed - possible CSRF attack</p></body></html>`,
-                { headers: { "Content-Type": "text/html" } },
-              );
-            }
-
-            console.log(
-              `OAuth callback received with code: ${
-                code.substring(0, 10)
-              }... and valid state`,
-            );
-
-            try {
-              // Exchange authorization code for access tokens
-              await this._exchangeCodeForTokens(code);
-
-              this._cleanupCallbackServer();
-              resolve(true);
-              return new Response(
-                `<html><body><h1>Authentication Successful</h1><p>You can close this window and return to the application.</p></body></html>`,
-                { headers: { "Content-Type": "text/html" } },
-              );
-            } catch (tokenError) {
-              console.error("Token exchange failed:", tokenError);
-              this._cleanupCallbackServer();
-              resolve(false);
-              return new Response(
-                `<html><body><h1>Authentication Failed</h1><p>Token exchange failed: ${
-                  tokenError instanceof Error
-                    ? tokenError.message
-                    : "Unknown error"
-                }</p></body></html>`,
-                { headers: { "Content-Type": "text/html" } },
-              );
-            }
-          } catch (error) {
-            console.error("OAuth callback processing failed:", error);
-            this._cleanupCallbackServer();
-            resolve(false);
-            return new Response(
-              `<html><body><h1>Authentication Failed</h1><p>Token exchange failed</p></body></html>`,
-              { headers: { "Content-Type": "text/html" } },
-            );
-          }
-        }
-
-        return new Response("Not found", { status: 404 });
-      };
-
-      try {
-        this._callbackServer = Deno.serve({
-          port,
-          hostname: this.options?.host || "localhost",
-        }, handler);
-      } catch (error) {
-        console.error("Failed to start OAuth callback server:", error);
-        reject(error);
-        return;
+  /**
+   * Handles OAuth callback from the frontend
+   * @param code OAuth authorization code
+   * @param state OAuth state parameter
+   * @returns Promise resolving to success status
+   */
+  async handleOAuthCallback(code: string, state: string): Promise<boolean> {
+    try {
+      // Validate state parameter for CSRF protection
+      const savedState = await this._getSavedState();
+      if (!savedState || state !== savedState) {
+        console.log("OAuth state validation failed");
+        // Resolve pending promise as false if exists
+        this._completer?.resolve(false);
+        this._completer = undefined;
+        return false;
       }
 
       console.log(
-        `OAuth callback server started on http://${
-          this.options?.host || "localhost"
-        }:${port}${callbackPath}`,
+        `OAuth callback received with code: ${
+          code.substring(0, 10)
+        }... and valid state`,
       );
 
-      // Open authorization URL
-      this._onRedirect(authorizationUrl.toString());
-
-      // Set timeout for OAuth flow (5 minutes)
-      setTimeout(() => {
-        if (this._callbackServer) {
-          console.log("OAuth flow timed out after 5 minutes");
-          this._cleanupCallbackServer();
-          resolve(false);
-        }
-      }, 5 * 60 * 1000);
-    });
-  }
-
-  private _cleanupCallbackServer(): void {
-    if (this._callbackServer) {
-      this._callbackServer.shutdown();
-      this._callbackServer = null;
+      // Exchange authorization code for access tokens
+      await this._exchangeCodeForTokens(code);
+      console.log("OAuth tokens exchanged successfully");
+      // Resolve pending promise as true
+      this._completer?.resolve(true);
+      this._completer = undefined;
+      return true;
+    } catch (error) {
+      console.error("OAuth callback processing failed:", error);
+      // Resolve pending promise as false
+      this._completer?.resolve(false);
+      this._completer = undefined;
+      return false;
     }
-    this._authPromise = null;
-    this._currentState = null;
   }
 
   /**
@@ -523,10 +441,12 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
   }
 
   /**
-   * Cleans up any running OAuth callback server
+   * Cleans up OAuth data
    */
   async cleanup(): Promise<void> {
-    this._cleanupCallbackServer();
+    // Reset auth state
+    this._completer = undefined;
+    this._currentState = null;
     await this.clearOAuthData();
   }
 }
