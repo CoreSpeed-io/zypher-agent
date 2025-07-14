@@ -42,6 +42,9 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
       // Convert CursorConfig to ZypherMcpServer[] and register each server
       const zypherServers = await parseLocalServers(servers);
+      // Capture the ID of the first (and usually only) server being registered so the
+      // frontend can reference it when completing OAuth.
+      const serverId = zypherServers[0]?._id;
 
       // Setup redirect capture helper
       const {
@@ -69,7 +72,11 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
       if (getAuthUrl()) {
         return c.json(
-          { requiresOAuth: true, authenticationUrl: getAuthUrl() },
+          {
+            requiresOAuth: true,
+            authenticationUrl: getAuthUrl(),
+            serverId,
+          },
           202,
         );
       }
@@ -77,7 +84,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
       // If we reached here, all registrations completed successfully without
       // requiring OAuth.
       await registrationPromise; // ensure any errors propagate
-      return c.body(null, 201);
+      return c.json({ requiresOAuth: false, serverId }, 201);
     },
   );
 
@@ -160,14 +167,18 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
     if (getAuthUrl()) {
       return c.json(
-        { requiresOAuth: true, authenticationUrl: getAuthUrl() },
+        {
+          requiresOAuth: true,
+          authenticationUrl: getAuthUrl(),
+          serverId: id,
+        },
         202,
       );
     }
 
     // Ensure any errors propagate and registration finishes.
     await registrationPromise;
-    return c.json({ requiresOAuth: false }, 202);
+    return c.json({ requiresOAuth: false, serverId: id }, 202);
   });
 
   mcpRouter.get("/registry/servers", async (c) => {
