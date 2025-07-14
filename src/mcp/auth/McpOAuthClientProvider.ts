@@ -38,7 +38,7 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
   ) {
     // Initialize serverUrlHash asynchronously since getServerUrlHash returns a Promise
     this.#serverUrlHash = ""; // Will be set in initialize()
-    this.#callbackPath = options?.callbackPath || "/oauth/callback";
+    this.#callbackPath = options?.callbackPath || "/mcp/oauth/callback";
     this.#clientName = options?.clientName || "MCP CLI Client";
     this.#clientUri = options?.clientUri ||
       "https://github.com/modelcontextprotocol/mcp-cli";
