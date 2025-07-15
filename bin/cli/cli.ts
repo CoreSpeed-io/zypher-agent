@@ -3,12 +3,11 @@ import "jsr:@std/dotenv/load";
 import { type StreamHandler, ZypherAgent } from "../../src/ZypherAgent.ts";
 import {
   CopyFileTool,
+  defineImageTools,
   DeleteFileTool,
   EditFileTool,
   FileSearchTool,
   GrepSearchTool,
-  ImageEditTool,
-  ImageGenTool,
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
@@ -114,8 +113,13 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(FileSearchTool);
     mcpServerManager.registerTool(CopyFileTool);
     mcpServerManager.registerTool(DeleteFileTool);
-    mcpServerManager.registerTool(ImageGenTool);
-    mcpServerManager.registerTool(ImageEditTool);
+
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (openaiApiKey) {
+      const { ImageGenTool, ImageEditTool } = defineImageTools(openaiApiKey);
+      mcpServerManager.registerTool(ImageGenTool);
+      mcpServerManager.registerTool(ImageEditTool);
+    }
 
     console.log(
       "🔧 Registered tools:",
