@@ -188,22 +188,26 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
 
   // Handle OAuth callback from frontend
   mcpRouter.get(
-    "/servers/:id/oauth/callback",
+    "/servers/:serverId/oauth/callback",
     async (c) => {
-      const id = c.req.param("id");
+      const serverId = c.req.param("serverId");
       const code = c.req.query("code");
       const state = c.req.query("state");
       const clientName = c.req.query("clientName");
 
-      if (!code || !state) {
-        throw new ApiError(400, "invalid_request", "Missing code or state");
+      if (!code || !state || !serverId) {
+        throw new ApiError(
+          400,
+          "invalid_request",
+          "Missing code or state or serverId",
+        );
       }
 
       try {
         // Get the MCP client for this server
-        const client = mcpServerManager.getClient(id);
+        const client = mcpServerManager.getClient(serverId);
         if (!client) {
-          throw new ApiError(404, "not_found", `Server ${id} not found`);
+          throw new ApiError(404, "not_found", `Server ${serverId} not found`);
         }
 
         // Handle the OAuth callback through the client
@@ -217,7 +221,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           return c.json({
             success: true,
             message: "OAuth authentication completed successfully",
-            serverId: id,
+            serverId: serverId,
             serverRegistered: true,
           });
         } else {
@@ -228,7 +232,7 @@ export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
           );
         }
       } catch (error) {
-        console.error(`OAuth callback failed for server ${id}:`, error);
+        console.error(`OAuth callback failed for server ${serverId}:`, error);
         throw new ApiError(
           500,
           "server_error",
