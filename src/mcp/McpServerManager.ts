@@ -721,8 +721,24 @@ export class McpServerManager {
   }
 
   async getAllServersFromRegistry(): Promise<Server[]> {
+    // Validate registry URL
+    if (!this.#mcpRegistryBaseUrl) {
+      throw new McpError(
+        "server_error",
+        "MCP registry URL not configured. Set MCP_SERVER_REGISTRY_URL environment variable.",
+      );
+    }
+
     const url = `${this.#mcpRegistryBaseUrl}/servers`;
     const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new McpError(
+        "server_error",
+        `Failed to fetch servers from registry: ${response.status} ${response.statusText}`,
+      );
+    }
+
     const result = await response.json();
     return result.data;
   }
