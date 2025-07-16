@@ -1,6 +1,6 @@
 import type { ErrorDetector } from "../interface.ts";
 import {
-  CommandConfig,
+  type CommandConfig,
   findScriptByPattern,
   getRunCommand,
   hasDependency,

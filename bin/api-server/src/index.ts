@@ -26,10 +26,10 @@ import { createFilesRouter } from "./routes/files.ts";
 import { errorHandler } from "./error.ts";
 import { parsePort } from "./utils.ts";
 import {
-  S3Options,
+  type S3Options,
   S3StorageService,
 } from "../../../src/storage/S3StorageService.ts";
-import { StorageService } from "../../../src/storage/StorageService.ts";
+import type { StorageService } from "../../../src/storage/StorageService.ts";
 
 interface ServerOptions {
   port: string;
@@ -65,6 +65,7 @@ const options: ServerOptions = {
 
 // Initialize Hono app
 const app = new Hono();
+
 const mcpServerManager = new McpServerManager();
 
 // Prepare S3 storage service options

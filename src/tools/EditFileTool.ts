@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineTool } from "./mod.ts";
 import * as path from "@std/path";
+import { ensureDir } from "@std/fs";
 
 export const EditFileTool = defineTool({
   name: "edit_file",
@@ -27,7 +28,7 @@ export const EditFileTool = defineTool({
     try {
       // Ensure the directory exists
       const dir = path.dirname(targetFile);
-      await Deno.mkdir(dir, { recursive: true });
+      await ensureDir(dir);
 
       // Write the file
       await Deno.writeTextFile(targetFile, codeEdit);

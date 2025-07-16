@@ -4,6 +4,7 @@ import { encodeBase64 } from "jsr:@std/encoding/base64";
 import type { Message } from "../message.ts";
 import { isMessage } from "../message.ts";
 import { formatError } from "../error.ts";
+import { ensureDir } from "@std/fs";
 
 /**
  * Checks if a file exists and is readable.
@@ -34,7 +35,7 @@ export async function getZypherDir(): Promise<string> {
   const dataDir = path.join(homeDir, ".zypher");
 
   try {
-    await Deno.mkdir(dataDir, { recursive: true });
+    await ensureDir(dataDir);
   } catch (error) {
     console.warn("Failed to create data directory:", error);
   }
@@ -56,7 +57,7 @@ export async function getWorkspaceDataDir(): Promise<string> {
   const workspaceDir = path.join(dataDir, workspaceHash);
 
   try {
-    await Deno.mkdir(workspaceDir, { recursive: true });
+    await ensureDir(workspaceDir);
   } catch (error) {
     console.warn("Failed to create workspace directory:", error);
   }
