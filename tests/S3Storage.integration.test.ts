@@ -3,7 +3,7 @@ import { expect } from "@std/expect";
 import { assertRejects } from "@std/assert";
 import "@std/dotenv/load";
 import { S3StorageService } from "../src/storage/S3StorageService.ts";
-import { UploadOptions } from "../src/storage/StorageService.ts";
+import type { UploadOptions } from "../src/storage/StorageService.ts";
 import { FileNotFoundError } from "../src/storage/StorageErrors.ts";
 
 // Skip tests if environment variables are not set

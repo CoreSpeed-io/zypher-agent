@@ -1,11 +1,11 @@
 import { assertEquals } from "@std/assert";
-import { Observable, ReplaySubject } from "rxjs";
+import { type Observable, ReplaySubject } from "rxjs";
 import {
-  ContentDeltaEventData,
+  type ContentDeltaEventData,
   replayTaskEvents,
-  TaskEvent,
+  type TaskEvent,
   TaskEventId,
-  ToolApprovalPendingEventData,
+  type ToolApprovalPendingEventData,
 } from "../src/taskEvents.ts";
 
 // Helper function to create a content delta event
