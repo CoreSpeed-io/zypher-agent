@@ -1,5 +1,5 @@
 import "@std/dotenv/load";
-import type { StreamHandler, ZypherAgent } from "@zypher/ZypherAgent.ts";
+import { type StreamHandler, ZypherAgent } from "@zypher/ZypherAgent.ts";
 import {
   CopyFileTool,
   defineImageTools,
