@@ -3,7 +3,10 @@ import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { listCheckpoints } from "@zypher/checkpoints.ts";
-import { type StreamHandler, ZypherAgent } from "@zypher/ZypherAgent.ts";
+import type {
+  StreamHandler,
+  ZypherAgent,
+} from "@zypher/ZypherAgent.ts";
 import { ApiError } from "../error.ts";
 import {
   replayTaskEvents,
@@ -11,10 +14,10 @@ import {
   TaskEventId,
   withTaskEventReplayAndHeartbeat,
 } from "../taskEvents.ts";
-import { Observable, ReplaySubject } from "rxjs";
+import { Observable, type ReplaySubject } from "rxjs";
 import { map } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
-import { FileAttachment } from "@zypher/message.ts";
+import type { FileAttachment } from "@zypher/message.ts";
 import { Completer } from "@zypher/utils/mod.ts";
 
 const agentRouter = new Hono();
@@ -239,6 +242,7 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     }
 
     const abortController = taskAbortController ??= new AbortController();
+
     const eventSubject = taskEventSubject ??= runAgentTask(
       agent,
       task,

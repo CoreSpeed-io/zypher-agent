@@ -7,12 +7,11 @@ import { parseArgs } from "@std/cli";
 
 import {
   CopyFileTool,
+  defineImageTools,
   DeleteFileTool,
   EditFileTool,
   FileSearchTool,
   GrepSearchTool,
-  ImageEditTool,
-  ImageGenTool,
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
@@ -26,10 +25,10 @@ import { createFilesRouter } from "./routes/files.ts";
 import { errorHandler } from "./error.ts";
 import { parsePort } from "./utils.ts";
 import {
-  S3Options,
+  type S3Options,
   S3StorageService,
 } from "@zypher/storage/S3StorageService.ts";
-import { StorageService } from "@zypher/storage/StorageService.ts";
+import type { StorageService } from "@zypher/storage/StorageService.ts";
 
 interface ServerOptions {
   port: string;
@@ -65,6 +64,7 @@ const options: ServerOptions = {
 
 // Initialize Hono app
 const app = new Hono();
+
 const mcpServerManager = new McpServerManager();
 
 // Prepare S3 storage service options
@@ -128,8 +128,13 @@ async function initializeAgent(): Promise<ZypherAgent> {
     mcpServerManager.registerTool(FileSearchTool);
     mcpServerManager.registerTool(CopyFileTool);
     mcpServerManager.registerTool(DeleteFileTool);
-    mcpServerManager.registerTool(ImageGenTool);
-    mcpServerManager.registerTool(ImageEditTool);
+
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (openaiApiKey) {
+      const { ImageGenTool, ImageEditTool } = defineImageTools(openaiApiKey);
+      mcpServerManager.registerTool(ImageGenTool);
+      mcpServerManager.registerTool(ImageEditTool);
+    }
 
     console.log(
       "🔧 Registered tools:",

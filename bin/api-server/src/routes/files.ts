@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { StorageService } from "@zypher/storage/StorageService.ts";
+import type { StorageService } from "@zypher/storage/StorageService.ts";
 import { SUPPORTED_FILE_TYPES } from "@zypher/message.ts";
 import { ApiError } from "../error.ts";
 
