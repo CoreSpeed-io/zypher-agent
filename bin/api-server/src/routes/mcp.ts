@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { type McpServerManager } from "../../../../src/mcp/McpServerManager.ts";
+import type { McpServerManager } from "@zypher/mcp/McpServerManager.ts";
 import { z } from "zod";
 import { ApiError } from "../error.ts";
 import {
   CursorConfigSchema,
   parseLocalServers,
-} from "../../../../src/mcp/types/cursor.ts";
-import { createRedirectCapture } from "../../../../src/mcp/auth/redirectCapture.ts";
+} from "@zypher/mcp/types/cursor.ts";
+import { createRedirectCapture } from "@zypher/mcp/auth/redirectCapture.ts";
 
 export function createMcpRouter(mcpServerManager: McpServerManager): Hono {
   const mcpRouter = new Hono();

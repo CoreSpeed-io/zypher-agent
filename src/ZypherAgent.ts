@@ -146,12 +146,25 @@ export class ZypherAgent {
     this.#userId = userId;
     this.#mcpServerManager = mcpServerManager;
     this.#storageService = storageService;
-    // Default timeout is 5 minutes, 0 = disabled
-    this.#taskTimeoutMs = config.taskTimeoutMs ?? 300000;
+    // Default timeout is 15 minutes, 0 = disabled
+    this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
   }
 
   async init(): Promise<void> {
+    await this.#loadSystemPrompt();
+
+    // Load message history if enabled
+    if (this.#persistHistory) {
+      this.#messages = await loadMessageHistory();
+    }
+  }
+
+  /**
+   * Load or reload the system prompt with current custom rules
+   * This method reads custom rules from the current working directory
+   */
+  async #loadSystemPrompt(): Promise<void> {
     const userInfo = getCurrentUserInfo();
     const systemPromptText = await getSystemPrompt(userInfo);
     // Convert system prompt to content blocks
@@ -165,11 +178,6 @@ export class ZypherAgent {
         }),
       },
     ];
-
-    // Load message history if enabled
-    if (this.#persistHistory) {
-      this.#messages = await loadMessageHistory();
-    }
   }
 
   /**
@@ -369,8 +377,26 @@ export class ZypherAgent {
   async #formatMessageForApi(
     message: Message,
     isLastMessage: boolean,
-  ): Promise<Anthropic.MessageParam> {
+  ): Promise<Anthropic.MessageParam | null> {
     const { role, content } = message;
+
+    // Filter out the edge-case where the LAST message is an assistant tool_use that was never
+    // followed by a user tool_result (this can happen when a task is aborted mid-tool execution).
+    // Attempting to continue a conversation that ends with such a dangling tool_use causes the
+    // Anthropic API to reject the request with a 400 error.  By skipping this message entirely we
+    // restore the conversation to a valid state and allow new tasks to start.
+    if (
+      isLastMessage &&
+      role === "assistant" &&
+      Array.isArray(content) &&
+      content.some((b) => b.type === "tool_use")
+    ) {
+      // Return null to indicate this message should be omitted.
+      console.warn(
+        "❗ Dropping dangling tool_use message with no corresponding tool_result to avoid Anthropic 400 error.",
+      );
+      return null;
+    }
 
     // Track file attachment count separately from content index
     let fileAttachmentCount = 0;
@@ -566,10 +592,8 @@ export class ZypherAgent {
     }
 
     try {
-      // Ensure system prompt is initialized
-      if (!this.#system.length) {
-        await this.init();
-      }
+      // Reload system prompt to get current custom rules from working directory
+      await this.#loadSystemPrompt();
 
       let iterations = 0;
 
@@ -630,14 +654,16 @@ export class ZypherAgent {
             model: model,
             max_tokens: this.#maxTokens,
             system: this.#system,
-            messages: await Promise.all(
-              this.#messages.map((msg: Message, index: number) =>
-                this.#formatMessageForApi(
-                  msg,
-                  index === this.#messages.length - 1,
-                )
-              ),
-            ),
+            messages: (
+              await Promise.all(
+                this.#messages.map((msg: Message, index: number) =>
+                  this.#formatMessageForApi(
+                    msg,
+                    index === this.#messages.length - 1,
+                  )
+                ),
+              )
+            ).filter((m): m is Anthropic.MessageParam => m !== null),
             tools: toolCalls,
             ...(this.#userId && { metadata: { user_id: this.#userId } }),
           }, { signal: mergedSignal })

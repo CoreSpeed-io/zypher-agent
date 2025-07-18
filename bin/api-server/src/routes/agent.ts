@@ -2,11 +2,8 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { listCheckpoints } from "../../../../src/checkpoints.ts";
-import type {
-  StreamHandler,
-  ZypherAgent,
-} from "../../../../src/ZypherAgent.ts";
+import { listCheckpoints } from "@zypher/checkpoints.ts";
+import type { StreamHandler, ZypherAgent } from "@zypher/ZypherAgent.ts";
 import { ApiError } from "../error.ts";
 import {
   replayTaskEvents,
@@ -17,8 +14,8 @@ import {
 import { Observable, type ReplaySubject } from "rxjs";
 import { map } from "rxjs/operators";
 import { eachValueFrom } from "rxjs-for-await";
-import type { FileAttachment } from "../../../../src/message.ts";
-import { Completer } from "../../../../src/utils/mod.ts";
+import type { FileAttachment } from "@zypher/message.ts";
+import { Completer } from "@zypher/utils/mod.ts";
 
 const agentRouter = new Hono();
 
@@ -203,10 +200,11 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
       );
     }
 
-    // Task is running, cancel it by aborting the controller
-    taskAbortController.abort();
-    taskAbortController = null;
-    console.log("Task cancellation requested by user via API");
+    if (!taskAbortController.signal.aborted) {
+      // Task is running, cancel it by aborting the controller
+      taskAbortController.abort();
+      console.log("Task cancellation requested by user via API");
+    }
 
     // abort signal does not guarantee the task will be cancelled immediately,
     // so we need to wait until the task is actually cancelled
@@ -253,15 +251,17 @@ export function createAgentRouter(agent: ZypherAgent): Hono {
     return streamSSE(
       c,
       async (stream) => {
-        for await (const event of eachValueFrom(eventSubject)) {
-          await stream.writeSSE({
-            event: event.event,
-            data: JSON.stringify(event.data),
-          });
+        try {
+          for await (const event of eachValueFrom(eventSubject)) {
+            await stream.writeSSE({
+              event: event.event,
+              data: JSON.stringify(event.data),
+            });
+          }
+        } finally {
+          taskEventSubject = null;
+          taskAbortController = null;
         }
-
-        taskEventSubject = null;
-        taskAbortController = null;
       },
     );
   });

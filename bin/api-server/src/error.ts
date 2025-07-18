@@ -1,8 +1,8 @@
 import type { Context } from "hono";
 import type { StatusCode } from "hono/utils/http-status";
 import { z } from "zod";
-import { formatError } from "../../../src/error.ts";
-import { McpError } from "../../../src/mcp/types/error.ts";
+import { formatError } from "@zypher/error.ts";
+import { McpError } from "@zypher/mcp/types/error.ts";
 
 export class ApiError extends Error {
   constructor(
