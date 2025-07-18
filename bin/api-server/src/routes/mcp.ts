@@ -1,12 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import type {
-  McpServerManager,
-} from "@zypher/mcp/McpServerManager.ts";
-import {
-  McpServerConfigSchema,
-  McpServerIdSchema,
-} from "@zypher/mcp/types.ts";
+import type { McpServerManager } from "@zypher/mcp/McpServerManager.ts";
 import { z } from "zod";
 import { ApiError } from "../error.ts";
 import {

@@ -3,10 +3,7 @@ import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { listCheckpoints } from "@zypher/checkpoints.ts";
-import type {
-  StreamHandler,
-  ZypherAgent,
-} from "@zypher/ZypherAgent.ts";
+import type { StreamHandler, ZypherAgent } from "@zypher/ZypherAgent.ts";
 import { ApiError } from "../error.ts";
 import {
   replayTaskEvents,
