@@ -3,7 +3,7 @@ import { build, emptyDir } from "@deno/dnt";
 await emptyDir("./npm");
 
 await build({
-  entryPoints: ["./src/ZypherAgent.ts"],
+  entryPoints: ["./src/mod.ts"],
   outDir: "./npm",
   shims: {
     // see JS docs for overview and more options

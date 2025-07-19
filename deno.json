@@ -1,16 +1,12 @@
 {
   "tasks": {
     "start": "deno run -A bin/cli/cli.ts",
-    "start:api": "deno run -A bin/api-server/src/index.ts",
-    "dev:api": "deno run --watch -A bin/api-server/src/index.ts",
-    "build:cli": "deno compile --allow-all --frozen=true --output dist/cli bin/cli/cli.ts",
-    "build:api": "deno compile --allow-all --frozen=true --output dist/api-server bin/api-server/src/index.ts",
-    "bundle:api": "rolldown -c rolldown.config.mts",
+    "compile": "deno compile --allow-all --frozen=true --output dist/cli bin/cli/cli.ts",
+    "build:npm": "deno run -A scripts/build_npm.ts",
+    "publish:npm": "cd npm && npm publish --access restricted",
     "test": "deno test -A --trace-leaks",
     "test:watch": "deno test -A --watch",
     "checkall": "deno fmt && deno lint && deno check .",
-    "fmt": "deno fmt",
-    "lint": "deno lint",
     "clean": "rm -rf dist/"
   },
   "compilerOptions": {
