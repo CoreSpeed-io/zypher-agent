@@ -43,5 +43,5 @@
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.5"
   },
   "nodeModulesDir": "auto",
-  "exclude": ["dist/", "node_modules/"]
+  "exclude": ["dist/", "node_modules/", "npm/"]
 }

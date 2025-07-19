@@ -2,50 +2,45 @@
 // Re-export core classes, types, and helpers that consumers should rely on.
 
 // Core agent
-export {
-  ZypherAgent,
-  TaskConcurrencyError,
-} from "./ZypherAgent.ts";
+export { TaskConcurrencyError, ZypherAgent } from "./ZypherAgent.ts";
 export type {
-  ZypherAgentConfig,
   StreamHandler,
   ToolApprovalHandler,
+  ZypherAgentConfig,
 } from "./ZypherAgent.ts";
+
+// MCP server management
+export { McpServerManager } from "./mcp/McpServerManager.ts";
+export type { ZypherMcpServer } from "./mcp/types/local.ts";
+export type { OAuthProviderOptions } from "./mcp/types/auth.ts";
 
 // Messaging primitives
 export {
-  SUPPORTED_FILE_TYPES,
-  isMessage,
   isFileAttachment,
   isFileTypeSupported,
+  isMessage,
   printMessage,
+  SUPPORTED_FILE_TYPES,
 } from "./message.ts";
 export type {
-  Message,
   ContentBlock,
   FileAttachment,
+  Message,
   SupportedFileTypes,
 } from "./message.ts";
 
 // Storage service interfaces
 export type {
-  StorageService,
   AttachmentMetadata,
+  GenerateUploadUrlResult,
+  StorageService,
   UploadOptions,
   UploadResult,
-  GenerateUploadUrlResult,
 } from "./storage/StorageService.ts";
 
 // Tooling helpers
-export type { Tool, BaseParams } from "./tools/mod.ts";
-export {
-  defineTool,
-  createTool,
-} from "./tools/mod.ts";
+export type { BaseParams, Tool } from "./tools/mod.ts";
+export { createTool, defineTool } from "./tools/mod.ts";
 
 // Error utilities
-export {
-  AbortError,
-  isAbortError,
-  formatError,
-} from "./error.ts"; 
+export { AbortError, formatError, isAbortError } from "./error.ts";
