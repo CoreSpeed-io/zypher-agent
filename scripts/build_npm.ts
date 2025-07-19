@@ -7,7 +7,7 @@ await build({
   outDir: "./npm",
   shims: {
     // see JS docs for overview and more options
-    deno: true,
+    deno: false,
   },
   // Disable type checking during the DNT transform because many dependencies rely on
   // DOM and Deno specific lib types that are not included in Node’s default lib set.
