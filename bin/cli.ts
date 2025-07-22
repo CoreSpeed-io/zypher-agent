@@ -2,8 +2,7 @@ import "@std/dotenv/load";
 import {
   formatError,
   McpServerManager,
-  printMessage,
-  type StreamHandler,
+  runAgentInTerminal,
   ZypherAgent,
 } from "@zypher/mod.ts";
 import {
@@ -18,8 +17,6 @@ import {
   RunTerminalCmdTool,
 } from "@zypher/tools/mod.ts";
 import { parseArgs } from "@std/cli";
-import readline from "node:readline";
-import { stdin as input, stdout as output } from "node:process";
 import chalk from "chalk";
 
 interface CliOptions {
@@ -50,18 +47,7 @@ const options: CliOptions = {
   model: cliFlags.model,
 };
 
-const rl = readline.createInterface({ input, output });
-const textEncoder = new TextEncoder();
-
 const mcpServerManager = new McpServerManager();
-
-function prompt(question: string): Promise<string> {
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      resolve(answer);
-    });
-  });
-}
 
 async function main(): Promise<void> {
   await mcpServerManager.init();
@@ -131,82 +117,10 @@ async function main(): Promise<void> {
     // Initialize the agent
     await agent.init();
 
-    console.log("\n🤖 Welcome to Zypher Agent CLI!\n");
-    if (options.model) {
-      console.log(
-        `🧠 Using user-specified model: ${chalk.cyan(options.model)}`,
-      );
-    }
-    console.log(
-      'Type your task or command below. Use "exit" or Ctrl+C to quit.\n',
-    );
-
-    while (true) {
-      const task = await prompt("🔧 Enter your task: ");
-
-      if (task.toLowerCase() === "exit") {
-        console.log("\nGoodbye! 👋\n");
-        break;
-      }
-
-      let isFirstToolUseChunk = true;
-
-      if (task.trim()) {
-        console.log("\n🚀 Starting task execution...\n");
-        try {
-          // Setup streaming handlers
-          const streamHandler: StreamHandler = {
-            onContent: (content, isFirstChunk) => {
-              // For the first content chunk, add a bot indicator
-              if (isFirstChunk) {
-                Deno.stdout.write(
-                  textEncoder.encode(chalk.blue("🤖 ")),
-                );
-              }
-
-              // Write the text without newline to allow continuous streaming
-              Deno.stdout.write(textEncoder.encode(content));
-            },
-            onToolUse: (name, partialInput) => {
-              if (isFirstToolUseChunk) {
-                Deno.stdout.write(
-                  textEncoder.encode(`\n\n🔧 Using tool: ${name}\n`),
-                );
-              }
-              isFirstToolUseChunk = false;
-
-              Deno.stdout.write(
-                textEncoder.encode(partialInput),
-              );
-            },
-            onMessage: (message) => {
-              // Add a line between messages for better readability
-              Deno.stdout.write(textEncoder.encode("\n"));
-
-              if (message.role === "user") {
-                printMessage(message);
-                Deno.stdout.write(textEncoder.encode("\n"));
-              }
-            },
-          };
-
-          await agent.runTaskWithStreaming(task, options.model, streamHandler);
-
-          // Add extra newlines for readability after completion
-          Deno.stdout.write(textEncoder.encode("\n\n"));
-
-          console.log("\n✅ Task completed.\n");
-        } catch (error) {
-          console.error(chalk.red("\n❌ Error:"), formatError(error));
-          console.log("\nReady for next task.\n");
-        }
-      }
-    }
+    await runAgentInTerminal(agent, options.model);
   } catch (error) {
     console.error("Fatal Error:", formatError(error));
     Deno.exit(1);
-  } finally {
-    rl.close();
   }
 }
 

@@ -1,7 +1,7 @@
 {
   "tasks": {
-    "start": "deno run -A bin/cli/cli.ts",
-    "compile": "deno compile --allow-all --frozen=true --output dist/cli bin/cli/cli.ts",
+    "start": "deno run -A bin/cli.ts",
+    "compile": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
     "build:npm": "deno run -A scripts/build_npm.ts",
     "publish:npm": "cd npm && npm publish --access restricted",
     "test": "deno test -A --trace-leaks",

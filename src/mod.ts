@@ -44,3 +44,6 @@ export { createTool, defineTool } from "./tools/mod.ts";
 
 // Error utilities
 export { AbortError, formatError, isAbortError } from "./error.ts";
+
+// CLI
+export { runAgentInTerminal } from "./cli.ts";
