@@ -37,6 +37,11 @@ export type {
   UploadOptions,
   UploadResult,
 } from "./storage/StorageService.ts";
+export {
+  type S3Options,
+  S3StorageService,
+} from "./storage/S3StorageService.ts";
+export { FileNotFoundError, StorageError } from "./storage/StorageErrors.ts";
 
 // Tooling helpers
 export type { BaseParams, Tool } from "./tools/mod.ts";
