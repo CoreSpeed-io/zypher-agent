@@ -608,7 +608,7 @@ export class ZypherAgent {
         ...(fileAttachments ?? []),
         {
           type: "text",
-          text: `<user_query>\n${taskDescription}\n</user_query>`,
+          text: taskDescription,
         } satisfies Anthropic.TextBlockParam,
       ];
 
