@@ -100,6 +100,8 @@ export interface ZypherAgentConfig {
   taskTimeoutMs?: number;
   /** Directory to cache file attachments */
   fileAttachmentCacheDir?: string;
+  /** Custom instructions to override the default instructions. */
+  customInstructions?: string;
 }
 
 export class ZypherAgent {
@@ -114,6 +116,7 @@ export class ZypherAgent {
   readonly #taskTimeoutMs: number;
   readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
+  readonly #customInstructions?: string;
 
   #messages: Message[];
   #system: Anthropic.TextBlockParam[];
@@ -154,6 +157,7 @@ export class ZypherAgent {
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
+    this.#customInstructions = config.customInstructions;
   }
 
   async init(): Promise<void> {
@@ -171,7 +175,10 @@ export class ZypherAgent {
    */
   async #loadSystemPrompt(): Promise<void> {
     const userInfo = getCurrentUserInfo();
-    const systemPromptText = await getSystemPrompt(userInfo);
+    const systemPromptText = await getSystemPrompt(
+      userInfo,
+      this.#customInstructions,
+    );
     // Convert system prompt to content blocks
     // cache the main system prompt as it's large and reusable
     this.#system = [
