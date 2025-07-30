@@ -343,7 +343,7 @@ export class ZypherAgent {
     const approved = options?.handleToolApproval
       ? await options.handleToolApproval(name, parameters, options)
       : true;
-    console.log(`Tool call approved: ${approved}`);
+    console.log(`Tool call ${name} approved: ${approved}`);
     if (!approved) {
       return "Tool call rejected by user";
     }
