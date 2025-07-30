@@ -28,6 +28,7 @@
     "npm:@aws-sdk/client-s3@^3.826.0": "3.826.0",
     "npm:@aws-sdk/s3-request-presigner@^3.826.0": "3.826.0",
     "npm:@hono/zod-validator@0.7": "0.7.0_hono@4.7.11_zod@3.25.42",
+    "npm:@instructor-ai/instructor@*": "1.7.0_openai@5.2.0__zod@3.25.42_zod@3.25.42",
     "npm:@mendable/firecrawl-js@*": "1.25.5_zod@3.25.57",
     "npm:@mendable/firecrawl-js@^1.25.5": "1.25.5_zod@3.25.57",
     "npm:@modelcontextprotocol/sdk@^1.12.1": "1.12.1_express@5.1.0_zod@3.25.57",
@@ -700,6 +701,15 @@
       "dependencies": [
         "hono",
         "zod@3.25.42"
+      ]
+    },
+    "@instructor-ai/instructor@1.7.0_openai@5.2.0__zod@3.25.42_zod@3.25.42": {
+      "integrity": "sha512-7ifu2ZzFBMSOtkY2X5dd2RCxQvfO6Bx+Ag/9V+FkamLGGGciazlTKsEyQR6KSn7BXADLWLIDV296S+O+CifE/A==",
+      "dependencies": [
+        "openai",
+        "zod@3.25.42",
+        "zod-stream",
+        "zod-validation-error"
       ]
     },
     "@mendable/firecrawl-js@1.25.5_zod@3.25.57": {
@@ -1959,6 +1969,16 @@
         "wrappy"
       ]
     },
+    "openai@5.2.0_zod@3.25.42": {
+      "integrity": "sha512-b+Sf2Yk2eApDkhqHr7C4d5hux9gkHUvyqQ7RrdSfLsjrXkCZpJPqkME0u5Py7RPB28Ozz+RkJZpW7YPTOoChew==",
+      "dependencies": [
+        "zod@3.25.42"
+      ],
+      "optionalPeers": [
+        "zod@3.25.42"
+      ],
+      "bin": true
+    },
     "parseurl@1.3.3": {
       "integrity": "sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ=="
     },
@@ -1993,6 +2013,9 @@
       "dependencies": [
         "side-channel"
       ]
+    },
+    "ramda@0.29.1": {
+      "integrity": "sha512-OfxIeWzd4xdUNxlWhgFazxsA/nl3mS4/jGZI5n00uWOoSSFRhC1b6gl6xvmzUamgmqELraWp0J/qqVlXYPDPyA=="
     },
     "range-parser@1.2.1": {
       "integrity": "sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg=="
@@ -2081,6 +2104,13 @@
     },
     "safer-buffer@2.1.2": {
       "integrity": "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg=="
+    },
+    "schema-stream@3.2.2_zod@3.25.42": {
+      "integrity": "sha512-7hwI/4lbo8sOs7sRbKW9Bh+5qPHOj12tVpskHq1tYakVlWEpdLgeEKXXgzGLaAP1Bw+DcoB4DmdA7/nSxGI5OA==",
+      "dependencies": [
+        "ramda",
+        "zod@3.25.42"
+      ]
     },
     "send@1.2.0": {
       "integrity": "sha512-uaW0WwXKpL9blXE2o0bRhoL2EGXIrZxQ2ZQ4mgcfoBxdFmQold+qWsD2jLrfZ0trjKL6vOw0j//eAwcALFjKSw==",
@@ -2216,6 +2246,15 @@
     "wrappy@1.0.2": {
       "integrity": "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="
     },
+    "zod-stream@3.0.0_openai@5.2.0__zod@3.25.42_zod@3.25.42": {
+      "integrity": "sha512-BfW8KI+FCEMQOAIf8Qgc2q67iZ+LZ/zzk7alU45FWiZIrBSt0JMxNVGuc3o1yTpGFVk3zXiHt3TZvmUiad/9nw==",
+      "dependencies": [
+        "openai",
+        "schema-stream",
+        "zod@3.25.42",
+        "zod-to-json-schema@3.24.5_zod@3.25.42"
+      ]
+    },
     "zod-to-json-schema@3.24.5_zod@3.25.42": {
       "integrity": "sha512-/AuWwMP+YqiPbsJx5D6TfgRTc4kTLjsh5SOcd4bLsfUg2RcEXrFMJl1DGgdHy2aCfsIA/cr/1JM0xcB2GZji8g==",
       "dependencies": [
@@ -2226,6 +2265,12 @@
       "integrity": "sha512-/AuWwMP+YqiPbsJx5D6TfgRTc4kTLjsh5SOcd4bLsfUg2RcEXrFMJl1DGgdHy2aCfsIA/cr/1JM0xcB2GZji8g==",
       "dependencies": [
         "zod@3.25.57"
+      ]
+    },
+    "zod-validation-error@3.5.3_zod@3.25.42": {
+      "integrity": "sha512-OT5Y8lbUadqVZCsnyFaTQ4/O2mys4tj7PqhdbBCp7McPwvIEKfPtdA6QfPeFQK2/Rz5LgwmAXRJTugBNBi0btw==",
+      "dependencies": [
+        "zod@3.25.42"
       ]
     },
     "zod@3.25.42": {
