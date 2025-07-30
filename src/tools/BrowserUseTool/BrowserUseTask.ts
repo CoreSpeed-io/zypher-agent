@@ -55,7 +55,7 @@ export class BrowserUseTask {
    */
   async waitForTaskCompletion(
     taskId: string,
-    pollIntervalMs = 5_000,
+    pollIntervalMs = 5000,
   ): Promise<void> {
     for (;;) {
       const res = await fetch(`${this.baseUrl}/task/${taskId}/status`, {
