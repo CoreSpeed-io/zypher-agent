@@ -62,6 +62,8 @@ export const AskFileUrlQuestionTool = defineTool({
         purpose: "user_data",
       });
 
+      console.log(`uploadedFile ${uploadedFile}`)
+
       const response = await client.responses.create({
         model: "o3-pro-2025-06-10",
         reasoning: {
