@@ -12,10 +12,12 @@ import {
   RunTerminalCmdTool,
   WebSearchTool,
   WebsiteInfoSearchTool,
+  WebsiteSurfTool,
   WebsiteAccessTool,
   YouTubeVideoAccessTool,
   AskImageQuestionTool,
   AskFileUrlQuestionTool,
+  
   // AccessWebsiteInBrowserTool,
   // ClickWebsiteElementInBrowserTool,
   // FillInputElementInBrowserTool 
@@ -418,7 +420,9 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(AskImageQuestionTool);
     mcpServerManager.registerTool(AskFileUrlQuestionTool);
 
-    mcpServerManager.registerTool(WebsiteInfoSearchTool);
+    // mcpServerManager.registerTool(WebsiteInfoSearchTool);
+    mcpServerManager.registerTool(WebsiteSurfTool);
+    
     // mcpServerManager.registerTool(AccessWebsiteInBrowserTool);
     // mcpServerManager.registerTool(ClickWebsiteElementInBrowserTool);
     // mcpServerManager.registerTool(FillInputElementInBrowserTool);

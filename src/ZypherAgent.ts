@@ -350,7 +350,10 @@ export class ZypherAgent {
 
     try {
       // TODO: support abort signal in tool execution
-      return await tool.execute(parameters);
+      const toolcall_result = await tool.execute(parameters);
+      console.log(`Tool call ${name} result: ${toolcall_result}`);
+
+      return toolcall_result
     } catch (error) {
       return `Error executing tool '${name}': ${formatError(error)}`;
     }
