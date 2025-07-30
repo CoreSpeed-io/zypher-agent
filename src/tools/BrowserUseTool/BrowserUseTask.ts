@@ -107,24 +107,4 @@ export class BrowserUseTask {
     await this.waitForTaskCompletion(taskId, pollIntervalMs);
     return this.fetchTaskOutput(taskId);
   }
-
-  /**
-   * Same as `runTask` but automatically parses the output as JSON.
-   * Useful when you KNOW the agent will return valid JSON.
-   */
-  async runJsonTask<T>(
-    instructions: string,
-    pollIntervalMs = 5_000,
-  ): Promise<T> {
-    const raw = await this.runTask(instructions, pollIntervalMs);
-    try {
-      return JSON.parse(raw) as T;
-    } catch (err) {
-      throw new Error(
-        `Output could not be parsed as JSON → ${
-          (err as Error).message
-        }\nRaw output:\n${raw}`,
-      );
-    }
-  }
 }
