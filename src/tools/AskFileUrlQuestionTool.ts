@@ -56,13 +56,10 @@ export const AskFileUrlQuestionTool = defineTool({
       // }
       // const mimeType = downloadedResponse.headers.get('content-type');
       // console.log(mimeType);           // → "image/png", "application/pdf", etc.
-      console.log(`downloaded ${downloaded}`)
       const uploadedFile = await client.files.create({
         file: downloaded,
         purpose: "user_data",
       });
-
-      console.log(`uploadedFile ${uploadedFile}`)
 
       const response = await client.responses.create({
         model: "o3-pro-2025-06-10",
