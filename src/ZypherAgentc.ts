@@ -28,7 +28,7 @@ import type { StorageService } from "./storage/StorageService.ts";
 import { Completer } from "./utils/mod.ts";
 import { AbortError, formatError, isAbortError } from "./error.ts";
 import * as path from "@std/path";
-import { callOpenAIReflection} from "./tools/openai.ts";
+
 /**
  * Custom error class for task concurrency issues
  * Thrown when attempting to run a new task while another task is already running
@@ -343,17 +343,14 @@ export class ZypherAgent {
     const approved = options?.handleToolApproval
       ? await options.handleToolApproval(name, parameters, options)
       : true;
-    console.log(`Tool call ${name} approved: ${approved}`);
+    console.log(`Tool call approved: ${approved}`);
     if (!approved) {
       return "Tool call rejected by user";
     }
 
     try {
       // TODO: support abort signal in tool execution
-      const toolcall_result = await tool.execute(parameters);
-      console.log(`Tool call ${name} result: ${toolcall_result}`);
-
-      return toolcall_result
+      return await tool.execute(parameters);
     } catch (error) {
       return `Error executing tool '${name}': ${formatError(error)}`;
     }
@@ -537,7 +534,6 @@ export class ZypherAgent {
    * @returns Array of messages after task completion, or return as is if cancelled
    * @throws {TaskConcurrencyError} If a task is already running
    */
-  
   async runTaskWithStreaming(
     taskDescription: string,
     model: string = DEFAULT_MODEL,
@@ -696,88 +692,24 @@ export class ZypherAgent {
         // Wait for the final message
         const finalMessage = await stream.finalMessage();
 
-         // red flag
-        const reflectionPrompt = `Here is a user question:\n${taskDescription}\n\nAnd here is the assistant's answer:\n${extractTextFromBlocks(finalMessage.content)}\n\nIs the response logically sound, complete, and on-task? Provide any issues or suggested improvements.`;
-        const reflection = await callOpenAIReflection(reflectionPrompt);
-        const reflectionMessage: Message = {
-          role:  "assistant",
-          content: `[Reflection] ${reflection}`,
-          timestamp: new Date(),
-        };
-        this.#messages.push(reflectionMessage);
-        streamHandler?.onMessage?.(reflectionMessage);
-
-        
-        const reflectionFeedback: Message = {
-          role: "user",
-          content: `Here is a reflection on your previous answer:\n\n${reflection}\n\nPlease revise your answer if needed or respond with an explanation.`,
-          timestamp: new Date(),
-        };
-        this.#messages.push(reflectionFeedback);
-        streamHandler?.onMessage?.(reflectionFeedback);
-
-        // Claude responds again with improved answer
-        const revisedStream = this.#client.messages
-          .stream({
-            model: model,
-            max_tokens: this.#maxTokens,
-            thinking: {
-              type: thinking ? "enabled" : "disabled",
-              budget_tokens: thinkingBudget,
-            },
-            system: this.#system,
-            messages: await Promise.all(
-              this.#messages.map((msg, index) =>
-                this.#formatMessageForApi(msg, index === this.#messages.length - 1)
-              ),
-            ),
-            tools: toolCalls,
-            ...(this.#userId && { metadata: { user_id: this.#userId } }),
-          }, { signal: mergedSignal })
-          .on("text", (textDelta) => {
-            if (streamHandler?.onContent && textDelta) {
-              streamHandler.onContent(textDelta, true); // Optional: mark as new stream
-            }
-          })
-          .on("streamEvent", (event) => {
-            if (
-              event.type === "content_block_start" &&
-              event.content_block?.type === "tool_use" &&
-              streamHandler?.onToolUse
-            ) {
-              currentToolName = event.content_block.name;
-              streamHandler.onToolUse(currentToolName, "");
-            }
-          })
-          .on("inputJson", (partialJson) => {
-            if (partialJson && streamHandler?.onToolUse && currentToolName) {
-              streamHandler.onToolUse(currentToolName, partialJson);
-            }
-          });
-
-        // Wait for Claude's final improved message
-        const revisedFinalMessage = await revisedStream.finalMessage();
-
-
-
         // Create the assistant message using the complete content from finalMessage
         const assistantMessage: Message = {
           role: "assistant",
-          content: revisedFinalMessage.content,
+          content: finalMessage.content,
           timestamp: new Date(),
         };
         this.#messages.push(assistantMessage);
         streamHandler?.onMessage?.(assistantMessage);
-       
+
         // Check for cancellation
         if (mergedSignal.aborted) {
           throw new AbortError("Task aborted");
         }
 
         // Process tool calls if any
-        if (revisedFinalMessage.stop_reason === "tool_use") {
+        if (finalMessage.stop_reason === "tool_use") {
           // Execute tool calls
-          for (const block of revisedFinalMessage.content) {
+          for (const block of finalMessage.content) {
             if (block.type === "tool_use") {
               const result = await this.#executeToolCall(
                 block.name,
@@ -804,7 +736,7 @@ export class ZypherAgent {
               streamHandler?.onMessage?.(toolMessage);
             }
           }
-        } else if (revisedFinalMessage.stop_reason === "max_tokens") {
+        } else if (finalMessage.stop_reason === "max_tokens") {
           // auto continue
           const continueMessage: Message = {
             role: "user",
@@ -813,11 +745,6 @@ export class ZypherAgent {
           };
           this.#messages.push(continueMessage);
           streamHandler?.onMessage?.(continueMessage);
-
-
-
-
-          
         } else {
           // Check for code errors if enabled and this is the end of the conversation
           if (this.#autoErrorCheck) {
@@ -843,9 +770,9 @@ export class ZypherAgent {
             }
           }
 
-        // No errors or error check disabled, exit the loop
-        break;
-      }
+          // No errors or error check disabled, exit the loop
+          break;
+        }
 
         iterations++;
       }
@@ -899,14 +826,4 @@ export class ZypherAgent {
     }
     await this.#taskCompleter.wait(options);
   }
-}
-function extractTextFromBlocks(blocks: Anthropic.ContentBlockParam[]): string {
-  return blocks
-    .map((block) => {
-      if (block.type === "text") return block.text;
-      if (block.type === "tool_use") return `[Tool Call: ${block.name}]`;
-      if (block.type === "image" || block.type === "document") return `[${block.type.toUpperCase()} BLOCK]`;
-      return ""; // fallback for unknown types
-    })
-    .join("\n");
 }

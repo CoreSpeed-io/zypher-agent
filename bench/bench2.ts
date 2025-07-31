@@ -11,15 +11,13 @@ import {
   ReadFileTool,
   RunTerminalCmdTool,
   WebSearchTool,
-  WebsiteSurfTool,
   WebsiteAccessTool,
   YouTubeVideoAccessTool,
   AskImageQuestionTool,
   AskFileUrlQuestionTool,
-  
-  // AccessWebsiteInBrowserTool,
-  // ClickWebsiteElementInBrowserTool,
-  // FillInputElementInBrowserTool 
+  AccessWebsiteInBrowserTool,
+  ClickWebsiteElementInBrowserTool,
+  FillInputElementInBrowserTool 
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -310,17 +308,129 @@ async function runBenchmarkTask(
         },
       };
 
-      // Run the task with file attachments
-      await agent.runTaskWithStreaming(
-        task.Question,
-        model,
-        streamHandler,
-        fileAttachments.length > 0 ? fileAttachments : undefined,
-        { think: true },
-      );
+
+
+let taskPlanningOutput = "";
+await agent.runTaskWithStreaming(
+  `1. Classify the task as a logic puzzle, meta-instruction, or direct question.
+    - The **requirement** (what must be done)
+    - The **control logic** (conditions, exceptions)
+2. Interpret the following task and outline a high-level plan including key subgoals and steps.
+TASK:
+${task.Question}
+Output only classification, requirement, control logic, and high-level plan. Donot begin answer`,
+  model,
+  {
+    onContent: (content, isFirst) => {
+      if (isFirst) Deno.stdout.write(textEncoder.encode("📋 Planning: "));
+      Deno.stdout.write(textEncoder.encode(content));
+      taskPlanningOutput += content;
+    },
+    onToolUse: () => {},
+    onMessage: () => {},
+  },
+  fileAttachments.length > 0 ? fileAttachments : undefined,
+  { think: true }
+);
+
+console.log("\n✅ Planning completed\n");
+// console.log("🧩 Planning output length:", taskPlanningOutput.length);
+// console.log("🧩 Planning output preview:", JSON.stringify(taskPlanningOutput.slice(0, 200)));
+
+await agent.runTaskWithStreaming(
+  `Previous structure analysis: ${taskPlanningOutput.trim()} \nSolve the task step-by-step according to the requirement, control logic, and high-level plan. TASK: ${task.Question}`,
+  model,
+  streamHandler,
+  fileAttachments.length > 0 ? fileAttachments : undefined,
+  { think: true },
+);
 
       success = true;
       console.log(`\n✅ Task ${task.task_id} completed`);
+      // 🔍 Step 2: Review and verify the answer
+      try {
+        const reviewPrompt = `Here is the original question: "${task.Question}"
+      Here is the previous answer: "${agentAnswer}"
+      Please verify if the answer is correct and complete. If any issue exists, correct it. Otherwise, briefly explain why the answer is valid.`;
+        // Optional: if you want to separate output visually
+        // console.log("\n🧪 Verifying answer...");
+        // console.log("[DEBUG] Review prompt:\n", reviewPrompt);
+        // Reset stream state
+        let isFirstToolUseChunkReview = true;
+        let reviewAnswer = "";
+
+        const reviewStreamHandler: StreamHandler = {
+          onContent: (content, isFirstChunk) => {
+            if (isFirstChunk) {
+              Deno.stdout.write(textEncoder.encode("🧠 "));
+            }
+            Deno.stdout.write(textEncoder.encode(content));
+            reviewAnswer += content;
+          },
+          onToolUse: (name, partialInput) => {
+            if (isFirstToolUseChunkReview) {
+              Deno.stdout.write(
+                textEncoder.encode(`\n\n🔧 [Review] Using tool: ${name}\n`),
+              );
+            }
+            isFirstToolUseChunkReview = false;
+            Deno.stdout.write(textEncoder.encode(partialInput));
+          },
+          onMessage: () => {
+            Deno.stdout.write(textEncoder.encode("\n"));
+          },
+        };
+
+        await agent.runTaskWithStreaming(
+          reviewPrompt,
+          model,
+          reviewStreamHandler,
+          undefined,
+          { think: true },
+        );
+
+        // Optional: store reviewAnswer into result if needed
+        agentAnswer += `\n\n---\n\n[Verification]\n${reviewAnswer.trim()}`;
+
+        console.log(`\n✅ Review completed`);
+
+const reviewVerdict = reviewAnswer.toLowerCase();
+const shouldRetry = reviewVerdict.includes("incorrect") ||
+                    reviewVerdict.includes("wrong") ||
+                    reviewVerdict.includes("mistake") ||
+                    reviewVerdict.includes("not correct");
+
+
+if (shouldRetry) {
+  console.log(`\n🔁 Review deemed the answer incorrect. Retrying the task with additional context...`);
+  const retryPrompt = `## Original Question
+${task.Question}
+## Previous Answer
+${agentAnswer.trim() || '[NO ANSWER]'}
+## Review Feedback
+${reviewAnswer.trim() || '[NO REVIEW FEEDBACK]'}
+## Instruction
+Please re-analyze the question from scratch based on the review feedback above.
+Write only the corrected final answer.
+**FINAL ANSWER:**`;
+
+  agentAnswer = "";
+
+  await agent.runTaskWithStreaming(
+    retryPrompt,
+    model,
+    streamHandler,
+    fileAttachments.length > 0 ? fileAttachments : undefined,
+    { think: true },
+  );
+
+  console.log(`\n✅ Retry completed`);
+}
+
+      } catch (reviewError) {
+        console.warn(`⚠️  Failed to review answer: ${formatError(reviewError)}`);
+      }
+
     } finally {
       // Always restore original working directory
       Deno.chdir(originalCwd);
@@ -418,9 +528,6 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(AudioToTextTool);
     mcpServerManager.registerTool(AskImageQuestionTool);
     mcpServerManager.registerTool(AskFileUrlQuestionTool);
-
-
-    mcpServerManager.registerTool(WebsiteSurfTool);
 
     // mcpServerManager.registerTool(AccessWebsiteInBrowserTool);
     // mcpServerManager.registerTool(ClickWebsiteElementInBrowserTool);

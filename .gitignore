@@ -149,3 +149,5 @@ bench/workspace
 zyper-sandbox
 
 answer_comparison.csv
+**/workspace*/
+**/output*/
