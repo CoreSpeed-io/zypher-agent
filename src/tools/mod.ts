@@ -86,3 +86,4 @@ export { AudioToTextTool } from "./AudioToTextTool.ts"
 export { AskImageQuestionTool } from "./AskImageQuestionTool.ts"
 export { AskFileUrlQuestionTool } from "./AskFileUrlQuestionTool.ts"
 export { AccessWebsiteInBrowserTool, ClickWebsiteElementInBrowserTool, FillInputElementInBrowserTool } from "./BrowserUseTools.ts"
+export { SearchWikipediaTool } from "./SearchWikiPediaTool.ts";
