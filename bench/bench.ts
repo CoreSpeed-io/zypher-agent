@@ -17,10 +17,10 @@ import {
   YouTubeVideoAccessTool,
   AskImageQuestionTool,
   AskFileUrlQuestionTool,
-  
   // AccessWebsiteInBrowserTool,
   // ClickWebsiteElementInBrowserTool,
   // FillInputElementInBrowserTool 
+  SearchWikipediaTool,
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -155,7 +155,7 @@ async function createFileAttachmentsForTask(
   storageService: S3StorageService,
 ): Promise<FileAttachment[]> {
   const attachments: FileAttachment[] = [];
-  
+
   if (!task.file_name) {
     return attachments;
   }
@@ -205,7 +205,7 @@ async function createFileAttachmentsForTask(
 
     // Read file and upload to S3
     const fileBuffer = await Deno.readFile(filePath);
-    
+
     const uploadResult = await storageService.uploadFromBuffer(fileBuffer, {
       filename: task.file_name,
       contentType: contentType,
@@ -218,7 +218,7 @@ async function createFileAttachmentsForTask(
       fileId: uploadResult.id,
       mimeType: contentType as any, // We know it's supported from the check above
     };
-    
+
     attachments.push(fileAttachment);
     console.log(`📎 Created file attachment for ${task.file_name} (${contentType}) -> ${uploadResult.id}`);
   } catch (error) {
@@ -238,8 +238,7 @@ async function cleanupWorkspaceForTask(
     console.log(`🧹 Cleaned up workspace for task ${task.task_id}`);
   } catch (error) {
     console.warn(
-      `⚠️  Failed to cleanup workspace for task ${task.task_id}: ${
-        formatError(error)
+      `⚠️  Failed to cleanup workspace for task ${task.task_id}: ${formatError(error)
       }`,
     );
   }
@@ -382,13 +381,13 @@ async function main(): Promise<void> {
 
     // Initialize S3 storage service for file attachments
     let storageService: S3StorageService | undefined;
-    
+
     // Only initialize S3 if AWS credentials are available
     const awsAccessKeyId = Deno.env.get("S3_ACCESS_KEY_ID")!;
     const awsSecretAccessKey = Deno.env.get("S3_SECRET_ACCESS_KEY")!;
     const awsRegion = Deno.env.get("S3_REGION")!;
     const s3Bucket = Deno.env.get("S3_BUCKET_NAME")!;
-    
+
     storageService = new S3StorageService({
       bucket: s3Bucket,
       region: awsRegion,
@@ -415,7 +414,7 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(DeleteFileTool);
     mcpServerManager.registerTool(YouTubeVideoAccessTool);
     mcpServerManager.registerTool(WebSearchTool);
-    // mcpServerManager.registerTool(WebsiteAccessTool);
+    mcpServerManager.registerTool(WebsiteAccessTool);
     mcpServerManager.registerTool(AudioToTextTool);
     mcpServerManager.registerTool(AskImageQuestionTool);
     mcpServerManager.registerTool(AskFileUrlQuestionTool);
@@ -427,9 +426,9 @@ async function main(): Promise<void> {
     // mcpServerManager.registerTool(ClickWebsiteElementInBrowserTool);
     // mcpServerManager.registerTool(FillInputElementInBrowserTool);
     
+    mcpServerManager.registerTool(SearchWikipediaTool);
     console.log(
       "🔧 Registered tools:",
-      Array.from(mcpServerManager.getAllTools().keys()).join(", "),
     );
 
     // Run benchmark tasks
@@ -480,8 +479,7 @@ async function main(): Promise<void> {
         // await cleanupWorkspaceForTask(task, BENCHMARK_WORKSPACE);
       } catch (error) {
         console.error(
-          `💥 Fatal error processing task ${task.task_id}: ${
-            formatError(error)
+          `💥 Fatal error processing task ${task.task_id}: ${formatError(error)
           }`,
         );
 

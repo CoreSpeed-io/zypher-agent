@@ -88,3 +88,4 @@ export { AskFileUrlQuestionTool } from "./AskFileUrlQuestionTool.ts"
 // export { AccessWebsiteInBrowserTool, ClickWebsiteElementInBrowserTool, FillInputElementInBrowserTool } from "./BrowserUseTools.ts"
 export { WebsiteInfoSearchTool } from "./BrowserUseTool/WebsiteInfoSearchTool.ts"
 export { WebsiteSurfTool } from "./BrowserUseTool/WebsiteSurfTool.ts"
+export { SearchWikipediaTool } from "./SearchWikiPediaTool.ts";
