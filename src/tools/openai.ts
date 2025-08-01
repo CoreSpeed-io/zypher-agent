@@ -2,7 +2,10 @@
 import { APIError } from "@openai/openai";
 import { formatError } from "../error.ts";
 
-async function callOpenAIReflection(prompt: string): Promise<string> {
+async function callOpenAIReflection(prompt: string): Promise<{
+  should_reflect: boolean;
+  suggestion: string;
+}> {
   try {
     const apiKey = Deno.env.get("OPENAI_API_KEY");
     if (!apiKey) throw new Error("Missing OPENAI_API_KEY");
@@ -38,7 +41,10 @@ async function callOpenAIReflection(prompt: string): Promise<string> {
     const data = await response.json();
     return data.choices?.[0]?.message?.content?.trim() ?? "[No response]";
   } catch (err) {
-    return handleQuestionToolError(err);
+    return {
+      should_reflect: false,
+      suggestion: handleQuestionToolError(err),
+    };
   }
 }
 
