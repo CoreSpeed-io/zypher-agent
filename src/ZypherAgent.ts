@@ -697,10 +697,24 @@ export class ZypherAgent {
         if (count_reflection_tokens < max_reflection_tokens) {
           // Call OpenAI reflection tool to review the final message
           // reflect on the final message content
+          const historyBlocks: ContentBlock[] = this.#messages.flatMap((m) =>
+            typeof m.content === "string"
+              ? [{ type: "text", text: m.content }]
+              : m.content
+          );
+
+
+          const historySummary = extractTextFromBlocks(historyBlocks);
+
           const reflectionPrompt = `Here is a user question:\n
           ${taskDescription}\n\n
           And here is the assistant's answer:\n${extractTextFromBlocks(finalMessage.content)}\n\n
-          Your task is to critically assess the assistant's answer.Your task is to determine whether the answer is logically correct, or if there are potential logical problems that require re-evaluation. If a tool call is made, allow it to proceed. Only check whether the content of the call is reasonable (do not block the call because the analysis is not detailed enough).
+          History of the conversation:\n${historySummary}\n\n
+          Your task is to determine whether the answer is logically correct, or if there are potential logical problems that require re-evaluation. If a tool call is made, allow it to proceed. Only check whether the content of the call is reasonable (do not block the call because the analysis is not detailed enough).
+          - If the assistant made a tool call, do not reflect just because the reasoning is not fully detailed. Only reflect if the tool call is clearly incorrect, unjustified, or irrelevant.
+          - Accept partial answers if they are on the right path and likely to be completed by the assistant.
+          - Reflect only if the answer contains clear errors, serious omissions, or incorrect assumptions that may mislead the user.
+
           Respond in **strict JSON format** like:
           {
             "should_reflect": true or false,
@@ -869,14 +883,17 @@ export class ZypherAgent {
   }
 }
 
-
-function extractTextFromBlocks(blocks: Anthropic.ContentBlockParam[]): string {
+function extractTextFromBlocks(blocks: ContentBlock[]): string {
   return blocks
     .map((block) => {
+      if (typeof block === "string") return block;
       if (block.type === "text") return block.text;
       if (block.type === "tool_use") return `[Tool Call: ${block.name}]`;
-      if (block.type === "image" || block.type === "document") return `[${block.type.toUpperCase()} BLOCK]`;
-      return ""; // fallback for unknown types
+      if (block.type === "image") return `[IMAGE BLOCK]`;
+      if (block.type === "document") return `[DOCUMENT BLOCK]`;
+      if (isFileAttachment(block)) return `[FILE: ${block.fileId}]`;
+      return ""; // fallback
     })
     .join("\n");
 }
+
