@@ -49,19 +49,15 @@ export const AskFileUrlQuestionTool = defineTool({
 
   execute: async ({ fileUrl, question }): Promise<string> => {
     try {
-
-      const downloadedResponse = await fetch(fileUrl);
-      if (!downloadedResponse.ok) {
-        return `Failed to fetch file`
-      }
-      // const data = await downloadedResponse.bytes()
-      // Deno.readFile()
-      // if (!reader) {
-      //   return `Failed to read file`
+      const downloaded = await fetchFileWithName(fileUrl)
+      // const downloadedResponse = await fetch(fileUrl);
+      // if (!downloadedResponse.ok) {
+      //   return `Failed to fetch file`
       // }
-
+      // const mimeType = downloadedResponse.headers.get('content-type');
+      // console.log(mimeType);           // → "image/png", "application/pdf", etc.
       const uploadedFile = await client.files.create({
-        file: downloadedResponse,
+        file: downloaded,
         purpose: "user_data",
       });
 
@@ -94,7 +90,95 @@ export const AskFileUrlQuestionTool = defineTool({
 
       return response.output_text;
     } catch (error) {
-      return "Error during function call";
+      return `Error during function call ${error}`;
     }
   },
 });
+
+
+
+/**
+ * Download a resource and wrap it in a File whose name comes from
+ *   1.  Content‑Disposition header (RFC 6266: filename* or filename)
+ *   2.  URL path segment
+ *   3.  If that segment lacks “.<ext>”, infer the ext from Content‑Type
+ *
+ * @param url         Resource to download
+ * @param defaultName Used when nothing else yields a name (may omit ext)
+ */
+export async function fetchFileWithName(
+  url: string,
+  defaultName = 'download',
+): Promise<File> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
+  }
+
+  const contentType = res.headers.get('content-type') ?? '';
+
+  let name = extractFileName(res, url);
+  if (!name) {
+    name = defaultName;            // nothing usable in headers / URL
+  }
+  name = addExtIfMissing(name, contentType);   // ← new bit
+
+  const blob = await res.blob();
+  return new File([blob], name, { type: blob.type || contentType || 'application/octet-stream' });
+}
+
+/* ───────────────────────── helpers ───────────────────────── */
+
+function extractFileName(response: Response, url: string): string | null {
+  const cd = response.headers.get('content-disposition');
+  if (cd) {
+    const star = cd.match(/filename\*\s*=\s*(?:[^\']*)\'\'([^;]+)/i);
+    if (star?.[1]) {
+      try { return decodeURIComponent(stripQuotes(star[1])); } catch {}
+    }
+
+    const normal = cd.match(/filename\s*=\s*("?)([^\";]+)\1/i);
+    if (normal?.[2]) return normal[2].trim();
+  }
+
+  try {
+    const { pathname } = new URL(url);
+    const segment = pathname.substring(pathname.lastIndexOf('/') + 1);
+    return segment || null;
+  } catch {
+    return null;
+  }
+}
+
+function addExtIfMissing(base: string, contentType: string): string {
+  if (hasExtension(base)) return base;        // already like "report.pdf"
+
+  const ext = guessExt(contentType);
+  return ext ? `${base}.${ext}` : base;       // e.g. "report" + ".pdf"
+}
+
+function hasExtension(filename: string): boolean {
+  return /\.[a-z0-9]{1,8}$/i.test(filename);
+}
+
+function guessExt(mime: string): string | null {
+  const type = mime.split(';', 1)[0].trim().toLowerCase();
+  const map: Record<string, string> = {
+    'application/pdf': 'pdf',
+    'application/json': 'json',
+    'application/zip': 'zip',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/msword': 'doc',
+    'text/plain': 'txt',
+    'text/csv': 'csv',
+    'text/html': 'html',
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/svg+xml': 'svg',
+  };
+  return map[type] ?? null;
+}
+
+const stripQuotes = (s: string) => s.replace(/^"(.*)"$/, '$1');
