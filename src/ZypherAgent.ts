@@ -29,6 +29,8 @@ import { Completer } from "./utils/mod.ts";
 import { AbortError, formatError, isAbortError } from "./error.ts";
 import * as path from "@std/path";
 import { callOpenAIReflection} from "./tools/openai.ts";
+import { yellow, red, bgBlue, white } from "https://deno.land/std@0.224.0/fmt/colors.ts";
+
 /**
  * Custom error class for task concurrency issues
  * Thrown when attempting to run a new task while another task is already running
@@ -732,7 +734,7 @@ export class ZypherAgent {
             ? `\nTool file(s) used in the command:\n${usedFiles.join("\n")}\n\n`
             : "";
 
-          console.log("\n ------------------- \n---------------------- \n -----------\n should update!!", extractTextFromBlocks(finalMessage.content));
+          console.log(red("\n  should update!! " + extractTextFromBlocks(finalMessage.content)));
           const reflectionPrompt = `Here is a user question:\n
           ${taskDescription}\n\n
           And here is the assistant's answer:\n${extractTextFromBlocks(finalMessage.content)}\n\n
@@ -741,15 +743,12 @@ export class ZypherAgent {
           Your task is to determine whether the answer is logically correct, or if there are potential logical problems that require re-evaluation. If a tool call is made, allow it to proceed. Only check whether the content of the call is reasonable (do not block the call because the analysis is not detailed enough).
 
           - If a tool call is made (e.g., to read a document or image), DO NOT reflect just because the tool’s result is not displayed or discussed yet. This is expected behavior. You are NOT judging the sufficiency of analysis at this stage.
-          - Only reflect if:
+          - Reflect if:
             1. The tool call is clearly incorrect, unjustified, or irrelevant to the user’s question.
-            2. The final response shows obvious logical flaws, misunderstandings, or hallucinations.                
-          - This is a basic agent, so when it says it's reading or searching documents and images (and similar), it's referring to the tool it's about to call to perform that task. Therefore, it won't directly display the results it's received. Instead, it needs to determine whether the tool call was correct.
-          - donot reflect:
-            1. assistant checking files and running analyses
-            2. assistant using tools and write code
-            3. old message history
-            4. giving right idea and not do yet
+            2. The response shows obvious logical flaws, misunderstandings, or hallucinations.
+            3. Answer is incomplete or does not address the user’s question.
+          - This is a basic agent, so when it says it's writing code, reading or searching documents and images (and similar), it's referring to the tool it's about to call to perform that task. Therefore, it won't directly display the results it's received. Instead, it needs to determine whether the tool call was correct.
+
           You are talking to this assistant, please do not use the word assistant to refer to it
           Respond in **strict JSON format** like:
           {
@@ -760,7 +759,7 @@ export class ZypherAgent {
           Is the response logically sound, complete, and on-task?`;
 
           const reflection = await callOpenAIReflection(reflectionPrompt);
-          console.log("\n 🔍 GPT Reflection Response:", JSON.stringify(reflection, null, 2));
+ 
           console.log("\n 🔍 Assistant's file(s) used in the command:", toolFileSummary);
           let reflectionObj: { should_reflect: boolean; suggestion: string };
           try {
@@ -773,11 +772,10 @@ export class ZypherAgent {
             reflectionObj = { should_reflect: false, suggestion: "Parse error" };
           }
 
-          console.log(
-            "\n Reflection Result:",
-            reflectionObj.should_reflect,
-            reflectionObj.suggestion,
-          );
+          console.log(bgBlue(
+            `\n Reflection Result: ${reflectionObj.should_reflect} — ${reflectionObj.suggestion}`
+          ));
+
 
           // if should reflect , continue the loop
           if (reflectionObj.should_reflect) {
@@ -792,10 +790,13 @@ export class ZypherAgent {
             this.#messages.push(reflectionMessage);
             streamHandler?.onMessage?.(reflectionMessage);            
             continue;
-          } 
+          } else{
+            count_reflection_tokens = 0; // reset reflection token count
+          }
+        } else {
+          console.log(yellow("Skipping reflection due to max reflection tokens reached"));
+          count_reflection_tokens = 0;
         }
-        count_reflection_tokens = 0;
-      
 
         // Create the assistant message using the complete content from finalMessage
         const assistantMessage: Message = {
@@ -937,15 +938,30 @@ function extractTextFromBlocks(blocks: ContentBlock[]): string {
   return blocks
     .map((block) => {
       if (typeof block === "string") return block;
+
+      if (block.type === "tool_result") {
+        const c = block.content;
+        if (typeof c === "string") return c;
+        if (Array.isArray(c)) {
+          return (c as Array<string | { text?: string }>).map((x) =>
+            typeof x === "string" ? x : x?.text ?? ""
+          ).join("\n");
+        }
+
+        return "[TOOL RESULT]";
+      }
+
       if (block.type === "text") return block.text;
       if (block.type === "tool_use") return `[Tool Call: ${block.name}]`;
       if (block.type === "image") return `[IMAGE BLOCK]`;
       if (block.type === "document") return `[DOCUMENT BLOCK]`;
       if (isFileAttachment(block)) return `[FILE: ${block.fileId}]`;
-      return ""; // fallback
+
+      return "";
     })
     .join("\n");
 }
+
 
 function extractPureJSON(text: string): string {
   // Remove ```json ... ``` or ``` ... ``` blocks
