@@ -350,7 +350,10 @@ export class ZypherAgent {
 
     try {
       // TODO: support abort signal in tool execution
-      return await tool.execute(parameters);
+      const toolcall_result = await tool.execute(parameters);
+      console.log(`Tool call ${name} result: ${toolcall_result}`);
+
+      return toolcall_result
     } catch (error) {
       return `Error executing tool '${name}': ${formatError(error)}`;
     }
@@ -633,7 +636,7 @@ export class ZypherAgent {
       );
 
       await this.#cacheMessageFileAttachments(this.#messages);
-      const max_reflection_tokens = 3;
+      const max_reflection_tokens = 2;
       let count_reflection_tokens = 0;
       while (iterations < maxIterations) {
         // Check for abort signal early
@@ -706,15 +709,48 @@ export class ZypherAgent {
 
           const historySummary = extractTextFromBlocks(historyBlocks);
 
+
+          const usedFiles: string[] = [];
+
+          for (const block of finalMessage.content) {
+            if (block.type === "tool_use") {
+              const input = block.input as Record<string, unknown>;
+              const command = input["command"];
+              if (typeof command === "string") {
+  
+                const match = command.match(/[\w\-\/\.]+\.py/);
+                if (match) {
+                  const fileName = match[0];
+                  const fullPath = await this.#getFileAttachmentCachePath(fileName);
+                  usedFiles.push(fullPath);
+                }
+              }
+            }
+          }
+
+          const toolFileSummary = usedFiles.length > 0
+            ? `\nTool file(s) used in the command:\n${usedFiles.join("\n")}\n\n`
+            : "";
+
+          console.log("\n ------------------- \n---------------------- \n -----------\n should update!!", extractTextFromBlocks(finalMessage.content));
           const reflectionPrompt = `Here is a user question:\n
           ${taskDescription}\n\n
           And here is the assistant's answer:\n${extractTextFromBlocks(finalMessage.content)}\n\n
           History of the conversation:\n${historySummary}\n\n
+          You can find assistant's file in the tool call result below:\n${toolFileSummary}\n\n
           Your task is to determine whether the answer is logically correct, or if there are potential logical problems that require re-evaluation. If a tool call is made, allow it to proceed. Only check whether the content of the call is reasonable (do not block the call because the analysis is not detailed enough).
-          - If the assistant made a tool call, do not reflect just because the reasoning is not fully detailed. Only reflect if the tool call is clearly incorrect, unjustified, or irrelevant.
-          - Accept partial answers if they are on the right path and likely to be completed by the assistant.
-          - Reflect only if the answer contains clear errors, serious omissions, or incorrect assumptions that may mislead the user.
 
+          - If a tool call is made (e.g., to read a document or image), DO NOT reflect just because the tool’s result is not displayed or discussed yet. This is expected behavior. You are NOT judging the sufficiency of analysis at this stage.
+          - Only reflect if:
+            1. The tool call is clearly incorrect, unjustified, or irrelevant to the user’s question.
+            2. The final response shows obvious logical flaws, misunderstandings, or hallucinations.                
+          - This is a basic agent, so when it says it's reading or searching documents and images (and similar), it's referring to the tool it's about to call to perform that task. Therefore, it won't directly display the results it's received. Instead, it needs to determine whether the tool call was correct.
+          - donot reflect:
+            1. assistant checking files and running analyses
+            2. assistant using tools and write code
+            3. old message history
+            4. giving right idea and not do yet
+          You are talking to this assistant, please do not use the word assistant to refer to it
           Respond in **strict JSON format** like:
           {
             "should_reflect": true or false,
@@ -725,24 +761,38 @@ export class ZypherAgent {
 
           const reflection = await callOpenAIReflection(reflectionPrompt);
           console.log("\n 🔍 GPT Reflection Response:", JSON.stringify(reflection, null, 2));
+          console.log("\n 🔍 Assistant's file(s) used in the command:", toolFileSummary);
+          let reflectionObj: { should_reflect: boolean; suggestion: string };
+          try {
+            const raw = typeof reflection === "string" ? extractPureJSON(reflection) : reflection;
+            reflectionObj = typeof raw === "string"
+              ? JSON.parse(raw)
+              : raw as { should_reflect: boolean; suggestion: string };
+          } catch {
+            console.error("❌ Failed to parse reflection:", reflection);
+            reflectionObj = { should_reflect: false, suggestion: "Parse error" };
+          }
 
-
+          console.log(
+            "\n Reflection Result:",
+            reflectionObj.should_reflect,
+            reflectionObj.suggestion,
+          );
 
           // if should reflect , continue the loop
-          if (reflection.should_reflect) {
+          if (reflectionObj.should_reflect) {
             count_reflection_tokens++;
             const reflectionMessage: Message = {
-              role:  "assistant",
-              content: `[Reflection] ${reflection.suggestion}`,
+              role: "user",
+              content: `Your thinking is not clear and there are obvious mistakes. 
+              Your reading is missing other content. Can you stop focusing on the information you have obtained and look again at what information is provided to you?
+              You need to be aware of the following::\n\n${reflectionObj.suggestion}\n\n`,
               timestamp: new Date(),
             };
             this.#messages.push(reflectionMessage);
             streamHandler?.onMessage?.(reflectionMessage);            
             continue;
-          } else {
-            // reset the reflection token count if not reflecting
-            count_reflection_tokens = 0;
-          }
+          } 
         }
         count_reflection_tokens = 0;
       
@@ -897,3 +947,9 @@ function extractTextFromBlocks(blocks: ContentBlock[]): string {
     .join("\n");
 }
 
+function extractPureJSON(text: string): string {
+  // Remove ```json ... ``` or ``` ... ``` blocks
+  return text.trim()
+    .replace(/^```(?:json)?\n?/i, '')  // Remove opening ``` or ```json
+    .replace(/\n?```$/, '')            // Remove closing ```
+}
