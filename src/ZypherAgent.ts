@@ -544,7 +544,7 @@ export class ZypherAgent {
     taskDescription: string,
     model: string = DEFAULT_MODEL,
     streamHandler?: StreamHandler,
-    fileAttachments?: FileAttachment[],
+    fileAttachments?: FileAttachment[],   // OpenAI API supports file attachments
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
@@ -734,7 +734,8 @@ export class ZypherAgent {
             ? `\nTool file(s) used in the command:\n${usedFiles.join("\n")}\n\n`
             : "";
 
-          console.log(red("\n  should update!! " + extractTextFromBlocks(finalMessage.content)));
+          // console.log(red("\n  should update!! " + extractTextFromBlocks(finalMessage.content)));
+          console.log(red("\n  should update!! " + finalMessage.content));
           const reflectionPrompt = `Here is a user question:\n
           ${taskDescription}\n\n
           And here is the assistant's answer:\n${extractTextFromBlocks(finalMessage.content)}\n\n
@@ -747,9 +748,19 @@ export class ZypherAgent {
             1. The tool call is clearly incorrect, unjustified, or irrelevant to the user’s question.
             2. The response shows obvious logical flaws, misunderstandings, or hallucinations.
             3. Answer is incomplete or does not address the user’s question.
+            4. including 'My Analysis' any some logical reasoning that is not supported by evidence.
           - This is a basic agent, so when it says it's writing code, reading or searching documents and images (and similar), it's referring to the tool it's about to call to perform that task. Therefore, it won't directly display the results it's received. Instead, it needs to determine whether the tool call was correct.
-
+          - very carefully on understand and logically, Is the reasoning used reasonable and supported by evidence?
           You are talking to this assistant, please do not use the word assistant to refer to it
+          - donot reflect:
+            1. There is no inference or explanation, only the next step.
+            2. just using the tool[Tool Call] and donot include reasoning
+            3. error in history, and now is right step.
+          - If the task is to **find something**, check:
+            1. Whether it looked in the **correct place**.
+            2. Whether the **search logic** is reasonable.
+            3. Whether the **order of search** (e.g., first/last item, reverse/chronological order) is handled correctly.
+
           Respond in **strict JSON format** like:
           {
             "should_reflect": true or false,

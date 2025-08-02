@@ -2,6 +2,32 @@
 import { APIError } from "@openai/openai";
 import { formatError } from "../error.ts";
 
+
+
+// const response = await client.responses.create({
+//     model: "o3-pro-2025-06-10",
+//     reasoning: {
+//       effort: "high"
+//     },
+//     input: [
+//       {
+//         role: "user",
+//         content: [
+//           {
+//             type: "input_file",
+//             file_id: uploadedFile.id,
+//           },
+//           {
+//             type: "input_text",
+//             text: question,
+//           },
+//         ],
+//       },
+//     ],
+//   });
+
+
+
 async function callOpenAIReflection(prompt: string): Promise<{
   should_reflect: boolean;
   suggestion: string;
