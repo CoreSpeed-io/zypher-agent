@@ -38,8 +38,9 @@ function handleQuestionToolError(error: unknown): string {
         return `OpenAI encountered an error while answering your question. Please try again in a few minutes. (Error: ${error.message})`;
     }
   }
-  return `Something went wrong while answering your question. ${formatError(error)
-    }`;
+  return `Something went wrong while answering your question. ${
+    formatError(error)
+  }`;
 }
 
 async function getImageResponse(
@@ -56,8 +57,14 @@ async function getImageResponse(
     body: JSON.stringify({
       model: "o3-pro-2025-06-10",
       "reasoning": {
-        "effort": "high"
+        "effort": "high",
       },
+      tools: [
+        {
+          "type": "code_interpreter",
+          "container": { "type": "auto" },
+        },
+      ],
       input: [
         {
           role: "user",
@@ -88,7 +95,8 @@ export const AskImageQuestionTool = defineTool({
     "- Returns a concise, text-only answer to the provided question\n\n" +
     "Best Practices for Questions:\n" +
     "- Ask direct questions (e.g., “What breed of dog is this?”)\n" +
-    "- Keep questions under 2,000 characters\n",
+    "- Keep questions under 2,000 characters\n" +
+    "- When you want to ask question about remote image (url), download it to local first\n",
   parameters: z.object({
     imagePath: z.string().describe(
       "Full file path to the image that should be analyzed.",
@@ -128,7 +136,11 @@ export const AskImageQuestionTool = defineTool({
         size: fileBuffer.length,
       });
 
-      const answer = await getImageResponse(Deno.env.get("OPENAI_API_KEY")!, uploadResult.url, question)
+      const answer = await getImageResponse(
+        Deno.env.get("OPENAI_API_KEY")!,
+        uploadResult.url,
+        question,
+      );
 
       if (!answer) {
         throw new Error("OpenAI did not return an answer. Please try again.");

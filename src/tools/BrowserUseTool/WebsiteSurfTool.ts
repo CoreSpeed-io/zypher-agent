@@ -2,6 +2,14 @@
 import { z } from "zod";
 import { defineTool } from "../mod.ts";
 import { BrowserUseTask } from "./BrowserUseTask.ts";
+import { WebsiteAccessTool } from "../WebsiteAccessTool.ts"
+import OpenAI from "@openai/openai";
+
+const client = new OpenAI({
+  apiKey: Deno.env.get("OPENAI_API_KEY"),
+});
+
+
 
 /**
  * website_surf
@@ -13,20 +21,20 @@ import { BrowserUseTask } from "./BrowserUseTask.ts";
 export const WebsiteSurfTool = defineTool({
   name: "website_surf",
   description:
-    "Navigate a live website with a headless browser to locate and return specific information.",
+    "Navigate a live website with a browser to locate and return specific information. If an attempt to directly access a link fails, this tool should be used",
   parameters: z.object({
     /** Free‑form prompt for the browser agent (e.g. “Open example.com and copy the H1”). */
     target: z.string().describe(
-      "Natural‑language description of the exact information you need (e.g. ‘current CEO’).",
+      "Natural-language description of the exact information you need (e.g. 'current CEO').",
     ),
     url: z.string().url().describe(
       "The initial URL to load before searching for the target information.",
     ),
     /** One‑sentence rationale—kept for chain‑of‑thought & auditing like FileSearchTool. */
     explanation: z.string().describe(
-      "One‑sentence explanation of why this tool is being invoked and how it advances the overall goal.",
+      "One-sentence explanation of why this tool is being invoked and how it advances the overall goal.",
     ),
-    /** Optional polling interval override; default is 5 s. */
+    /** Optional polling interval override; default is 5s. */
     pollIntervalMs: z
       .number()
       .int()
@@ -44,29 +52,70 @@ export const WebsiteSurfTool = defineTool({
     //   🆕  Richer, self‑contained instructions for the agent
     const instructions = `
 Begin at ${url}.
-Goal: Locate **only** the information that answers: “${target}”.
+Goal: Locate the information that answers: “${target}”.
 Guidelines:
-  • Follow links within the site as needed; avoid external domains unless clearly required.
   • Ignore advertisements, cookie banners, and sign‑up pop‑ups.
   • Stop once the answer is found or after visiting 10 pages—whichever comes first.
+  • Try your best to interact with the website to get the answer(such as keyword searching, scrolling, clicking button to expand half-hidden list, using the search engine provided by the website).
 Output:
   • If found, return the relevant text (≤ 500 characters) and the page URL.
-  • If the site requires login, paywall, or the answer is not located, return “NOT_FOUND”.
+  • if you find a file (ONLY PDF FILE) that may be helpful for solving the question, return the download link of that file (especially link of paper).
+  • if you find a image that may be helpful for solving the question, return the download link of that image.
+  
 (Reason for invocation: ${explanation})
 `.trim();
-
+    let output = null
+    async function fall_back() {
+      const site_content = await WebsiteAccessTool.execute({
+        url: url,
+        explanation: explanation
+      }) || ''
+      const response = await client.responses.create({
+        model: "o3-pro-2025-06-10",
+        reasoning: {
+          effort: "high"
+        },
+        input: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: site_content,
+              },
+              {
+                type: "input_text",
+                text: `
+in content above, Goal: Locate the information that answers: "${target}". 
+  • return not found if not found.
+  • if you find a file (ONLY PDF FILE) that may be helpful for solving the question, return the download link of that file (especially link of paper).
+  • if you find a image that may be helpful for solving the question, return the download link of that image.
+`,
+              }
+            ],
+          },
+        ],
+      });
+      return response.output_text
+    }
     try {
-      const output = await browserTask.runTask(
+      output = await browserTask.runTask(
         instructions,
         pollIntervalMs ?? 5000,
       );
 
-      return output || "Task finished but produced no output.";
+      if (!output) {
+        return await fall_back()
+      }
+
+      return output
     } catch (error) {
       if (error instanceof Error) {
-        return `BrowserUseTask error: ${error.message}`;
+        console.log(`BrowserUseTask error: ${error.message}`)
+        
       }
-      return "BrowserUseTask error: Unknown failure";
+      console.log(`BrowserUseTask error: Unknown failure ${error}`);
+      return await fall_back();
     }
   },
 });

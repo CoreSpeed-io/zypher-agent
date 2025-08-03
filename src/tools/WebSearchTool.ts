@@ -20,7 +20,7 @@ export const WebSearchTool = defineTool({
     "Performs a Google Custom Search against the public web. Use this to fetch up‑to‑date information. Returns a plaintext list of results capped to 10." + 
     "When you perform multiple attempts but never get a match through this search, you shouldn't always use this tool over and over again by varying the search terms.",
   parameters: z.object({
-    query: z.string().describe("Search query string"),
+    query: z.string().describe("Search query string. Your query should be firendly for web search engine."),
     numResults: z
       .number()
       .int()
