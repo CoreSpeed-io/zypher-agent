@@ -11,15 +11,13 @@ import {
   ReadFileTool,
   RunTerminalCmdTool,
   WebSearchTool,
-  WebsiteSurfTool,
   WebsiteAccessTool,
   YouTubeVideoAccessTool,
   AskImageQuestionTool,
   AskFileUrlQuestionTool,
-  
-  // AccessWebsiteInBrowserTool,
-  // ClickWebsiteElementInBrowserTool,
-  // FillInputElementInBrowserTool,
+  AccessWebsiteInBrowserTool,
+  ClickWebsiteElementInBrowserTool,
+  FillInputElementInBrowserTool,
   SearchWikipediaTool,
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
@@ -419,12 +417,9 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(AskImageQuestionTool);
     mcpServerManager.registerTool(AskFileUrlQuestionTool);
 
-
-    mcpServerManager.registerTool(WebsiteSurfTool);
-
-    // // mcpServerManager.registerTool(AccessWebsiteInBrowserTool);
-    // // mcpServerManager.registerTool(ClickWebsiteElementInBrowserTool);
-    // // mcpServerManager.registerTool(FillInputElementInBrowserTool);
+    // mcpServerManager.registerTool(AccessWebsiteInBrowserTool);
+    // mcpServerManager.registerTool(ClickWebsiteElementInBrowserTool);
+    // mcpServerManager.registerTool(FillInputElementInBrowserTool);
     mcpServerManager.registerTool(SearchWikipediaTool);
 
     console.log(
