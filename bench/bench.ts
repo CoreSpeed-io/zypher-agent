@@ -19,6 +19,9 @@ import {
   // ClickWebsiteElementInBrowserTool,
   // FillInputElementInBrowserTool 
   SearchWikipediaTool,
+  VideoFrameAtTimeTool,
+  VideoAudioExtractTool,
+  VideoDownloadTool,
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -422,6 +425,9 @@ async function main(): Promise<void> {
     // mcpServerManager.registerTool(FillInputElementInBrowserTool);
     
     mcpServerManager.registerTool(SearchWikipediaTool);
+    mcpServerManager.registerTool(VideoFrameAtTimeTool);
+    mcpServerManager.registerTool(VideoAudioExtractTool);
+    mcpServerManager.registerTool(VideoDownloadTool);
     console.log(
       "🔧 Registered tools:",
     );

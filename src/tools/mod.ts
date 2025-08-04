@@ -89,3 +89,6 @@ export { AskFileUrlQuestionTool } from "./AskFileUrlQuestionTool.ts"
 export { WebsiteInfoSearchTool } from "./BrowserUseTool/WebsiteInfoSearchTool.ts"
 export { WebsiteSurfTool } from "./BrowserUseTool/WebsiteSurfTool.ts"
 export { SearchWikipediaTool } from "./SearchWikipediaTool.ts";
+export { VideoAudioExtractTool } from "./VideoAudioExtractTool.ts";
+export { VideoDownloadTool } from "./VideoDownloadTool.ts";
+export { VideoFrameAtTimeTool } from "./VideoFrameAtTimeTool.ts";
