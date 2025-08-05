@@ -18,6 +18,9 @@ import {
 } from "@zypher/tools/mod.ts";
 import { parseArgs } from "@std/cli";
 import chalk from "chalk";
+import { AnthropicModelProvider } from "@zypher/llm/mod.ts";
+
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 interface CliOptions {
   workspace?: string;
@@ -84,10 +87,9 @@ async function main(): Promise<void> {
 
     // Initialize the agent with provided options
     const agent = new ZypherAgent(
+      new AnthropicModelProvider(options.apiKey ?? "", true),
       {
         userId: options.userId,
-        baseUrl: options.baseUrl,
-        anthropicApiKey: options.apiKey,
       },
       mcpServerManager,
     );
@@ -117,7 +119,7 @@ async function main(): Promise<void> {
     // Initialize the agent
     await agent.init();
 
-    await runAgentInTerminal(agent, options.model);
+    await runAgentInTerminal(agent, options.model ?? DEFAULT_MODEL);
   } catch (error) {
     console.error("Fatal Error:", formatError(error));
     Deno.exit(1);

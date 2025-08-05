@@ -1,6 +1,8 @@
 import { Anthropic } from "@anthropic-ai/sdk";
 
-export type ContentBlock = Anthropic.ContentBlockParam | FileAttachment;
+export type ContentBlock =
+  | Anthropic.ContentBlockParam
+  | FileAttachmentWithCache;
 
 /**
  * Extended message parameter type that includes checkpoint information
@@ -53,6 +55,14 @@ export interface FileAttachment {
   fileId: string;
   /** The MIME type of the file */
   mimeType: SupportedFileTypes;
+}
+
+export interface FileAttachmentWithCache extends FileAttachment {
+  /** The cache path of the file */
+  cachePath: string;
+
+  /** The signed URL of the file, this URL should be able to be used to download the file on public internet*/
+  signedUrl: string;
 }
 
 /**
