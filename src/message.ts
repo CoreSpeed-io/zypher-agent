@@ -8,7 +8,7 @@ export type ContentBlock =
  * Extended message parameter type that includes checkpoint information
  */
 export interface Message {
-  content: string | Array<ContentBlock>;
+  content: Array<ContentBlock>;
 
   role: "user" | "assistant";
 

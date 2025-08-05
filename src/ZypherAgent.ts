@@ -544,11 +544,43 @@ export class ZypherAgent {
         // Process tool calls if any
         if (finalMessage.stop_reason === "tool_use") {
           // Execute tool calls
+          for (const block of finalMessage.content) {
+            if (block.type === "tool_use") {
+              const result = await this.#executeToolCall(
+                block.name,
+                block.input as Record<string, unknown>,
+                {
+                  signal: mergedSignal,
+                  handleToolApproval: options?.handleToolApproval,
+                },
+              );
+
+              // Add tool response
+              const toolMessage: Message = {
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result" as const,
+                    tool_use_id: block.id,
+                    content: result,
+                  } satisfies ContentBlock,
+                ],
+                timestamp: new Date(),
+              };
+              this.#messages.push(toolMessage);
+              yield { type: "message", message: toolMessage };
+            }
+          }
         } else if (finalMessage.stop_reason === "max_tokens") {
           // auto continue
           const continueMessage: Message = {
             role: "user",
-            content: "Continue",
+            content: [
+              {
+                type: "text" as const,
+                text: "Continue",
+              } satisfies ContentBlock,
+            ],
             timestamp: new Date(),
           };
           this.#messages.push(continueMessage);
@@ -565,8 +597,13 @@ export class ZypherAgent {
               // Add errors as a user message
               const errorMessage: Message = {
                 role: "user",
-                content:
-                  `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
+                content: [
+                  {
+                    type: "text" as const,
+                    text:
+                      `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
+                  } satisfies ContentBlock,
+                ],
                 timestamp: new Date(),
               };
               this.#messages.push(errorMessage);
