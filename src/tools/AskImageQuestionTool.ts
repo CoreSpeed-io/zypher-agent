@@ -38,6 +38,7 @@ function handleQuestionToolError(error: unknown): string {
         return `OpenAI encountered an error while answering your question. Please try again in a few minutes. (Error: ${error.message})`;
     }
   }
+  console.error(error)
   return `Something went wrong while answering your question. ${
     formatError(error)
   }`;
@@ -59,12 +60,12 @@ async function getImageResponse(
       "reasoning": {
         "effort": "high",
       },
-      tools: [
-        {
-          "type": "code_interpreter",
-          "container": { "type": "auto" },
-        },
-      ],
+      // tools: [
+      //   {
+      //     "type": "code_interpreter",
+      //     "container": { "type": "auto" },
+      //   },
+      // ],
       input: [
         {
           role: "user",

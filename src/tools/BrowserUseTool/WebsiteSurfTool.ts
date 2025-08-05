@@ -87,9 +87,8 @@ Output:
                 type: "input_text",
                 text: `
 in content above, Goal: Locate the information that answers: "${target}". 
-  • return not found if not found.
-  • if you find a file (ONLY PDF FILE) that may be helpful for solving the question, return the download link of that file (especially link of paper).
-  • if you find a image that may be helpful for solving the question, return the download link of that image.
+  • return not found if the goal information not found.
+  • if you find a file (pdf, image, xlsx/csv) that may be helpful for solving the question, return the download link of that file (especially link of paper).
 `,
               }
             ],
