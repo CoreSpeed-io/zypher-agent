@@ -2,7 +2,7 @@ import { Anthropic } from "@anthropic-ai/sdk";
 
 export type ContentBlock =
   | Anthropic.ContentBlockParam
-  | FileAttachmentWithCache;
+  | FileAttachment;
 
 /**
  * Extended message parameter type that includes checkpoint information
@@ -32,20 +32,6 @@ export interface Message {
   };
 }
 
-export const SUPPORTED_FILE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "application/pdf",
-] as const;
-
-export type SupportedFileTypes = typeof SUPPORTED_FILE_TYPES[number];
-
-export function isFileTypeSupported(type: string): type is SupportedFileTypes {
-  return SUPPORTED_FILE_TYPES.includes(type as SupportedFileTypes);
-}
-
 /**
  * Represents an image attachment in the message history
  */
@@ -54,15 +40,7 @@ export interface FileAttachment {
   /** The ID of the file in storage */
   fileId: string;
   /** The MIME type of the file */
-  mimeType: SupportedFileTypes;
-}
-
-export interface FileAttachmentWithCache extends FileAttachment {
-  /** The cache path of the file */
-  cachePath: string;
-
-  /** The signed URL of the file, this URL should be able to be used to download the file on public internet*/
-  signedUrl: string;
+  mimeType: string;
 }
 
 /**

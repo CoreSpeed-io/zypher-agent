@@ -1,6 +1,7 @@
 import { Observable } from "rxjs";
 import type { Message } from "../message.ts";
 import type { Tool } from "../tools/mod.ts";
+import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 
 export interface StreamChatParams {
   model: string;
@@ -55,6 +56,7 @@ export interface ModelProvider {
    */
   streamChat(
     params: StreamChatParams,
+    fileAttachmentCacheMap?: FileAttachmentCacheMap,
   ): ModelStream;
 }
 

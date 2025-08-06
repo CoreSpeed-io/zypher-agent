@@ -9,21 +9,21 @@ import type {
 import { Anthropic } from "@anthropic-ai/sdk";
 import { isFileAttachment, type Message } from "../message.ts";
 import { Observable } from "rxjs";
+import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 
-const SUPPORTED_FILE_TYPES = [
+const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
-  "application/pdf",
 ] as const;
 
-type AnthropicSupportedFileTypes = typeof SUPPORTED_FILE_TYPES[number];
-
-function isFileTypeSupported(
+function isSupportedImageType(
   type: string,
-): type is AnthropicSupportedFileTypes {
-  return SUPPORTED_FILE_TYPES.includes(type as AnthropicSupportedFileTypes);
+): type is typeof SUPPORTED_IMAGE_TYPES[number] {
+  return SUPPORTED_IMAGE_TYPES.includes(
+    type as typeof SUPPORTED_IMAGE_TYPES[number],
+  );
 }
 
 function mapStopReason(reason: string | null): FinalMessage["stop_reason"] {
@@ -80,10 +80,13 @@ export class AnthropicModelProvider implements ModelProvider {
     };
   }
 
-  streamChat(params: StreamChatParams): ModelStream {
+  streamChat(
+    params: StreamChatParams,
+    fileAttachmentCacheMap?: FileAttachmentCacheMap,
+  ): ModelStream {
     // Convert our internal Message[] to Anthropic's MessageParam[]
     const anthropicMessages = params.messages.map((msg) =>
-      this.#formatMessageForApi(msg, false)
+      this.#formatMessageForApi(msg, false, fileAttachmentCacheMap)
     );
 
     // Convert our internal Tool[] to Anthropic's Tool[]
@@ -115,6 +118,7 @@ export class AnthropicModelProvider implements ModelProvider {
   #formatMessageForApi(
     message: Message,
     isLastMessage: boolean,
+    fileAttachmentCacheMap?: FileAttachmentCacheMap,
   ): Anthropic.MessageParam {
     const { role, content } = message;
 
@@ -131,17 +135,15 @@ export class AnthropicModelProvider implements ModelProvider {
       ]
       : content.map((block) => {
         if (isFileAttachment(block)) {
-          // Increment the file attachment counter for each file attachment
-          fileAttachmentCount++;
-
-          if (!isFileTypeSupported(block.mimeType)) {
+          const cache = fileAttachmentCacheMap?.[block.fileId];
+          if (!cache) {
             console.warn(
-              `Skipping file attachment as this file is not supported by Anthropic. File type must be one of ${
-                SUPPORTED_FILE_TYPES.join(", ")
-              }. File ID: ${block.fileId}`,
+              `Skipping file attachment as it is not cached. File ID: ${block.fileId}`,
             );
             return null;
           }
+          // Increment the file attachment counter for each file attachment
+          fileAttachmentCount++;
 
           const attachmentIndex = fileAttachmentCount;
 
@@ -150,18 +152,18 @@ export class AnthropicModelProvider implements ModelProvider {
             type: "text" as const,
             text: `Attachment ${attachmentIndex}:
 MIME type: ${block.mimeType}
-Cached at: ${block.cachePath}`,
+Cached at: ${cache.cachePath}`,
           };
 
           // Handle different file types with appropriate block types
-          if (block.mimeType.startsWith("image/")) {
+          if (isSupportedImageType(block.mimeType)) {
             return [
               textBlock,
               {
                 type: "image" as const,
                 source: {
                   type: "url" as const,
-                  url: block.signedUrl,
+                  url: cache.signedUrl,
                 },
               } satisfies Anthropic.ImageBlockParam,
             ];
@@ -172,13 +174,16 @@ Cached at: ${block.cachePath}`,
                 type: "document" as const,
                 source: {
                   type: "url" as const,
-                  url: block.signedUrl,
+                  url: cache.signedUrl,
                 },
               } satisfies Anthropic.DocumentBlockParam,
             ];
           }
 
           // Fall back to just the text block for unsupported types
+          console.warn(
+            `File attachment ${block.fileId} is not supported by Anthropic (MIME type: ${block.mimeType}), this file will not be shown to the model.`,
+          );
           return [textBlock];
         }
         return block;

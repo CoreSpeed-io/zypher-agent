@@ -1,5 +1,4 @@
 import {
-  fileExists,
   getCurrentUserInfo,
   getZypherDir,
   loadMessageHistory,
@@ -16,19 +15,20 @@ import {
 import {
   type ContentBlock,
   type FileAttachment,
-  isFileAttachment,
-  isFileTypeSupported,
   type Message,
-  type SupportedFileTypes,
 } from "./message.ts";
 import type { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
 import { Completer } from "./utils/mod.ts";
 import { AbortError, formatError, isAbortError } from "./error.ts";
-import * as path from "@std/path";
 import type { ModelProvider } from "./llm/mod.ts";
 import { from, Observable } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
+import {
+  type FileAttachmentCacheMap,
+  FileAttachmentManager,
+} from "./storage/mod.ts";
+import * as path from "@std/path";
 
 /**
  * Custom error class for task concurrency issues
@@ -123,6 +123,8 @@ export class ZypherAgent {
   readonly #fileAttachmentCacheDir?: string;
   readonly #customInstructions?: string;
 
+  #fileAttachmentManager?: FileAttachmentManager;
+
   #messages: Message[];
   #system: string;
 
@@ -151,12 +153,20 @@ export class ZypherAgent {
     this.#storageService = storageService;
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
-    this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
+
     this.#customInstructions = config.customInstructions;
   }
 
   async init(): Promise<void> {
     await this.#loadSystemPrompt();
+
+    if (this.#storageService) {
+      this.#fileAttachmentManager = new FileAttachmentManager(
+        this.#storageService,
+        this.#fileAttachmentCacheDir ??
+          path.join(await getZypherDir(), "cache", "files"),
+      );
+    }
 
     // Load message history if enabled
     if (this.#persistHistory) {
@@ -208,85 +218,6 @@ export class ZypherAgent {
     if (this.#persistHistory) {
       void saveMessageHistory(this.#messages);
     }
-  }
-
-  /**
-   * Retrieves a file attachment from storage service
-   * @param fileId ID of the file to retrieve
-   * @returns Promise resolving to a FileAttachment object or null if file doesn't exist or isn't supported
-   */
-  async getFileAttachment(fileId: string): Promise<FileAttachment | null> {
-    if (!this.#storageService) {
-      console.error("Storage service not initialized");
-      return null;
-    }
-
-    // Get metadata and check if the file exists
-    const metadata = await this.#storageService.getFileMetadata(fileId);
-    if (!metadata) {
-      console.error(`Metadata for file ${fileId} could not be retrieved`);
-      return null;
-    }
-
-    // Verify file type is supported
-    if (!isFileTypeSupported(metadata.contentType)) {
-      return null;
-    }
-
-    // Return formatted file attachment
-    return {
-      type: "file_attachment",
-      fileId,
-      mimeType: metadata.contentType satisfies SupportedFileTypes,
-    };
-  }
-
-  /**
-   * Get the directory where file attachments are cached
-   * @returns Promise resolving to the cache directory path
-   */
-  async #getFileAttachmentCacheDir(): Promise<string> {
-    return this.#fileAttachmentCacheDir ??
-      path.join(await getZypherDir(), "cache", "files");
-  }
-
-  /**
-   * Get the local cache file path for a file attachment
-   * @param fileId ID of the file attachment
-   * @returns Promise resolving to the cache file path
-   */
-  async #getFileAttachmentCachePath(fileId: string): Promise<string> {
-    return path.join(await this.#getFileAttachmentCacheDir(), fileId);
-  }
-
-  /**
-   * Caches a file attachment if it's not already cached if possible
-   * @param fileId ID of the file attachment
-   * @returns Promise resolving to the cache file path,
-   * or null if:
-   * - the file ID does not exist on storage service
-   * - fails to cache the file attachment
-   * - the storage service is not initialized
-   */
-  async #cacheFileAttachment(fileId: string): Promise<string | null> {
-    if (!this.#storageService) {
-      console.error("Storage service not initialized");
-      return null;
-    }
-
-    const cachePath = await this.#getFileAttachmentCachePath(fileId);
-    if (!await fileExists(cachePath)) {
-      // Download the file attachment from storage service to cache path
-      try {
-        await this.#storageService.downloadFile(fileId, cachePath);
-        console.log("Cached file attachment", fileId, cachePath);
-      } catch (error) {
-        console.log("Failed to cache file attachment", fileId, error);
-        return null;
-      }
-    }
-
-    return cachePath;
   }
 
   /**
@@ -349,16 +280,6 @@ export class ZypherAgent {
       return await tool.execute(parameters);
     } catch (error) {
       return `Error executing tool '${name}': ${formatError(error)}`;
-    }
-  }
-
-  async #cacheMessageFileAttachments(messages: Message[]): Promise<void> {
-    for (const message of messages) {
-      for (const block of message.content) {
-        if (isFileAttachment(block)) {
-          await this.#cacheFileAttachment(block.fileId);
-        }
-      }
     }
   }
 
@@ -476,7 +397,7 @@ export class ZypherAgent {
       }
 
       const messageContent: ContentBlock[] = [
-        // ...(fileAttachments ?? []),
+        ...(fileAttachments ?? []),
         {
           type: "text" as const,
           text: taskDescription,
@@ -498,7 +419,14 @@ export class ZypherAgent {
         this.#mcpServerManager.getAllTools().values(),
       );
 
-      await this.#cacheMessageFileAttachments(this.#messages);
+      // Cache file attachments if enabled
+      let cacheMap: FileAttachmentCacheMap | undefined;
+      if (this.#fileAttachmentManager) {
+        cacheMap = await this.#fileAttachmentManager
+          .cacheMessageFileAttachments(
+            this.#messages,
+          );
+      }
 
       while (iterations < maxIterations) {
         // Check for abort signal early
@@ -514,6 +442,7 @@ export class ZypherAgent {
             messages: this.#messages,
             tools: toolCalls,
           },
+          cacheMap,
         );
 
         const modelEvents = stream.events();
