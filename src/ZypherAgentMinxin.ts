@@ -29,8 +29,6 @@ import { Completer } from "./utils/mod.ts";
 import { AbortError, formatError, isAbortError } from "./error.ts";
 import * as path from "@std/path";
 import { callOpenAIReflection} from "./tools/openai.ts";
-import { yellow, red, bgBlue, white } from "https://deno.land/std@0.224.0/fmt/colors.ts";
-
 /**
  * Custom error class for task concurrency issues
  * Thrown when attempting to run a new task while another task is already running
@@ -44,7 +42,7 @@ export class TaskConcurrencyError extends Error {
 
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_MAX_TOKENS = 64000;
-const DEFAULT_MAX_ITERATIONS = 40;
+const DEFAULT_MAX_ITERATIONS = 25;
 const DEFAULT_THINKING = false;
 const DEFAULT_THINKING_BUDGET = 10000;
 
@@ -544,7 +542,7 @@ export class ZypherAgent {
     taskDescription: string,
     model: string = DEFAULT_MODEL,
     streamHandler?: StreamHandler,
-    fileAttachments?: FileAttachment[],   // OpenAI API supports file attachments
+    fileAttachments?: FileAttachment[],
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
@@ -638,8 +636,7 @@ export class ZypherAgent {
       );
 
       await this.#cacheMessageFileAttachments(this.#messages);
-      const max_reflection_tokens = 2;
-      let count_reflection_tokens = 0;
+
       while (iterations < maxIterations) {
         // Check for abort signal early
         if (mergedSignal.aborted) {
@@ -698,135 +695,89 @@ export class ZypherAgent {
 
         // Wait for the final message
         const finalMessage = await stream.finalMessage();
-        // should review the final message?
-        if (count_reflection_tokens < max_reflection_tokens) {
-          // Call OpenAI reflection tool to review the final message
-          // reflect on the final message content
-          const historyBlocks: ContentBlock[] = this.#messages.flatMap((m) =>
-            typeof m.content === "string"
-              ? [{ type: "text", text: m.content }]
-              : m.content
-          );
 
+         // red flag
+        const reflectionPrompt = `Here is a user question:\n${taskDescription}\n\nAnd here is the assistant's answer:\n${extractTextFromBlocks(finalMessage.content)}\n\nIs the response logically sound, complete, and on-task? Provide any issues or suggested improvements.`;
+        const reflection = await callOpenAIReflection(reflectionPrompt);
+        const reflectionMessage: Message = {
+          role:  "assistant",
+          content: `[Reflection] ${reflection}`,
+          timestamp: new Date(),
+        };
+        this.#messages.push(reflectionMessage);
+        streamHandler?.onMessage?.(reflectionMessage);
 
-          const historySummary = extractTextFromBlocks(historyBlocks);
+        
+        const reflectionFeedback: Message = {
+          role: "user",
+          content: `Here is a reflection on your previous answer:\n\n${reflection}\n\nPlease revise your answer if needed or respond with an explanation.`,
+          timestamp: new Date(),
+        };
+        this.#messages.push(reflectionFeedback);
+        streamHandler?.onMessage?.(reflectionFeedback);
 
-
-          const usedFiles: string[] = [];
-
-          for (const block of finalMessage.content) {
-            if (block.type === "tool_use") {
-              const input = block.input as Record<string, unknown>;
-              const command = input["command"];
-              if (typeof command === "string") {
-  
-                const match = command.match(/[\w\-\/\.]+\.py/);
-                if (match) {
-                  const fileName = match[0];
-                  const fullPath = await this.#getFileAttachmentCachePath(fileName);
-                  usedFiles.push(fullPath);
-                }
-              }
+        // Claude responds again with improved answer
+        const revisedStream = this.#client.messages
+          .stream({
+            model: model,
+            max_tokens: this.#maxTokens,
+            thinking: {
+              type: thinking ? "enabled" : "disabled",
+              budget_tokens: thinkingBudget,
+            },
+            system: this.#system,
+            messages: await Promise.all(
+              this.#messages.map((msg, index) =>
+                this.#formatMessageForApi(msg, index === this.#messages.length - 1)
+              ),
+            ),
+            tools: toolCalls,
+            ...(this.#userId && { metadata: { user_id: this.#userId } }),
+          }, { signal: mergedSignal })
+          .on("text", (textDelta) => {
+            if (streamHandler?.onContent && textDelta) {
+              streamHandler.onContent(textDelta, true); // Optional: mark as new stream
             }
-          }
+          })
+          .on("streamEvent", (event) => {
+            if (
+              event.type === "content_block_start" &&
+              event.content_block?.type === "tool_use" &&
+              streamHandler?.onToolUse
+            ) {
+              currentToolName = event.content_block.name;
+              streamHandler.onToolUse(currentToolName, "");
+            }
+          })
+          .on("inputJson", (partialJson) => {
+            if (partialJson && streamHandler?.onToolUse && currentToolName) {
+              streamHandler.onToolUse(currentToolName, partialJson);
+            }
+          });
 
-          const toolFileSummary = usedFiles.length > 0
-            ? `\nTool file(s) used in the command:\n${usedFiles.join("\n")}\n\n`
-            : "";
-
-          // console.log(red("\n  should update!! " + extractTextFromBlocks(finalMessage.content)));
-          console.log(red("\n  should update!! " + finalMessage.content));
-          const reflectionPrompt = `Here is a user question:\n
-          ${taskDescription}\n\n
-          And here is the assistant's answer:\n${extractTextFromBlocks(finalMessage.content)}\n\n
-          History of the conversation:\n${historySummary}\n\n
-          You can find assistant's file in the tool call result below:\n${toolFileSummary}\n\n
-          Your task is to determine whether the answer is logically correct, or if there are potential logical problems that require re-evaluation. If a tool call is made, allow it to proceed. Only check whether the content of the call is reasonable (do not block the call because the analysis is not detailed enough).
-
-          - If a tool call is made (e.g., to read a document or image), DO NOT reflect just because the tool’s result is not displayed or discussed yet. This is expected behavior. You are NOT judging the sufficiency of analysis at this stage.
-          - Reflect if:
-            1. The tool call is clearly incorrect, unjustified, or irrelevant to the user’s question.
-            2. The response shows obvious logical flaws, misunderstandings, or hallucinations.
-            3. Answer is incomplete or does not address the user’s question.
-            4. including 'My Analysis' any some logical reasoning that is not supported by evidence.
-          - This is a basic agent, so when it says it's writing code, reading or searching documents and images (and similar), it's referring to the tool it's about to call to perform that task. Therefore, it won't directly display the results it's received. Instead, it needs to determine whether the tool call was correct.
-          - very carefully on understand and logically, Is the reasoning used reasonable and supported by evidence?
-          You are talking to this assistant, please do not use the word assistant to refer to it
-          - donot reflect:
-            1. There is no inference or explanation, only the next step.
-            2. just using the tool[Tool Call] and donot include reasoning
-            3. error in history, and now is right step.
-          - If the task is to **find something**, check:
-            1. Whether it looked in the **correct place**.
-            2. Whether the **search logic** is reasonable.
-            3. Whether the **order of search** (e.g., first/last item, reverse/chronological order) is handled correctly.
-
-          Respond in **strict JSON format** like:
-          {
-            "should_reflect": true or false,
-            "suggestion": "A concise suggestion for improvement, or 'Looks good.' if acceptable."
-          }
-
-          Is the response logically sound, complete, and on-task?`;
-
-          const reflection = await callOpenAIReflection(reflectionPrompt);
- 
-          console.log("\n 🔍 Assistant's file(s) used in the command:", toolFileSummary);
-          let reflectionObj: { should_reflect: boolean; suggestion: string };
-          try {
-            const raw = typeof reflection === "string" ? extractPureJSON(reflection) : reflection;
-            reflectionObj = typeof raw === "string"
-              ? JSON.parse(raw)
-              : raw as { should_reflect: boolean; suggestion: string };
-          } catch {
-            console.error("❌ Failed to parse reflection:", reflection);
-            reflectionObj = { should_reflect: false, suggestion: "Parse error" };
-          }
-
-          console.log(bgBlue(
-            `\n Reflection Result: ${reflectionObj.should_reflect} — ${reflectionObj.suggestion}`
-          ));
+        // Wait for Claude's final improved message
+        const revisedFinalMessage = await revisedStream.finalMessage();
 
 
-          // if should reflect , continue the loop
-          if (reflectionObj.should_reflect) {
-            count_reflection_tokens++;
-            const reflectionMessage: Message = {
-              role: "user",
-              content: `Your thinking is not clear and there are obvious mistakes. 
-              Your reading is missing other content. Can you stop focusing on the information you have obtained and look again at what information is provided to you?
-              You need to be aware of the following::\n\n${reflectionObj.suggestion}\n\n`,
-              timestamp: new Date(),
-            };
-            this.#messages.push(reflectionMessage);
-            streamHandler?.onMessage?.(reflectionMessage);            
-            continue;
-          } else{
-            count_reflection_tokens = 0; // reset reflection token count
-          }
-        } else {
-          console.log(yellow("Skipping reflection due to max reflection tokens reached"));
-          count_reflection_tokens = 0;
-        }
 
         // Create the assistant message using the complete content from finalMessage
         const assistantMessage: Message = {
           role: "assistant",
-          content: finalMessage.content,
+          content: revisedFinalMessage.content,
           timestamp: new Date(),
         };
         this.#messages.push(assistantMessage);
         streamHandler?.onMessage?.(assistantMessage);
-
+       
         // Check for cancellation
         if (mergedSignal.aborted) {
           throw new AbortError("Task aborted");
         }
 
         // Process tool calls if any
-        if (finalMessage.stop_reason === "tool_use") {
+        if (revisedFinalMessage.stop_reason === "tool_use") {
           // Execute tool calls
-          for (const block of finalMessage.content) {
+          for (const block of revisedFinalMessage.content) {
             if (block.type === "tool_use") {
               const result = await this.#executeToolCall(
                 block.name,
@@ -853,7 +804,7 @@ export class ZypherAgent {
               streamHandler?.onMessage?.(toolMessage);
             }
           }
-        } else if (finalMessage.stop_reason === "max_tokens") {
+        } else if (revisedFinalMessage.stop_reason === "max_tokens") {
           // auto continue
           const continueMessage: Message = {
             role: "user",
@@ -861,7 +812,7 @@ export class ZypherAgent {
             timestamp: new Date(),
           };
           this.#messages.push(continueMessage);
-          streamHandler?.onMessage?.(continueMessage);
+          streamHandler?.onMessage?.(continueMessage);       
         } else {
           // Check for code errors if enabled and this is the end of the conversation
           if (this.#autoErrorCheck) {
@@ -887,9 +838,9 @@ export class ZypherAgent {
             }
           }
 
-          // No errors or error check disabled, exit the loop
-          break;
-        }
+        // No errors or error check disabled, exit the loop
+        break;
+      }
 
         iterations++;
       }
@@ -944,39 +895,13 @@ export class ZypherAgent {
     await this.#taskCompleter.wait(options);
   }
 }
-
-function extractTextFromBlocks(blocks: ContentBlock[]): string {
+function extractTextFromBlocks(blocks: Anthropic.ContentBlockParam[]): string {
   return blocks
     .map((block) => {
-      if (typeof block === "string") return block;
-
-      if (block.type === "tool_result") {
-        const c = block.content;
-        if (typeof c === "string") return c;
-        if (Array.isArray(c)) {
-          return (c as Array<string | { text?: string }>).map((x) =>
-            typeof x === "string" ? x : x?.text ?? ""
-          ).join("\n");
-        }
-
-        return "[TOOL RESULT]";
-      }
-
       if (block.type === "text") return block.text;
       if (block.type === "tool_use") return `[Tool Call: ${block.name}]`;
-      if (block.type === "image") return `[IMAGE BLOCK]`;
-      if (block.type === "document") return `[DOCUMENT BLOCK]`;
-      if (isFileAttachment(block)) return `[FILE: ${block.fileId}]`;
-
-      return "";
+      if (block.type === "image" || block.type === "document") return `[${block.type.toUpperCase()} BLOCK]`;
+      return ""; // fallback for unknown types
     })
     .join("\n");
-}
-
-
-function extractPureJSON(text: string): string {
-  // Remove ```json ... ``` or ``` ... ``` blocks
-  return text.trim()
-    .replace(/^```(?:json)?\n?/i, '')  // Remove opening ``` or ```json
-    .replace(/\n?```$/, '')            // Remove closing ```
 }
