@@ -92,3 +92,5 @@ export { SearchWikipediaTool } from "./SearchWikipediaTool.ts";
 export { VideoAudioExtractTool } from "./VideoAudioExtractTool.ts";
 export { VideoDownloadTool } from "./VideoDownloadTool.ts";
 export { VideoFrameAtTimeTool } from "./VideoFrameAtTimeTool.ts";
+export { VideoToGifClipTool } from "./VideoToGifClipTool.ts";
+export { VideoInferenceTool } from "./VideoInferenceTool.ts";

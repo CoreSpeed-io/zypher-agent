@@ -22,6 +22,8 @@ import {
   VideoFrameAtTimeTool,
   VideoAudioExtractTool,
   VideoDownloadTool,
+  VideoToGifClipTool,
+  VideoInferenceTool,
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -425,9 +427,13 @@ async function main(): Promise<void> {
     // mcpServerManager.registerTool(FillInputElementInBrowserTool);
     
     mcpServerManager.registerTool(SearchWikipediaTool);
-    mcpServerManager.registerTool(VideoFrameAtTimeTool);
+    // mcpServerManager.registerTool(VideoFrameAtTimeTool);
     mcpServerManager.registerTool(VideoAudioExtractTool);
     mcpServerManager.registerTool(VideoDownloadTool);
+    // mcpServerManager.registerTool(VideoToGifClipTool);
+
+    mcpServerManager.registerTool(VideoInferenceTool);
+
     console.log(
       "🔧 Registered tools:",
     );
