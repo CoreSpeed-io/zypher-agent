@@ -9,7 +9,7 @@ import {
 } from "@google/genai";
 
 const { createHash } = await import("node:crypto");
-const CACHE_FILE = ".cache/video_file_cache.json";
+const CACHE_FILE = "video_file_cache.json";
 let fileCache: Record<string, string> = {};
 
 async function exists(path: string): Promise<boolean> {
