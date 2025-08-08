@@ -58,8 +58,7 @@ The output GIF will be saved as <video_basename>_<start>_<duration>.gif in the o
     const gifName = `${baseName}_${startTime.replace(/:/g, "-")}_${duration}s.gif`;
     const outputPath = `${outputDir}/${gifName}`;
 
-    // ffmpeg GIF conversion with compression: scaling, frame rate control
-    const command = `mkdir -p "${outputDir}" && ffmpeg -ss ${startTime} -t ${duration} -i "${inputFile}" -vf "fps=${fps},scale=${scale}:-1:flags=lanczos" -loop 0 "${outputPath}" -y`;
+    const command = `ffmpeg -ss ${startTime} -t ${duration} -i "${inputFile}" -vf "fps=${fps},scale=${scale}:-1:flags=lanczos" -loop 0 "${outputPath}" -y`;
 
     return await RunTerminalCmdTool.execute({
       command,

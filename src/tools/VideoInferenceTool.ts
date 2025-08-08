@@ -1,4 +1,3 @@
-// AskQuestionAboutVideoTool.ts
 import { z } from "zod";
 import { defineTool } from "./mod.ts";
 import {
@@ -46,11 +45,14 @@ export const VideoInferenceTool = defineTool({
 
 The tool automatically handles file caching using an MD5 hash to avoid re-uploading the same video again.
 
+If the video file is too large and a video compression tool is available, it will prefer compressing the video first and use the compressed version for analysis.
+
 Parameters:
 - videoPath: Local path to a video file (e.g., ./downloads/video.mp4)
 - question: A user-defined question about the content of the video
 
 The tool uploads the video (if not cached), waits for the file to become ACTIVE, and then calls Gemini's 'generateContent' with the video and question.`,
+
   parameters: z.object({
     videoPath: z.string().describe("Local path to the video file"),
     question: z.string().describe("A question to ask about the video content"),

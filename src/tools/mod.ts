@@ -94,3 +94,4 @@ export { VideoDownloadTool } from "./VideoDownloadTool.ts";
 export { VideoFrameAtTimeTool } from "./VideoFrameAtTimeTool.ts";
 export { VideoToGifClipTool } from "./VideoToGifClipTool.ts";
 export { VideoInferenceTool } from "./VideoInferenceTool.ts";
+export { VideoCompressionTool } from "./VideoCompressionTool.ts";

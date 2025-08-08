@@ -42,7 +42,9 @@ Note:
       .describe("Why this frame is being extracted"),
   }),
   execute: async ({ inputFile, timestamp, outputDir, outputImage, isBackground, explanation }) => {
-    const cmd = `ffmpeg -ss ${timestamp} -i "${inputFile}" -frames:v 1 "${outputDir}/${outputImage}" -y`;
+    const outputPath = `${outputDir}/${outputImage}`;
+
+    const cmd = `ffmpeg -ss ${timestamp} -i "${inputFile}" -frames:v 1 "${outputPath}" -y`;
     return await RunTerminalCmdTool.execute({
       command: cmd,
       isBackground,

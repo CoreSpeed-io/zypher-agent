@@ -24,6 +24,7 @@ import {
   VideoDownloadTool,
   VideoToGifClipTool,
   VideoInferenceTool,
+  VideoCompressionTool
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -132,12 +133,14 @@ async function setupWorkspaceForTask(
   const wsImages = join(taskWorkspace, "images");
   const wsAudio = join(taskWorkspace, "audio");
   const wsCache = join(taskWorkspace, "cache");
+  const wsCompressed = join(taskWorkspace, "compressed");
 
   await ensureDir(taskWorkspace);
   await ensureDir(wsDownloads);
   await ensureDir(wsImages);
   await ensureDir(wsAudio);
   await ensureDir(wsCache);
+  await ensureDir(wsCompressed);
 
   // Create .zypherrules file, disabled due to a bug in Zypher Agent
   // await Deno.writeTextFile(
@@ -442,6 +445,7 @@ async function main(): Promise<void> {
     // mcpServerManager.registerTool(VideoToGifClipTool);
 
     mcpServerManager.registerTool(VideoInferenceTool);
+    mcpServerManager.registerTool(VideoCompressionTool);
 
     console.log(
       "🔧 Registered tools:",
