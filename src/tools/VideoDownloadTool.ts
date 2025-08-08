@@ -10,6 +10,8 @@ export const VideoDownloadTool = defineTool({
 This tool supports popular video hosting platforms such as YouTube, Bilibili, Vimeo, and more.
 It executes the download command via a secure terminal interface and requires explicit user approval.
 
+By default, it limits the download to video formats not exceeding 720p to reduce file size and maintain compatibility with LLM processing.
+
 LLMs should use this tool when a video file is required for offline access, transcription, summarization, or analysis.
 
 Parameters:
@@ -34,7 +36,9 @@ The tool routes through RunTerminalCmdTool and will not execute unless approved 
       .describe("One-sentence reason for downloading the video"),
   }),
   execute: async ({ url, outputDir, isBackground, explanation }) => {
-    const command = `mkdir -p "${outputDir}" && yt-dlp -o "${outputDir}/%(title)s.%(ext)s" "${url}"`;
+    const format = `'bestvideo[height<=720]+bestaudio/best[height<=720]'`;
+
+    const command = `yt-dlp -f ${format} -o "${outputDir}/%(title)s.%(ext)s" "${url}"`;
 
     return await RunTerminalCmdTool.execute({
       command,
