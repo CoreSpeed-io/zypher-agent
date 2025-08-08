@@ -9,7 +9,7 @@ import {
 } from "@google/genai";
 
 const { createHash } = await import("node:crypto");
-const CACHE_FILE = "video_file_cache.json";
+const CACHE_FILE = "./cache/video_file_cache.json";
 let fileCache: Record<string, string> = {};
 
 async function exists(path: string): Promise<boolean> {
@@ -61,40 +61,40 @@ The tool uploads the video (if not cached), waits for the file to become ACTIVE,
 
     let fileUri: string;
     let fileId: string;
-    let file: File;
+    let video_file: File;
 
     if (fileCache[videoHash]) {
       fileUri = fileCache[videoHash];
       fileId = fileUri.split("/").pop()!;
-      file = await genAI.files.get({ name: fileId });
+      video_file = await genAI.files.get({ name: fileId });
     } else {
-      file = await genAI.files.upload({ file: videoPath });
+      video_file = await genAI.files.upload({ file: videoPath });
 
-      if (!file.uri) {
+      if (!video_file.uri) {
         return "❌ Upload failed: file URI is undefined.";
       }
 
-      fileUri = file.uri;
+      fileUri = video_file.uri;
       fileCache[videoHash] = fileUri;
       await saveCache();
     }
 
-    while (file.state !== "ACTIVE") {
+    while (video_file.state !== "ACTIVE") {
       await new Promise((res) => setTimeout(res, 5000));
-      if (!file.name) {
+      if (!video_file.name) {
         return "❌ File name is undefined while waiting for ACTIVE state.";
       }
-      file = await genAI.files.get({ name: file.name });
+      video_file = await genAI.files.get({ name: video_file.name });
     }
 
-    if (!file.uri || !file.mimeType) {
+    if (!video_file.uri || !video_file.mimeType) {
       return "❌ File upload failed or returned no URI/mimeType.";
     }
 
     const response = await genAI.models.generateContent({
       model: "gemini-2.5-flash",
       contents: createUserContent([
-        createPartFromUri(file.uri, file.mimeType),
+        createPartFromUri(video_file.uri, video_file.mimeType),
         question,
       ]),
     });

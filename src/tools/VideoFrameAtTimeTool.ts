@@ -14,7 +14,7 @@ or performing static frame analysis.
 Parameters:
 - 'inputFile': Full path to the local video file.
 - 'timestamp': Time in format HH:MM:SS[.ms] or seconds (e.g., "00:01:23.456" or "83.5").
-- 'outputDir': Directory where the extracted frame will be saved. Default is './frames'.
+- 'outputDir': Directory where the extracted frame will be saved. Default is './images'.
 - 'outputImage': Name of the output image file (should end with .jpg or .png).
 - 'isBackground': Whether to run the command asynchronously.
 - 'explanation': One-sentence purpose for extracting this frame.
@@ -28,7 +28,7 @@ Note:
     timestamp: z.string().describe("Timestamp to capture frame (e.g., '00:01:23.456' or '83.5')"),
     outputDir: z
       .string()
-      .default("./frames")
+      .default("./images")
       .describe("Directory to save the extracted frame"),
     outputImage: z
       .string()

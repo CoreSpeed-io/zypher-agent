@@ -12,7 +12,7 @@ Parameters:
 - inputFile: Path to the local video file (e.g., ./downloads/video.mp4)
 - startTime: Start time in format hh:mm:ss (e.g., 00:01:30)
 - duration: Duration of the clip in seconds (e.g., 5)
-- outputDir: Directory to save the GIF (default: ./gifs)
+- outputDir: Directory to save the GIF (default: ./images)
 - scale: Width of the output GIF in pixels (default: 480)
 - fps: Frame rate of the GIF (default: 10)
 - isBackground: Whether to run the command in background
@@ -25,7 +25,7 @@ The output GIF will be saved as <video_basename>_<start>_<duration>.gif in the o
     duration: z.number().min(1).describe("Duration of the clip in seconds"),
     outputDir: z
       .string()
-      .default("./gifs")
+      .default("./images")
       .describe("Directory to save the generated GIF"),
     scale: z
       .number()
