@@ -42,7 +42,7 @@ export class TaskConcurrencyError extends Error {
 
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_MAX_TOKENS = 64000;
-const DEFAULT_MAX_ITERATIONS = 25;
+const DEFAULT_MAX_ITERATIONS = 40;
 const DEFAULT_THINKING = false;
 const DEFAULT_THINKING_BUDGET = 10000;
 

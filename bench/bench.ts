@@ -188,19 +188,19 @@ async function createFileAttachmentsForTask(
     let contentType: string;
 
     switch (ext) {
-      case '.jpg':
-      case '.jpeg':
-        contentType = 'image/jpeg';
-        break;
-      case '.png':
-        contentType = 'image/png';
-        break;
-      case '.gif':
-        contentType = 'image/gif';
-        break;
-      case '.webp':
-        contentType = 'image/webp';
-        break;
+      // case '.jpg':
+      // case '.jpeg':
+      //   contentType = 'image/jpeg';
+      //   break;
+      // case '.png':
+      //   contentType = 'image/png';
+      //   break;
+      // case '.gif':
+      //   contentType = 'image/gif';
+      //   break;
+      // case '.webp':
+      //   contentType = 'image/webp';
+      //   break;
       case '.pdf':
         contentType = 'application/pdf';
         break;
@@ -426,7 +426,7 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(DeleteFileTool);
     mcpServerManager.registerTool(YouTubeVideoAccessTool);
     mcpServerManager.registerTool(WebSearchTool);
-    mcpServerManager.registerTool(WebsiteAccessTool);
+    // mcpServerManager.registerTool(WebsiteAccessTool);
     mcpServerManager.registerTool(AudioToTextTool);
     mcpServerManager.registerTool(AskImageQuestionTool);
     mcpServerManager.registerTool(AskFileUrlQuestionTool);
