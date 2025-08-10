@@ -445,7 +445,7 @@ export class ZypherAgent {
           cacheMap,
         );
 
-        const modelEvents = stream.events();
+        const modelEvents = stream.events;
         for await (const event of eachValueFrom(modelEvents)) {
           if (event.type === "text") {
             yield { type: "text", content: event.text };

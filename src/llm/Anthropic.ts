@@ -26,20 +26,20 @@ function isSupportedImageType(
   );
 }
 
-function mapStopReason(reason: string | null): FinalMessage["stop_reason"] {
+function mapStopReason(
+  reason: Anthropic.Messages.StopReason | null,
+): FinalMessage["stop_reason"] {
   switch (reason) {
     case "end_turn":
-      return "stop_sequence";
+      return "end_turn";
     case "max_tokens":
       return "max_tokens";
     case "tool_use":
       return "tool_use";
-    case "content_block_limit":
-      return "content_block_limit";
-    case "length":
-      return "length";
-    default:
+    case "stop_sequence":
       return "stop_sequence";
+    default:
+      return "end_turn";
   }
 }
 
@@ -210,33 +210,35 @@ Cached at: ${cache.cachePath}`,
 }
 
 class AnthropicModelStream implements ModelStream {
-  #stream: ReturnType<Anthropic["messages"]["stream"]>;
+  readonly #stream: ReturnType<Anthropic["messages"]["stream"]>;
+  readonly #events: Observable<ModelEvent>;
 
   constructor(stream: ReturnType<Anthropic["messages"]["stream"]>) {
     this.#stream = stream;
-  }
-
-  events(): Observable<ModelEvent> {
-    return new Observable((subscriber) => {
-      this.#stream.on("text", (text) => {
+    this.#events = new Observable((subscriber) => {
+      stream.on("text", (text) => {
         subscriber.next({ type: "text", text });
       });
 
-      this.#stream.on("message", (message) => {
+      stream.on("message", (message) => {
         subscriber.next({
           type: "message",
           message: mapMessage(message),
         });
       });
 
-      this.#stream.on("error", (error) => {
+      stream.on("error", (error) => {
         subscriber.error(error);
       });
 
-      this.#stream.on("end", () => {
+      stream.on("end", () => {
         subscriber.complete();
       });
     });
+  }
+
+  get events(): Observable<ModelEvent> {
+    return this.#events;
   }
 
   async finalMessage(): Promise<FinalMessage> {

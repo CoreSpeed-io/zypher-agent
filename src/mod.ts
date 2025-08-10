@@ -12,11 +12,7 @@ export type { OAuthProviderOptions } from "./mcp/types/auth.ts";
 
 // Messaging primitives
 export { isFileAttachment, isMessage, printMessage } from "./message.ts";
-export type {
-  ContentBlock,
-  FileAttachment,
-  Message,
-} from "./message.ts";
+export type { ContentBlock, FileAttachment, Message } from "./message.ts";
 
 // Storage service interfaces
 export type {

@@ -64,7 +64,7 @@ export interface ModelStream {
   /**
    * Get an observable that emits the next message in the stream.
    */
-  events(): Observable<ModelEvent>;
+  get events(): Observable<ModelEvent>;
 
   /**
    * Wait for the stream to complete and get the final message
@@ -72,13 +72,17 @@ export interface ModelStream {
   finalMessage(): Promise<FinalMessage>;
 }
 
+// "end_turn": the model reached a natural stopping point
+// "max_tokens": we exceeded the requested max_tokens or the model's maximum
+// "stop_sequence": one of your provided custom stop_sequences was generated
+// "tool_use": the model invoked one or more tools
+
 export interface FinalMessage extends Message {
   stop_reason:
-    | "max_tokens"
-    | "tool_use"
-    | "stop_sequence"
-    | "content_block_limit"
-    | "length";
+    | "end_turn" // the model reached a natural stopping point
+    | "max_tokens" // we exceeded the requested max_tokens or the model's maximum
+    | "stop_sequence" // one of your provided custom stop_sequences was generated
+    | "tool_use"; // the model invoked one or more tools
 }
 
 export type ModelEvent = MessageEvent | TextEvent;
