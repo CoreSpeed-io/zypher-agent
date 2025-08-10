@@ -41,47 +41,39 @@ export class OpenAIModelProvider implements ModelProvider {
     params: StreamChatParams,
     fileAttachmentCacheMap?: FileAttachmentCacheMap,
   ): ModelStream {
-    const openaiTools = params.tools?.map((tool) => ({
-      type: "function",
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-      strict: false, // in strict mode, no optional parameters are allowed
-    } satisfies OpenAI.Responses.Tool));
+    const openaiTools: OpenAI.Chat.ChatCompletionTool[] | undefined = params
+      .tools?.map((tool) => ({
+        type: "function",
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+          strict: false, // in strict mode, no optional parameters are allowed
+        },
+      }));
 
-    const stream = this.#client.responses.stream({
+    const formattedMessages = params.messages.map(
+      (m) => formatInputMessage(m),
+    );
+
+    // console.log(formattedMessages);
+
+    const stream = this.#client.chat.completions.stream({
       model: params.model,
-      instructions: params.system,
-      input: params.messages.map(
-        (m) => formatInputMessage(m),
-      ),
+      messages: [
+        {
+          role: "system",
+          content: params.system,
+        },
+        ...formattedMessages,
+      ],
+      max_completion_tokens: params.maxTokens,
       tools: openaiTools,
     });
 
-    return new OpenAIModelStream(stream);
-  }
-}
-
-class OpenAIModelStream implements ModelStream {
-  #stream: ReturnType<OpenAI["responses"]["stream"]>;
-  #events: Observable<ModelEvent>;
-
-  constructor(stream: ReturnType<OpenAI["responses"]["stream"]>) {
-    this.#stream = stream;
-    this.#events = new Observable((subscriber) => {
-      stream.on("response.created", (event) => {
-        console.log("response.created");
-      });
-
-      stream.on("response.output_text.delta", (event) => {
+    const observable = new Observable<ModelEvent>((subscriber) => {
+      stream.on("content.delta", (event) => {
         subscriber.next({ type: "text", text: event.delta });
-      });
-
-      stream.on("response.completed", (event) => {
-        subscriber.next({
-          type: "message",
-          message: buildMessageFromResponse(event.response),
-        });
       });
 
       stream.on("error", (error) => {
@@ -92,79 +84,90 @@ class OpenAIModelStream implements ModelStream {
         subscriber.complete();
       });
     });
-  }
-
-  get events(): Observable<ModelEvent> {
-    return this.#events;
-  }
-
-  async finalMessage(): Promise<FinalMessage> {
-    const finalResponse = await this.#stream.finalResponse();
-    return buildMessageFromResponse(finalResponse);
+    return {
+      events: observable,
+      finalMessage: async (): Promise<FinalMessage> => {
+        const message = await stream.finalMessage();
+        // console.log(message);
+        return {
+          role: message.role,
+          content: [
+            { type: "text", text: message.content ?? "" },
+            ...(
+              message.tool_calls?.map((c) => ({
+                type: "tool_use" as const,
+                id: c.id,
+                name: c.function.name,
+                input: JSON.parse(c.function.arguments),
+              })) ?? []
+            ),
+          ],
+          stop_reason: message.tool_calls?.length ? "tool_use" : "end_turn",
+          timestamp: new Date(),
+        };
+      },
+    };
   }
 }
 
 function formatInputMessage(
   message: Message,
-): OpenAI.Responses.ResponseInputItem {
-  return {
-    role: message.role,
-    content: message.content.map(
-      (c): OpenAI.Responses.ResponseInputContent | null => {
+): OpenAI.Chat.ChatCompletionMessageParam {
+  if (message.role === "user") {
+    if (
+      message.content.length === 1 && message.content[0].type === "tool_result"
+    ) {
+      return {
+        role: "tool",
+        content: message.content[0].content?.toString() ?? "",
+        tool_call_id: message.content[0].tool_use_id,
+      };
+    }
+    return {
+      role: message.role,
+      content: message.content.map(
+        (c): OpenAI.Chat.ChatCompletionContentPart | null => {
+          if (c.type === "text") {
+            return {
+              type: "text",
+              text: c.text,
+            };
+          }
+          return null;
+        },
+      ).filter((c) => c !== null),
+    };
+  } else {
+    const toolCalls = message.content.filter((c) => c.type === "tool_use");
+    return {
+      role: message.role,
+      content: message.content.map((c):
+        | OpenAI.Chat.ChatCompletionContentPartText
+        | null => {
         if (c.type === "text") {
           return {
-            type: "input_text",
+            type: "text",
             text: c.text,
-          };
-        } else if (isFileAttachment(c)) {
-          return {
-            type: "input_file",
-            file_id: c.fileId,
           };
         }
 
-        console.warn(`Unsupported content type: ${c.type} will be ignored.`);
         return null;
-      },
-    ).filter((c) => c !== null),
-  };
-}
-
-function mapOutputItem(
-  output: OpenAI.Responses.ResponseOutputItem,
-): ContentBlock[] | null {
-  if (output.type === "message") {
-    return output.content.map((c) => ({
-      type: "text",
-      text: c.type === "output_text" ? c.text : c.refusal,
-    }));
-  } else if (output.type === "function_call") {
-    return [
-      {
-        type: "tool_use",
-        id: output.call_id,
-        name: output.name,
-        input: output.arguments,
-      },
-    ];
+      })
+        .filter((c) => c !== null),
+      ...(toolCalls.length > 0
+        ? {
+          tool_calls: toolCalls.map((
+            c,
+          ) => ({
+            id: c.id,
+            type: "function",
+            function: {
+              name: c.name,
+              arguments: JSON.stringify(c.input),
+            },
+          })),
+        }
+        : {}),
+    };
   }
-
-  console.warn(`Unsupported output type: ${output.type}.`);
-  return null;
-}
-
-function buildMessageFromResponse(
-  response: OpenAI.Responses.Response,
-): FinalMessage {
-  return {
-    role: "assistant",
-    content: response.output
-      .map(mapOutputItem)
-      .filter((c) => c !== null)
-      .flat(),
-    stop_reason: response.output.find((o) => o.type === "function_call")
-      ? "tool_use"
-      : "end_turn",
-    timestamp: new Date(),
-  };
 }
