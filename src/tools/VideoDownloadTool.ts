@@ -1,7 +1,7 @@
-// VideoDownloadTool.ts
 import { z } from "zod";
 import { defineTool } from "./mod.ts";
 import { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
+import { ensureDir } from "@std/fs";
 
 export const VideoDownloadTool = defineTool({
   name: "video_download",
@@ -38,6 +38,8 @@ The tool routes through RunTerminalCmdTool and will not execute unless approved 
   execute: async ({ url, outputDir, isBackground, explanation }) => {
     const format = `'bestvideo[height<=720]+bestaudio/best[height<=720]'`;
 
+    await ensureDir(outputDir);
+    
     const command = `yt-dlp -f ${format} -o "${outputDir}/%(title)s.%(ext)s" "${url}"`;
 
     return await RunTerminalCmdTool.execute({

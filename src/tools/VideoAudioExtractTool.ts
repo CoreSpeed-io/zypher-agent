@@ -1,7 +1,7 @@
-// VideoAudioExtractTool.ts
 import { z } from "zod";
 import { defineTool } from "./mod.ts";
 import { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
+import { ensureDir } from "@std/fs";
 
 
 export const VideoAudioExtractTool = defineTool({
@@ -41,6 +41,7 @@ This tool requires user approval before executing.`,
   execute: async ({ inputFile, audioFormat, outputDir, isBackground, explanation }) => {
     const inputName = inputFile.split("/").pop()!;
     const baseName = inputName.replace(/\.[^/.]+$/, "");
+    await ensureDir(outputDir);
     const outputPath = `${outputDir}/${baseName}.${audioFormat}`;
     const command = `mkdir -p ${outputDir} && ffmpeg -i "${inputFile}" -vn -acodec ${audioFormat} "${outputPath}" -y`;
 

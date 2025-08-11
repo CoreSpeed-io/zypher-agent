@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineTool } from "./mod.ts";
 import { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
+import { ensureDir } from "@std/fs";
 
 
 export const VideoFrameAtTimeTool = defineTool({
@@ -42,6 +43,7 @@ Note:
       .describe("Why this frame is being extracted"),
   }),
   execute: async ({ inputFile, timestamp, outputDir, outputImage, isBackground, explanation }) => {
+    await ensureDir(outputDir);
     const outputPath = `${outputDir}/${outputImage}`;
 
     const cmd = `ffmpeg -ss ${timestamp} -i "${inputFile}" -frames:v 1 "${outputPath}" -y`;

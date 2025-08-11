@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineTool } from "./mod.ts";
 import { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
+import { ensureDir } from "@std/fs";
 
 export const VideoCompressionTool = defineTool({
   name: "video_compression",
@@ -26,6 +27,7 @@ Note:
     explanation: z.string().describe("Why this video is being compressed"),
   }),
   execute: async ({ inputFile, outputDir, outputFile, isBackground, explanation }) => {
+    await ensureDir(outputDir);
     const outputPath = `${outputDir}/${outputFile}`;
 
     const cmd = `ffmpeg -i "${inputFile}" -vcodec libx264 -preset fast -b:v 2M -maxrate 2.5M -bufsize 3M -acodec aac -b:a 128k -movflags +faststart -y "${outputPath}"`;

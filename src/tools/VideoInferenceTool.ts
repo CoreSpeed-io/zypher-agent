@@ -6,9 +6,12 @@ import {
   createPartFromUri,
   File,
 } from "@google/genai";
+import { ensureDir } from "@std/fs";
 
 const { createHash } = await import("node:crypto");
 const CACHE_FILE = "./cache/video_file_cache.json";
+await ensureDir("./cache");
+
 let fileCache: Record<string, string> = {};
 
 async function exists(path: string): Promise<boolean> {

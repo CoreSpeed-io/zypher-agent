@@ -129,18 +129,8 @@ async function setupWorkspaceForTask(
 ): Promise<void> {
   // Create task-specific workspace
   const taskWorkspace = join(workspaceDir, task.task_id);
-  const wsDownloads = join(taskWorkspace, "downloads");
-  const wsImages = join(taskWorkspace, "images");
-  const wsAudio = join(taskWorkspace, "audio");
-  const wsCache = join(taskWorkspace, "cache");
-  const wsCompressed = join(taskWorkspace, "compressed");
 
   await ensureDir(taskWorkspace);
-  await ensureDir(wsDownloads);
-  await ensureDir(wsImages);
-  await ensureDir(wsAudio);
-  await ensureDir(wsCache);
-  await ensureDir(wsCompressed);
 
   // Create .zypherrules file, disabled due to a bug in Zypher Agent
   // await Deno.writeTextFile(

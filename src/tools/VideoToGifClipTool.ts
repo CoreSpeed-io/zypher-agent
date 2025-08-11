@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineTool } from "./mod.ts";
 import { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
+import { ensureDir } from "@std/fs";
 
 export const VideoToGifClipTool = defineTool({
   name: "video_to_gif_clip",
@@ -56,6 +57,7 @@ The output GIF will be saved as <video_basename>_<start>_<duration>.gif in the o
     const inputName = inputFile.split("/").pop()!;
     const baseName = inputName.replace(/\.[^/.]+$/, "");
     const gifName = `${baseName}_${startTime.replace(/:/g, "-")}_${duration}s.gif`;
+    await ensureDir(outputDir);
     const outputPath = `${outputDir}/${gifName}`;
 
     const command = `ffmpeg -ss ${startTime} -t ${duration} -i "${inputFile}" -vf "fps=${fps},scale=${scale}:-1:flags=lanczos" -loop 0 "${outputPath}" -y`;
