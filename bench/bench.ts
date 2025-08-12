@@ -11,7 +11,6 @@ import {
   ReadFileTool,
   RunTerminalCmdTool,
   WebSearchTool,
-  WebsiteSurfTool,
   WebsiteAccessTool,
   YouTubeVideoAccessTool,
   AskImageQuestionTool,
@@ -20,6 +19,12 @@ import {
   // ClickWebsiteElementInBrowserTool,
   // FillInputElementInBrowserTool 
   SearchWikipediaTool,
+  VideoFrameAtTimeTool,
+  VideoAudioExtractTool,
+  VideoDownloadTool,
+  VideoToGifClipTool,
+  VideoInferenceTool,
+  VideoCompressionTool
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -124,6 +129,7 @@ async function setupWorkspaceForTask(
 ): Promise<void> {
   // Create task-specific workspace
   const taskWorkspace = join(workspaceDir, task.task_id);
+
   await ensureDir(taskWorkspace);
 
   // Create .zypherrules file, disabled due to a bug in Zypher Agent
@@ -418,14 +424,19 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(AskImageQuestionTool);
     mcpServerManager.registerTool(AskFileUrlQuestionTool);
 
-
-    mcpServerManager.registerTool(WebsiteSurfTool);
-
     // mcpServerManager.registerTool(AccessWebsiteInBrowserTool);
     // mcpServerManager.registerTool(ClickWebsiteElementInBrowserTool);
     // mcpServerManager.registerTool(FillInputElementInBrowserTool);
     
     mcpServerManager.registerTool(SearchWikipediaTool);
+    // mcpServerManager.registerTool(VideoFrameAtTimeTool);
+    mcpServerManager.registerTool(VideoAudioExtractTool);
+    mcpServerManager.registerTool(VideoDownloadTool);
+    // mcpServerManager.registerTool(VideoToGifClipTool);
+
+    mcpServerManager.registerTool(VideoInferenceTool);
+    mcpServerManager.registerTool(VideoCompressionTool);
+
     console.log(
       "🔧 Registered tools:",
     );

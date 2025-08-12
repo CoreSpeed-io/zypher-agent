@@ -91,7 +91,7 @@ export const AskImageQuestionTool = defineTool({
   description:
     "Answer a natural-language question about the content of an image using OpenAI's GPT-4o vision capabilities.\n\n" +
     "Features:\n" +
-    "- Accepts a local image (JPEG, PNG, or WebP)\n" +
+    "- Accepts a local image (JPEG, PNG, GIF, or WebP)\n" +
     "- Uploads the image securely to OpenAI for vision processing\n" +
     "- Returns a concise, text-only answer to the provided question\n\n" +
     "Best Practices for Questions:\n" +
@@ -103,7 +103,7 @@ export const AskImageQuestionTool = defineTool({
       "Full file path to the image that should be analyzed.",
     ),
     mimeType: z
-      .enum(["image/jpeg", "image/png", "image/webp"])
+      .enum(["image/jpeg", "image/png", "image/webp", "image/gif"])
       .describe("The MIME type of the image."),
     question: z
       .string()

@@ -15,7 +15,7 @@ import { defineTool } from "./mod.ts";
 export const YouTubeVideoAccessTool = defineTool({
   name: "youtube_video",
   description:
-    "Fetch a YouTube video's metadata and up to N top-level comments, formatted for easy LLM consumption.",
+    "Fetch a YouTube video's metadata and up to N top-level comments, formatted for easy LLM consumption. Do not over rely on the comments, as they are not guaranteed.",
   parameters: z.object({
     videoId: z
       .string()
