@@ -142,3 +142,6 @@ dist
 # ide
 .idea/
 .vscode/
+
+# npm publish artifacts
+npm/
