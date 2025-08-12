@@ -1,318 +1,248 @@
-import { Anthropic } from "@anthropic-ai/sdk";
 import type {
-  LLMProvider,
-  LLMStream,
-  StreamChatParams,
-  StreamOptions,
+  FinalMessage,
+  ModelEvent,
+  ModelProvider,
+  ModelStream,
   ProviderInfo,
-  ProviderCapability,
-  UnifiedMessage,
-  UnifiedContent,
-  UnifiedTool,
-  StreamEvent,
-  ContentDeltaEvent,
-  ToolCallEvent,
-  MessageCompleteEvent,
-  ErrorEvent,
-  MetadataEvent,
-} from "./LLMProvider.ts";
+  StreamChatParams,
+} from "./ModelProvider.ts";
+import { Anthropic } from "@anthropic-ai/sdk";
+import { isFileAttachment, type Message } from "../message.ts";
+import { Observable } from "rxjs";
+import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 
-type AnthropicOptions = ConstructorParameters<typeof Anthropic>[0];
+const SUPPORTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
 
-/**
- * Implementation of LLMStream for Anthropic
- */
-class AnthropicStream implements LLMStream {
-  private handlers: Map<string, Array<(event: any) => void>> = new Map();
-  private rawHandlers: Array<(event: unknown) => void> = [];
-  private anthropicStream: any;
-  private abortController: AbortController;
-  
-  constructor(anthropicStream: any, abortController: AbortController) {
-    this.anthropicStream = anthropicStream;
-    this.abortController = abortController;
-    this.setupEventHandlers();
-  }
-  
-  private setupEventHandlers() {
-    let currentToolCall: { id: string; name: string; arguments: string } | null = null;
-    
-    // Handle text deltas
-    this.anthropicStream.on('text', (textDelta: string, snapshot: any) => {
-      const event: ContentDeltaEvent = {
-        type: 'content_delta',
-        delta: textDelta,
-        index: 0 // Anthropic doesn't provide index in text event
-      };
-      this.emit('content_delta', event);
-    });
-    
-    // Handle stream events for tool calls
-    this.anthropicStream.on('streamEvent', (event: Anthropic.MessageStreamEvent) => {
-      // Emit raw event
-      this.rawHandlers.forEach(handler => handler(event));
-      
-      // Handle tool use
-      if (event.type === 'content_block_start' && 
-          event.content_block?.type === 'tool_use') {
-        currentToolCall = {
-          id: event.content_block.id,
-          name: event.content_block.name,
-          arguments: ''
-        };
-      }
-    });
-    
-    // Handle tool input JSON
-    this.anthropicStream.on('inputJson', (partialJson: string) => {
-      if (currentToolCall) {
-        currentToolCall.arguments = partialJson;
-        const event: ToolCallEvent = {
-          type: 'tool_call',
-          toolCall: { ...currentToolCall }
-        };
-        this.emit('tool_call', event);
-      }
-    });
-  }
-  
-  private emit(eventType: string, event: StreamEvent) {
-    const handlers = this.handlers.get(eventType) || [];
-    handlers.forEach(handler => handler(event));
-  }
-  
-  on(event: 'content_delta', handler: (event: ContentDeltaEvent) => void): LLMStream;
-  on(event: 'tool_call', handler: (event: ToolCallEvent) => void): LLMStream;
-  on(event: 'message_complete', handler: (event: MessageCompleteEvent) => void): LLMStream;
-  on(event: 'error', handler: (event: ErrorEvent) => void): LLMStream;
-  on(event: 'metadata', handler: (event: MetadataEvent) => void): LLMStream;
-  on(event: string, handler: (event: any) => void): LLMStream {
-    if (!this.handlers.has(event)) {
-      this.handlers.set(event, []);
-    }
-    this.handlers.get(event)!.push(handler);
-    return this;
-  }
-  
-  onRaw(handler: (event: unknown) => void): LLMStream {
-    this.rawHandlers.push(handler);
-    return this;
-  }
-  
-  async getFinalMessage(): Promise<UnifiedMessage> {
-    const anthropicMessage = await this.anthropicStream.finalMessage();
-    return this.convertToUnifiedMessage(anthropicMessage);
-  }
-  
-  abort(): void {
-    this.abortController.abort();
-  }
-  
-  private convertToUnifiedMessage(anthropicMessage: any): UnifiedMessage {
-    const unifiedContent: UnifiedContent[] = [];
-    
-    for (const block of anthropicMessage.content) {
-      if (block.type === 'text') {
-        unifiedContent.push({
-          type: 'text',
-          text: block.text
-        });
-      } else if (block.type === 'tool_use') {
-        unifiedContent.push({
-          type: 'tool_call',
-          id: block.id,
-          name: block.name,
-          arguments: block.input as Record<string, unknown>
-        });
-      }
-    }
-    
-    // Emit message complete event
-    const event: MessageCompleteEvent = {
-      type: 'message_complete',
-      message: {
-        role: 'assistant',
-        content: unifiedContent
-      },
-      stopReason: anthropicMessage.stop_reason as 'stop' | 'max_tokens' | 'tool_use'
-    };
-    this.emit('message_complete', event);
-    
-    return event.message;
+function isSupportedImageType(
+  type: string,
+): type is typeof SUPPORTED_IMAGE_TYPES[number] {
+  return SUPPORTED_IMAGE_TYPES.includes(
+    type as typeof SUPPORTED_IMAGE_TYPES[number],
+  );
+}
+
+function mapStopReason(
+  reason: Anthropic.Messages.StopReason | null,
+): FinalMessage["stop_reason"] {
+  switch (reason) {
+    case "end_turn":
+      return "end_turn";
+    case "max_tokens":
+      return "max_tokens";
+    case "tool_use":
+      return "tool_use";
+    case "stop_sequence":
+      return "stop_sequence";
+    default:
+      return "end_turn";
   }
 }
 
-/**
- * Anthropic provider implementation
- */
-export class AnthropicProvider implements LLMProvider {
-  readonly #client: Anthropic;
+function mapMessage(message: Anthropic.Message): FinalMessage {
+  return {
+    role: message.role,
+    content: message.content,
+    timestamp: new Date(),
+    stop_reason: mapStopReason(message.stop_reason),
+  };
+}
 
-  constructor(options: AnthropicOptions = {}) {
-    const apiKey = options.apiKey ?? Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) {
-      throw new Error(
-        "AnthropicProvider: missing API key – supply via constructor or " +
-          "ANTHROPIC_API_KEY env var.",
-      );
-    }
+export class AnthropicModelProvider implements ModelProvider {
+  #client: Anthropic;
+  #enablePromptCaching: boolean;
 
-    this.#client = new Anthropic(options.apiKey ? options : { ...options, apiKey });
+  constructor(
+    apiKey: string,
+    enablePromptCaching: boolean,
+  ) {
+    this.#client = new Anthropic({ apiKey });
+    this.#enablePromptCaching = enablePromptCaching;
   }
 
-  getInfo(): ProviderInfo {
+  get info(): ProviderInfo {
     return {
-      name: 'anthropic',
-      version: '1.0.0',
+      name: "anthropic",
+      version: "1.0.0",
       capabilities: [
-        'caching',
-        'thinking', 
-        'web_search',
-        'vision',
-        'documents',
-        'tool_calling'
-      ]
+        "caching",
+        "thinking",
+        "web_search",
+        "vision",
+        "documents",
+        "json_mode",
+        "tool_calling",
+      ],
     };
-  }
-  
-  supportsCapability(capability: ProviderCapability): boolean {
-    return this.getInfo().capabilities.includes(capability);
   }
 
-  streamChat(params: StreamChatParams, options: StreamOptions = {}): LLMStream {
-    const anthropicParams = this.convertToAnthropicParams(params);
-    const abortController = new AbortController();
-    
-    // Merge signals
-    const signal = options.signal 
-      ? AbortSignal.any([options.signal, abortController.signal])
-      : abortController.signal;
-    
-    const anthropicStream = this.#client.messages.stream(anthropicParams, { signal });
-    
-    return new AnthropicStream(anthropicStream, abortController);
-  }
-  
-  private convertToAnthropicParams(params: StreamChatParams): any {
-    const messages = params.messages
-      .filter(msg => msg.role !== 'system')
-      .map(msg => this.convertMessage(msg));
-    
-    // Extract system messages
-    const systemMessages = params.messages
-      .filter(msg => msg.role === 'system')
-      .map(msg => msg.content.map(c => c.type === 'text' ? c.text : '').join('\n'))
-      .join('\n');
-    
-    const systemPrompt = params.systemPrompt || systemMessages;
-    
-    const anthropicParams: any = {
-      model: params.model,
-      max_tokens: params.maxTokens || 4096,
-      messages,
-      ...(systemPrompt && { 
-        system: [{
-          type: 'text',
-          text: systemPrompt,
-          ...(params.providerOptions?.anthropic?.enableCaching && {
-            cache_control: { type: 'ephemeral' }
-          })
-        }]
-      }),
-      ...(params.tools && { tools: params.tools.map(t => this.convertTool(t)) }),
-      ...(params.metadata && { metadata: params.metadata })
-    };
-    
-    // Add thinking options if supported
-    if (params.providerOptions?.anthropic?.thinking) {
-      anthropicParams.thinking = {
-        type: params.providerOptions.anthropic.thinking.enabled ? 'enabled' : 'disabled',
-        ...(params.providerOptions.anthropic.thinking.budgetTokens && {
-          budget_tokens: params.providerOptions.anthropic.thinking.budgetTokens
-        })
-      };
-    }
-    
-    return anthropicParams;
-  }
-  
-  private convertMessage(message: UnifiedMessage): Anthropic.MessageParam {
-    const content: Anthropic.ContentBlockParam[] = [];
-    
-    for (const block of message.content) {
-      switch (block.type) {
-        case 'text':
-          content.push({
-            type: 'text',
-            text: block.text,
-            ...(block.cacheControl && { cache_control: block.cacheControl })
-          });
-          break;
-          
-        case 'image':
-          if (block.source.type === 'url') {
-            content.push({
-              type: 'image',
-              source: {
-                type: 'url',
-                url: block.source.data
-              }
-            });
-          } else {
-            content.push({
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: (block.source.mediaType || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-                data: block.source.data
-              }
-            });
-          }
-          break;
-          
-        case 'document':
-          if (block.source.type === 'url') {
-            content.push({
-              type: 'document',
-              source: {
-                type: 'url',
-                url: block.source.data
-              }
-            });
-          } else {
-            content.push({
-              type: 'document',
-              source: {
-                type: 'base64',
-                media_type: 'application/pdf' as const,
-                data: block.source.data
-              }
-            });
-          }
-          break;
-          
-        case 'tool_result':
-          content.push({
-            type: 'tool_result',
-            tool_use_id: block.toolCallId,
-            content: block.content,
-            ...(block.isError && { is_error: true })
-          });
-          break;
-      }
-    }
-    
-    return {
-      role: message.role as 'user' | 'assistant',
-      content
-    };
-  }
-  
-  private convertTool(tool: UnifiedTool): Anthropic.Tool {
-    return {
+  streamChat(
+    params: StreamChatParams,
+    fileAttachmentCacheMap?: FileAttachmentCacheMap,
+  ): ModelStream {
+    // Convert our internal Message[] to Anthropic's MessageParam[]
+    const anthropicMessages = params.messages.map((msg) =>
+      this.#formatMessageForApi(msg, false, fileAttachmentCacheMap)
+    );
+
+    // Convert our internal Tool[] to Anthropic's Tool[]
+    const anthropicTools = params.tools?.map((tool) => ({
       name: tool.name,
       description: tool.description,
-      input_schema: tool.parameters as Anthropic.Tool.InputSchema
-    };
+      input_schema: tool.parameters,
+    }));
+
+    const stream = this.#client.messages.stream({
+      model: params.model,
+      max_tokens: params.maxTokens,
+      system: params.system,
+      messages: anthropicMessages,
+      tools: anthropicTools,
+    });
+
+    return new AnthropicModelStream(stream);
+  }
+
+  /**
+   * Formats a message for the Anthropic API, converting content to blocks and adding cache control
+   * for incremental caching of conversation history.
+   *
+   * @param message - The extended message parameter
+   * @param isLastMessage - Whether this is the last message in the turn
+   * @returns A clean message parameter for the Anthropic API
+   */
+  #formatMessageForApi(
+    message: Message,
+    isLastMessage: boolean,
+    fileAttachmentCacheMap?: FileAttachmentCacheMap,
+  ): Anthropic.MessageParam {
+    const { role, content } = message;
+
+    // Track file attachment count separately from content index
+    let fileAttachmentCount = 0;
+
+    // For string content, convert to array format
+    let contentArray = typeof content === "string"
+      ? [
+        {
+          type: "text" as const,
+          text: content,
+        } satisfies Anthropic.TextBlockParam,
+      ]
+      : content.map((block) => {
+        if (isFileAttachment(block)) {
+          const cache = fileAttachmentCacheMap?.[block.fileId];
+          if (!cache) {
+            console.warn(
+              `Skipping file attachment as it is not cached. File ID: ${block.fileId}`,
+            );
+            return null;
+          }
+          // Increment the file attachment counter for each file attachment
+          fileAttachmentCount++;
+
+          const attachmentIndex = fileAttachmentCount;
+
+          // Text block is always included for both image and PDF files
+          const textBlock: Anthropic.TextBlockParam = {
+            type: "text" as const,
+            text: `Attachment ${attachmentIndex}:
+MIME type: ${block.mimeType}
+Cached at: ${cache.cachePath}`,
+          };
+
+          // Handle different file types with appropriate block types
+          if (isSupportedImageType(block.mimeType)) {
+            return [
+              textBlock,
+              {
+                type: "image" as const,
+                source: {
+                  type: "url" as const,
+                  url: cache.signedUrl,
+                },
+              } satisfies Anthropic.ImageBlockParam,
+            ];
+          } else if (block.mimeType === "application/pdf") {
+            return [
+              textBlock,
+              {
+                type: "document" as const,
+                source: {
+                  type: "url" as const,
+                  url: cache.signedUrl,
+                },
+              } satisfies Anthropic.DocumentBlockParam,
+            ];
+          }
+
+          // Fall back to just the text block for unsupported types
+          console.warn(
+            `File attachment ${block.fileId} is not supported by Anthropic (MIME type: ${block.mimeType}), this file will not be shown to the model.`,
+          );
+          return [textBlock];
+        }
+        return block;
+      })
+        .filter((block): block is Anthropic.ContentBlockParam => block !== null)
+        .flat();
+
+    // Add cache control to the last block of the last message
+    if (isLastMessage && this.#enablePromptCaching && contentArray.length > 0) {
+      // Only create new array for the last message to avoid mutating the original array
+      contentArray = [
+        ...contentArray.slice(0, -1), // Keep all but the last block
+        // inject cache control to the last block
+        // refer to https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#continuing-a-multi-turn-conversation
+        {
+          ...contentArray[contentArray.length - 1],
+          cache_control: { type: "ephemeral" },
+        } as Anthropic.ContentBlockParam,
+      ];
+    }
+
+    return { role, content: contentArray };
+  }
+}
+
+class AnthropicModelStream implements ModelStream {
+  readonly #stream: ReturnType<Anthropic["messages"]["stream"]>;
+  readonly #events: Observable<ModelEvent>;
+
+  constructor(stream: ReturnType<Anthropic["messages"]["stream"]>) {
+    this.#stream = stream;
+    this.#events = new Observable((subscriber) => {
+      stream.on("text", (text) => {
+        subscriber.next({ type: "text", text });
+      });
+
+      stream.on("message", (message) => {
+        subscriber.next({
+          type: "message",
+          message: mapMessage(message),
+        });
+      });
+
+      stream.on("error", (error) => {
+        subscriber.error(error);
+      });
+
+      stream.on("end", () => {
+        subscriber.complete();
+      });
+    });
+  }
+
+  get events(): Observable<ModelEvent> {
+    return this.#events;
+  }
+
+  async finalMessage(): Promise<FinalMessage> {
+    const finalMessage = await this.#stream.finalMessage();
+    return mapMessage(finalMessage);
   }
 }

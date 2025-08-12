@@ -1,25 +1,26 @@
-// The jsr specifier here is a workaround for deno rolldown plugin
-import "jsr:@std/dotenv/load";
-import { type StreamHandler, ZypherAgent } from "../src/ZypherAgent.ts";
+import "@std/dotenv/load";
+import {
+  formatError,
+  McpServerManager,
+  runAgentInTerminal,
+  ZypherAgent,
+} from "@zypher/mod.ts";
 import {
   CopyFileTool,
+  defineImageTools,
   DeleteFileTool,
   EditFileTool,
   FileSearchTool,
   GrepSearchTool,
-  ImageEditTool,
-  ImageGenTool,
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
-} from "../src/tools/mod.ts";
+} from "@zypher/tools/mod.ts";
 import { parseArgs } from "@std/cli";
-import readline from "node:readline";
-import { stdin as input, stdout as output } from "node:process";
-import { formatError } from "../src/error.ts";
 import chalk from "chalk";
-import { McpServerManager } from "../src/mcp/McpServerManager.ts";
-import { printMessage } from "../src/message.ts";
+import { AnthropicModelProvider } from "@zypher/llm/mod.ts";
+
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 interface CliOptions {
   workspace?: string;
@@ -49,18 +50,7 @@ const options: CliOptions = {
   model: cliFlags.model,
 };
 
-const rl = readline.createInterface({ input, output });
-const textEncoder = new TextEncoder();
-
 const mcpServerManager = new McpServerManager();
-
-function prompt(question: string): Promise<string> {
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      resolve(answer);
-    });
-  });
-}
 
 async function main(): Promise<void> {
   await mcpServerManager.init();
@@ -97,10 +87,9 @@ async function main(): Promise<void> {
 
     // Initialize the agent with provided options
     const agent = new ZypherAgent(
+      new AnthropicModelProvider(options.apiKey ?? "", true),
       {
         userId: options.userId,
-        baseUrl: options.baseUrl,
-        anthropicApiKey: options.apiKey,
       },
       mcpServerManager,
     );
@@ -114,8 +103,13 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(FileSearchTool);
     mcpServerManager.registerTool(CopyFileTool);
     mcpServerManager.registerTool(DeleteFileTool);
-    mcpServerManager.registerTool(ImageGenTool);
-    mcpServerManager.registerTool(ImageEditTool);
+
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (openaiApiKey) {
+      const { ImageGenTool, ImageEditTool } = defineImageTools(openaiApiKey);
+      mcpServerManager.registerTool(ImageGenTool);
+      mcpServerManager.registerTool(ImageEditTool);
+    }
 
     console.log(
       "🔧 Registered tools:",
@@ -196,11 +190,10 @@ async function main(): Promise<void> {
         }
       }
     }
+    await runAgentInTerminal(agent, options.model ?? DEFAULT_MODEL);
   } catch (error) {
     console.error("Fatal Error:", formatError(error));
     Deno.exit(1);
-  } finally {
-    rl.close();
   }
 }
 

@@ -1,13 +1,16 @@
 {
   "tasks": {
     "start": "deno run -A bin/cli.ts",
-    "start:api": "deno run -A bin/api-server/src/index.ts",
-    "dev:api": "deno run --watch -A bin/api-server/src/index.ts",
-    "build:cli": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
-    "build:api": "deno compile --allow-all --frozen=true --output dist/api-server bin/api-server/src/index.ts",
-    "bundle:api": "deno run -A npm:rolldown -c rolldown.config.mts",
+    "compile": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
+    "build:npm": "deno run -A scripts/build_npm.ts",
+    "publish:npm": "cd npm && npm publish --access restricted",
     "test": "deno test -A --trace-leaks",
-    "checkall": "deno fmt && deno lint && deno check ."
+    "test:watch": "deno test -A --watch",
+    "checkall": "deno fmt && deno lint && deno check .",
+    "clean": "rm -rf dist/"
+  },
+  "compilerOptions": {
+    "verbatimModuleSyntax": true
   },
   "imports": {
     "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.826.0",
@@ -15,11 +18,12 @@
     "@google/genai": "npm:@google/genai@^1.13.0",
     "@mendable/firecrawl-js": "npm:@mendable/firecrawl-js@^1.25.5",
     "@std/assert": "jsr:@std/assert@^1.0.13",
+    "@std/crypto": "jsr:@std/crypto@^1.0.5",
     "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
-    "@std/cli": "jsr:@std/cli@^1.0.19",
+    "@std/cli": "jsr:@std/cli@^1.0.21",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
     "@std/expect": "jsr:@std/expect@^1.0.16",
-    "@std/async": "jsr:@std/async@^1.0.13",
+    "@std/async": "jsr:@std/async@^1.0.14",
     "@std/fs": "jsr:@std/fs@^1.0.18",
     "@std/path": "jsr:@std/path@^1.1.0",
     "@std/testing": "jsr:@std/testing@^1.0.13",
@@ -37,5 +41,6 @@
     "zod": "npm:zod@^3.25.57",
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.5"
   },
-  "nodeModulesDir": "auto"
+  "nodeModulesDir": "auto",
+  "exclude": ["dist/", "node_modules/", "npm/"]
 }

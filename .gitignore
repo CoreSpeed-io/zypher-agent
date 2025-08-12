@@ -153,3 +153,5 @@ answer_comparison.csv
 **/output*/
 
 result.json
+# npm publish artifacts
+npm/

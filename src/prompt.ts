@@ -1,8 +1,16 @@
 import { fileExists, type UserInfo } from "./utils/mod.ts";
 
+const SUPPORTED_AGENT_RULE_TYPES = [
+  ".zypherrules", // Zypher's rules
+  ".cursorrules", // Cursor
+  ".windsurfrules", // Windsurf
+  "CLAUDE.md", // Claude Code
+  "AGENTS.md", // OpenAI Codex
+];
+
 /**
- * Reads custom rules from either .zypherrules or .cursorrules file.
- * Tries .zypherrules first, then falls back to .cursorrules if not found.
+ * Reads custom rules from supported rule files.
+ * Tries .zypherrules first, then falls back to other supported rules if not found.
  *
  * @returns {Promise<string | null>} Contents of the rules file if found, null otherwise
  *
@@ -14,13 +22,11 @@ import { fileExists, type UserInfo } from "./utils/mod.ts";
  */
 export async function getCustomRules(): Promise<string | null> {
   try {
-    if (await fileExists(".zypherrules")) {
-      const zypherRules = await Deno.readTextFile(".zypherrules");
-      return zypherRules;
-    }
-    if (await fileExists(".cursorrules")) {
-      const cursorRules = await Deno.readTextFile(".cursorrules");
-      return cursorRules;
+    for (const rule of SUPPORTED_AGENT_RULE_TYPES) {
+      if (await fileExists(rule)) {
+        const rules = await Deno.readTextFile(rule);
+        return rules;
+      }
     }
 
     return null;
@@ -30,7 +36,10 @@ export async function getCustomRules(): Promise<string | null> {
   }
 }
 
-export async function getSystemPrompt(userInfo: UserInfo): Promise<string> {
+export async function getSystemPrompt(
+  userInfo: UserInfo,
+  customInstructions?: string,
+): Promise<string> {
   const systemPrompt =
     `You are Zypher, a powerful agentic AI coding assistant by CoreSpeed Inc.
 
@@ -165,7 +174,7 @@ Final answer: So we had to let it die.
 Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
 `;
 
-  const customRules = await getCustomRules();
+  const customRules = customInstructions ?? (await getCustomRules());
   const customRulesBlock = customRules
     ? `
 <custom_instructions>
