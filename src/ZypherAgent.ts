@@ -9,6 +9,7 @@ import { detectErrors } from "./errorDetection/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
 import {
   applyCheckpoint,
+  type Checkpoint,
   createCheckpoint,
   getCheckpointDetails,
 } from "./checkpoints.ts";
@@ -91,12 +92,16 @@ export interface ZypherAgentConfig {
   autoErrorCheck?: boolean;
   /** Whether to enable prompt caching. Defaults to true. */
   enablePromptCaching?: boolean;
+  /** Whether to enable checkpointing. Defaults to true. */
+  enableCheckpointing?: boolean;
   /** Unique identifier for tracking user-specific usage history */
   userId?: string;
   /** Maximum allowed time for a task in milliseconds before it's automatically cancelled. Default is 1 minute (60000ms). Set to 0 to disable. */
   taskTimeoutMs?: number;
   /** Directory to cache file attachments */
   fileAttachmentCacheDir?: string;
+  /** Custom instructions to override the default instructions. */
+  customInstructions?: string;
 }
 
 export class ZypherAgent {
@@ -105,11 +110,13 @@ export class ZypherAgent {
   readonly #persistHistory: boolean;
   readonly #autoErrorCheck: boolean;
   readonly #enablePromptCaching: boolean;
+  readonly #enableCheckpointing: boolean;
   readonly #userId?: string;
   readonly #mcpServerManager: McpServerManager;
   readonly #taskTimeoutMs: number;
   readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
+  readonly #customInstructions?: string;
 
   #messages: Message[];
   #system: Anthropic.TextBlockParam[];
@@ -143,12 +150,14 @@ export class ZypherAgent {
     this.#persistHistory = config.persistHistory ?? true;
     this.#autoErrorCheck = config.autoErrorCheck ?? true;
     this.#enablePromptCaching = config.enablePromptCaching ?? true;
+    this.#enableCheckpointing = config.enableCheckpointing ?? true;
     this.#userId = userId;
     this.#mcpServerManager = mcpServerManager;
     this.#storageService = storageService;
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
+    this.#customInstructions = config.customInstructions;
   }
 
   async init(): Promise<void> {
@@ -166,7 +175,10 @@ export class ZypherAgent {
    */
   async #loadSystemPrompt(): Promise<void> {
     const userInfo = getCurrentUserInfo();
-    const systemPromptText = await getSystemPrompt(userInfo);
+    const systemPromptText = await getSystemPrompt(
+      userInfo,
+      this.#customInstructions,
+    );
     // Convert system prompt to content blocks
     // cache the main system prompt as it's large and reusable
     this.#system = [
@@ -597,18 +609,21 @@ export class ZypherAgent {
 
       let iterations = 0;
 
-      // Always create a checkpoint before executing the task
-      const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${
-        taskDescription.length > 50 ? "..." : ""
-      }`;
-      const checkpointId = await createCheckpoint(checkpointName);
-      const checkpoint = await getCheckpointDetails(checkpointId);
+      let checkpointId: string | undefined;
+      let checkpoint: Checkpoint | undefined;
+      if (this.#enableCheckpointing) {
+        const checkpointName = `Before task: ${
+          taskDescription.substring(0, 50)
+        }${taskDescription.length > 50 ? "..." : ""}`;
+        checkpointId = await createCheckpoint(checkpointName);
+        checkpoint = await getCheckpointDetails(checkpointId);
+      }
 
       const messageContent: ContentBlock[] = [
         ...(fileAttachments ?? []),
         {
           type: "text",
-          text: `<user_query>\n${taskDescription}\n</user_query>`,
+          text: taskDescription,
         } satisfies Anthropic.TextBlockParam,
       ];
 

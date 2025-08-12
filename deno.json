@@ -1,22 +1,19 @@
 {
   "tasks": {
-    "start": "deno run -A bin/cli/cli.ts",
-    "start:api": "deno run -A bin/api-server/src/index.ts",
-    "dev:api": "deno run --watch -A bin/api-server/src/index.ts",
-    "build:cli": "deno compile --allow-all --frozen=true --output dist/cli bin/cli/cli.ts",
-    "build:api": "deno compile --allow-all --frozen=true --output dist/api-server bin/api-server/src/index.ts",
-    "bundle:api": "rolldown -c rolldown.config.mts",
+    "start": "deno run -A bin/cli.ts",
+    "compile": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
+    "build:npm": "deno run -A scripts/build_npm.ts",
+    "publish:npm": "cd npm && npm publish --access restricted",
     "test": "deno test -A --trace-leaks",
     "test:watch": "deno test -A --watch",
     "checkall": "deno fmt && deno lint && deno check .",
-    "fmt": "deno fmt",
-    "lint": "deno lint",
     "clean": "rm -rf dist/"
   },
   "compilerOptions": {
     "verbatimModuleSyntax": true
   },
   "imports": {
+    "@deno/dnt": "jsr:@deno/dnt@^0.42.3",
     "@zypher/": "./src/",
     "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.828.0",
     "@aws-sdk/s3-request-presigner": "npm:@aws-sdk/s3-request-presigner@^3.828.0",
@@ -46,5 +43,5 @@
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.5"
   },
   "nodeModulesDir": "auto",
-  "exclude": ["dist/", "node_modules/"]
+  "exclude": ["dist/", "node_modules/", "npm/"]
 }

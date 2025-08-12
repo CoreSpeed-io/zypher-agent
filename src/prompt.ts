@@ -36,7 +36,10 @@ export async function getCustomRules(): Promise<string | null> {
   }
 }
 
-export async function getSystemPrompt(userInfo: UserInfo): Promise<string> {
+export async function getSystemPrompt(
+  userInfo: UserInfo,
+  customInstructions?: string,
+): Promise<string> {
   const systemPrompt =
     `You are Zypher, a powerful agentic AI coding assistant by CoreSpeed Inc.
 
@@ -110,7 +113,7 @@ The user's OS version is ${userInfo.osVersion}. The absolute path of the user's 
 Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
 `;
 
-  const customRules = await getCustomRules();
+  const customRules = customInstructions ?? (await getCustomRules());
   const customRulesBlock = customRules
     ? `
 <custom_instructions>
