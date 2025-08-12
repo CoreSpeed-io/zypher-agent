@@ -32,6 +32,10 @@ async function callOpenAIReflection(prompt: string): Promise<{
   should_reflect: boolean;
   suggestion: string;
 }> {
+  return {
+    should_reflect: false,
+    suggestion: ''
+  };
   try {
     const apiKey = Deno.env.get("OPENAI_API_KEY");
     if (!apiKey) throw new Error("Missing OPENAI_API_KEY");

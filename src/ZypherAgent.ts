@@ -805,7 +805,7 @@ export class ZypherAgent {
             count_reflection_tokens = 0; // reset reflection token count
           }
         } else {
-          console.log(yellow("Skipping reflection due to max reflection tokens reached"));
+          console.log(yellow("\nSkipping reflection due to max reflection tokens reached"));
           count_reflection_tokens = 0;
         }
 

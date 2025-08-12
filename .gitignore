@@ -151,3 +151,5 @@ zyper-sandbox
 answer_comparison.csv
 **/workspace*/
 **/output*/
+
+result.json

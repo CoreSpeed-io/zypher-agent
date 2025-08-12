@@ -413,7 +413,7 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(DeleteFileTool);
     mcpServerManager.registerTool(YouTubeVideoAccessTool);
     mcpServerManager.registerTool(WebSearchTool);
-    mcpServerManager.registerTool(WebsiteAccessTool);
+    // mcpServerManager.registerTool(WebsiteAccessTool);
     mcpServerManager.registerTool(AudioToTextTool);
     mcpServerManager.registerTool(AskImageQuestionTool);
     mcpServerManager.registerTool(AskFileUrlQuestionTool);
@@ -438,6 +438,7 @@ async function main(): Promise<void> {
       console.log(`\n🎯 Progress: ${i + 1}/${tasks.length}`);
 
       try {
+        await cleanupWorkspaceForTask(task, BENCHMARK_WORKSPACE);
         // Setup workspace for this task
         await setupWorkspaceForTask(
           task,

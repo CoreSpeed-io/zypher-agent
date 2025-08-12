@@ -546,6 +546,7 @@ async function main(): Promise<void> {
       console.log(`\n🎯 Progress: ${i + 1}/${tasks.length}`);
 
       try {
+        await cleanupWorkspaceForTask(task, BENCHMARK_WORKSPACE);
         // Setup workspace for this task
         await setupWorkspaceForTask(
           task,
@@ -567,7 +568,6 @@ async function main(): Promise<void> {
         );
 
         await agent.init();
-
         // Run the benchmark task
         const result = await runBenchmarkTask(
           task,
@@ -581,9 +581,6 @@ async function main(): Promise<void> {
 
         // Save result immediately
         await saveBenchmarkResult(result, BENCHMARK_OUTPUT);
-
-        // Clean up workspace
-        // await cleanupWorkspaceForTask(task, BENCHMARK_WORKSPACE);
       } catch (error) {
         console.error(
           `💥 Fatal error processing task ${task.task_id}: ${
