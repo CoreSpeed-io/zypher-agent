@@ -36,4 +36,3 @@ jobs:
 
       - name: Run unit tests
         run: deno test --ignore=**/*.integration.test.ts
-
