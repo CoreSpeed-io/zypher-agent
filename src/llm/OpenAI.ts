@@ -9,11 +9,7 @@ import type {
   StreamChatParams,
 } from "./ModelProvider.ts";
 import { OpenAI } from "@openai/openai";
-import {
-  type ContentBlock,
-  isFileAttachment,
-  type Message,
-} from "../message.ts";
+import { isFileAttachment, type Message } from "../message.ts";
 
 export class OpenAIModelProvider implements ModelProvider {
   #client: OpenAI;
@@ -53,7 +49,7 @@ export class OpenAIModelProvider implements ModelProvider {
       }));
 
     const formattedMessages = params.messages.map(
-      (m) => formatInputMessage(m),
+      (m) => formatInputMessage(m, fileAttachmentCacheMap),
     );
 
     // console.log(formattedMessages);
@@ -112,6 +108,7 @@ export class OpenAIModelProvider implements ModelProvider {
 
 function formatInputMessage(
   message: Message,
+  fileAttachmentCacheMap?: FileAttachmentCacheMap,
 ): OpenAI.Chat.ChatCompletionMessageParam {
   if (message.role === "user") {
     if (
@@ -123,19 +120,57 @@ function formatInputMessage(
         tool_call_id: message.content[0].tool_use_id,
       };
     }
+
+    // Track file attachment count separately from content index
+    let attachmentIndex = 0;
+
     return {
       role: message.role,
       content: message.content.map(
-        (c): OpenAI.Chat.ChatCompletionContentPart | null => {
+        (
+          c,
+        ):
+          | OpenAI.Chat.ChatCompletionContentPart
+          | OpenAI.Chat.ChatCompletionContentPart[]
+          | null => {
           if (c.type === "text") {
             return {
               type: "text",
               text: c.text,
             };
+          } else if (isFileAttachment(c)) {
+            const cache = fileAttachmentCacheMap?.[c.fileId];
+            if (!cache) {
+              console.warn(
+                `Skipping file attachment as it is not cached. File ID: ${c.fileId}`,
+              );
+              return null;
+            }
+
+            // Increment the file attachment counter for each file attachment
+            attachmentIndex++;
+
+            const textBlock = {
+              type: "text" as const,
+              text: `Attachment ${attachmentIndex}:
+MIME type: ${c.mimeType}
+Cached at: ${cache.cachePath}`,
+            };
+
+            return [
+              textBlock,
+              {
+                type: "image_url",
+                image_url: {
+                  url: cache.signedUrl,
+                  detail: "high",
+                },
+              },
+            ];
           }
           return null;
         },
-      ).filter((c) => c !== null),
+      ).filter((c) => c !== null).flat(),
     };
   } else {
     const toolCalls = message.content.filter((c) => c.type === "tool_use");
