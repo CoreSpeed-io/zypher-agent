@@ -16,50 +16,67 @@ import {
   ReadFileTool,
   RunTerminalCmdTool,
 } from "@zypher/tools/mod.ts";
-import { parseArgs } from "@std/cli";
+import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
-import { AnthropicModelProvider } from "@zypher/llm/mod.ts";
+import {
+  AnthropicModelProvider,
+  OpenAIModelProvider,
+} from "@zypher/llm/mod.ts";
 
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
 
-interface CliOptions {
-  workspace?: string;
-  userId?: string;
-  baseUrl?: string;
-  apiKey?: string;
-  model?: string;
-}
+const providerType = new EnumType(["anthropic", "openai"]);
 
-// Parse command line arguments using std/cli
-const cliFlags = parseArgs(Deno.args, {
-  string: ["workspace", "user-id", "base-url", "api-key", "model"],
-  alias: {
-    w: "workspace",
-    u: "user-id",
-    b: "base-url",
-    k: "api-key",
-  },
-});
-
-// Convert kebab-case args to camelCase for consistency
-const options: CliOptions = {
-  workspace: cliFlags.workspace,
-  userId: cliFlags["user-id"],
-  baseUrl: cliFlags["base-url"],
-  apiKey: cliFlags["api-key"],
-  model: cliFlags.model,
-};
+// Parse command line arguments using Cliffy
+const { options: cli } = await new Command()
+  .name("zypher")
+  .description("Zypher Agent CLI")
+  .type("provider", providerType)
+  .option("-k, --api-key <apiKey:string>", "Model provider API key", {
+    required: true,
+  })
+  .option("-m, --model <model:string>", "Model name")
+  .option(
+    "-p, --provider <provider:provider>",
+    "Model provider",
+  )
+  .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
+  .option("-w, --workspace <workspace:string>", "Workspace directory")
+  .option("-u, --user-id <userId:string>", "Custom user ID")
+  .option(
+    "--openai-api-key <openaiApiKey:string>",
+    "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
+  )
+  .parse(Deno.args);
 
 const mcpServerManager = new McpServerManager();
+
+function inferProvider(
+  provider?: string,
+  model?: string,
+): "anthropic" | "openai" {
+  const p = provider?.toLowerCase();
+  if (p === "openai" || p === "anthropic") return p;
+  if (!model) return "anthropic";
+  const m = model.toLowerCase();
+  if (
+    m.includes("claude") || m.startsWith("sonnet") || m.startsWith("haiku") ||
+    m.startsWith("opus")
+  ) {
+    return "anthropic";
+  }
+  return "openai"; // fallback to OpenAI-compatible models
+}
 
 async function main(): Promise<void> {
   await mcpServerManager.init();
 
   try {
     // Handle workspace option
-    if (options.workspace) {
+    if (cli.workspace) {
       try {
-        Deno.chdir(options.workspace);
+        Deno.chdir(cli.workspace);
         console.log(`🚀 Changed working directory to: ${Deno.cwd()}`);
       } catch (error) {
         throw new Error(
@@ -69,28 +86,31 @@ async function main(): Promise<void> {
     }
 
     // Log CLI configuration
-    if (options.userId) {
-      console.log(`👤 Using custom user ID: ${options.userId}`);
+    if (cli.userId) {
+      console.log(`👤 Using custom user ID: ${cli.userId}`);
     }
 
-    if (options.baseUrl) {
-      console.log(`🌐 Using custom API base URL: ${options.baseUrl}`);
+    if (cli.baseUrl) {
+      console.log(`🌐 Using custom API base URL: ${cli.baseUrl}`);
     }
 
-    if (options.apiKey) {
-      console.log(`🔑 Using custom API key: ${chalk.gray("***")}`);
-    }
+    const selectedProvider = inferProvider(cli.provider, cli.model);
+    console.log(`🤖 Using provider: ${chalk.magenta(selectedProvider)}`);
 
-    if (options.model) {
-      console.log(`🧠 Using custom model: ${chalk.cyan(options.model)}`);
-    }
+    const modelToUse = cli.model ??
+      (selectedProvider === "openai"
+        ? DEFAULT_OPENAI_MODEL
+        : DEFAULT_ANTHROPIC_MODEL);
+    console.log(`🧠 Using model: ${chalk.cyan(modelToUse)}`);
 
     // Initialize the agent with provided options
+    const providerInstance = selectedProvider === "openai"
+      ? new OpenAIModelProvider(cli.apiKey)
+      : new AnthropicModelProvider(cli.apiKey, true);
+
     const agent = new ZypherAgent(
-      new AnthropicModelProvider(options.apiKey ?? "", true),
-      {
-        userId: options.userId,
-      },
+      providerInstance,
+      { userId: cli.userId },
       mcpServerManager,
     );
 
@@ -104,7 +124,10 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(CopyFileTool);
     mcpServerManager.registerTool(DeleteFileTool);
 
-    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    // Image tools are powered by OpenAI only
+    const openaiApiKey = cli.provider === "openai"
+      ? cli.apiKey
+      : cli.openaiApiKey;
     if (openaiApiKey) {
       const { ImageGenTool, ImageEditTool } = defineImageTools(openaiApiKey);
       mcpServerManager.registerTool(ImageGenTool);
@@ -119,7 +142,7 @@ async function main(): Promise<void> {
     // Initialize the agent
     await agent.init();
 
-    await runAgentInTerminal(agent, options.model ?? DEFAULT_MODEL);
+    await runAgentInTerminal(agent, modelToUse);
   } catch (error) {
     console.error("Fatal Error:", formatError(error));
     Deno.exit(1);

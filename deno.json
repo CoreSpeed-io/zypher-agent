@@ -13,6 +13,7 @@
     "verbatimModuleSyntax": true
   },
   "imports": {
+    "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
     "@deno/dnt": "jsr:@deno/dnt@^0.42.3",
     "@zypher/": "./src/",
     "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.859.0",
