@@ -11,6 +11,21 @@ import type {
 import { OpenAI } from "@openai/openai";
 import { isFileAttachment, type Message } from "../message.ts";
 
+const SUPPORTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+
+function isSupportedImageType(
+  type: string,
+): type is typeof SUPPORTED_IMAGE_TYPES[number] {
+  return SUPPORTED_IMAGE_TYPES.includes(
+    type as typeof SUPPORTED_IMAGE_TYPES[number],
+  );
+}
+
 export class OpenAIModelProvider implements ModelProvider {
   #client: OpenAI;
   constructor(apiKey: string) {
@@ -157,17 +172,26 @@ MIME type: ${c.mimeType}
 Cached at: ${cache.cachePath}`,
             };
 
-            return [
-              textBlock,
-              {
-                type: "image_url",
-                image_url: {
-                  url: cache.signedUrl,
-                  detail: "high",
+            if (isSupportedImageType(c.mimeType)) {
+              return [
+                textBlock,
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: cache.signedUrl,
+                    detail: "high",
+                  },
                 },
-              },
-            ];
+              ];
+            }
+
+            // Fall back to just the text block for unsupported types
+            console.warn(
+              `File attachment ${c.fileId} is not supported by OpenAI's Chat Completion API (MIME type: ${c.mimeType}), this file will not be shown to the model.`,
+            );
+            return textBlock;
           }
+
           return null;
         },
       ).filter((c) => c !== null).flat(),
