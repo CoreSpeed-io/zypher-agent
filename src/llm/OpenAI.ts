@@ -95,6 +95,7 @@ export class OpenAIModelProvider implements ModelProvider {
       max_completion_tokens: params.maxTokens,
       tools: openaiTools,
       reasoning_effort: this.#reasoningEffort,
+      safety_identifier: params.userId,
     });
 
     const observable = new Observable<ModelEvent>((subscriber) => {

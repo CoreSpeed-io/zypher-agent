@@ -13,12 +13,8 @@ export interface StreamChatParams {
   maxTokens: number;
   system: string;
   messages: Message[];
+  userId?: string;
   tools?: Tool[];
-  metadata?: Record<string, unknown>;
-  thinking?: {
-    type: "enabled" | "disabled";
-    budget_tokens?: number;
-  };
   signal?: AbortSignal;
 }
 

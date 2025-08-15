@@ -116,6 +116,9 @@ export class AnthropicModelProvider implements ModelProvider {
       messages: anthropicMessages,
       tools: anthropicTools,
       thinking: this.#thinkingConfig,
+      metadata: {
+        user_id: params.userId,
+      },
     });
 
     return new AnthropicModelStream(stream);

@@ -95,8 +95,6 @@ export interface ZypherAgentConfig {
   persistHistory?: boolean;
   /** Whether to automatically check for code errors. Defaults to true. */
   autoErrorCheck?: boolean;
-  /** Whether to enable prompt caching. Defaults to true. */
-  enablePromptCaching?: boolean;
   /** Whether to enable checkpointing. Defaults to true. */
   enableCheckpointing?: boolean;
   /** Unique identifier for tracking user-specific usage history */
@@ -114,7 +112,6 @@ export class ZypherAgent {
   readonly #maxTokens: number;
   readonly #persistHistory: boolean;
   readonly #autoErrorCheck: boolean;
-  readonly #enablePromptCaching: boolean;
   readonly #enableCheckpointing: boolean;
   readonly #userId?: string;
   readonly #mcpServerManager: McpServerManager;
@@ -146,7 +143,6 @@ export class ZypherAgent {
     this.#maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.#persistHistory = config.persistHistory ?? true;
     this.#autoErrorCheck = config.autoErrorCheck ?? true;
-    this.#enablePromptCaching = config.enablePromptCaching ?? true;
     this.#enableCheckpointing = config.enableCheckpointing ?? true;
     this.#userId = userId;
     this.#mcpServerManager = mcpServerManager;
@@ -441,6 +437,7 @@ export class ZypherAgent {
             system: this.#system,
             messages: this.#messages,
             tools: toolCalls,
+            userId: this.#userId,
           },
           cacheMap,
         );
