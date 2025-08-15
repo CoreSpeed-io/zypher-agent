@@ -149,7 +149,6 @@ export class ZypherAgent {
     this.#storageService = storageService;
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
-
     this.#customInstructions = config.customInstructions;
   }
 
