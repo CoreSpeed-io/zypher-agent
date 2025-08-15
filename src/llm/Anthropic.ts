@@ -29,12 +29,18 @@ function isSupportedImageType(
 
 export interface AnthropicModelProviderOptions extends ModelProviderOptions {
   enablePromptCaching?: boolean;
+  /**
+   * The budget for thinking in tokens.
+   * @see https://docs.anthropic.com/en/docs/build-with-claude/thinking/thinking-budget
+   */
+  thinkingBudget?: number;
   anthropicClientOptions?: ClientOptions;
 }
 
 export class AnthropicModelProvider implements ModelProvider {
   #client: Anthropic;
   #enablePromptCaching: boolean;
+  #thinkingConfig: Anthropic.ThinkingConfigParam;
 
   constructor(options: AnthropicModelProviderOptions) {
     this.#client = new Anthropic({
@@ -43,6 +49,12 @@ export class AnthropicModelProvider implements ModelProvider {
       ...options.anthropicClientOptions,
     });
     this.#enablePromptCaching = options.enablePromptCaching ?? true;
+    this.#thinkingConfig = options.thinkingBudget
+      ? {
+        type: "enabled",
+        budget_tokens: options.thinkingBudget,
+      }
+      : { type: "disabled" };
   }
 
   get info(): ProviderInfo {
@@ -81,6 +93,7 @@ export class AnthropicModelProvider implements ModelProvider {
       system: params.system,
       messages: anthropicMessages,
       tools: anthropicTools,
+      thinking: this.#thinkingConfig,
     });
 
     return new AnthropicModelStream(stream);

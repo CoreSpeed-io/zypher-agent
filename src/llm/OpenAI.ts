@@ -28,11 +28,17 @@ function isSupportedImageType(
 }
 
 export interface OpenAIModelProviderOptions extends ModelProviderOptions {
+  /**
+   * The reasoning effort to use.
+   * @see https://platform.openai.com/docs/api-reference/chat/create#chat_create-reasoning_effort
+   */
+  reasoningEffort?: "low" | "medium" | "high";
   openaiClientOptions?: ClientOptions;
 }
 
 export class OpenAIModelProvider implements ModelProvider {
   #client: OpenAI;
+  #reasoningEffort: "low" | "medium" | "high";
 
   constructor(options: OpenAIModelProviderOptions) {
     this.#client = new OpenAI({
@@ -40,6 +46,7 @@ export class OpenAIModelProvider implements ModelProvider {
       baseURL: options.baseUrl,
       ...options.openaiClientOptions,
     });
+    this.#reasoningEffort = options.reasoningEffort ?? "low";
   }
 
   get info(): ProviderInfo {
@@ -87,6 +94,7 @@ export class OpenAIModelProvider implements ModelProvider {
       ],
       max_completion_tokens: params.maxTokens,
       tools: openaiTools,
+      reasoning_effort: this.#reasoningEffort,
     });
 
     const observable = new Observable<ModelEvent>((subscriber) => {
