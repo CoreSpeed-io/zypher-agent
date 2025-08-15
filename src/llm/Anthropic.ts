@@ -2,11 +2,12 @@ import type {
   FinalMessage,
   ModelEvent,
   ModelProvider,
+  ModelProviderOptions,
   ModelStream,
   ProviderInfo,
   StreamChatParams,
 } from "./ModelProvider.ts";
-import { Anthropic } from "@anthropic-ai/sdk";
+import { Anthropic, type ClientOptions } from "@anthropic-ai/sdk";
 import { isFileAttachment, type Message } from "../message.ts";
 import { Observable } from "rxjs";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
@@ -26,42 +27,22 @@ function isSupportedImageType(
   );
 }
 
-function mapStopReason(
-  reason: Anthropic.Messages.StopReason | null,
-): FinalMessage["stop_reason"] {
-  switch (reason) {
-    case "end_turn":
-      return "end_turn";
-    case "max_tokens":
-      return "max_tokens";
-    case "tool_use":
-      return "tool_use";
-    case "stop_sequence":
-      return "stop_sequence";
-    default:
-      return "end_turn";
-  }
-}
-
-function mapMessage(message: Anthropic.Message): FinalMessage {
-  return {
-    role: message.role,
-    content: message.content,
-    timestamp: new Date(),
-    stop_reason: mapStopReason(message.stop_reason),
-  };
+export interface AnthropicModelProviderOptions extends ModelProviderOptions {
+  enablePromptCaching?: boolean;
+  anthropicClientOptions?: ClientOptions;
 }
 
 export class AnthropicModelProvider implements ModelProvider {
   #client: Anthropic;
   #enablePromptCaching: boolean;
 
-  constructor(
-    apiKey: string,
-    enablePromptCaching: boolean,
-  ) {
-    this.#client = new Anthropic({ apiKey });
-    this.#enablePromptCaching = enablePromptCaching;
+  constructor(options: AnthropicModelProviderOptions) {
+    this.#client = new Anthropic({
+      apiKey: options.apiKey,
+      baseURL: options.baseUrl,
+      ...options.anthropicClientOptions,
+    });
+    this.#enablePromptCaching = options.enablePromptCaching ?? true;
   }
 
   get info(): ProviderInfo {
@@ -71,10 +52,8 @@ export class AnthropicModelProvider implements ModelProvider {
       capabilities: [
         "caching",
         "thinking",
-        "web_search",
         "vision",
         "documents",
-        "json_mode",
         "tool_calling",
       ],
     };
@@ -244,5 +223,31 @@ class AnthropicModelStream implements ModelStream {
   async finalMessage(): Promise<FinalMessage> {
     const finalMessage = await this.#stream.finalMessage();
     return mapMessage(finalMessage);
+  }
+}
+
+function mapMessage(message: Anthropic.Message): FinalMessage {
+  return {
+    role: message.role,
+    content: message.content,
+    timestamp: new Date(),
+    stop_reason: mapStopReason(message.stop_reason),
+  };
+}
+
+function mapStopReason(
+  reason: Anthropic.Messages.StopReason | null,
+): FinalMessage["stop_reason"] {
+  switch (reason) {
+    case "end_turn":
+      return "end_turn";
+    case "max_tokens":
+      return "max_tokens";
+    case "tool_use":
+      return "tool_use";
+    case "stop_sequence":
+      return "stop_sequence";
+    default:
+      return "end_turn";
   }
 }

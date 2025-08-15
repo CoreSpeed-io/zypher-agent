@@ -105,8 +105,14 @@ async function main(): Promise<void> {
 
     // Initialize the agent with provided options
     const providerInstance = selectedProvider === "openai"
-      ? new OpenAIModelProvider(cli.apiKey)
-      : new AnthropicModelProvider(cli.apiKey, true);
+      ? new OpenAIModelProvider({
+        apiKey: cli.apiKey,
+        baseUrl: cli.baseUrl,
+      })
+      : new AnthropicModelProvider({
+        apiKey: cli.apiKey,
+        baseUrl: cli.baseUrl,
+      });
 
     const agent = new ZypherAgent(
       providerInstance,

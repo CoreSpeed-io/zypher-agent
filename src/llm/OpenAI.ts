@@ -4,11 +4,12 @@ import type {
   FinalMessage,
   ModelEvent,
   ModelProvider,
+  ModelProviderOptions,
   ModelStream,
   ProviderInfo,
   StreamChatParams,
 } from "./ModelProvider.ts";
-import { OpenAI } from "@openai/openai";
+import { type ClientOptions, OpenAI } from "@openai/openai";
 import { isFileAttachment, type Message } from "../message.ts";
 
 const SUPPORTED_IMAGE_TYPES = [
@@ -26,10 +27,19 @@ function isSupportedImageType(
   );
 }
 
+export interface OpenAIModelProviderOptions extends ModelProviderOptions {
+  openaiClientOptions?: ClientOptions;
+}
+
 export class OpenAIModelProvider implements ModelProvider {
   #client: OpenAI;
-  constructor(apiKey: string) {
-    this.#client = new OpenAI({ apiKey });
+
+  constructor(options: OpenAIModelProviderOptions) {
+    this.#client = new OpenAI({
+      apiKey: options.apiKey,
+      baseURL: options.baseUrl,
+      ...options.openaiClientOptions,
+    });
   }
 
   get info(): ProviderInfo {
@@ -39,10 +49,7 @@ export class OpenAIModelProvider implements ModelProvider {
       capabilities: [
         "caching",
         "thinking",
-        "web_search",
         "vision",
-        "documents",
-        "json_mode",
         "tool_calling",
       ],
     };

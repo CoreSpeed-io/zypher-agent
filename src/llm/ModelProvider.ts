@@ -3,6 +3,11 @@ import type { Message } from "../message.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 
+export interface ModelProviderOptions {
+  apiKey: string;
+  baseUrl?: string;
+}
+
 export interface StreamChatParams {
   model: string;
   maxTokens: number;
@@ -23,10 +28,8 @@ export interface StreamChatParams {
 export type ProviderCapability =
   | "caching"
   | "thinking"
-  | "web_search"
   | "vision"
   | "documents"
-  | "json_mode"
   | "tool_calling";
 
 /**
@@ -72,17 +75,15 @@ export interface ModelStream {
   finalMessage(): Promise<FinalMessage>;
 }
 
-// "end_turn": the model reached a natural stopping point
-// "max_tokens": we exceeded the requested max_tokens or the model's maximum
-// "stop_sequence": one of your provided custom stop_sequences was generated
-// "tool_use": the model invoked one or more tools
-
 export interface FinalMessage extends Message {
-  stop_reason:
-    | "end_turn" // the model reached a natural stopping point
-    | "max_tokens" // we exceeded the requested max_tokens or the model's maximum
-    | "stop_sequence" // one of your provided custom stop_sequences was generated
-    | "tool_use"; // the model invoked one or more tools
+  /**
+   * The reason the model stopped generating.
+   *  "end_turn" - the model reached a natural stopping point
+   *  "max_tokens" - we exceeded the requested max_tokens or the model's maximum
+   *  "stop_sequence" - one of your provided custom stop_sequences was generated
+   *  "tool_use" - the model invoked one or more tools
+   */
+  stop_reason: "end_turn" | "max_tokens" | "stop_sequence" | "tool_use";
 }
 
 export type ModelEvent = MessageEvent | TextEvent;
