@@ -76,21 +76,43 @@ export class AnthropicModelProvider implements ModelProvider {
     fileAttachmentCacheMap?: FileAttachmentCacheMap,
   ): ModelStream {
     // Convert our internal Message[] to Anthropic's MessageParam[]
-    const anthropicMessages = params.messages.map((msg) =>
-      this.#formatMessageForApi(msg, false, fileAttachmentCacheMap)
+    const anthropicMessages = params.messages.map((msg, index) =>
+      this.#formatMessageForApi(
+        msg,
+        index === params.messages.length - 1,
+        fileAttachmentCacheMap,
+      )
     );
 
     // Convert our internal Tool[] to Anthropic's Tool[]
-    const anthropicTools = params.tools?.map((tool) => ({
+    const anthropicTools = params.tools?.map((
+      tool,
+      index,
+    ): Anthropic.ToolUnion => ({
       name: tool.name,
       description: tool.description,
       input_schema: tool.parameters,
+      ...(params.tools && index === params.tools.length - 1 && {
+        // cache the last tool as it's large and reusable
+        ...(this.#enablePromptCaching && {
+          cache_control: { type: "ephemeral" },
+        }),
+      }),
     }));
 
     const stream = this.#client.messages.stream({
       model: params.model,
       max_tokens: params.maxTokens,
-      system: params.system,
+      system: [
+        {
+          type: "text",
+          text: params.system,
+          // cache the main system prompt (if enabled) as it's large and reusable
+          ...(this.#enablePromptCaching && {
+            cache_control: { type: "ephemeral" },
+          }),
+        },
+      ],
       messages: anthropicMessages,
       tools: anthropicTools,
       thinking: this.#thinkingConfig,
