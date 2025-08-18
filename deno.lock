@@ -7,8 +7,8 @@
     "jsr:@cliffy/table@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@david/code-block-writer@^13.0.3": "13.0.3",
     "jsr:@deno/dnt@~0.42.3": "0.42.3",
-    "jsr:@openai/openai@^5.12.0": "5.12.0",
     "jsr:@std/assert@^1.0.13": "1.0.13",
+    "jsr:@std/async@^1.0.13": "1.0.14",
     "jsr:@std/crypto@^1.0.5": "1.0.5",
     "jsr:@std/data-structures@^1.0.9": "1.0.9",
     "jsr:@std/dotenv@~0.225.5": "0.225.5",
@@ -36,10 +36,10 @@
     "npm:@modelcontextprotocol/sdk@^1.17.1": "1.17.1_express@5.1.0_zod@3.25.76",
     "npm:@types/node@*": "22.15.15",
     "npm:chalk@^5.5.0": "5.5.0",
+    "npm:openai@5.12.0": "5.12.0_zod@3.25.76",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
     "npm:zod-to-json-schema@^3.24.5": "3.24.6_zod@3.25.76",
-    "npm:zod@3": "3.25.76",
     "npm:zod@^3.25.64": "3.25.76"
   },
   "jsr": {
@@ -81,17 +81,14 @@
         "jsr:@ts-morph/bootstrap"
       ]
     },
-    "@openai/openai@5.12.0": {
-      "integrity": "63823f5abf2100a78f312bc2cbc1ad9ea9d33c8864aacd7a09f5036d1be211c8",
-      "dependencies": [
-        "npm:zod@3"
-      ]
-    },
     "@std/assert@1.0.13": {
       "integrity": "ae0d31e41919b12c656c742b22522c32fb26ed0cba32975cb0de2a273cb68b29",
       "dependencies": [
         "jsr:@std/internal@^1.0.6"
       ]
+    },
+    "@std/async@1.0.14": {
+      "integrity": "62e954a418652c704d37563a3e54a37d4cf0268a9dcaeac1660cc652880b5326"
     },
     "@std/crypto@1.0.5": {
       "integrity": "0dcfbb319fe0bba1bd3af904ceb4f948cde1b92979ec1614528380ed308a3b40"
@@ -135,6 +132,7 @@
       "integrity": "a490169f5ccb0f3ae9c94fbc69d2cd43603f2cffb41713a85f99bbb0e3087cbc",
       "dependencies": [
         "jsr:@std/assert",
+        "jsr:@std/async",
         "jsr:@std/data-structures",
         "jsr:@std/fs@^1.0.19",
         "jsr:@std/internal@^1.0.10",
@@ -1487,6 +1485,16 @@
         "wrappy"
       ]
     },
+    "openai@5.12.0_zod@3.25.76": {
+      "integrity": "sha512-vUdt02xiWgOHiYUmW0Hj1Qu9OKAiVQu5Bd547ktVCiMKC1BkB5L3ImeEnCyq3WpRKR6ZTaPgekzqdozwdPs7Lg==",
+      "dependencies": [
+        "zod"
+      ],
+      "optionalPeers": [
+        "zod"
+      ],
+      "bin": true
+    },
     "parseurl@1.3.3": {
       "integrity": "sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ=="
     },
@@ -1694,7 +1702,6 @@
     "dependencies": [
       "jsr:@cliffy/command@^1.0.0-rc.8",
       "jsr:@deno/dnt@~0.42.3",
-      "jsr:@openai/openai@^5.12.0",
       "jsr:@std/assert@^1.0.13",
       "jsr:@std/crypto@^1.0.5",
       "jsr:@std/dotenv@~0.225.5",
@@ -1708,6 +1715,7 @@
       "npm:@aws-sdk/s3-request-presigner@^3.859.0",
       "npm:@modelcontextprotocol/sdk@^1.17.1",
       "npm:chalk@^5.5.0",
+      "npm:openai@5.12.0",
       "npm:rxjs-for-await@1",
       "npm:rxjs@^7.8.2",
       "npm:zod-to-json-schema@^3.24.5",

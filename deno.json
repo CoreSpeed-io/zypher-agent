@@ -35,7 +35,7 @@
     "@std/fs": "jsr:@std/fs@^1.0.18",
     "@std/path": "jsr:@std/path@^1.1.0",
     "@std/testing": "jsr:@std/testing@^1.0.15",
-    "@openai/openai": "jsr:@openai/openai@^5.12.0",
+    "@openai/openai": "npm:openai@5.12.0",
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.54.0",
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.17.1",
     "chalk": "npm:chalk@^5.5.0",
