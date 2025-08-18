@@ -36,3 +36,9 @@ jobs:
 
       - name: Run unit tests
         run: deno test --ignore=**/*.integration.test.ts
+
+      - name: JSR publish dry run
+        run: deno publish --dry-run --allow-slow-types
+
+      - name: Build npm package
+        run: deno task build:npm

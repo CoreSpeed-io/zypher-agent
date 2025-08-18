@@ -56,7 +56,7 @@ export class McpServerManager {
    * Initializes the McpServerManager by loading configuration and setting up servers
    * @returns The initialized McpServerManager instance
    */
-  async init() {
+  async init(): Promise<McpServerManager> {
     if (this.#initialized) {
       return this;
     }
