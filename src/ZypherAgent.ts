@@ -12,17 +12,13 @@ import {
   createCheckpoint,
   getCheckpointDetails,
 } from "./checkpoints.ts";
-import {
-  type ContentBlock,
-  type FileAttachment,
-  type Message,
-} from "./message.ts";
+import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import type { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
 import { Completer } from "./utils/mod.ts";
 import { AbortError, formatError, isAbortError } from "./error.ts";
 import type { ModelProvider } from "./llm/mod.ts";
-import { from, Observable } from "rxjs";
+import { from, type Observable } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
 import {
   type FileAttachmentCacheMap,
