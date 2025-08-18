@@ -1,4 +1,8 @@
 {
+  "name": "@corespeed/zypher",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "exports": "./src/mod.ts",
   "tasks": {
     "start": "deno run -A bin/cli.ts",
     "compile": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
@@ -11,6 +15,11 @@
   },
   "compilerOptions": {
     "verbatimModuleSyntax": true
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended", "jsr"]
+    }
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",

@@ -20,6 +20,7 @@ deno install
 ```
 
 ## Getting Started
+
 ```bash
 # Start the CLI
 deno task start
