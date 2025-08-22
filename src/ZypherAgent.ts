@@ -4,7 +4,6 @@ import {
   loadMessageHistory,
   saveMessageHistory,
 } from "./utils/mod.ts";
-import { detectErrors } from "./errorDetection/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
 import {
   applyCheckpoint,
@@ -24,6 +23,11 @@ import {
   type FileAttachmentCacheMap,
   FileAttachmentManager,
 } from "./storage/mod.ts";
+import {
+  LoopDecision,
+  type LoopInterceptor,
+  LoopInterceptorManager,
+} from "./loopInterceptors/mod.ts";
 import * as path from "@std/path";
 
 /**
@@ -89,8 +93,6 @@ export interface ZypherAgentConfig {
   maxTokens?: number;
   /** Whether to load and save message history. Defaults to true. */
   persistHistory?: boolean;
-  /** Whether to automatically check for code errors. Defaults to true. */
-  autoErrorCheck?: boolean;
   /** Whether to enable checkpointing. Defaults to true. */
   enableCheckpointing?: boolean;
   /** Unique identifier for tracking user-specific usage history */
@@ -107,7 +109,6 @@ export class ZypherAgent {
   readonly #modelProvider: ModelProvider;
   readonly #maxTokens: number;
   readonly #persistHistory: boolean;
-  readonly #autoErrorCheck: boolean;
   readonly #enableCheckpointing: boolean;
   readonly #userId?: string;
   readonly #mcpServerManager: McpServerManager;
@@ -117,6 +118,7 @@ export class ZypherAgent {
   readonly #customInstructions?: string;
 
   #fileAttachmentManager?: FileAttachmentManager;
+  #loopInterceptorManager = new LoopInterceptorManager();
 
   #messages: Message[];
   #system: string;
@@ -138,7 +140,6 @@ export class ZypherAgent {
     this.#system = ""; // Will be initialized in init()
     this.#maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.#persistHistory = config.persistHistory ?? true;
-    this.#autoErrorCheck = config.autoErrorCheck ?? true;
     this.#enableCheckpointing = config.enableCheckpointing ?? true;
     this.#userId = userId;
     this.#mcpServerManager = mcpServerManager;
@@ -492,52 +493,55 @@ export class ZypherAgent {
               yield { type: "message", message: toolMessage };
             }
           }
-        } else if (finalMessage.stop_reason === "max_tokens") {
-          // auto continue
-          const continueMessage: Message = {
-            role: "user",
-            content: [
-              {
-                type: "text" as const,
-                text: "Continue",
-              } satisfies ContentBlock,
-            ],
-            timestamp: new Date(),
-          };
-          this.#messages.push(continueMessage);
-          yield { type: "message", message: continueMessage };
         } else {
-          // Check for code errors if enabled and this is the end of the conversation
-          if (this.#autoErrorCheck) {
-            const errors = await detectErrors({ signal: mergedSignal });
-            if (errors) {
-              console.log(
-                "\n🔍 Detected code errors. Asking the agent to fix them...",
-              );
+          // Execute loop interceptors to determine if we should continue
+          const responseText = finalMessage.content
+            .filter((block) => block.type === "text")
+            .map((block) => block.text)
+            .join("");
 
-              // Add errors as a user message
-              const errorMessage: Message = {
+          const interceptorContext = {
+            messages: this.#messages,
+            lastResponse: responseText,
+            tools: toolCalls,
+            workingDirectory: Deno.cwd(),
+            stopReason: finalMessage.stop_reason,
+            signal: mergedSignal,
+          };
+
+          const interceptorResult = await this.#loopInterceptorManager.execute(
+            interceptorContext,
+          );
+
+          if (interceptorResult.decision === LoopDecision.CONTINUE) {
+            // Add context injections as user messages
+            for (const injection of interceptorResult.contextInjections) {
+              const injectionMessage: Message = {
                 role: "user",
                 content: [
                   {
                     type: "text" as const,
-                    text:
-                      `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
+                    text: injection.message,
                   } satisfies ContentBlock,
                 ],
                 timestamp: new Date(),
               };
-              this.#messages.push(errorMessage);
-              yield { type: "message", message: errorMessage };
-
-              // Continue the loop to let the agent fix the errors
-              iterations++;
-              continue;
+              this.#messages.push(injectionMessage);
+              yield { type: "message", message: injectionMessage };
             }
-          }
 
-          // No errors or error check disabled, exit the loop
-          break;
+            // Log interceptor activity
+            if (interceptorResult.executedInterceptors.length > 0) {
+              console.log(
+                `\n🔄 Loop interceptors executed: ${
+                  interceptorResult.executedInterceptors.join(", ")
+                }`,
+              );
+            }
+          } else {
+            // All interceptors decided to complete, exit the loop
+            break;
+          }
         }
 
         iterations++;
@@ -592,5 +596,38 @@ export class ZypherAgent {
       throw new Error("Task is not running");
     }
     await this.#taskCompleter.wait(options);
+  }
+
+  /**
+   * Get the loop interceptor manager for advanced configuration
+   * @returns The loop interceptor manager instance
+   */
+  getLoopInterceptorManager(): LoopInterceptorManager {
+    return this.#loopInterceptorManager;
+  }
+
+  /**
+   * Register a new loop interceptor
+   * @param interceptor The interceptor to register
+   */
+  registerLoopInterceptor(interceptor: LoopInterceptor): void {
+    this.#loopInterceptorManager.register(interceptor);
+  }
+
+  /**
+   * Unregister a loop interceptor by name
+   * @param name The name of the interceptor to remove
+   * @returns boolean True if interceptor was found and removed
+   */
+  unregisterLoopInterceptor(name: string): boolean {
+    return this.#loopInterceptorManager.unregister(name);
+  }
+
+  /**
+   * Get list of registered loop interceptor names
+   * @returns string[] Array of interceptor names
+   */
+  getRegisteredLoopInterceptors(): string[] {
+    return this.#loopInterceptorManager.getRegisteredNames();
   }
 }
