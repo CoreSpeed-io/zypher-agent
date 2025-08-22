@@ -80,8 +80,8 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
     this.errorDetectors = [];
   }
 
-  async isApplicable(_context: InterceptorContext): Promise<boolean> {
-    return this.enabled && this.errorDetectors.length > 0;
+  isApplicable(_context: InterceptorContext): Promise<boolean> {
+    return Promise.resolve(this.enabled && this.errorDetectors.length > 0);
   }
 
   async intercept(context: InterceptorContext): Promise<InterceptorResult> {
