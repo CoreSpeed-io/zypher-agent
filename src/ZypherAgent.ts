@@ -25,7 +25,6 @@ import {
 } from "./storage/mod.ts";
 import {
   LoopDecision,
-  type LoopInterceptor,
   LoopInterceptorManager,
 } from "./loopInterceptors/mod.ts";
 import * as path from "@std/path";
@@ -116,9 +115,9 @@ export class ZypherAgent {
   readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
   readonly #customInstructions?: string;
+  readonly #loopInterceptorManager = new LoopInterceptorManager();
 
   #fileAttachmentManager?: FileAttachmentManager;
-  #loopInterceptorManager = new LoopInterceptorManager();
 
   #messages: Message[];
   #system: string;
@@ -599,35 +598,9 @@ export class ZypherAgent {
   }
 
   /**
-   * Get the loop interceptor manager for advanced configuration
-   * @returns The loop interceptor manager instance
+   * Get the loop interceptor manager for configuration
    */
-  getLoopInterceptorManager(): LoopInterceptorManager {
+  get loopInterceptors(): LoopInterceptorManager {
     return this.#loopInterceptorManager;
-  }
-
-  /**
-   * Register a new loop interceptor
-   * @param interceptor The interceptor to register
-   */
-  registerLoopInterceptor(interceptor: LoopInterceptor): void {
-    this.#loopInterceptorManager.register(interceptor);
-  }
-
-  /**
-   * Unregister a loop interceptor by name
-   * @param name The name of the interceptor to remove
-   * @returns boolean True if interceptor was found and removed
-   */
-  unregisterLoopInterceptor(name: string): boolean {
-    return this.#loopInterceptorManager.unregister(name);
-  }
-
-  /**
-   * Get list of registered loop interceptor names
-   * @returns string[] Array of interceptor names
-   */
-  getRegisteredLoopInterceptors(): string[] {
-    return this.#loopInterceptorManager.getRegisteredNames();
   }
 }
