@@ -20,14 +20,14 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
   readonly description =
     "Detects code errors using configurable error detectors";
 
-  private errorDetectors: ErrorDetector[] = [];
-  private enabled: boolean = true;
+  #errorDetectors: ErrorDetector[] = [];
+  #enabled: boolean = true;
 
   constructor(options: {
     enabled?: boolean;
     useDefaultJavaScriptDetectors?: boolean;
   } = {}) {
-    this.enabled = options.enabled ?? true;
+    this.#enabled = options.enabled ?? true;
 
     // Add default JavaScript detectors unless explicitly disabled
     if (options.useDefaultJavaScriptDetectors !== false) {
@@ -42,13 +42,13 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
    */
   registerDetector(detector: ErrorDetector): void {
     // Check for name conflicts
-    if (this.errorDetectors.some((d) => d.name === detector.name)) {
+    if (this.#errorDetectors.some((d) => d.name === detector.name)) {
       throw new Error(
         `Error detector with name '${detector.name}' is already registered`,
       );
     }
 
-    this.errorDetectors.push(detector);
+    this.#errorDetectors.push(detector);
   }
 
   /**
@@ -57,9 +57,9 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
    * @returns boolean True if detector was found and removed
    */
   unregisterDetector(name: string): boolean {
-    const index = this.errorDetectors.findIndex((d) => d.name === name);
+    const index = this.#errorDetectors.findIndex((d) => d.name === name);
     if (index >= 0) {
-      this.errorDetectors.splice(index, 1);
+      this.#errorDetectors.splice(index, 1);
       return true;
     }
     return false;
@@ -67,21 +67,20 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
 
   /**
    * Get list of registered detector names
-   * @returns string[] Array of detector names
    */
-  getRegisteredDetectors(): string[] {
-    return this.errorDetectors.map((d) => d.name);
+  get registeredDetectors(): string[] {
+    return this.#errorDetectors.map((d) => d.name);
   }
 
   /**
    * Clear all registered detectors
    */
   clearDetectors(): void {
-    this.errorDetectors = [];
+    this.#errorDetectors = [];
   }
 
   isApplicable(_context: InterceptorContext): Promise<boolean> {
-    return Promise.resolve(this.enabled && this.errorDetectors.length > 0);
+    return Promise.resolve(this.#enabled && this.#errorDetectors.length > 0);
   }
 
   async intercept(context: InterceptorContext): Promise<InterceptorResult> {
@@ -126,7 +125,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       const applicableDetectors = [];
 
       // Find applicable detectors
-      for (const detector of this.errorDetectors) {
+      for (const detector of this.#errorDetectors) {
         if (options.signal?.aborted) {
           throw new AbortError("Aborted while checking detectors");
         }
@@ -178,17 +177,15 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
 
   /**
    * Enable or disable error detection
-   * @param enabled Whether error detection should be enabled
    */
-  setEnabled(enabled: boolean): void {
-    this.enabled = enabled;
+  set enabled(value: boolean) {
+    this.#enabled = value;
   }
 
   /**
    * Check if error detection is enabled
-   * @returns boolean True if enabled
    */
-  isEnabled(): boolean {
-    return this.enabled;
+  get enabled(): boolean {
+    return this.#enabled;
   }
 }

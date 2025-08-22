@@ -7,7 +7,10 @@ export type { AggregatedInterceptorResult } from "./LoopInterceptorManager.ts";
 
 // Export built-in interceptors
 export { ErrorDetectionInterceptor } from "./ErrorDetectionInterceptor.ts";
-export { MaxTokensInterceptor } from "./MaxTokensInterceptor.ts";
+export {
+  MaxTokensInterceptor,
+  type MaxTokensInterceptorOptions,
+} from "./MaxTokensInterceptor.ts";
 
 // Export error detection
 export * from "./errorDetection/mod.ts";
