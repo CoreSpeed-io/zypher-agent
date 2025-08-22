@@ -5,7 +5,7 @@ export * from "./interface.ts";
 export {
   ESLintErrorDetector,
   TypeScriptErrorDetector,
-} from "./javascript/ErrorDetector.ts";
+} from "./TypeScriptErrorDetector.ts";
 
 // Export utility functions
 export { extractErrorOutput } from "./utils.ts";

@@ -1,8 +1,8 @@
-import type { ErrorDetector } from "../errorDetection/interface.ts";
+import type { ErrorDetector } from "./errorDetection/mod.ts";
 import {
   ESLintErrorDetector,
   TypeScriptErrorDetector,
-} from "../errorDetection/javascript/ErrorDetector.ts";
+} from "./errorDetection/mod.ts";
 import { AbortError } from "../error.ts";
 import {
   type InterceptorContext,
