@@ -500,7 +500,7 @@ export class ZypherAgent {
             .join("");
 
           const messageCountBefore = this.#messages.length;
-          
+
           const interceptorContext = {
             messages: this.#messages,
             lastResponse: responseText,

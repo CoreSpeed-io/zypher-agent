@@ -31,12 +31,13 @@ export class MaxTokensInterceptor implements LoopInterceptor {
     this.#options = options;
   }
 
-  isApplicable(context: InterceptorContext): Promise<boolean> {
-    const enabled = this.#options.enabled ?? true;
-    return Promise.resolve(enabled && context.stopReason === "max_tokens");
-  }
-
   intercept(context: InterceptorContext): Promise<InterceptorResult> {
+    // Check if this interceptor should run
+    const enabled = this.#options.enabled ?? true;
+    if (!enabled || context.stopReason !== "max_tokens") {
+      return Promise.resolve({ decision: LoopDecision.COMPLETE });
+    }
+
     // Check if we've already continued too many times
     if (this.#options.maxContinuations !== undefined) {
       const continueCount = this.#countContinueMessages(context.messages);

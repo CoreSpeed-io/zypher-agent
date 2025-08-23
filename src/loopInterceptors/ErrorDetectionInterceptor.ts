@@ -79,11 +79,12 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
     this.#errorDetectors = [];
   }
 
-  isApplicable(_context: InterceptorContext): Promise<boolean> {
-    return Promise.resolve(this.#enabled && this.#errorDetectors.length > 0);
-  }
-
   async intercept(context: InterceptorContext): Promise<InterceptorResult> {
+    // Check if this interceptor should run
+    if (!this.#enabled || this.#errorDetectors.length === 0) {
+      return { decision: LoopDecision.COMPLETE };
+    }
+
     try {
       const errors = await this.detectErrors({ signal: context.signal });
 
@@ -97,7 +98,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
           }],
           timestamp: new Date(),
         });
-        
+
         return {
           decision: LoopDecision.CONTINUE,
           reasoning: "Found code errors that need to be addressed",

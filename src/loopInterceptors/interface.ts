@@ -29,7 +29,6 @@ export interface InterceptorContext {
   signal: AbortSignal;
 }
 
-
 /**
  * Result returned by a loop interceptor
  */
@@ -51,16 +50,9 @@ export interface LoopInterceptor {
   readonly description: string;
 
   /**
-   * Check if this interceptor should run given the current context
-   * @param context Current interceptor context
-   * @returns Promise<boolean> True if this interceptor should run
-   */
-  isApplicable(context: InterceptorContext): Promise<boolean>;
-
-  /**
    * Execute the interceptor logic
    * @param context Current interceptor context
-   * @returns Promise<InterceptorResult> Decision and optional context injections
+   * @returns Promise<InterceptorResult> Decision and optional reasoning
    */
   intercept(context: InterceptorContext): Promise<InterceptorResult>;
 }

@@ -6,7 +6,6 @@ import {
 } from "./interface.ts";
 import { AbortError, formatError } from "../error.ts";
 
-
 /**
  * Manages and executes loop interceptors
  */
@@ -66,12 +65,6 @@ export class LoopInterceptorManager {
       }
 
       try {
-        // Check if interceptor is applicable
-        const isApplicable = await interceptor.isApplicable(context);
-        if (!isApplicable) {
-          continue;
-        }
-
         // Execute the interceptor
         const result = await interceptor.intercept(context);
 
