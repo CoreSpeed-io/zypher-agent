@@ -88,14 +88,18 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       const errors = await this.detectErrors({ signal: context.signal });
 
       if (errors) {
+        // Add error message to context
+        context.messages.push({
+          role: "user",
+          content: [{
+            type: "text",
+            text: `🔍 Detected code errors that need to be fixed:\n\n${errors}`,
+          }],
+          timestamp: new Date(),
+        });
+        
         return {
           decision: LoopDecision.CONTINUE,
-          contextInjections: [{
-            message:
-              `🔍 Detected code errors that need to be fixed:\n\n${errors}`,
-            priority: "high",
-            source: this.name,
-          }],
           reasoning: "Found code errors that need to be addressed",
         };
       }

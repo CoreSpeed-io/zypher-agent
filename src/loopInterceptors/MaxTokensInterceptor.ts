@@ -52,13 +52,18 @@ export class MaxTokensInterceptor implements LoopInterceptor {
     const continueMessage = this.#options.continueMessage ??
       this.#defaultContinueMessage;
 
+    // Add continue message to context
+    context.messages.push({
+      role: "user",
+      content: [{
+        type: "text",
+        text: continueMessage,
+      }],
+      timestamp: new Date(),
+    });
+
     return Promise.resolve({
       decision: LoopDecision.CONTINUE,
-      contextInjections: [{
-        message: continueMessage,
-        priority: "high",
-        source: this.name,
-      }],
       reasoning: "Response was truncated due to max tokens, continuing",
     });
   }

@@ -1,24 +1,11 @@
 import {
-  type ContextInjection,
   type InterceptorContext,
+  type InterceptorResult,
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
 import { AbortError, formatError } from "../error.ts";
 
-/**
- * Aggregated result from running multiple loop interceptors
- */
-export interface AggregatedInterceptorResult {
-  /** Final decision (CONTINUE if any interceptor wants to continue) */
-  decision: LoopDecision;
-  /** All context injections from interceptors that ran */
-  contextInjections: ContextInjection[];
-  /** Names of interceptors that executed */
-  executedInterceptors: string[];
-  /** Combined reasoning from all interceptors */
-  reasoning?: string;
-}
 
 /**
  * Manages and executes loop interceptors
@@ -64,18 +51,14 @@ export class LoopInterceptorManager {
   }
 
   /**
-   * Execute all applicable interceptors and aggregate their results
+   * Execute interceptors in chain of responsibility pattern
    * @param context The context to pass to interceptors
-   * @returns Promise<AggregatedInterceptorResult> Aggregated result
+   * @returns Promise<InterceptorResult> Result from the chain
    */
   async execute(
     context: InterceptorContext,
-  ): Promise<AggregatedInterceptorResult> {
-    const contextInjections: ContextInjection[] = [];
-    const executedInterceptors: string[] = [];
-    const reasonings: string[] = [];
-    let finalDecision: LoopDecision = LoopDecision.COMPLETE;
-
+  ): Promise<InterceptorResult> {
+    // Execute interceptors sequentially until one decides to CONTINUE
     for (const interceptor of this.interceptors) {
       // Check for abort signal
       if (context.signal?.aborted) {
@@ -91,42 +74,28 @@ export class LoopInterceptorManager {
 
         // Execute the interceptor
         const result = await interceptor.intercept(context);
-        executedInterceptors.push(interceptor.name);
 
-        // Collect context injections
-        if (result.contextInjections) {
-          contextInjections.push(...result.contextInjections);
-        }
-
-        // Collect reasoning
-        if (result.reasoning) {
-          reasonings.push(`${interceptor.name}: ${result.reasoning}`);
-        }
-
-        // If any interceptor wants to continue, we continue
+        // If this interceptor wants to continue, it takes control of the chain
         if (result.decision === LoopDecision.CONTINUE) {
-          finalDecision = LoopDecision.CONTINUE;
+          // Log which interceptor handled the request
+          console.log(`🔄 Loop interceptor executed: ${interceptor.name}`);
+          return result;
         }
+
+        // If interceptor decides to COMPLETE, continue to next interceptor
+        // (unless it's the last one)
       } catch (error) {
         console.warn(
           `Error running loop interceptor '${interceptor.name}':`,
           formatError(error),
         );
-        // Continue with other interceptors even if one fails
+        // Continue with next interceptor even if one fails
       }
     }
 
-    // Sort context injections by priority (high -> medium -> low)
-    contextInjections.sort((a, b) => {
-      const priorityOrder = { high: 0, medium: 1, low: 2 };
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
-    });
-
+    // No interceptor wanted to continue the loop
     return {
-      decision: finalDecision,
-      contextInjections,
-      executedInterceptors,
-      reasoning: reasonings.length > 0 ? reasonings.join("\n") : undefined,
+      decision: LoopDecision.COMPLETE,
     };
   }
 

@@ -29,17 +29,6 @@ export interface InterceptorContext {
   signal: AbortSignal;
 }
 
-/**
- * Context to inject back into the conversation when continuing the loop
- */
-export interface ContextInjection {
-  /** Message content to inject */
-  message: string;
-  /** Priority level for ordering multiple injections */
-  priority: "high" | "medium" | "low";
-  /** Source identifier for debugging */
-  source: string;
-}
 
 /**
  * Result returned by a loop interceptor
@@ -47,8 +36,6 @@ export interface ContextInjection {
 export interface InterceptorResult {
   /** Decision on whether to continue or complete the loop */
   decision: LoopDecision;
-  /** Context to inject if continuing the loop */
-  contextInjections?: ContextInjection[];
   /** Optional reasoning for the decision (for debugging/logging) */
   reasoning?: string;
 }

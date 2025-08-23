@@ -499,6 +499,8 @@ export class ZypherAgent {
             .map((block) => block.text)
             .join("");
 
+          const messageCountBefore = this.#messages.length;
+          
           const interceptorContext = {
             messages: this.#messages,
             lastResponse: responseText,
@@ -513,29 +515,9 @@ export class ZypherAgent {
           );
 
           if (interceptorResult.decision === LoopDecision.CONTINUE) {
-            // Add context injections as user messages
-            for (const injection of interceptorResult.contextInjections) {
-              const injectionMessage: Message = {
-                role: "user",
-                content: [
-                  {
-                    type: "text" as const,
-                    text: injection.message,
-                  } satisfies ContentBlock,
-                ],
-                timestamp: new Date(),
-              };
-              this.#messages.push(injectionMessage);
-              yield { type: "message", message: injectionMessage };
-            }
-
-            // Log interceptor activity
-            if (interceptorResult.executedInterceptors.length > 0) {
-              console.log(
-                `\n🔄 Loop interceptors executed: ${
-                  interceptorResult.executedInterceptors.join(", ")
-                }`,
-              );
+            // Yield any new messages added by interceptors
+            for (let i = messageCountBefore; i < this.#messages.length; i++) {
+              yield { type: "message", message: this.#messages[i] };
             }
           } else {
             // All interceptors decided to complete, exit the loop
