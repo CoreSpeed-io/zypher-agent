@@ -2,7 +2,10 @@
   "name": "@corespeed/zypher",
   "version": "0.1.0",
   "license": "Apache-2.0",
-  "exports": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./tools": "./src/tools/mod.ts"
+  },
   "tasks": {
     "start": "deno run -A bin/cli.ts",
     "compile": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",

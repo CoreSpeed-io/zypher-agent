@@ -1,39 +1,16 @@
 // Public entry point for Zypher Agent SDK
-// Re-export core classes, types, and helpers that consumers should rely on.
 
 // Core agent
-export { TaskConcurrencyError, ZypherAgent } from "./ZypherAgent.ts";
-export type { ZypherAgentConfig } from "./ZypherAgent.ts";
+export * from "./ZypherAgent.ts";
+export * from "./checkpoints.ts";
+export * from "./cli.ts";
+export * from "./error.ts";
+export * from "./message.ts";
+export * from "./prompt.ts";
 
-// MCP server management
-export { McpServerManager } from "./mcp/McpServerManager.ts";
-export type { ZypherMcpServer } from "./mcp/types/local.ts";
-export type { OAuthProviderOptions } from "./mcp/types/auth.ts";
-
-// Messaging primitives
-export { isFileAttachment, isMessage, printMessage } from "./message.ts";
-export type { ContentBlock, FileAttachment, Message } from "./message.ts";
-
-// Storage service interfaces
-export type {
-  AttachmentMetadata,
-  GenerateUploadUrlResult,
-  StorageService,
-  UploadOptions,
-  UploadResult,
-} from "./storage/StorageService.ts";
-export {
-  type S3Options,
-  S3StorageService,
-} from "./storage/S3StorageService.ts";
-export { FileNotFoundError, StorageError } from "./storage/StorageErrors.ts";
-
-// Tooling helpers
-export type { BaseParams, Tool } from "./tools/mod.ts";
-export { createTool, defineTool } from "./tools/mod.ts";
-
-// Error utilities
-export { AbortError, formatError, isAbortError } from "./error.ts";
-
-// CLI
-export { runAgentInTerminal } from "./cli.ts";
+// Modules
+export * from "./llm/mod.ts";
+export * from "./loopInterceptors/mod.ts";
+export * from "./mcp/mod.ts";
+export * from "./storage/mod.ts";
+export * from "./utils/mod.ts";
