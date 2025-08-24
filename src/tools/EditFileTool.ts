@@ -1,9 +1,13 @@
 import { z } from "zod";
-import { defineTool } from "./mod.ts";
+import { defineTool, type Tool } from "./mod.ts";
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
 
-export const EditFileTool = defineTool({
+export const EditFileTool: Tool<{
+  targetFile: string;
+  instructions: string;
+  codeEdit: string;
+}> = defineTool({
   name: "edit_file",
   description:
     "Use this tool to edit a file by providing its complete new content.\n\nThis tool expects the entire file content to be provided, not just the changes.\nThe content will completely replace the existing file content (or create a new file if it doesn't exist).\n\nWhen using this tool:\n1. Provide the complete file content including all necessary imports and dependencies\n2. Ensure the content is properly formatted and follows the project's code style\n3. Include appropriate error handling and type safety measures\n4. Add descriptive comments for complex logic",

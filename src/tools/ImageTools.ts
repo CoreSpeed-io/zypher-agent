@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool } from "./mod.ts";
+import { defineTool, type Tool } from "./mod.ts";
 import OpenAI, { toFile } from "@openai/openai";
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
@@ -141,7 +141,25 @@ async function saveImages(
  * @param openaiApiKey - The OpenAI API key to use for image operations
  * @returns An object containing the configured image generation and editing tools
  */
-export function defineImageTools(openaiApiKey: string) {
+export function defineImageTools(openaiApiKey: string): {
+  ImageGenTool: Tool<{
+    prompt: string;
+    size: "auto" | "1024x1024" | "1536x1024" | "1024x1536";
+    quality: "auto" | "low" | "medium" | "high";
+    background: "auto" | "transparent" | "opaque";
+    destinationPath: string;
+    explanation?: string | undefined;
+  }>;
+  ImageEditTool: Tool<{
+    sourcePath: string;
+    mimeType: "image/jpeg" | "image/png" | "image/webp";
+    prompt: string;
+    size: "auto" | "1024x1024" | "1536x1024" | "1024x1536";
+    quality: "auto" | "low" | "medium" | "high";
+    destinationPath: string;
+    explanation?: string | undefined;
+  }>;
+} {
   // Initialize OpenAI client with the provided API key
   const openai = new OpenAI({
     apiKey: openaiApiKey,

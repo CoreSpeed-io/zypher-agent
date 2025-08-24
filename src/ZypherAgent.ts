@@ -30,7 +30,7 @@ import {
 } from "./storage/mod.ts";
 import {
   LoopDecision,
-  LoopInterceptorManager,
+  type LoopInterceptorManager,
 } from "./loopInterceptors/mod.ts";
 import * as path from "@std/path";
 

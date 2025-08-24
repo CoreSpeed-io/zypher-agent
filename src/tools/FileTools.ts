@@ -1,10 +1,13 @@
 import { z } from "zod";
-import { defineTool } from "./mod.ts";
+import { defineTool, type Tool } from "./mod.ts";
 import * as path from "@std/path";
 import { fileExists } from "../utils/mod.ts";
 import { ensureDir } from "@std/fs";
 
-export const DeleteFileTool = defineTool({
+export const DeleteFileTool: Tool<{
+  targetFile: string;
+  explanation?: string | undefined;
+}> = defineTool({
   name: "delete_file",
   description: "Deletes a file at the specified path.",
   parameters: z.object({
@@ -39,7 +42,12 @@ export const DeleteFileTool = defineTool({
   },
 });
 
-export const CopyFileTool = defineTool({
+export const CopyFileTool: Tool<{
+  sourceFile: string;
+  destinationFile: string;
+  overwrite?: boolean | undefined;
+  explanation?: string | undefined;
+}> = defineTool({
   name: "copy_file",
   description: "Copies a file from the source path to the destination path.",
   parameters: z.object({
