@@ -4,7 +4,6 @@ import {
   loadMessageHistory,
   saveMessageHistory,
 } from "./utils/mod.ts";
-import { detectErrors } from "./errorDetection/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
 import {
   applyCheckpoint,
@@ -16,7 +15,12 @@ import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import type { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
 import { Completer } from "./utils/mod.ts";
-import { AbortError, formatError, isAbortError } from "./error.ts";
+import {
+  AbortError,
+  formatError,
+  isAbortError,
+  TaskConcurrencyError,
+} from "./error.ts";
 import type { ModelProvider } from "./llm/mod.ts";
 import { from, type Observable } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
@@ -24,18 +28,11 @@ import {
   type FileAttachmentCacheMap,
   FileAttachmentManager,
 } from "./storage/mod.ts";
+import {
+  LoopDecision,
+  LoopInterceptorManager,
+} from "./loopInterceptors/mod.ts";
 import * as path from "@std/path";
-
-/**
- * Custom error class for task concurrency issues
- * Thrown when attempting to run a new task while another task is already running
- */
-export class TaskConcurrencyError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "TaskConcurrencyError";
-  }
-}
 
 export type TaskEvent =
   | TaskTextEvent
@@ -79,18 +76,10 @@ export interface TaskCancelledEvent {
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MAX_ITERATIONS = 25;
 
-export type ToolApprovalHandler = (
-  name: string,
-  args: Record<string, unknown>,
-  options: { signal?: AbortSignal },
-) => Promise<boolean>;
-
 export interface ZypherAgentConfig {
   maxTokens?: number;
   /** Whether to load and save message history. Defaults to true. */
   persistHistory?: boolean;
-  /** Whether to automatically check for code errors. Defaults to true. */
-  autoErrorCheck?: boolean;
   /** Whether to enable checkpointing. Defaults to true. */
   enableCheckpointing?: boolean;
   /** Unique identifier for tracking user-specific usage history */
@@ -107,7 +96,6 @@ export class ZypherAgent {
   readonly #modelProvider: ModelProvider;
   readonly #maxTokens: number;
   readonly #persistHistory: boolean;
-  readonly #autoErrorCheck: boolean;
   readonly #enableCheckpointing: boolean;
   readonly #userId?: string;
   readonly #mcpServerManager: McpServerManager;
@@ -115,6 +103,7 @@ export class ZypherAgent {
   readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
   readonly #customInstructions?: string;
+  readonly #loopInterceptorManager: LoopInterceptorManager;
 
   #fileAttachmentManager?: FileAttachmentManager;
 
@@ -127,8 +116,9 @@ export class ZypherAgent {
 
   constructor(
     modelProvider: ModelProvider,
-    config: ZypherAgentConfig = {},
     mcpServerManager: McpServerManager,
+    loopInterceptorManager: LoopInterceptorManager,
+    config: ZypherAgentConfig = {},
     storageService?: StorageService,
   ) {
     const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
@@ -138,10 +128,10 @@ export class ZypherAgent {
     this.#system = ""; // Will be initialized in init()
     this.#maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.#persistHistory = config.persistHistory ?? true;
-    this.#autoErrorCheck = config.autoErrorCheck ?? true;
     this.#enableCheckpointing = config.enableCheckpointing ?? true;
     this.#userId = userId;
     this.#mcpServerManager = mcpServerManager;
+    this.#loopInterceptorManager = loopInterceptorManager;
     this.#storageService = storageService;
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
@@ -245,35 +235,6 @@ export class ZypherAgent {
     }
   }
 
-  async #executeToolCall(
-    name: string,
-    parameters: Record<string, unknown>,
-    options?: {
-      signal?: AbortSignal;
-      handleToolApproval?: ToolApprovalHandler;
-    },
-  ): Promise<string> {
-    const tool = this.#mcpServerManager.getTool(name);
-    if (!tool) {
-      return `Error: Tool '${name}' not found`;
-    }
-
-    const approved = options?.handleToolApproval
-      ? await options.handleToolApproval(name, parameters, options)
-      : true;
-    console.log(`Tool call approved: ${approved}`);
-    if (!approved) {
-      return "Tool call rejected by user";
-    }
-
-    try {
-      // TODO: support abort signal in tool execution
-      return await tool.execute(parameters);
-    } catch (error) {
-      return `Error executing tool '${name}': ${formatError(error)}`;
-    }
-  }
-
   /**
    * Atomically checks if a task is running and sets the flag if it's not
    * This is a critical section that must be executed synchronously (not async)
@@ -325,7 +286,6 @@ export class ZypherAgent {
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
-      handleToolApproval?: ToolApprovalHandler;
     },
   ): Observable<TaskEvent> {
     return from(
@@ -340,7 +300,6 @@ export class ZypherAgent {
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
-      handleToolApproval?: ToolApprovalHandler;
     },
   ): AsyncGenerator<TaskEvent> {
     // Use default maxIterations if not provided
@@ -462,81 +421,34 @@ export class ZypherAgent {
           throw new AbortError("Task aborted");
         }
 
-        // Process tool calls if any
-        if (finalMessage.stop_reason === "tool_use") {
-          // Execute tool calls
-          for (const block of finalMessage.content) {
-            if (block.type === "tool_use") {
-              const result = await this.#executeToolCall(
-                block.name,
-                block.input as Record<string, unknown>,
-                {
-                  signal: mergedSignal,
-                  handleToolApproval: options?.handleToolApproval,
-                },
-              );
+        // Execute loop interceptors to determine if we should continue
+        const responseText = finalMessage.content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text)
+          .join("");
 
-              // Add tool response
-              const toolMessage: Message = {
-                role: "user",
-                content: [
-                  {
-                    type: "tool_result" as const,
-                    tool_use_id: block.id,
-                    content: result,
-                  } satisfies ContentBlock,
-                ],
-                timestamp: new Date(),
-              };
-              this.#messages.push(toolMessage);
-              yield { type: "message", message: toolMessage };
-            }
+        const messageCountBefore = this.#messages.length;
+
+        const interceptorContext = {
+          messages: this.#messages,
+          lastResponse: responseText,
+          tools: toolCalls,
+          workingDirectory: Deno.cwd(),
+          stopReason: finalMessage.stop_reason,
+          signal: mergedSignal,
+        };
+
+        const interceptorResult = await this.#loopInterceptorManager.execute(
+          interceptorContext,
+        );
+
+        if (interceptorResult.decision === LoopDecision.CONTINUE) {
+          // Yield any new messages added by interceptors
+          for (let i = messageCountBefore; i < this.#messages.length; i++) {
+            yield { type: "message", message: this.#messages[i] };
           }
-        } else if (finalMessage.stop_reason === "max_tokens") {
-          // auto continue
-          const continueMessage: Message = {
-            role: "user",
-            content: [
-              {
-                type: "text" as const,
-                text: "Continue",
-              } satisfies ContentBlock,
-            ],
-            timestamp: new Date(),
-          };
-          this.#messages.push(continueMessage);
-          yield { type: "message", message: continueMessage };
         } else {
-          // Check for code errors if enabled and this is the end of the conversation
-          if (this.#autoErrorCheck) {
-            const errors = await detectErrors({ signal: mergedSignal });
-            if (errors) {
-              console.log(
-                "\n🔍 Detected code errors. Asking the agent to fix them...",
-              );
-
-              // Add errors as a user message
-              const errorMessage: Message = {
-                role: "user",
-                content: [
-                  {
-                    type: "text" as const,
-                    text:
-                      `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
-                  } satisfies ContentBlock,
-                ],
-                timestamp: new Date(),
-              };
-              this.#messages.push(errorMessage);
-              yield { type: "message", message: errorMessage };
-
-              // Continue the loop to let the agent fix the errors
-              iterations++;
-              continue;
-            }
-          }
-
-          // No errors or error check disabled, exit the loop
+          // All interceptors decided to complete, exit the loop
           break;
         }
 
