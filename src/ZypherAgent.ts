@@ -109,7 +109,7 @@ export class ZypherAgent {
   readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
   readonly #customInstructions?: string;
-  readonly #loopInterceptorManager = new LoopInterceptorManager();
+  readonly #loopInterceptorManager: LoopInterceptorManager;
 
   #fileAttachmentManager?: FileAttachmentManager;
 
@@ -122,8 +122,9 @@ export class ZypherAgent {
 
   constructor(
     modelProvider: ModelProvider,
-    config: ZypherAgentConfig = {},
     mcpServerManager: McpServerManager,
+    loopInterceptorManager: LoopInterceptorManager,
+    config: ZypherAgentConfig = {},
     storageService?: StorageService,
   ) {
     const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
@@ -136,6 +137,7 @@ export class ZypherAgent {
     this.#enableCheckpointing = config.enableCheckpointing ?? true;
     this.#userId = userId;
     this.#mcpServerManager = mcpServerManager;
+    this.#loopInterceptorManager = loopInterceptorManager;
     this.#storageService = storageService;
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
@@ -508,12 +510,5 @@ export class ZypherAgent {
       throw new Error("Task is not running");
     }
     await this.#taskCompleter.wait(options);
-  }
-
-  /**
-   * Get the loop interceptor manager for configuration
-   */
-  get loopInterceptors(): LoopInterceptorManager {
-    return this.#loopInterceptorManager;
   }
 }

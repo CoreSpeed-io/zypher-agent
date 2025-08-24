@@ -6,6 +6,10 @@ import {
   ZypherAgent,
 } from "@zypher/mod.ts";
 import {
+  LoopInterceptorManager,
+  ToolExecutionInterceptor,
+} from "@zypher/loopInterceptors/mod.ts";
+import {
   CopyFileTool,
   defineImageTools,
   DeleteFileTool,
@@ -114,10 +118,17 @@ async function main(): Promise<void> {
         baseUrl: cli.baseUrl,
       });
 
+    // Create interceptor manager with default interceptors for CLI
+    const loopInterceptorManager = new LoopInterceptorManager();
+    loopInterceptorManager.register(
+      new ToolExecutionInterceptor(mcpServerManager),
+    );
+
     const agent = new ZypherAgent(
       providerInstance,
-      { userId: cli.userId },
       mcpServerManager,
+      loopInterceptorManager,
+      { userId: cli.userId },
     );
 
     // Register all available tools
