@@ -105,58 +105,53 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
   private async detectErrors(
     options: { signal?: AbortSignal },
   ): Promise<string | null> {
-    try {
-      const applicableDetectors = [];
+    const applicableDetectors = [];
 
-      // Find applicable detectors
-      for (const detector of this.#errorDetectors) {
-        if (options.signal?.aborted) {
-          throw new AbortError("Aborted while checking detectors");
-        }
-
-        try {
-          if (await detector.isApplicable()) {
-            applicableDetectors.push(detector);
-          }
-        } catch (error) {
-          console.warn(
-            `Error checking if detector ${detector.name} is applicable:`,
-            error,
-          );
-        }
+    // Find applicable detectors
+    for (const detector of this.#errorDetectors) {
+      if (options.signal?.aborted) {
+        throw new AbortError("Aborted while checking detectors");
       }
 
-      if (applicableDetectors.length === 0) {
-        return null;
-      }
-
-      // Run applicable detectors
-      const errorMessages = [];
-
-      for (const detector of applicableDetectors) {
-        if (options.signal?.aborted) {
-          throw new AbortError("Aborted while running detectors");
+      try {
+        if (await detector.isApplicable()) {
+          applicableDetectors.push(detector);
         }
-
-        try {
-          const result = await detector.detect();
-          if (result) {
-            errorMessages.push(result);
-          }
-        } catch (error) {
-          console.warn(`Error running detector ${detector.name}:`, error);
-        }
+      } catch (error) {
+        console.warn(
+          `Error checking if detector ${detector.name} is applicable:`,
+          error,
+        );
       }
+    }
 
-      if (errorMessages.length === 0) {
-        return null;
-      }
-
-      return errorMessages.join("\n\n");
-    } catch (error) {
-      console.warn("Failed to run error detection:", error);
+    if (applicableDetectors.length === 0) {
       return null;
     }
+
+    // Run applicable detectors
+    const errorMessages = [];
+
+    for (const detector of applicableDetectors) {
+      if (options.signal?.aborted) {
+        throw new AbortError("Aborted while running detectors");
+      }
+
+      try {
+        const result = await detector.detect();
+        if (result) {
+          errorMessages.push(result);
+        }
+      } catch (error) {
+        console.warn(`Error running detector ${detector.name}:`, error);
+      }
+    }
+
+    if (errorMessages.length === 0) {
+      return null;
+    }
+
+    return errorMessages.join("\n\n");
   }
 
   /**
