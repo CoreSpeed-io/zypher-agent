@@ -3,7 +3,7 @@
 
 // Core agent
 export { TaskConcurrencyError, ZypherAgent } from "./ZypherAgent.ts";
-export type { ToolApprovalHandler, ZypherAgentConfig } from "./ZypherAgent.ts";
+export type { ZypherAgentConfig } from "./ZypherAgent.ts";
 
 // MCP server management
 export { McpServerManager } from "./mcp/McpServerManager.ts";

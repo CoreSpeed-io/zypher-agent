@@ -10,6 +10,10 @@ export {
   MaxTokensInterceptor,
   type MaxTokensInterceptorOptions,
 } from "./MaxTokensInterceptor.ts";
+export {
+  type ToolApprovalHandler,
+  ToolExecutionInterceptor,
+} from "./ToolExecutionInterceptor.ts";
 
 // Export error detection
 export * from "./errorDetection/mod.ts";
