@@ -1,8 +1,4 @@
 import type { ErrorDetector } from "./errorDetection/mod.ts";
-import {
-  ESLintErrorDetector,
-  TypeScriptErrorDetector,
-} from "./errorDetection/mod.ts";
 import { AbortError } from "../error.ts";
 import {
   type InterceptorContext,
@@ -23,17 +19,8 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
   #errorDetectors: ErrorDetector[] = [];
   #enabled: boolean = true;
 
-  constructor(options: {
-    enabled?: boolean;
-    useDefaultJavaScriptDetectors?: boolean;
-  } = {}) {
-    this.#enabled = options.enabled ?? true;
-
-    // Add default JavaScript detectors unless explicitly disabled
-    if (options.useDefaultJavaScriptDetectors !== false) {
-      this.registerDetector(new ESLintErrorDetector());
-      this.registerDetector(new TypeScriptErrorDetector());
-    }
+  constructor(enabled: boolean = true) {
+    this.#enabled = enabled;
   }
 
   /**
