@@ -1,5 +1,6 @@
 import type { Message } from "../message.ts";
 import type { Tool } from "../tools/mod.ts";
+import type { FinalMessage } from "../llm/mod.ts";
 
 /**
  * Decision made by a loop interceptor
@@ -24,7 +25,7 @@ export interface InterceptorContext {
   /** Current working directory */
   workingDirectory: string;
   /** Stop reason from the LLM response (e.g., "end_turn", "max_tokens", "tool_use") */
-  stopReason?: string;
+  stopReason?: FinalMessage["stop_reason"];
   /** Abort signal for cancellation */
   signal: AbortSignal;
 }
