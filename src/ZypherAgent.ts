@@ -15,7 +15,12 @@ import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import type { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
 import { Completer } from "./utils/mod.ts";
-import { AbortError, formatError, isAbortError } from "./error.ts";
+import {
+  AbortError,
+  formatError,
+  isAbortError,
+  TaskConcurrencyError,
+} from "./error.ts";
 import type { ModelProvider } from "./llm/mod.ts";
 import { from, type Observable } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
@@ -28,17 +33,6 @@ import {
   LoopInterceptorManager,
 } from "./loopInterceptors/mod.ts";
 import * as path from "@std/path";
-
-/**
- * Custom error class for task concurrency issues
- * Thrown when attempting to run a new task while another task is already running
- */
-export class TaskConcurrencyError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "TaskConcurrencyError";
-  }
-}
 
 export type TaskEvent =
   | TaskTextEvent
