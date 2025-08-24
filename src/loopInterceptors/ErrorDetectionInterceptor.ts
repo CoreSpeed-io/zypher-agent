@@ -72,37 +72,29 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       return { decision: LoopDecision.COMPLETE };
     }
 
-    try {
-      const errors = await this.detectErrors({ signal: context.signal });
+    const errors = await this.detectErrors({ signal: context.signal });
 
-      if (errors) {
-        // Add error message to context
-        context.messages.push({
-          role: "user",
-          content: [{
-            type: "text",
-            text: `🔍 Detected code errors that need to be fixed:\n\n${errors}`,
-          }],
-          timestamp: new Date(),
-        });
-
-        return {
-          decision: LoopDecision.CONTINUE,
-          reasoning: "Found code errors that need to be addressed",
-        };
-      }
+    if (errors) {
+      // Add error message to context
+      context.messages.push({
+        role: "user",
+        content: [{
+          type: "text",
+          text: `🔍 Detected code errors that need to be fixed:\n\n${errors}`,
+        }],
+        timestamp: new Date(),
+      });
 
       return {
-        decision: LoopDecision.COMPLETE,
-        reasoning: "No code errors detected",
-      };
-    } catch (error) {
-      console.warn("Error detection interceptor failed:", error);
-      return {
-        decision: LoopDecision.COMPLETE,
-        reasoning: "Error detection failed, allowing completion",
+        decision: LoopDecision.CONTINUE,
+        reasoning: "Found code errors that need to be addressed",
       };
     }
+
+    return {
+      decision: LoopDecision.COMPLETE,
+      reasoning: "No code errors detected",
+    };
   }
 
   /**
