@@ -9,8 +9,8 @@ export * from "./message.ts";
 export * from "./prompt.ts";
 
 // Modules
-export * from "./errorDetection/mod.ts";
 export * from "./llm/mod.ts";
+export * from "./loopInterceptors/mod.ts";
 export * from "./mcp/mod.ts";
 export * from "./storage/mod.ts";
 export * from "./utils/mod.ts";

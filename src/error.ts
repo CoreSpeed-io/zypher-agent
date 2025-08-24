@@ -8,6 +8,17 @@ export class AbortError extends Error {
   }
 }
 
+/**
+ * Custom error class for task concurrency issues
+ * Thrown when attempting to run a new task while another task is already running
+ */
+export class TaskConcurrencyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TaskConcurrencyError";
+  }
+}
+
 export function isAbortError(error: unknown): boolean {
   return error instanceof AbortError ||
     (
