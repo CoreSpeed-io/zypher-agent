@@ -1,8 +1,11 @@
 import { z } from "zod";
-import { defineTool } from "./mod.ts";
+import { defineTool, type Tool } from "./mod.ts";
 import * as path from "@std/path";
 
-export const ListDirTool = defineTool({
+export const ListDirTool: Tool<{
+  relativePath: string;
+  explanation?: string | undefined;
+}> = defineTool({
   name: "list_dir",
   description:
     "List the contents of a directory. The quick tool to use for discovery, before using more targeted tools like semantic search or file reading. Useful to try to understand the file structure before diving deeper into specific files. Can be used to explore the codebase.",

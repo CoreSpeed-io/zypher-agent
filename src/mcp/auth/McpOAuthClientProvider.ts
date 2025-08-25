@@ -16,6 +16,17 @@ import {
 } from "./config.ts";
 import { getServerUrlHash } from "./config.ts";
 
+export interface ClientMetadata {
+  redirect_uris: string[];
+  token_endpoint_auth_method: string;
+  grant_types: string[];
+  response_types: string[];
+  client_name: string;
+  client_uri: string;
+  software_id: string;
+  software_version: string;
+}
+
 /**
  * Implements the OAuthClientProvider interface for Node.js environments.
  * Handles OAuth flow and token storage for MCP clients.
@@ -63,7 +74,7 @@ export class McpOAuthClientProvider implements OAuthClientProvider {
     return `http://${this.options?.host}:${this.options?.callbackPort}${this.#callbackPath}`;
   }
 
-  get clientMetadata() {
+  get clientMetadata(): ClientMetadata {
     return {
       redirect_uris: [this.redirectUrl],
       token_endpoint_auth_method: "none",
