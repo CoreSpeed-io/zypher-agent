@@ -25,39 +25,222 @@ export enum ArgumentType {
 
 // ==================== Zod Enum Schemas ====================
 
-export const AuthMethodSchema = z.nativeEnum(AuthMethod);
-export const FormatSchema = z.nativeEnum(Format);
-export const ArgumentTypeSchema = z.nativeEnum(ArgumentType);
+export const AuthMethodSchema: z.ZodSchema<AuthMethod> = z.nativeEnum(
+  AuthMethod,
+);
+export const FormatSchema: z.ZodSchema<Format> = z.nativeEnum(Format);
+export const ArgumentTypeSchema: z.ZodSchema<ArgumentType> = z.nativeEnum(
+  ArgumentType,
+);
 
-// ==================== Recursive Type System ====================
+// ==================== Interface Definitions ====================
 
-// Forward declare types for recursive references
-export type Input = {
+/**
+ * Base input configuration interface for MCP server parameters.
+ * Supports recursive properties for nested configurations.
+ */
+export interface Input {
+  /** Human-readable description of the input */
   description?: string;
+  /** Whether this input is required for server operation */
   isRequired?: boolean;
+  /** Data format type for validation (string, number, boolean, file_path) */
   format?: Format;
+  /** Current or default value for the input */
   value?: string;
+  /** Whether this input contains sensitive information */
   isSecret?: boolean;
+  /** Default value when none is provided */
   default?: string;
+  /** Array of valid choices for enumerated inputs */
   choices?: string[];
+  /** Template string for dynamic value generation */
   template?: string;
+  /** Nested input properties for complex configurations */
   properties?: Record<string, Input>;
-};
+}
 
-export type InputWithVariables = Input & {
+/**
+ * Extended input interface that supports variable substitution.
+ * Used for inputs that can reference other configuration values.
+ */
+export interface InputWithVariables extends Input {
+  /** Map of variable names to their input configurations */
   variables?: Record<string, Input>;
-};
+}
 
-export type KeyValueInput = InputWithVariables & {
+/**
+ * Key-value pair input interface for environment variables and similar configs.
+ * Extends InputWithVariables with a required name field.
+ */
+export interface KeyValueInput extends InputWithVariables {
+  /** The key/name for this input pair */
   name: string;
-};
+}
 
-export type Argument = InputWithVariables & {
+/**
+ * Command line argument interface for MCP server execution.
+ * Supports both positional and named argument types.
+ */
+export interface Argument extends InputWithVariables {
+  /** Type of argument (positional or named) */
   type: ArgumentType;
+  /** Optional name for named arguments */
   name?: string;
+  /** Whether this argument can be specified multiple times */
   isRepeated?: boolean;
+  /** Hint text to help users understand the expected value */
   valueHint?: string;
-};
+}
+
+/**
+ * Authentication configuration interface for MCP server access.
+ */
+export interface Authentication {
+  /** Authentication method (github, none, etc.) */
+  method?: AuthMethod;
+  /** Authentication token or credential */
+  token?: string;
+  /** Repository reference for auth context */
+  repoRef?: string;
+}
+
+/**
+ * Repository information interface for MCP servers hosted in version control.
+ */
+export interface Repository {
+  /** Repository URL (must be a valid URL) */
+  url: string;
+  /** Source platform (github, gitlab, etc.) */
+  source: string;
+  /** Repository ID on the hosting platform */
+  id: string;
+}
+
+/**
+ * Version details interface for MCP server releases.
+ */
+export interface VersionDetail {
+  /** Semantic version string */
+  version: string;
+  /** Release date in ISO 8601 format */
+  releaseDate: string;
+  /** Whether this is the latest available version */
+  isLatest: boolean;
+}
+
+/**
+ * Package configuration interface for locally executable MCP servers.
+ * Contains all information needed to install and run a package-based server.
+ */
+export interface Package {
+  /** Registry/provider name (npm, pip, etc.) */
+  registryName: string;
+  /** Package name within the registry */
+  name: string;
+  /** Package version to install */
+  version: string;
+  /** Optional hint about required runtime environment */
+  runtimeHint?: string;
+  /** Arguments passed to the runtime when executing */
+  runtimeArguments?: Argument[];
+  /** Arguments specific to the package configuration */
+  packageArguments?: Argument[];
+  /** Environment variables required by the server */
+  environmentVariables?: KeyValueInput[];
+}
+
+/**
+ * Remote connection configuration interface for external MCP servers.
+ * Used for servers accessed over network protocols.
+ */
+export interface Remote {
+  /** Transport protocol type (SSE, HTTP, WebSocket, etc.) */
+  transportType: string;
+  /** Connection URL for the remote server */
+  url: string;
+  /** Custom headers to send with requests */
+  headers?: Input[];
+}
+
+/**
+ * Base server information interface.
+ * Contains essential metadata for any MCP server.
+ */
+export interface Server {
+  /** Unique identifier for the server */
+  _id: string;
+  /** Technical name (e.g., io.github.owner/repo) */
+  name: string;
+  /** Human-readable description of server functionality */
+  description: string;
+  /** Repository information where server is hosted */
+  repository: Repository;
+  /** Optional URL to server icon image */
+  iconUrl?: string;
+  /** Version information for this server */
+  versionDetail: VersionDetail;
+}
+
+/**
+ * Detailed server configuration interface extending base server info.
+ * Includes package and remote connection configurations.
+ */
+export interface ServerDetail extends Server {
+  /** Package configurations for local server installation */
+  packages?: Package[];
+  /** Remote connection configurations for external servers */
+  remotes?: Remote[];
+}
+
+/**
+ * Server creation interface for new server registration.
+ * Omits the auto-generated _id field.
+ */
+export interface ServerCreate extends Omit<Server, "_id"> {}
+
+/**
+ * Server list response interface for paginated API responses.
+ */
+export interface ServerList {
+  /** Array of server information */
+  servers: Server[];
+  /** Optional cursor for next page */
+  next?: string;
+  /** Total count of available servers */
+  totalCount: number;
+}
+
+/**
+ * Publish request interface for submitting servers to the MCP store.
+ * Extends ServerDetail with authentication information.
+ */
+export interface PublishRequest extends ServerDetail {
+  /** Internal authentication status token */
+  authStatusToken?: string;
+}
+
+/**
+ * Pagination metadata interface for API responses.
+ */
+export interface Metadata {
+  /** Cursor for retrieving the next page */
+  nextCursor?: string;
+  /** Number of items in current page */
+  count?: number;
+  /** Total number of items available */
+  total?: number;
+}
+
+/**
+ * Paginated response interface for server listing APIs.
+ */
+export interface PaginatedResponse {
+  /** Array of server data */
+  data: Server[];
+  /** Optional pagination metadata */
+  metadata?: Metadata;
+}
 
 // Define base input shape (without recursion)
 const BaseInputShape = {
@@ -130,7 +313,7 @@ export const ArgumentSchema: z.ZodType<Argument> = z.lazy(() =>
 // ==================== Core Entity Schemas ====================
 
 // Authentication information schema
-export const AuthenticationSchema = z.object({
+export const AuthenticationSchema: z.ZodSchema<Authentication> = z.object({
   method: AuthMethodSchema.optional().describe("The authentication method"),
   token: z.string().optional().describe("The authentication token"),
   repoRef: z.string().optional().describe(
@@ -139,14 +322,14 @@ export const AuthenticationSchema = z.object({
 });
 
 // Repository information schema
-export const RepositorySchema = z.object({
+export const RepositorySchema: z.ZodSchema<Repository> = z.object({
   url: z.string().url().describe("The repository URL"),
   source: z.string().describe("The source platform (github, gitlab, etc.)"),
   id: z.string().describe("The repository ID on the platform"),
 });
 
 // Version details schema
-export const VersionDetailSchema = z.object({
+export const VersionDetailSchema: z.ZodSchema<VersionDetail> = z.object({
   version: z.string().describe("The version of the MCP server"),
   releaseDate: z.string().describe(
     "The release date of the MCP server (ISO 8601)",
@@ -155,7 +338,7 @@ export const VersionDetailSchema = z.object({
 });
 
 // Package configuration schema
-export const PackageSchema = z.object({
+export const PackageSchema: z.ZodSchema<Package> = z.object({
   registryName: z.string().describe(
     "The registry/provider name of the MCP server",
   ),
@@ -176,7 +359,7 @@ export const PackageSchema = z.object({
 });
 
 // Remote connection schema
-export const RemoteSchema = z.object({
+export const RemoteSchema: z.ZodSchema<Remote> = z.object({
   transportType: z.string().describe(
     "The transport type of the MCP server (SSE, HTTP, etc.)",
   ),
@@ -187,7 +370,7 @@ export const RemoteSchema = z.object({
 });
 
 // Base server schema
-export const ServerSchema = z.object({
+const $ServerSchema = z.object({
   _id: z.string().describe("The unique identifier of the MCP server"),
   name: z.string().describe(
     "The technical name of the MCP server (e.g., io.github.owner/repo)",
@@ -199,9 +382,10 @@ export const ServerSchema = z.object({
   ),
   versionDetail: VersionDetailSchema.describe("The version details"),
 });
+export const ServerSchema: z.ZodSchema<Server> = $ServerSchema;
 
 // Detailed server schema - extends base server
-export const ServerDetailSchema = ServerSchema.extend({
+const $ServerDetailSchema = $ServerSchema.extend({
   packages: z.array(PackageSchema).optional().describe(
     "The packages of the MCP server",
   ),
@@ -209,52 +393,43 @@ export const ServerDetailSchema = ServerSchema.extend({
     "The remote connections of the MCP server",
   ),
 });
+export const ServerDetailSchema: z.ZodSchema<ServerDetail> =
+  $ServerDetailSchema;
 
-export const ServerCreateSchema = ServerSchema.omit({
-  _id: true,
-});
+export const ServerCreateSchema: z.ZodSchema<ServerCreate> = $ServerSchema.omit(
+  {
+    _id: true,
+  },
+);
 
 // Server list schema
-export const ServerListSchema = z.object({
-  servers: z.array(ServerSchema).describe("The list of servers"),
+export const ServerListSchema: z.ZodSchema<ServerList> = z.object({
+  servers: z.array($ServerSchema).describe("The list of servers"),
   next: z.string().optional().describe("The cursor for the next page"),
   totalCount: z.number().describe("The total count of servers"),
 });
 
 // Publish request schema - extends detailed server, adds auth field
-export const PublishRequestSchema = ServerDetailSchema.extend({
-  authStatusToken: z.string().optional().describe(
-    "Internal authentication status token (not serialized)",
-  ),
-});
+export const PublishRequestSchema: z.ZodSchema<PublishRequest> =
+  $ServerDetailSchema.extend({
+    authStatusToken: z.string().optional().describe(
+      "Internal authentication status token (not serialized)",
+    ),
+  });
 
 // ==================== API Related Schemas ====================
 
 // Pagination metadata schema
-export const MetadataSchema = z.object({
+export const MetadataSchema: z.ZodSchema<Metadata> = z.object({
   nextCursor: z.string().optional().describe("The cursor for the next page"),
   count: z.number().optional().describe("The count of items in current page"),
   total: z.number().optional().describe("The total count of items"),
 });
 
 // Paginated response schema
-export const PaginatedResponseSchema = z.object({
-  data: z.array(ServerSchema).describe("The list of servers"),
-  metadata: MetadataSchema.optional().describe("Pagination metadata"),
-});
-
-// ==================== Type Inference ====================
-
-// Export the inferred types that don't have recursive references
-export type Authentication = z.infer<typeof AuthenticationSchema>;
-export type Repository = z.infer<typeof RepositorySchema>;
-export type VersionDetail = z.infer<typeof VersionDetailSchema>;
-export type Package = z.infer<typeof PackageSchema>;
-export type Remote = z.infer<typeof RemoteSchema>;
-export type Server = z.infer<typeof ServerSchema>;
-export type ServerDetail = z.infer<typeof ServerDetailSchema>;
-export type ServerCreate = z.infer<typeof ServerCreateSchema>;
-export type ServerList = z.infer<typeof ServerListSchema>;
-export type PublishRequest = z.infer<typeof PublishRequestSchema>;
-export type Metadata = z.infer<typeof MetadataSchema>;
-export type PaginatedResponse = z.infer<typeof PaginatedResponseSchema>;
+export const PaginatedResponseSchema: z.ZodSchema<PaginatedResponse> = z.object(
+  {
+    data: z.array($ServerSchema).describe("The list of servers"),
+    metadata: MetadataSchema.optional().describe("Pagination metadata"),
+  },
+);

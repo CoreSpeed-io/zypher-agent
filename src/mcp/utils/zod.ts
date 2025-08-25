@@ -4,7 +4,7 @@ export function jsonToZod(inputSchema: {
   type: "object";
   properties?: Record<string, unknown>;
   required?: string[];
-}) {
+}): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const properties = inputSchema.properties ?? {};
   const required = inputSchema.required ?? [];
 

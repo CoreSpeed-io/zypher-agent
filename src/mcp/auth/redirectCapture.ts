@@ -1,7 +1,13 @@
+export interface RedirectCapture {
+  onRedirect: (url: string) => void;
+  redirectPromise: Promise<void>;
+  getAuthUrl: () => string | undefined;
+}
+
 // Utility to capture the first OAuth redirect URL emitted during registration
 // This is placed in the OAuth layer so higher-level consumers (like the API server)
 // can simply import and await the helper without duplicating logic.
-export function createRedirectCapture() {
+export function createRedirectCapture(): RedirectCapture {
   let authUrl: string | undefined;
   let resolveRedirect!: () => void;
 
