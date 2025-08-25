@@ -45,7 +45,7 @@ export interface IMcpClientConfig {
  * MCPClient handles communication with MCP servers and tool execution
  */
 export class McpClient {
-  #client: Client | null = null;
+  #client: Client;
   #connectionAttempts = new Set<string>();
   // Current connection state of the client
   #status:
@@ -87,23 +87,21 @@ export class McpClient {
    * @param mode Connection mode (CLI or SSE)
    * @param config Server configuration
    */
-  connect = async (
+  async connect(
     mode: ConnectionMode = ConnectionMode.HTTP_FIRST,
     oAuthProviderOptions?: OAuthProviderOptions,
-  ): Promise<void> => {
+  ): Promise<void> {
     // Mark the client as attempting to connect
     this.#status = "connecting";
     this.#connectionAttempts.clear();
     await this.#connectRecursive(mode, oAuthProviderOptions);
-  };
+  }
 
-  #connectRecursive = async (
+  async #connectRecursive(
     mode: ConnectionMode,
     oAuthProviderOptions?: OAuthProviderOptions,
     oAuthProvider?: McpOAuthClientProvider,
-  ): Promise<void> => {
-    this.#ensureClient();
-
+  ): Promise<void> {
     // If mode is CLI, handle CLI connection and skip remote logic.
     if (mode === ConnectionMode.CLI) {
       if (!this.#server.packages || this.#server.packages.length === 0) {
@@ -149,7 +147,7 @@ export class McpClient {
     }
 
     try {
-      await this.#client!.connect(this.transport);
+      await this.#client.connect(this.transport);
       // Update status upon successful connection
       this.#status = "connected";
       console.log(
@@ -257,10 +255,9 @@ export class McpClient {
       this.#status = "disconnected";
       throw error;
     }
-  };
+  }
 
-  #handleCliConnect = async (): Promise<void> => {
-    this.#ensureClient();
+  async #handleCliConnect(): Promise<void> {
     const config = this.#server.packages?.[0];
     if (!config) {
       throw new McpError(
@@ -300,13 +297,13 @@ export class McpClient {
       args: allArgs,
       env: { ...filteredEnvVars, ...cliEnv },
     });
-    await this.#client!.connect(this.transport);
+    await this.#client.connect(this.transport);
     // Update status upon successful connection
     this.#status = "connected";
     return;
-  };
+  }
 
-  #parseCommand = (command: string): string => {
+  #parseCommand(command: string): string {
     switch (command) {
       case "npm":
         return "npx";
@@ -327,16 +324,7 @@ export class McpClient {
       default:
         return command;
     }
-  };
-
-  #ensureClient = (): void => {
-    if (!this.#client) {
-      throw new McpError(
-        "server_error",
-        "Client is not initialized",
-      );
-    }
-  };
+  }
 
   /**
    * Connects to an MCP server and discovers available tools
@@ -350,13 +338,6 @@ export class McpClient {
     oAuthProviderOptions?: OAuthProviderOptions,
   ): Promise<Tool[]> {
     try {
-      if (!this.#client) {
-        throw new McpError(
-          "server_error",
-          "Client is not initialized",
-        );
-      }
-
       // Connect to the server
       await this.connect(mode, oAuthProviderOptions);
       console.log("Connected to MCP server", this.#server.name);
@@ -382,13 +363,6 @@ export class McpClient {
    * @private
    */
   async #discoverTools(): Promise<void> {
-    if (!this.#client) {
-      throw new McpError(
-        "server_error",
-        "Client is not initialized",
-      );
-    }
-
     const toolResult = await this.#client.listTools();
     console.log(`Discovered ${toolResult.tools.length} tools from server`);
 
@@ -440,7 +414,7 @@ export class McpClient {
    * @returns True if connected, false otherwise
    */
   isConnected(): boolean {
-    return this.#client !== null && this.transport !== null;
+    return this.transport !== null;
   }
 
   toggleEnabled(enabled: boolean): void {
@@ -457,13 +431,6 @@ export class McpClient {
     name: string;
     input: Record<string, unknown>;
   }): Promise<unknown> {
-    if (!this.#client) {
-      throw new McpError(
-        "server_error",
-        "Client not connected",
-      );
-    }
-
     const result = await this.#client.callTool({
       name: toolCall.name,
       arguments: toolCall.input,
@@ -478,11 +445,10 @@ export class McpClient {
   async cleanup(): Promise<void> {
     if (this.transport) {
       try {
-        await this.#client?.close();
+        await this.#client.close();
         // Mark status as disconnected after cleanup
         this.#status = "disconnected";
         this.transport = null;
-        this.#client = null;
       } catch (error) {
         const errorMessage = error instanceof Error
           ? error.message
@@ -495,7 +461,7 @@ export class McpClient {
     }
   }
 
-  #isFallbackError = (mode: ConnectionMode, error: unknown): boolean => {
+  #isFallbackError(mode: ConnectionMode, error: unknown): boolean {
     const shouldAttemptFallback = mode === ConnectionMode.HTTP_FIRST ||
       mode === ConnectionMode.SSE_FIRST;
 
@@ -510,9 +476,9 @@ export class McpClient {
       errorMessage.includes("404") ||
       errorMessage.includes("not found")
     );
-  };
+  }
 
-  #isAuthError = (error: unknown): boolean => {
+  #isAuthError(error: unknown): boolean {
     // Directly check for known UnauthorizedError type from MCP SDK
     if (error instanceof UnauthorizedError) {
       return true;
@@ -530,7 +496,7 @@ export class McpClient {
       errorMessage.includes("oauth") ||
       errorMessage.includes("oauth 2.0")
     );
-  };
+  }
 
   getStatus():
     | "connected"
