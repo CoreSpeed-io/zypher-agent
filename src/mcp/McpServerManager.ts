@@ -40,9 +40,7 @@ export class McpServerManager {
   #dataDir: string | null = null;
   #mcpRegistryBaseUrl: string | null = null;
 
-  #createMcpClient(
-    server: ZypherMcpServer,
-  ): McpClient {
+  #createMcpClient(server: ZypherMcpServer): McpClient {
     return new McpClient(
       {
         id: server._id,
@@ -82,7 +80,7 @@ export class McpServerManager {
    * @param filename The configuration file name
    * @returns The full path to the configuration file
    */
-  #getConfigPath = (filename: string): string => {
+  #getConfigPath(filename: string): string {
     if (!this.#dataDir) {
       throw new McpError(
         "server_error",
@@ -90,13 +88,13 @@ export class McpServerManager {
       );
     }
     return join(this.#dataDir, filename);
-  };
+  }
 
   /**
    * Loads and validates the MCP configuration from mcp.json
    * @throws Error if config file is invalid or cannot be loaded
    */
-  #loadConfig = async (): Promise<void> => {
+  async #loadConfig(): Promise<void> {
     try {
       const configPath = this.#getConfigPath(this.#configFile);
       try {
@@ -129,7 +127,7 @@ export class McpServerManager {
         `Failed to load MCP config: ${formatError(errorMessage)}`,
       );
     }
-  };
+  }
 
   /**
    * Reloads the configuration from mcp.json and reinitializes all servers
@@ -161,9 +159,9 @@ export class McpServerManager {
    * Initializes all configured servers and registers their tools
    * @throws Error if config is not loaded or server initialization fails
    */
-  #initializeServers = async (
+  async #initializeServers(
     oAuthProviderOptions?: OAuthProviderOptions,
-  ): Promise<void> => {
+  ): Promise<void> {
     if (!this.#config) {
       throw new McpError(
         "server_error",
@@ -197,7 +195,7 @@ export class McpServerManager {
     );
 
     await Promise.all(serverInitPromises);
-  };
+  }
 
   /**
    * Initializes the client for a server
@@ -492,9 +490,9 @@ export class McpServerManager {
     }
   }
 
-  #getServer = (id: string): ZypherMcpServer | undefined => {
+  #getServer(id: string): ZypherMcpServer | undefined {
     return this.#serverMap.get(id);
-  };
+  }
 
   #checkServerExists(serverName: string): boolean {
     return this.#serverMap.values().some((server) =>
@@ -535,7 +533,7 @@ export class McpServerManager {
   /**
    * Saves the current configuration to mcp.json
    */
-  #saveConfig = async (): Promise<void> => {
+  async #saveConfig(): Promise<void> {
     if (!this.#config) {
       throw new McpError(
         "server_error",
@@ -548,7 +546,7 @@ export class McpServerManager {
       this.#getConfigPath(this.#configFile),
       JSON.stringify(this.#config, null, 2),
     );
-  };
+  }
 
   /**
    * Gets all registered tools from all enabled servers and directly registered tools
