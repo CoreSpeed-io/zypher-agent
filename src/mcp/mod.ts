@@ -7,6 +7,5 @@ export * from "./auth/config.ts";
 export * from "./auth/McpOAuthClientProvider.ts";
 export * from "./auth/redirectCapture.ts";
 
-export * from "./utils/config.ts";
 export * from "./utils/transport.ts";
 export * from "./utils/zod.ts";
