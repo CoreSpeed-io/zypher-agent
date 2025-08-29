@@ -320,8 +320,10 @@ async function runBenchmarkTask(
 
           if (event.message.role === "user") {
             printMessage(event.message);
-            messagesCount++;
             Deno.stdout.write(textEncoder.encode("\n"));
+          }
+          if (event.message.role === "assistant") {
+            messagesCount++;
           }
         } else if (event.type === "tool_use") {
           Deno.stdout.write(
