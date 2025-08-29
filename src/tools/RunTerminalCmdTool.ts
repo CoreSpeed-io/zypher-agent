@@ -2,6 +2,11 @@ import { z } from "zod";
 import { defineTool, type Tool } from "./mod.ts";
 import { exec, spawn } from "node:child_process";
 import { promisify } from "node:util";
+import { join } from "@std/path";
+
+const PYTHON_VENV_PATH = Deno.env.get("PYTHON_VENV_PATH")!;
+const VENV_ACTIVATE_COMMAND = ". " +
+  join(PYTHON_VENV_PATH, "bin", "activate");
 
 const execAsync = promisify(exec);
 
@@ -28,6 +33,7 @@ export const RunTerminalCmdTool: Tool<{
       .describe("One sentence explanation for tool usage"),
   }),
   execute: async ({ command, isBackground }) => {
+    command = VENV_ACTIVATE_COMMAND + " && " + command;
     try {
       if (isBackground) {
         // For background processes, use spawn
