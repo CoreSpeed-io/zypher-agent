@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool } from "./mod.ts";
+import { defineTool, type Tool } from "./mod.ts";
 import { applyPatch } from "npm:diff";
 import { fileExists } from "../utils/data.ts";
 
@@ -292,7 +292,15 @@ async function undoFile(targetFile: string, backupDir: string) {
   }
 }
 
-export const EditFileTool = defineTool({
+export const EditFileTool: Tool<{
+  targetFile: string;
+  instructions: string;
+  action: EditFileAction;
+  newContent: string;
+  insertPosition?: number;
+  oldContent?: string;
+  reFlags?: string;
+}> = defineTool({
   name: "edit_file",
   description: `Edit a text file using one of several actions.
 
