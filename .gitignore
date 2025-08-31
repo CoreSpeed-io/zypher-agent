@@ -149,3 +149,5 @@ npm/
 bench/GAIA
 bench/output
 bench/workspace
+
+.zypherrules
