@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { defineTool } from "./mod.ts";
-import { applyPatch } from "npm:diff";
+import { defineTool, type Tool } from "./mod.ts";
+import { applyPatch } from "npm:diff@8.0.2";
 import { fileExists } from "../utils/data.ts";
+
+const BACKUP_DIR = "./.backup";
 
 enum EditFileAction {
   INSERT = "insert",
@@ -292,7 +294,15 @@ async function undoFile(targetFile: string, backupDir: string) {
   }
 }
 
-export const EditFileTool = defineTool({
+export const EditFileTool: Tool<{
+  targetFile: string;
+  instructions: string;
+  action: EditFileAction;
+  newContent: string;
+  insertPosition?: number;
+  oldContent?: string;
+  reFlags?: string;
+}> = defineTool({
   name: "edit_file",
   description: `Edit a text file using one of several actions.
 
@@ -303,13 +313,13 @@ Parameters:
 - newContent: 
   - For OVERWRITE: the full new file content.
   - For INSERT: the text to insert.
-  - For REPLACE_STR_*: the substring to match.
-  - For REPLACE_REGEX: the *pattern* (JS RegExp source string).
+  - For REPLACE_STR_*: the replacement text.
+  - For REPLACE_REGEX: the replacement text or *pattern* (JS RegExp source string).
   - For PATCH: the unified diff string for PATCH.
 - insertPosition (optional): 1-based line number to insert BEFORE (for "insert"). If > EOF, appends at end.
 - oldContent (optional):
-  - For REPLACE_STR_*: the substring to replace.
-  - For REPLACE_REGEX: the *pattern* (JS RegExp source string).
+  - For REPLACE_STR_*: the search string.
+  - For REPLACE_REGEX: the regex *pattern* (JS RegExp source string).
 - reFlags (optional): the RegExp flags (e.g. "g", "i") to use for REPLACE_REGEX, default is "g".
 
 Behavior:
@@ -370,7 +380,6 @@ On error:
       reFlags,
     },
   ) => {
-    const BACKUP_DIR = "./.temp";
     await Deno.mkdir(BACKUP_DIR, { recursive: true });
     const fileName = targetFile.split("/").pop() || "file";
 
@@ -391,7 +400,7 @@ On error:
       if (action !== EditFileAction.CREATE) {
         return errorResponse(
           targetFile,
-          EditFileAction.CREATE,
+          action,
           `${targetFile} does not exist`,
         );
       }
