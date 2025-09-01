@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineTool, type Tool } from "./mod.ts";
-import { applyPatch } from "npm:diff";
+import { applyPatch } from "npm:diff@8.0.2";
 import { fileExists } from "../utils/data.ts";
 
 const BACKUP_DIR = "./.backup";
