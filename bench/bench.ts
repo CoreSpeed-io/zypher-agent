@@ -628,7 +628,7 @@ async function main(): Promise<void> {
         const customInstructions = await Deno.readTextFile(".zypherrules");
 
         const zypherConfig: Partial<ZypherAgentConfig> = {
-          persistHistory: true,
+          persistHistory: false,
           enableCheckpointing: false,
           taskTimeoutMs: 3000000,
           customInstructions: customInstructions,
