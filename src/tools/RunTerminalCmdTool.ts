@@ -8,6 +8,8 @@ const PYTHON_VENV_PATH = Deno.env.get("PYTHON_VENV_PATH")!;
 const VENV_ACTIVATE_COMMAND = ". " +
   join(PYTHON_VENV_PATH, "bin", "activate");
 
+const ALIAS_FD_COMMAND = "alias fd='fdfind'";
+
 const execAsync = promisify(exec);
 
 export const RunTerminalCmdTool: Tool<{
@@ -33,7 +35,8 @@ export const RunTerminalCmdTool: Tool<{
       .describe("One sentence explanation for tool usage"),
   }),
   execute: async ({ command, isBackground }) => {
-    command = VENV_ACTIVATE_COMMAND + " && " + command;
+    command = ALIAS_FD_COMMAND + " && " + VENV_ACTIVATE_COMMAND + " && " +
+      command;
     try {
       if (isBackground) {
         // For background processes, use spawn
