@@ -27,7 +27,7 @@ export async function runAgentInTerminal(agent: ZypherAgent, model: string) {
 
       if (task.toLowerCase() === "exit") {
         console.log("\nGoodbye! 👋\n");
-        break;
+        Deno.exit(0);
       }
 
       if (!task.trim()) continue;
