@@ -79,3 +79,5 @@ export { GrepSearchTool } from "./GrepSearchTool.ts";
 export { FileSearchTool } from "./FileSearchTool.ts";
 export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
 export { defineImageTools } from "./ImageTools.ts";
+export { VideoInferenceTool } from "./VideoInferenceTool.ts";
+export { VideoDownloadTool } from "./VideoDownloadTool.ts";

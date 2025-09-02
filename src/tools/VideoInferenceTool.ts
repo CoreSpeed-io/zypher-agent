@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { defineTool } from "./mod.ts";
 import {
-  GoogleGenAI,
-  createUserContent,
   createPartFromUri,
-  File,
-} from "@google/genai";
+  createUserContent,
+  type File,
+  GoogleGenAI,
+} from "npm:@google/genai@1.16.0";
 import { ensureDir } from "@std/fs";
 
 const { createHash } = await import("node:crypto");
@@ -44,7 +44,8 @@ async function getVideoHash(videoPath: string): Promise<string> {
 
 export const VideoInferenceTool = defineTool({
   name: "video_inference",
-  description: `Ask a question about a local video file by uploading it to Gemini (via GoogleGenAI), and querying it with a user question.
+  description:
+    `Ask a question about a local video file by uploading it to Gemini (via GoogleGenAI), and querying it with a user question.
 
 The tool automatically handles file caching using an MD5 hash to avoid re-uploading the same video again.
 
@@ -61,7 +62,9 @@ The tool uploads the video (if not cached), waits for the file to become ACTIVE,
     question: z.string().describe("A question to ask about the video content"),
   }),
   execute: async ({ videoPath, question }) => {
-    const genAI = new GoogleGenAI({ apiKey: Deno.env.get("GOOGLE_GENIMI_API_KEY") });
+    const genAI = new GoogleGenAI({
+      apiKey: Deno.env.get("GOOGLE_GENIMI_API_KEY"),
+    });
     const videoHash = await getVideoHash(videoPath);
 
     let fileUri: string;

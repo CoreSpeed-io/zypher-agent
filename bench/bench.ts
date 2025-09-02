@@ -9,6 +9,8 @@ import {
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
+  VideoDownloadTool,
+  VideoInferenceTool,
 } from "../src/tools/mod.ts";
 import { formatError } from "../src/error.ts";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
@@ -545,40 +547,8 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(FileSearchTool);
     mcpServerManager.registerTool(CopyFileTool);
     mcpServerManager.registerTool(DeleteFileTool);
-    // mcpServerManager.registerTool(YouTubeVideoAccessTool);
-    // mcpServerManager.registerTool(WebSearchTool);
-    // mcpServerManager.registerTool(WebsiteAccessTool);
-    // mcpServerManager.registerTool(AudioToTextTool);
-    // mcpServerManager.registerTool(AskImageQuestionTool);
-    // mcpServerManager.registerTool(AskFileUrlQuestionTool);
-
-    // mcpServerManager.registerTool(AccessWebsiteInBrowserTool);
-    // mcpServerManager.registerTool(ClickWebsiteElementInBrowserTool);
-    // mcpServerManager.registerTool(FillInputElementInBrowserTool);
-
-    // mcpServerManager.registerTool(SearchWikipediaTool);
-    // mcpServerManager.registerTool(VideoFrameAtTimeTool);
-    // mcpServerManager.registerTool(VideoAudioExtractTool);
-    // mcpServerManager.registerTool(VideoDownloadTool);
-    // mcpServerManager.registerTool(VideoToGifClipTool);
-
-    // mcpServerManager.registerTool(VideoInferenceTool);
-    // mcpServerManager.registerTool(VideoCompressionTool);
-
-    // mcpServerManager.registerTool(BrowserOpenSessionTool);
-    // mcpServerManager.registerTool(BrowserCloseSessionTool);
-    // mcpServerManager.registerTool(BrowserNavigateTool);
-    // mcpServerManager.registerTool(BrowserForwardTool);
-    // mcpServerManager.registerTool(BrowserBackTool);
-    // mcpServerManager.registerTool(BrowserHoverTool);
-    // mcpServerManager.registerTool(BrowserScrollTool);
-    // mcpServerManager.registerTool(BrowserViewportScreenshotTool);
-    // mcpServerManager.registerTool(GetInteractiveElementsTool);
-    // mcpServerManager.registerTool(BrowserClickByIdTool);
-
-    // mcpServerManager.registerTool(BrowserViewportInteractivesScreenshotTool);
-    // mcpServerManager.registerTool(ClickInteractiveByIdTool);
-    // mcpServerManager.registerTool(BrowserTypeTool);
+    mcpServerManager.registerTool(VideoInferenceTool);
+    mcpServerManager.registerTool(VideoDownloadTool);
 
     console.log(
       "🔧 Registered tools:",
@@ -695,7 +665,6 @@ async function main(): Promise<void> {
         // }
       }
     }
-
     console.log(`\n💾 Results saved`);
     console.log("🎉 Benchmark completed!");
     Deno.exit(0);
