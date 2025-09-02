@@ -286,6 +286,8 @@ async function createFileAttachmentsForTask(
 
     switch (ext) {
       // case '.jpg':
+      //   contentType = 'image/jpeg';
+      //   break;
       // case '.jpeg':
       //   contentType = 'image/jpeg';
       //   break;
