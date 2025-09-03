@@ -2,6 +2,8 @@ import { z } from "zod";
 import { defineTool, type Tool } from "./mod.ts";
 import { applyPatch } from "diff";
 import { fileExists } from "../utils/data.ts";
+import { basename, dirname } from "@std/path";
+import { ensureDir } from "@std/fs";
 
 const DEFAULT_BACKUP_DIR = "./.backup";
 const DEFAULT_REPLACE_FLAGS = "g";
@@ -28,8 +30,8 @@ async function statBytes(path: string): Promise<number> {
 
 async function createFile(targetFile: string) {
   try {
-    const parent = targetFile.split("/").slice(0, -1).join("/");
-    if (parent) await Deno.mkdir(parent, { recursive: true });
+    const parent = dirname(targetFile);
+    if (parent) await ensureDir(parent);
 
     await Deno.create(targetFile);
 
@@ -59,8 +61,8 @@ async function overwriteFile(
   bytesBefore: number,
 ) {
   try {
-    const parent = targetFile.split("/").slice(0, -1).join("/");
-    if (parent) await Deno.mkdir(parent, { recursive: true });
+    const parent = dirname(targetFile);
+    if (parent) await ensureDir(parent);
 
     await Deno.writeTextFile(targetFile, content);
     const bytesAfter = await statBytes(targetFile);
@@ -257,7 +259,7 @@ async function patchFile(
 
 async function undoFile(targetFile: string, backupDir: string) {
   try {
-    const fileName = targetFile.split("/").pop() || "file";
+    const fileName = basename(targetFile);
 
     const backupFile = `${backupDir}/${fileName}.bak`;
     const backupExists = await fileExists(backupFile);
@@ -379,8 +381,8 @@ On error:
       backupDir,
     },
   ) => {
-    await Deno.mkdir(backupDir, { recursive: true });
-    const fileName = targetFile.split("/").pop() || "file";
+    await ensureDir(backupDir);
+    const fileName = basename(targetFile);
 
     try {
       await Deno.stat(targetFile);
