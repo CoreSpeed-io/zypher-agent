@@ -73,11 +73,9 @@ export function defineTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
 // Tool exports
 export { ReadFileTool } from "./ReadFileTool.ts";
 export { ListDirTool } from "./ListDirTool.ts";
-export { EditFileTool } from "./EditFileTool.ts";
+export { defineEditFileTool } from "./EditFileTool.ts";
 export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
 export { GrepSearchTool } from "./GrepSearchTool.ts";
 export { FileSearchTool } from "./FileSearchTool.ts";
 export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
 export { defineImageTools } from "./ImageTools.ts";
-export { VideoInferenceTool } from "./VideoInferenceTool.ts";
-export { VideoDownloadTool } from "./VideoDownloadTool.ts";

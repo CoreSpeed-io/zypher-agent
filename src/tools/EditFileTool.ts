@@ -5,7 +5,6 @@ import { fileExists } from "../utils/data.ts";
 import { basename, dirname } from "@std/path";
 import { ensureDir } from "@std/fs";
 
-const DEFAULT_BACKUP_DIR = "./.backup";
 const DEFAULT_REPLACE_FLAGS = "g";
 
 enum EditFileAction {
@@ -94,9 +93,17 @@ async function insertFileAt(
   bytesBefore: number,
 ) {
   try {
+    if (insertAt < 1) {
+      return JSON.stringify({
+        ok: false,
+        tool: "edit_file",
+        error: `Invalid insertAt value: ${insertAt}. Must be greater than 0.`,
+        data: { targetFile, action: EditFileAction.INSERT, insertAt },
+      });
+    }
     const original = await Deno.readTextFile(targetFile);
     const lines = original.split("\n");
-    const safeInsertAt = Math.max(0, insertAt - 1);
+    const safeInsertAt = insertAt - 1;
 
     lines.splice(safeInsertAt, 0, ...content.split("\n"));
     const out = lines.join("\n");
@@ -287,18 +294,20 @@ async function undoFile(targetFile: string, backupDir: string) {
   }
 }
 
-export const EditFileTool: Tool<{
-  targetFile: string;
-  instructions: string;
-  action: EditFileAction;
-  newContent: string;
-  insertAt?: number;
-  oldContent?: string;
-  reFlags?: string;
-  backupDir?: string;
-}> = defineTool({
-  name: "edit_file",
-  description: `Edit a text file using one of several actions.
+export function defineEditFileTool(backupDir: string): {
+  EditFileTool: Tool<{
+    targetFile: string;
+    instructions: string;
+    action: EditFileAction;
+    newContent: string;
+    insertAt?: number;
+    oldContent?: string;
+    reFlags?: string;
+  }>;
+} {
+  const EditFileTool = defineTool({
+    name: "edit_file",
+    description: `Edit a text file using one of several actions.
 
 Parameters:
 - targetFile: The target file to edit.
@@ -315,7 +324,6 @@ Parameters:
   - For PATCH: the unified diff string for PATCH.
 - reFlags (optional): the RegExp flags (e.g. "g", "i") to use for REPLACE_REGEX, default is "g".
 - insertAt (optional): 1-based line number to insert BEFORE (for "insert"). If > EOF, appends at end.
-- backupDir (optional): the directory to store backup copies of the original file, default is "./backup".
 
 Behavior:
 - Validates file existence before editing (except CREATE).
@@ -352,178 +360,194 @@ On error:
     "action": "<action>"
   }
 }`,
-  parameters: z.object({
-    targetFile: z.string().describe("The target file to edit"),
-    instructions: z.string().describe("Instructions for the edit"),
-    action: z.nativeEnum(EditFileAction).describe("The action to perform")
-      .default(EditFileAction.CREATE),
-    oldContent: z.string().describe("Old content to be replaced").optional(),
-    newContent: z.string().describe("The new content for the file"),
-    reFlags: z.string().optional().default(DEFAULT_REPLACE_FLAGS).describe(
-      `The RegExp flags (e.g. 'g', 'i') to use for REPLACE_REGEX, default is '${DEFAULT_REPLACE_FLAGS}'`,
-    ),
-    insertAt: z.number().min(1).optional().describe(
-      "1-based line number to insert BEFORE (for insert)",
-    ),
-    backupDir: z.string().optional().default(DEFAULT_BACKUP_DIR).describe(
-      `The directory to store backup copies of the original file, default is '${DEFAULT_BACKUP_DIR}'`,
-    ),
-  }),
+    parameters: z.object({
+      targetFile: z
+        .string()
+        .describe("The target file to edit"),
+      instructions: z
+        .string()
+        .describe("Instructions for the edit"),
+      action: z
+        .nativeEnum(EditFileAction)
+        .describe("The action to perform")
+        .default(EditFileAction.CREATE),
+      oldContent: z
+        .string()
+        .optional()
+        .describe("Old content to be replaced"),
+      newContent: z
+        .string()
+        .describe("The new content for the file"),
+      reFlags: z
+        .string()
+        .optional()
+        .default(DEFAULT_REPLACE_FLAGS)
+        .describe(
+          `The RegExp flags (e.g. 'g', 'i') to use for REPLACE_REGEX, default is '${DEFAULT_REPLACE_FLAGS}'`,
+        ),
+      insertAt: z
+        .number()
+        .min(1)
+        .optional()
+        .describe(
+          "1-based line number to insert BEFORE (for insert)",
+        ),
+    }),
 
-  execute: async (
-    {
+    execute: async ({
       targetFile,
       action,
       oldContent,
       newContent,
       reFlags,
       insertAt,
-      backupDir,
-    },
-  ) => {
-    await ensureDir(backupDir);
-    const fileName = basename(targetFile);
-
-    try {
-      await Deno.stat(targetFile);
-      if (action === EditFileAction.CREATE) {
-        return JSON.stringify({
-          ok: false,
-          tool: "edit_file",
-          error: `${targetFile} already exists`,
-          data: { targetFile, action: EditFileAction.CREATE },
-        });
-      }
-      // Backup original file
-      if (action !== EditFileAction.UNDO) {
-        await Deno.copyFile(
-          targetFile,
-          `${backupDir}/${fileName}.bak`,
-        );
-      }
-    } catch {
-      if (
-        action !== EditFileAction.CREATE && action !== EditFileAction.OVERWRITE
-      ) {
-        return JSON.stringify({
-          ok: false,
-          tool: "edit_file",
-          error: `${targetFile} does not exist`,
-          data: { targetFile, action },
-        });
-      }
-    }
-
-    try {
-      const bytesBefore = await statBytes(targetFile);
-
-      switch (action) {
-        case EditFileAction.CREATE: {
-          return await createFile(targetFile);
-        }
-        case EditFileAction.OVERWRITE: {
-          return await overwriteFile(targetFile, newContent, bytesBefore);
-        }
-
-        case EditFileAction.INSERT: {
-          if (!insertAt) {
-            return JSON.stringify({
-              ok: false,
-              tool: "edit_file",
-              error: "'insertAt' is required for INSERT",
-              data: { targetFile, action: EditFileAction.INSERT },
-            });
-          }
-
-          return await insertFileAt(
-            targetFile,
-            newContent,
-            insertAt,
-            bytesBefore,
-          );
-        }
-
-        case EditFileAction.REPLACE_STR_FIRST: {
-          if (!oldContent) {
-            return JSON.stringify({
-              ok: false,
-              tool: "edit_file",
-              error: "'oldContent' is required for REPLACE_STR_FIRST",
-              data: { targetFile, action: EditFileAction.REPLACE_STR_FIRST },
-            });
-          }
-          return await replaceStringInFile(
-            targetFile,
-            oldContent,
-            newContent,
-            false,
-            bytesBefore,
-          );
-        }
-
-        case EditFileAction.REPLACE_STR_ALL: {
-          if (!oldContent) {
-            return JSON.stringify({
-              ok: false,
-              tool: "edit_file",
-              error: "'oldContent' is required for REPLACE_STR_ALL",
-              data: { targetFile, action: EditFileAction.REPLACE_STR_ALL },
-            });
-          }
-          return await replaceStringInFile(
-            targetFile,
-            oldContent,
-            newContent,
-            true,
-            bytesBefore,
-          );
-        }
-
-        case EditFileAction.REPLACE_REGEX: {
-          if (!oldContent) {
-            return JSON.stringify({
-              ok: false,
-              tool: "edit_file",
-              error: "'oldContent' is required for REPLACE_REGEX",
-              data: { targetFile, action: EditFileAction.REPLACE_REGEX },
-            });
-          }
-
-          return await replaceRegexInFile(
-            targetFile,
-            oldContent,
-            reFlags,
-            newContent,
-            bytesBefore,
-          );
-        }
-
-        case EditFileAction.PATCH: {
-          return await patchFile(targetFile, newContent, bytesBefore);
-        }
-
-        case EditFileAction.UNDO: {
-          return await undoFile(targetFile, backupDir);
-        }
-
-        default: {
+    }): Promise<string> => {
+      await ensureDir(backupDir);
+      const fileName = basename(targetFile);
+      try {
+        await Deno.stat(targetFile);
+        if (action === EditFileAction.CREATE) {
           return JSON.stringify({
             ok: false,
             tool: "edit_file",
-            error: `Unknown action: ${action}`,
+            error: `${targetFile} already exists`,
+            data: { targetFile, action: EditFileAction.CREATE },
+          });
+        }
+        // Backup original file
+        if (action !== EditFileAction.UNDO) {
+          await Deno.copyFile(
+            targetFile,
+            `${backupDir}/${fileName}.bak`,
+          );
+        }
+      } catch {
+        if (
+          action !== EditFileAction.CREATE &&
+          action !== EditFileAction.OVERWRITE
+        ) {
+          return JSON.stringify({
+            ok: false,
+            tool: "edit_file",
+            error: `${targetFile} does not exist`,
             data: { targetFile, action },
           });
         }
       }
-    } catch (e) {
-      return JSON.stringify({
-        ok: false,
-        tool: "edit_file",
-        error: `Error editing file: ${
-          e instanceof Error ? e.message : String(e)
-        }`,
-        data: { targetFile, action },
-      });
-    }
-  },
-});
+
+      try {
+        const bytesBefore = await statBytes(targetFile);
+
+        switch (action) {
+          case EditFileAction.CREATE: {
+            return await createFile(targetFile);
+          }
+          case EditFileAction.OVERWRITE: {
+            return await overwriteFile(targetFile, newContent, bytesBefore);
+          }
+
+          case EditFileAction.INSERT: {
+            if (!insertAt) {
+              return JSON.stringify({
+                ok: false,
+                tool: "edit_file",
+                error: "'insertAt' is required for INSERT",
+                data: { targetFile, action: EditFileAction.INSERT },
+              });
+            }
+
+            return await insertFileAt(
+              targetFile,
+              newContent,
+              insertAt,
+              bytesBefore,
+            );
+          }
+
+          case EditFileAction.REPLACE_STR_FIRST: {
+            if (!oldContent) {
+              return JSON.stringify({
+                ok: false,
+                tool: "edit_file",
+                error: "'oldContent' is required for REPLACE_STR_FIRST",
+                data: { targetFile, action: EditFileAction.REPLACE_STR_FIRST },
+              });
+            }
+            return await replaceStringInFile(
+              targetFile,
+              oldContent,
+              newContent,
+              false,
+              bytesBefore,
+            );
+          }
+
+          case EditFileAction.REPLACE_STR_ALL: {
+            if (!oldContent) {
+              return JSON.stringify({
+                ok: false,
+                tool: "edit_file",
+                error: "'oldContent' is required for REPLACE_STR_ALL",
+                data: { targetFile, action: EditFileAction.REPLACE_STR_ALL },
+              });
+            }
+            return await replaceStringInFile(
+              targetFile,
+              oldContent,
+              newContent,
+              true,
+              bytesBefore,
+            );
+          }
+
+          case EditFileAction.REPLACE_REGEX: {
+            if (!oldContent) {
+              return JSON.stringify({
+                ok: false,
+                tool: "edit_file",
+                error: "'oldContent' is required for REPLACE_REGEX",
+                data: { targetFile, action: EditFileAction.REPLACE_REGEX },
+              });
+            }
+
+            return await replaceRegexInFile(
+              targetFile,
+              oldContent,
+              reFlags,
+              newContent,
+              bytesBefore,
+            );
+          }
+
+          case EditFileAction.PATCH: {
+            return await patchFile(targetFile, newContent, bytesBefore);
+          }
+
+          case EditFileAction.UNDO: {
+            return await undoFile(targetFile, backupDir);
+          }
+
+          default: {
+            return JSON.stringify({
+              ok: false,
+              tool: "edit_file",
+              error: `Unknown action: ${action}`,
+              data: { targetFile, action },
+            });
+          }
+        }
+      } catch (e) {
+        return JSON.stringify({
+          ok: false,
+          tool: "edit_file",
+          error: `Error editing file: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+          data: { targetFile, action },
+        });
+      }
+    },
+  });
+
+  return { EditFileTool };
+}

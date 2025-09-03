@@ -11,9 +11,9 @@ import {
 } from "@zypher/loopInterceptors/mod.ts";
 import {
   CopyFileTool,
+  defineEditFileTool,
   defineImageTools,
   DeleteFileTool,
-  EditFileTool,
   FileSearchTool,
   GrepSearchTool,
   ListDirTool,
@@ -29,6 +29,7 @@ import {
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
+const DEFAULT_BACKUP_DIR = "./.backup";
 
 const providerType = new EnumType(["anthropic", "openai"]);
 
@@ -52,6 +53,7 @@ const { options: cli } = await new Command()
     "--openai-api-key <openaiApiKey:string>",
     "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
   )
+  .option("--backup-dir <backupDir:string>", "Directory to store backups")
   .parse(Deno.args);
 
 const mcpServerManager = new McpServerManager();
@@ -134,7 +136,6 @@ async function main(): Promise<void> {
     // Register all available tools
     mcpServerManager.registerTool(ReadFileTool);
     mcpServerManager.registerTool(ListDirTool);
-    mcpServerManager.registerTool(EditFileTool);
     mcpServerManager.registerTool(RunTerminalCmdTool);
     mcpServerManager.registerTool(GrepSearchTool);
     mcpServerManager.registerTool(FileSearchTool);
@@ -150,6 +151,10 @@ async function main(): Promise<void> {
       mcpServerManager.registerTool(ImageGenTool);
       mcpServerManager.registerTool(ImageEditTool);
     }
+
+    const backupDir = cli.backupDir ?? DEFAULT_BACKUP_DIR;
+    const { EditFileTool } = defineEditFileTool(backupDir);
+    mcpServerManager.registerTool(EditFileTool);
 
     console.log(
       "🔧 Registered tools:",
