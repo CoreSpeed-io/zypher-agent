@@ -446,6 +446,7 @@ On error:
           case EditFileAction.CREATE: {
             return await createFile(targetFile);
           }
+
           case EditFileAction.OVERWRITE: {
             return await overwriteFile(targetFile, newContent, bytesBefore);
           }
@@ -477,6 +478,7 @@ On error:
                 data: { targetFile, action: EditFileAction.REPLACE_STR_FIRST },
               });
             }
+
             return await replaceStringInFile(
               targetFile,
               oldContent,
@@ -495,6 +497,7 @@ On error:
                 data: { targetFile, action: EditFileAction.REPLACE_STR_ALL },
               });
             }
+
             return await replaceStringInFile(
               targetFile,
               oldContent,
