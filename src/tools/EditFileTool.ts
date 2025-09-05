@@ -298,7 +298,7 @@ async function undoFile(targetFile: string, backupDir: string) {
  * @param backupDir - The directory where file backups will be stored before edits are applied. Defaults to ./backup if not provided.
  * @returns An object containing the configured file editing tool
  */
-export function defineEditFileTool(backupDir: string): {
+export function defineEditFileTool(backupDir: string = "./backup"): {
   EditFileTool: Tool<{
     targetFile: string;
     instructions: string;
