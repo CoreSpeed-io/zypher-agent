@@ -5,8 +5,6 @@ import { fileExists } from "../utils/data.ts";
 import { basename, dirname } from "@std/path";
 import { ensureDir } from "@std/fs";
 
-const DEFAULT_REPLACE_FLAGS = "g";
-
 enum EditFileAction {
   INSERT = "insert",
   REPLACE_REGEX = "replace_regex",
@@ -294,6 +292,12 @@ async function undoFile(targetFile: string, backupDir: string) {
   }
 }
 
+/**
+ * Define a file editing tool with an optional backup directory
+ *
+ * @param backupDir - The directory where file backups will be stored before edits are applied. Defaults to ./backup if not provided.
+ * @returns An object containing the configured file editing tool
+ */
 export function defineEditFileTool(backupDir: string): {
   EditFileTool: Tool<{
     targetFile: string;
@@ -381,9 +385,9 @@ On error:
       reFlags: z
         .string()
         .optional()
-        .default(DEFAULT_REPLACE_FLAGS)
+        .default("g")
         .describe(
-          `The RegExp flags (e.g. 'g', 'i') to use for REPLACE_REGEX, default is '${DEFAULT_REPLACE_FLAGS}'`,
+          `The RegExp flags (e.g. 'g', 'i') to use for REPLACE_REGEX, default is 'g'`,
         ),
       insertAt: z
         .number()
