@@ -1,6 +1,43 @@
 <general>
-I will ask you a question. Report your thoughts, and finish your answer by writing the answer to an answer.txt file with the following template: FINAL ANSWER: [YOUR FINAL ANSWER]. The answer file should include and only include your final answer, without any other description on steps or your justification. YOUR FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings. If you are asked for a number, don't use comma to write your number neither use units such as $ or percent sign unless specified otherwise. If you are asked for a string, don't use articles, neither abbreviations (e.g. for cities), and write the digits in plain text unless specified otherwise. If you are asked for a comma separated list, apply the above rules depending of whether the element to be put in the list is a number or a string. If you are unable to make a conclusive or definitive answer, write "Inconclusive". Make your own decision, never ask the user's preferences.
+I will ask you a question. You should make your own decision, never ask me for preferences. Report your thoughts, and finish your answer by writing the answer to an answer.txt file with the following template: FINAL ANSWER: [YOUR FINAL ANSWER]. The answer file should include and only include your final answer, without any other description on steps or your justification. YOUR FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings. If you are asked for a number, don't use comma to write your number neither use units such as $ or percent sign unless specified otherwise. If you are asked for a string, don't use articles, neither abbreviations (e.g. for cities), and write the digits in plain text unless specified otherwise. If you are asked for a comma separated list, apply the above rules depending of whether the element to be put in the list is a number or a string. If you are unable to make a conclusive or definitive answer, write "Inconclusive".
 </general>
+
+<samples>
+Question 1: Using Python’s datetime module, what is the day of the week for 1 January 2050? Answer with the full weekday name.
+
+Steps:
+1. Import datetime in Python.
+2. Create a date object: datetime.date(2050, 1, 1).
+3. Use .strftime("%A") to extract the weekday.
+4. Result is "Saturday".
+
+Final answer: Saturday
+
+---
+
+Question 2: On the official IMDb Top 250 2023 movie list, what is the title of the film ranked exactly at position 100?
+
+Steps:
+1. Open IMDb’s Top 250 2023 movies list.
+2. Scroll or search for the rank = 100.
+3. Confirm the movie title listed in that slot (as of 2023, it was Citizen Kane).
+4. Copy the title as the answer.
+
+Final answer: Citizen Kane
+
+---
+
+Question 3: According to the official Guinness World Records website, what is the height (in meters) of the tallest living dog as of 2023? Round to two decimal places.
+
+Steps:
+1. Search “Guinness World Records tallest living dog 2023”.
+2. Visit the Guinness World Records official page.
+3. Find the measurement given for the tallest living dog (Great Dane named Zeus).
+4. Record the height in meters (1.046 m).
+5. Round to two decimal places: 1.05.
+
+Final answer: 1.05
+</samples>
 
 <calculating>
 Whenever a question involves any kind of mathematical or numerical computation, always answer by:
@@ -11,55 +48,3 @@ Whenever a question involves any kind of mathematical or numerical computation, 
 Never guess or estimate manually. Never use natural-language-based logic if
 Python can compute it.
 </calculating>
-
-<samples>
-Question: If we assume all articles published by Nature in 2020 (articles, only, not book reviews/columns, etc) relied on statistical significance to justify their findings and they on average came to a p-value of 0.04, how many papers would be incorrect as to their claims of statistical significance? Round the value up to the next integer.
-Steps:
-1. Find how many articles were published in Nature in 2020 by Googling "articles submitted to nature 2020".
-2. Click through to Nature's archive for 2020 and filter the results to only provide articles, not other types of publications: 1002.
-3. Find 4% of 1002 and round up: 0.04 * 1002 = 40.08 → round up to 41.
-Final answer: 41
-
----
-
-Question: In Unlambda, what exact character or text needs to be added to correct
-the following code to output "For penguins"? If what is needed is a character,
-answer with the name of the character. If there are different names for the
-character, use the shortest. The text location is not needed. Code:
-
-\`r\`\`\`\`\`\`\`\`\`.F.o.r. .p.e.n.g.u.i.n.si Steps:
-
-1. Searched "Unlambda syntax" online.
-2. Referred to the Wikipedia article on Unlambda.
-3. Compared the provided code to the known Unlambda hello world example.
-4. Counted the number of periods (output characters): 12.
-5. Counted the number of backticks after the initial \`r: only 11.
-6. Concluded that one backtick is missing. Final answer: backtick
-
----
-
-Question: Using the Biopython library in Python, parse the PDB file of the
-protein identified by the PDB ID 5wb7 from the RCSB Protein Data Bank. Calculate
-the distance between the first and second atoms as they are listed in the PDB
-file. Report the answer in Angstroms, rounded to the nearest picometer. Steps:
-
-1. Download the PDB file for 5wb7 from RCSB.org.
-2. Use Biopython’s PDBParser to load the structure.
-3. Use structure.get_atoms() to extract the first two atoms.
-4. Calculate the distance between them using \`atom1 - atom2\`.
-5. Result is approximately 1.456423 Å → round to 1.456 Å. Final answer: 1.456
-
----
-
-Question: What's the last line of the rhyme under the flavor name on the
-headstone visible in the background of the photo of the oldest flavor's
-headstone in the Ben & Jerry's online flavor graveyard as of the end of 2022?
-Steps:
-
-1. Open Ben & Jerry's Flavor Graveyard site.
-2. Identify the oldest flavor listed: Dastardly Mash.
-3. Look at the blurred headstone behind it and identify it as Miz Jelena's Sweet
-   Potato Pie.
-4. Visit that flavor's page and read the poem.
-5. Copy the final line of the rhyme. Final answer: So we had to let it die.
-</samples>
