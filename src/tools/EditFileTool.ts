@@ -9,7 +9,7 @@ enum EditFileAction {
   INSERT = "insert",
   REPLACE_REGEX = "replace_regex",
   REPLACE_STR_ALL = "replace_str_all",
-  REPLACE_STR_FIRST = "replace_str_first",
+  REPLACE_STR_FIRST = "replace_str_first"
   OVERWRITE = "overwrite",
   PATCH = "patch",
   UNDO = "undo",
@@ -210,6 +210,7 @@ async function patchFile(
     if (patched === false) {
       throw new Error("Incompatible patch");
     }
+
     await Deno.writeTextFile(targetFile, patched);
     const bytesAfter = await statBytes(targetFile);
     return JSON.stringify({
@@ -389,9 +390,7 @@ On error:
           );
         }
       } catch {
-        if (
-          action !== EditFileAction.OVERWRITE
-        ) {
+        if ( action !== EditFileAction.OVERWRITE ) {
           return JSON.stringify({
             ok: false,
             tool: "edit_file",
@@ -436,6 +435,7 @@ On error:
                 data: { targetFile, action: EditFileAction.REPLACE_STR_FIRST },
               });
             }
+            
             return await replaceStringInFile(
               targetFile,
               oldContent,
@@ -454,6 +454,7 @@ On error:
                 data: { targetFile, action: EditFileAction.REPLACE_STR_ALL },
               });
             }
+            
             return await replaceStringInFile(
               targetFile,
               oldContent,
