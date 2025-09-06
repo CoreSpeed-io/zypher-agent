@@ -323,6 +323,9 @@ export function defineImageTools(openaiApiKey: string): {
           model: "gpt-image-1",
           image: imageFile,
           prompt: prompt,
+          // TODO: OpenAI SDK issue, see https://platform.openai.com/docs/api-reference/images/createEdit for API reference
+          // Disable type checking until the SDK fixes the issue
+          //@ts-ignore-next-line
           size: size,
           quality: quality,
           n: 1,

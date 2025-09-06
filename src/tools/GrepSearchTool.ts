@@ -28,7 +28,6 @@ export const GrepSearchTool: Tool<{
       .string()
       .optional()
       .describe("Glob pattern for files to exclude"),
-    // workingDirectory is passed by agent; not exposed in schema
     explanation: z
       .string()
       .optional()

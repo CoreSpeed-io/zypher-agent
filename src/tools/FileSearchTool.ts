@@ -11,9 +11,11 @@ export const FileSearchTool: Tool<{
     "Fast file search based on fuzzy matching against file path. Use if you know part of the file path but don't know where it's located exactly. Response will be capped to 10 results. Make your query more specific if need to filter results further.",
   parameters: z.object({
     query: z.string().describe("Fuzzy filename to search for"),
-    explanation: z.string().describe(
-      "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
-    ),
+    explanation: z
+      .string()
+      .describe(
+        "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
+      ),
   }),
   execute: async ({ query }, ctx) => {
     const workingDirectory = ctx?.workingDirectory;

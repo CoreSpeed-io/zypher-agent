@@ -390,9 +390,13 @@ On error:
         .describe(
           `The RegExp flags (e.g. 'g', 'i') to use for REPLACE_REGEX, default is 'g'`,
         ),
-      insertAt: z.number().min(1).optional().describe(
-        "1-based line number to insert BEFORE (for insert)",
-      ),
+      insertAt: z
+        .number()
+        .min(1)
+        .optional()
+        .describe(
+          "1-based line number to insert BEFORE (for insert)",
+        ),
     }),
 
     execute: async (

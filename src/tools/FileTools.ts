@@ -12,9 +12,11 @@ export const DeleteFileTool: Tool<{
   name: "delete_file",
   description: "Deletes a file at the specified path.",
   parameters: z.object({
-    targetFile: z.string().describe(
-      "The path of the file to delete, relative to the workspace root.",
-    ),
+    targetFile: z
+      .string()
+      .describe(
+        "The path of the file to delete, relative to the workspace root.",
+      ),
     explanation: z
       .string()
       .optional()
@@ -61,9 +63,13 @@ export const CopyFileTool: Tool<{
     destinationFile: z
       .string()
       .describe("The path where the file should be copied to."),
-    overwrite: z.boolean().optional().default(false).describe(
-      "Whether to overwrite the destination file if it already exists.",
-    ),
+    overwrite: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        "Whether to overwrite the destination file if it already exists.",
+      ),
     explanation: z
       .string()
       .optional()
