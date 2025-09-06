@@ -208,27 +208,27 @@ export class CheckpointManager {
 export async function createCheckpoint(
   name: string,
   workingDirectory?: string,
-) {
+) : Promise<string> {
   return await new CheckpointManager(workingDirectory).createCheckpoint(name);
 }
 
 export async function getCheckpointDetails(
   checkpointId: string,
   workingDirectory?: string,
-) {
+): Promise<Checkpoint> {
   return await new CheckpointManager(workingDirectory).getCheckpointDetails(
     checkpointId,
   );
 }
 
-export async function listCheckpoints(workingDirectory?: string) {
+export async function listCheckpoints(workingDirectory?: string): Promise<Checkpoint[]> {
   return await new CheckpointManager(workingDirectory).listCheckpoints();
 }
 
 export async function applyCheckpoint(
   checkpointId: string,
   workingDirectory?: string,
-) {
+): Promise<void> {
   return await new CheckpointManager(workingDirectory).applyCheckpoint(
     checkpointId,
   );
