@@ -412,7 +412,9 @@ On error:
       insertAt,
       walkpath,
     }): Promise<string> => {
-      const resolve = (p: string) => (isAbsolute(p) ? p : join(walkpath ?? Deno.cwd(), p));
+      const resolve = (
+        p: string,
+      ) => (isAbsolute(p) ? p : join(walkpath ?? Deno.cwd(), p));
       const targetResolved = resolve(targetFile);
       const backupResolvedDir = resolve(backupDir);
       await ensureDir(backupResolvedDir);
@@ -465,7 +467,10 @@ On error:
                 ok: false,
                 tool: "edit_file",
                 error: "'insertAt' is required for INSERT",
-                data: { targetFile: targetResolved, action: EditFileAction.INSERT },
+                data: {
+                  targetFile: targetResolved,
+                  action: EditFileAction.INSERT,
+                },
               });
             }
 
@@ -483,7 +488,10 @@ On error:
                 ok: false,
                 tool: "edit_file",
                 error: "'oldContent' is required for REPLACE_STR_FIRST",
-                data: { targetFile: targetResolved, action: EditFileAction.REPLACE_STR_FIRST },
+                data: {
+                  targetFile: targetResolved,
+                  action: EditFileAction.REPLACE_STR_FIRST,
+                },
               });
             }
             return await replaceStringInFile(
@@ -501,7 +509,10 @@ On error:
                 ok: false,
                 tool: "edit_file",
                 error: "'oldContent' is required for REPLACE_STR_ALL",
-                data: { targetFile: targetResolved, action: EditFileAction.REPLACE_STR_ALL },
+                data: {
+                  targetFile: targetResolved,
+                  action: EditFileAction.REPLACE_STR_ALL,
+                },
               });
             }
             return await replaceStringInFile(
@@ -519,7 +530,10 @@ On error:
                 ok: false,
                 tool: "edit_file",
                 error: "'oldContent' is required for REPLACE_REGEX",
-                data: { targetFile: targetResolved, action: EditFileAction.REPLACE_REGEX },
+                data: {
+                  targetFile: targetResolved,
+                  action: EditFileAction.REPLACE_REGEX,
+                },
               });
             }
 

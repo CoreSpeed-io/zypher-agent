@@ -60,7 +60,10 @@ async function getGitEnv(
   const cacheKey = `${checkpointsDir}::${workTree}`;
   const cached = _gitEnvCache.get(cacheKey);
   if (cached) return cached;
-  const env = { GIT_DIR: checkpointsDir, GIT_WORK_TREE: workTree } as Record<string, string>;
+  const env = { GIT_DIR: checkpointsDir, GIT_WORK_TREE: workTree } as Record<
+    string,
+    string
+  >;
   _gitEnvCache.set(cacheKey, env);
   return env;
 }

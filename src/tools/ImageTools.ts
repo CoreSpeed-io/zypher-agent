@@ -195,7 +195,9 @@ export function defineImageTools(openaiApiKey: string): {
       quality: qualitySchema,
       background: backgroundSchema,
       destinationPath: destinationPathSchema,
-      walkpath: z.string().optional().describe("Walk workspace path to resolve destinationPath from"),
+      walkpath: z.string().optional().describe(
+        "Walk workspace path to resolve destinationPath from",
+      ),
       explanation: explanationSchema,
     }),
 
@@ -232,7 +234,10 @@ export function defineImageTools(openaiApiKey: string): {
         }
 
         // Save images to the destination path
-        const generatedFiles = await saveImages(resolvedDestination, response.data);
+        const generatedFiles = await saveImages(
+          resolvedDestination,
+          response.data,
+        );
 
         // Return success message
         return formatSuccessMessage(
@@ -282,7 +287,9 @@ export function defineImageTools(openaiApiKey: string): {
       size: sizeSchema,
       quality: qualitySchema,
       destinationPath: destinationPathSchema,
-      walkpath: z.string().optional().describe("Walk workspace path to resolve paths from"),
+      walkpath: z.string().optional().describe(
+        "Walk workspace path to resolve paths from",
+      ),
       explanation: explanationSchema,
     }),
 
@@ -344,7 +351,10 @@ export function defineImageTools(openaiApiKey: string): {
         }
 
         // Save edited images to the destination path
-        const generatedFiles = await saveImages(resolvedDestination, response.data);
+        const generatedFiles = await saveImages(
+          resolvedDestination,
+          response.data,
+        );
 
         // Return success message
         return formatSuccessMessage(

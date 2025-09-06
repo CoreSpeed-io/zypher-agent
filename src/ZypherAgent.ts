@@ -488,7 +488,10 @@ export class ZypherAgent {
         };
 
         if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages, this.#walkWorkspaceDirectory);
+          await saveMessageHistory(
+            this.#messages,
+            this.#walkWorkspaceDirectory,
+          );
         }
 
         return this.messages;

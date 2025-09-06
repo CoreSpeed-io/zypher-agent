@@ -39,7 +39,9 @@ export const GrepSearchTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ query, caseSensitive, includePattern, excludePattern, walkpath }) => {
+  execute: async (
+    { query, caseSensitive, includePattern, excludePattern, walkpath },
+  ) => {
     try {
       // Build the arguments array for ripgrep
       const args = ["--line-number", "--no-heading"];
