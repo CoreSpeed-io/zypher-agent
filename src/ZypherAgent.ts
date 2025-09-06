@@ -90,6 +90,11 @@ export interface ZypherAgentConfig {
   fileAttachmentCacheDir?: string;
   /** Custom instructions to override the default instructions. */
   customInstructions?: string;
+  /**
+   * Optional workspace directory to "walk" in without changing process cwd.
+   * When set, tools and checkpoints operate relative to this directory.
+   */
+  walkWorkspaceDirectory?: string;
 }
 
 export class ZypherAgent {
@@ -109,6 +114,7 @@ export class ZypherAgent {
 
   #messages: Message[];
   #system: string;
+  #walkWorkspaceDirectory?: string;
 
   // Task execution state
   #isTaskRunning: boolean = false;
@@ -136,6 +142,7 @@ export class ZypherAgent {
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#customInstructions = config.customInstructions;
+    this.#walkWorkspaceDirectory = config.walkWorkspaceDirectory;
   }
 
   async init(): Promise<void> {
@@ -151,7 +158,7 @@ export class ZypherAgent {
 
     // Load message history if enabled
     if (this.#persistHistory) {
-      this.#messages = await loadMessageHistory();
+      this.#messages = await loadMessageHistory(this.#walkWorkspaceDirectory);
     }
   }
 
@@ -161,8 +168,11 @@ export class ZypherAgent {
    */
   async #loadSystemPrompt(): Promise<void> {
     const userInfo = getCurrentUserInfo();
+    const effectiveUserInfo = this.#walkWorkspaceDirectory
+      ? { ...userInfo, workspacePath: this.#walkWorkspaceDirectory }
+      : userInfo;
     this.#system = await getSystemPrompt(
-      userInfo,
+      effectiveUserInfo,
       this.#customInstructions,
     );
   }
@@ -211,7 +221,7 @@ export class ZypherAgent {
   async applyCheckpoint(checkpointId: string): Promise<boolean> {
     try {
       // Apply the checkpoint to the filesystem
-      await applyCheckpoint(checkpointId);
+      await applyCheckpoint(checkpointId, this.#walkWorkspaceDirectory);
 
       // Update message history to discard messages beyond the checkpoint
       const checkpointIndex = this.#messages.findIndex(
@@ -342,8 +352,14 @@ export class ZypherAgent {
         const checkpointName = `Before task: ${
           taskDescription.substring(0, 50)
         }${taskDescription.length > 50 ? "..." : ""}`;
-        checkpointId = await createCheckpoint(checkpointName);
-        checkpoint = await getCheckpointDetails(checkpointId);
+        checkpointId = await createCheckpoint(
+          checkpointName,
+          this.#walkWorkspaceDirectory,
+        );
+        checkpoint = await getCheckpointDetails(
+          checkpointId,
+          this.#walkWorkspaceDirectory,
+        );
       }
 
       const messageContent: ContentBlock[] = [
@@ -433,7 +449,7 @@ export class ZypherAgent {
           messages: this.#messages,
           lastResponse: responseText,
           tools: toolCalls,
-          workingDirectory: Deno.cwd(),
+          workingDirectory: this.#walkWorkspaceDirectory ?? Deno.cwd(),
           stopReason: finalMessage.stop_reason,
           signal: mergedSignal,
         };
@@ -457,7 +473,7 @@ export class ZypherAgent {
 
       // Save updated message history if enabled
       if (this.#persistHistory) {
-        await saveMessageHistory(this.#messages);
+        await saveMessageHistory(this.#messages, this.#walkWorkspaceDirectory);
       }
 
       return this.messages;
@@ -472,7 +488,7 @@ export class ZypherAgent {
         };
 
         if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages);
+          await saveMessageHistory(this.#messages, this.#walkWorkspaceDirectory);
         }
 
         return this.messages;

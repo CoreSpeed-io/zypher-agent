@@ -4,6 +4,7 @@ import * as path from "@std/path";
 
 export const ListDirTool: Tool<{
   relativePath: string;
+  walkpath?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "list_dir",
@@ -13,6 +14,10 @@ export const ListDirTool: Tool<{
     relativePath: z
       .string()
       .describe("Path to list contents of, relative to the workspace root."),
+    walkpath: z
+      .string()
+      .optional()
+      .describe("Walk workspace path to resolve relativePath from"),
     explanation: z
       .string()
       .optional()
@@ -20,11 +25,14 @@ export const ListDirTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ relativePath }) => {
+  execute: async ({ relativePath, walkpath }) => {
     try {
-      const entries = [];
-      for await (const entry of Deno.readDir(relativePath)) {
-        const fullPath = path.join(relativePath, entry.name);
+      const entries = [] as string[];
+      const basePath = path.isAbsolute(relativePath)
+        ? relativePath
+        : path.join(walkpath ?? Deno.cwd(), relativePath);
+      for await (const entry of Deno.readDir(basePath)) {
+        const fullPath = path.join(basePath, entry.name);
         const fileInfo = await Deno.stat(fullPath);
         const type = entry.isDirectory ? "directory" : "file";
         const size = fileInfo.size;

@@ -6,6 +6,7 @@ export const GrepSearchTool: Tool<{
   caseSensitive?: boolean | undefined;
   includePattern?: string | undefined;
   excludePattern?: string | undefined;
+  walkpath?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "grep_search",
@@ -27,6 +28,10 @@ export const GrepSearchTool: Tool<{
       .string()
       .optional()
       .describe("Glob pattern for files to exclude"),
+    walkpath: z
+      .string()
+      .optional()
+      .describe("Walk workspace path to run ripgrep in"),
     explanation: z
       .string()
       .optional()
@@ -34,7 +39,7 @@ export const GrepSearchTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ query, caseSensitive, includePattern, excludePattern }) => {
+  execute: async ({ query, caseSensitive, includePattern, excludePattern, walkpath }) => {
     try {
       // Build the arguments array for ripgrep
       const args = ["--line-number", "--no-heading"];
@@ -60,6 +65,7 @@ export const GrepSearchTool: Tool<{
       // Execute the command
       const command = new Deno.Command("rg", {
         args: args,
+        cwd: walkpath,
       });
 
       const { stdout, stderr } = await command.output();

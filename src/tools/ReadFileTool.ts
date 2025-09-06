@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { defineTool, type Tool } from "./mod.ts";
+import * as path from "@std/path";
 
 export const ReadFileTool: Tool<{
   relativePath: string;
   startLineOneIndexed: number;
   endLineOneIndexedInclusive: number;
   shouldReadEntireFile: boolean;
+  walkpath?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "read_file",
@@ -28,6 +30,10 @@ export const ReadFileTool: Tool<{
     shouldReadEntireFile: z
       .boolean()
       .describe("Whether to read the entire file. Defaults to false."),
+    walkpath: z
+      .string()
+      .optional()
+      .describe("Walk workspace path to resolve relativePath from"),
     explanation: z
       .string()
       .optional()
@@ -40,9 +46,13 @@ export const ReadFileTool: Tool<{
     startLineOneIndexed,
     endLineOneIndexedInclusive,
     shouldReadEntireFile,
+    walkpath,
   }) => {
     try {
-      const content = await Deno.readTextFile(relativePath);
+      const resolvedPath = path.isAbsolute(relativePath)
+        ? relativePath
+        : path.join(walkpath ?? Deno.cwd(), relativePath);
+      const content = await Deno.readTextFile(resolvedPath);
       const lines = content.split("\n");
 
       if (shouldReadEntireFile) {

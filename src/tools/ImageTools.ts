@@ -148,6 +148,7 @@ export function defineImageTools(openaiApiKey: string): {
     quality: "auto" | "low" | "medium" | "high";
     background: "auto" | "transparent" | "opaque";
     destinationPath: string;
+    walkpath?: string | undefined;
     explanation?: string | undefined;
   }>;
   ImageEditTool: Tool<{
@@ -157,6 +158,7 @@ export function defineImageTools(openaiApiKey: string): {
     size: "auto" | "1024x1024" | "1536x1024" | "1024x1536";
     quality: "auto" | "low" | "medium" | "high";
     destinationPath: string;
+    walkpath?: string | undefined;
     explanation?: string | undefined;
   }>;
 } {
@@ -193,6 +195,7 @@ export function defineImageTools(openaiApiKey: string): {
       quality: qualitySchema,
       background: backgroundSchema,
       destinationPath: destinationPathSchema,
+      walkpath: z.string().optional().describe("Walk workspace path to resolve destinationPath from"),
       explanation: explanationSchema,
     }),
 
@@ -202,10 +205,14 @@ export function defineImageTools(openaiApiKey: string): {
       quality,
       background,
       destinationPath,
+      walkpath,
     }): Promise<string> => {
       try {
+        const resolvedDestination = path.isAbsolute(destinationPath)
+          ? destinationPath
+          : path.join(walkpath ?? Deno.cwd(), destinationPath);
         // Create parent directory if it doesn't exist
-        const parentDir = path.dirname(destinationPath);
+        const parentDir = path.dirname(resolvedDestination);
         await ensureDir(parentDir);
 
         // Generate image using gpt-image-1
@@ -225,10 +232,7 @@ export function defineImageTools(openaiApiKey: string): {
         }
 
         // Save images to the destination path
-        const generatedFiles = await saveImages(
-          destinationPath,
-          response.data,
-        );
+        const generatedFiles = await saveImages(resolvedDestination, response.data);
 
         // Return success message
         return formatSuccessMessage(
@@ -278,6 +282,7 @@ export function defineImageTools(openaiApiKey: string): {
       size: sizeSchema,
       quality: qualitySchema,
       destinationPath: destinationPathSchema,
+      walkpath: z.string().optional().describe("Walk workspace path to resolve paths from"),
       explanation: explanationSchema,
     }),
 
@@ -288,19 +293,27 @@ export function defineImageTools(openaiApiKey: string): {
       size,
       quality,
       destinationPath,
+      walkpath,
     }): Promise<string> => {
       try {
+        const resolvedSource = path.isAbsolute(sourcePath)
+          ? sourcePath
+          : path.join(walkpath ?? Deno.cwd(), sourcePath);
+        const resolvedDestination = path.isAbsolute(destinationPath)
+          ? destinationPath
+          : path.join(walkpath ?? Deno.cwd(), destinationPath);
+
         // Validate source image exists
-        if (!fileExists(sourcePath)) {
-          throw new Error(`Source image not found: ${sourcePath}`);
+        if (!(await fileExists(resolvedSource))) {
+          throw new Error(`Source image not found: ${resolvedSource}`);
         }
 
         // Create parent directory for destination if it doesn't exist
-        const parentDir = path.dirname(destinationPath);
+        const parentDir = path.dirname(resolvedDestination);
         await ensureDir(parentDir);
 
         // Create a file read stream using Deno's API
-        const fileStream = await Deno.open(sourcePath, { read: true });
+        const fileStream = await Deno.open(resolvedSource, { read: true });
 
         // Use OpenAI's toFile function to convert the stream to a file
         const imageFile = await toFile(
@@ -331,7 +344,7 @@ export function defineImageTools(openaiApiKey: string): {
         }
 
         // Save edited images to the destination path
-        const generatedFiles = await saveImages(destinationPath, response.data);
+        const generatedFiles = await saveImages(resolvedDestination, response.data);
 
         // Return success message
         return formatSuccessMessage(

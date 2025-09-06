@@ -6,6 +6,7 @@ import { ensureDir } from "@std/fs";
 
 export const DeleteFileTool: Tool<{
   targetFile: string;
+  walkpath?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "delete_file",
@@ -16,6 +17,10 @@ export const DeleteFileTool: Tool<{
       .describe(
         "The path of the file to delete, relative to the workspace root.",
       ),
+    walkpath: z
+      .string()
+      .optional()
+      .describe("Walk workspace path to resolve targetFile from"),
     explanation: z
       .string()
       .optional()
@@ -23,10 +28,13 @@ export const DeleteFileTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ targetFile }) => {
+  execute: async ({ targetFile, walkpath }) => {
     try {
-      await Deno.remove(targetFile);
-      return `Successfully deleted file: ${targetFile}`;
+      const resolved = path.isAbsolute(targetFile)
+        ? targetFile
+        : path.join(walkpath ?? Deno.cwd(), targetFile);
+      await Deno.remove(resolved);
+      return `Successfully deleted file: ${resolved}`;
     } catch (error) {
       if (error instanceof Error) {
         if (error instanceof Deno.errors.NotFound) {
@@ -46,6 +54,7 @@ export const CopyFileTool: Tool<{
   sourceFile: string;
   destinationFile: string;
   overwrite?: boolean | undefined;
+  walkpath?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "copy_file",
@@ -64,6 +73,10 @@ export const CopyFileTool: Tool<{
       .describe(
         "Whether to overwrite the destination file if it already exists.",
       ),
+    walkpath: z
+      .string()
+      .optional()
+      .describe("Walk workspace path to resolve paths from"),
     explanation: z
       .string()
       .optional()
@@ -72,26 +85,30 @@ export const CopyFileTool: Tool<{
       ),
   }),
   execute: async (
-    { sourceFile, destinationFile, overwrite },
+    { sourceFile, destinationFile, overwrite, walkpath },
   ) => {
     try {
+      const resolve = (p: string) =>
+        path.isAbsolute(p) ? p : path.join(walkpath ?? Deno.cwd(), p);
+      const srcResolved = resolve(sourceFile);
+      const dstResolved = resolve(destinationFile);
       // Check if source file exists
-      if (!(await fileExists(sourceFile))) {
-        return `Error: Source file not found: ${sourceFile}`;
+      if (!(await fileExists(srcResolved))) {
+        return `Error: Source file not found: ${srcResolved}`;
       }
 
       // Check if destination file already exists
-      const destinationExists = await fileExists(destinationFile);
+      const destinationExists = await fileExists(dstResolved);
       if (destinationExists && !overwrite) {
-        return `Destination file already exists: ${destinationFile}. Use overwrite=true to replace it.`;
+        return `Destination file already exists: ${dstResolved}. Use overwrite=true to replace it.`;
       }
 
       // Create destination directory if needed
-      await ensureDir(path.dirname(destinationFile));
+      await ensureDir(path.dirname(dstResolved));
 
       // Copy the file
-      await Deno.copyFile(sourceFile, destinationFile);
-      return `Successfully copied file from ${sourceFile} to ${destinationFile}${
+      await Deno.copyFile(srcResolved, dstResolved);
+      return `Successfully copied file from ${srcResolved} to ${dstResolved}${
         destinationExists ? " (overwritten)" : ""
       }.`;
     } catch (error) {

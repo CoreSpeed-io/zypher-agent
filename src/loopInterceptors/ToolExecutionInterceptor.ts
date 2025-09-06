@@ -80,9 +80,14 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     // Execute all tool calls
     for (const block of toolBlocks) {
       if (block.type === "tool_use") {
+        const workingDir = context.workingDirectory;
+        const rawParams = (block.input ?? {}) as Record<string, unknown>;
+        const params: Record<string, unknown> = { ...rawParams };
+        if (workingDir && params.walkpath === undefined) params.walkpath = workingDir;
+
         const result = await this.#executeToolCall(
           block.name,
-          block.input as Record<string, unknown>,
+          params,
           {
             signal: context.signal,
           },

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defineTool, type Tool } from "./mod.ts";
 import { applyPatch } from "diff";
 import { fileExists } from "../utils/data.ts";
-import { basename, dirname } from "@std/path";
+import { basename, dirname, isAbsolute, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 
 enum EditFileAction {
@@ -307,6 +307,7 @@ export function defineEditFileTool(backupDir: string = "./backup"): {
     insertAt?: number;
     oldContent?: string;
     reFlags?: string;
+    walkpath?: string;
   }>;
 } {
   const EditFileTool = defineTool({
@@ -396,6 +397,10 @@ On error:
         .describe(
           "1-based line number to insert BEFORE (for insert)",
         ),
+      walkpath: z
+        .string()
+        .optional()
+        .describe("Walk workspace path to resolve targetFile/backupDir from"),
     }),
 
     execute: async ({
@@ -405,24 +410,28 @@ On error:
       newContent,
       reFlags,
       insertAt,
+      walkpath,
     }): Promise<string> => {
-      await ensureDir(backupDir);
-      const fileName = basename(targetFile);
+      const resolve = (p: string) => (isAbsolute(p) ? p : join(walkpath ?? Deno.cwd(), p));
+      const targetResolved = resolve(targetFile);
+      const backupResolvedDir = resolve(backupDir);
+      await ensureDir(backupResolvedDir);
+      const fileName = basename(targetResolved);
       try {
-        await Deno.stat(targetFile);
+        await Deno.stat(targetResolved);
         if (action === EditFileAction.CREATE) {
           return JSON.stringify({
             ok: false,
             tool: "edit_file",
-            error: `${targetFile} already exists`,
-            data: { targetFile, action: EditFileAction.CREATE },
+            error: `${targetResolved} already exists`,
+            data: { targetFile: targetResolved, action: EditFileAction.CREATE },
           });
         }
         // Backup original file
         if (action !== EditFileAction.UNDO) {
           await Deno.copyFile(
-            targetFile,
-            `${backupDir}/${fileName}.bak`,
+            targetResolved,
+            `${backupResolvedDir}/${fileName}.bak`,
           );
         }
       } catch {
@@ -433,21 +442,21 @@ On error:
           return JSON.stringify({
             ok: false,
             tool: "edit_file",
-            error: `${targetFile} does not exist`,
-            data: { targetFile, action },
+            error: `${targetResolved} does not exist`,
+            data: { targetFile: targetResolved, action },
           });
         }
       }
 
       try {
-        const bytesBefore = await statBytes(targetFile);
+        const bytesBefore = await statBytes(targetResolved);
 
         switch (action) {
           case EditFileAction.CREATE: {
-            return await createFile(targetFile);
+            return await createFile(targetResolved);
           }
           case EditFileAction.OVERWRITE: {
-            return await overwriteFile(targetFile, newContent, bytesBefore);
+            return await overwriteFile(targetResolved, newContent, bytesBefore);
           }
 
           case EditFileAction.INSERT: {
@@ -456,12 +465,12 @@ On error:
                 ok: false,
                 tool: "edit_file",
                 error: "'insertAt' is required for INSERT",
-                data: { targetFile, action: EditFileAction.INSERT },
+                data: { targetFile: targetResolved, action: EditFileAction.INSERT },
               });
             }
 
             return await insertFileAt(
-              targetFile,
+              targetResolved,
               newContent,
               insertAt,
               bytesBefore,
@@ -474,11 +483,11 @@ On error:
                 ok: false,
                 tool: "edit_file",
                 error: "'oldContent' is required for REPLACE_STR_FIRST",
-                data: { targetFile, action: EditFileAction.REPLACE_STR_FIRST },
+                data: { targetFile: targetResolved, action: EditFileAction.REPLACE_STR_FIRST },
               });
             }
             return await replaceStringInFile(
-              targetFile,
+              targetResolved,
               oldContent,
               newContent,
               false,
@@ -492,11 +501,11 @@ On error:
                 ok: false,
                 tool: "edit_file",
                 error: "'oldContent' is required for REPLACE_STR_ALL",
-                data: { targetFile, action: EditFileAction.REPLACE_STR_ALL },
+                data: { targetFile: targetResolved, action: EditFileAction.REPLACE_STR_ALL },
               });
             }
             return await replaceStringInFile(
-              targetFile,
+              targetResolved,
               oldContent,
               newContent,
               true,
@@ -510,12 +519,12 @@ On error:
                 ok: false,
                 tool: "edit_file",
                 error: "'oldContent' is required for REPLACE_REGEX",
-                data: { targetFile, action: EditFileAction.REPLACE_REGEX },
+                data: { targetFile: targetResolved, action: EditFileAction.REPLACE_REGEX },
               });
             }
 
             return await replaceRegexInFile(
-              targetFile,
+              targetResolved,
               oldContent,
               reFlags,
               newContent,
@@ -524,11 +533,11 @@ On error:
           }
 
           case EditFileAction.PATCH: {
-            return await patchFile(targetFile, newContent, bytesBefore);
+            return await patchFile(targetResolved, newContent, bytesBefore);
           }
 
           case EditFileAction.UNDO: {
-            return await undoFile(targetFile, backupDir);
+            return await undoFile(targetResolved, backupResolvedDir);
           }
 
           default: {
@@ -536,7 +545,7 @@ On error:
               ok: false,
               tool: "edit_file",
               error: `Unknown action: ${action}`,
-              data: { targetFile, action },
+              data: { targetFile: targetResolved, action },
             });
           }
         }
@@ -547,7 +556,7 @@ On error:
           error: `Error editing file: ${
             e instanceof Error ? e.message : String(e)
           }`,
-          data: { targetFile, action },
+          data: { targetFile: targetResolved, action },
         });
       }
     },

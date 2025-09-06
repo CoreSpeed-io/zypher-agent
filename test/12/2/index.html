@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two Cute Mice Drawing</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        #canvas {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin: 20px;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <h1>🐭 Two Adorable Mice 🐭</h1>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <div class="controls">
+        <button onclick="drawMice()">Draw Mice</button>
+        <button onclick="clearCanvas()">Clear Canvas</button>
+        <button onclick="animateMice()">Animate Mice</button>
+        <button onclick="saveAsJPG()">Save as JPG</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let animationId;
+
+        function drawMouse(x, y, scale = 1, rotation = 0) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rotation);
+            ctx.scale(scale, scale);
+            
+            // Mouse body (main oval)
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 60, 40, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Mouse head
+            ctx.fillStyle = '#A0522D';
+            ctx.beginPath();
+            ctx.ellipse(-50, -10, 35, 30, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Ears
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.ellipse(-70, -25, 12, 18, -0.3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(-60, -35, 12, 18, 0.3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Inner ears
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.ellipse(-70, -25, 6, 9, -0.3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(-60, -35, 6, 9, 0.3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-65, -15, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(-45, -20, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Eye shine
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(-63, -17, 1.5, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(-43, -22, 1.5, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Nose
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.ellipse(-80, -5, 3, 2, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Whiskers
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-85, -8);
+            ctx.lineTo(-100, -12);
+            ctx.moveTo(-85, -5);
+            ctx.lineTo(-100, -5);
+            ctx.moveTo(-85, -2);
+            ctx.lineTo(-100, 2);
+            ctx.stroke();
+            
+            // Tail
+            ctx.strokeStyle = '#8B4513';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(60, 5);
+            ctx.quadraticCurveTo(100, -20, 120, 10);
+            ctx.quadraticCurveTo(140, 40, 110, 60);
+            ctx.stroke();
+            
+            // Feet
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.ellipse(-30, 30, 8, 5, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(10, 35, 8, 5, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(30, 30, 8, 5, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(50, 25, 8, 5, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function drawMice() {
+            clearCanvas();
+            
+            // Draw background elements
+            drawCheese(650, 400);
+            drawGrass();
+            
+            // Draw first mouse (larger, on left)
+            drawMouse(200, 300, 1.2, 0);
+            
+            // Draw second mouse (smaller, on right, slightly rotated)
+            drawMouse(500, 350, 0.8, 0.2);
+            
+            // Add some decorative hearts
+            drawHeart(350, 200);
+            drawHeart(100, 150);
+            drawHeart(700, 180);
+        }
+
+        function drawCheese(x, y) {
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + 60, y);
+            ctx.lineTo(x + 50, y - 40);
+            ctx.lineTo(x - 10, y - 40);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Holes in cheese
+            ctx.fillStyle = '#FFA500';
+            ctx.beginPath();
+            ctx.arc(x + 15, y - 15, 5, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(x + 35, y - 25, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(x + 25, y - 8, 3, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        function drawGrass() {
+            ctx.strokeStyle = '#228B22';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < canvas.width; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(i, canvas.height - 10);
+                ctx.lineTo(i + 5, canvas.height - 25);
+                ctx.lineTo(i + 10, canvas.height - 15);
+                ctx.lineTo(i + 15, canvas.height - 30);
+                ctx.stroke();
+            }
+        }
+
+        function drawHeart(x, y) {
+            ctx.fillStyle = '#FF69B4';
+            ctx.beginPath();
+            ctx.moveTo(x, y + 5);
+            ctx.bezierCurveTo(x, y, x - 5, y - 5, x - 10, y);
+            ctx.bezierCurveTo(x - 15, y + 5, x - 15, y + 10, x, y + 15);
+            ctx.bezierCurveTo(x + 15, y + 10, x + 15, y + 5, x + 10, y);
+            ctx.bezierCurveTo(x + 5, y - 5, x, y, x, y + 5);
+            ctx.fill();
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+
+        function animateMice() {
+            clearCanvas();
+            let time = 0;
+            
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw background elements
+                drawCheese(650, 400);
+                drawGrass();
+                drawHeart(350, 200);
+                drawHeart(100, 150);
+                drawHeart(700, 180);
+                
+                // Animate mice with gentle swaying motion
+                const sway1 = Math.sin(time * 0.02) * 0.1;
+                const sway2 = Math.cos(time * 0.025) * 0.1;
+                
+                const bounce1 = Math.abs(Math.sin(time * 0.03)) * 10;
+                const bounce2 = Math.abs(Math.cos(time * 0.035)) * 8;
+                
+                drawMouse(200, 300 - bounce1, 1.2, sway1);
+                drawMouse(500, 350 - bounce2, 0.8, 0.2 + sway2);
+                
+                time++;
+                animationId = requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }
+
+        function saveAsJPG() {
+            // Stop any running animation first
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            // Make sure we have a static drawing of the mice
+            drawMice();
+            
+            // Create a temporary canvas with white background for JPG
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Fill with white background (JPG doesn't support transparency)
+            tempCtx.fillStyle = '#FFFFFF';
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            
+            // Draw the original canvas content on top
+            tempCtx.drawImage(canvas, 0, 0);
+            
+            // Convert to JPG and download
+            tempCanvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = 'two_cute_mice.jpg';
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+            }, 'image/jpeg', 0.9); // 0.9 = 90% quality
+        }
+
+        // Draw the mice when page loads
+        window.onload = function() {
+            drawMice();
+        };
+    </script>
+</body>
+</html>

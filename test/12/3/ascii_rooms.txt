@@ -1,0 +1,22 @@
+┌─────────────────┬─────────────────┬─────────────────┐
+│                 │                 │                 │
+│     ROOM 1      │     ROOM 2      │     ROOM 3      │
+│                 │                 │                 │
+│    ┌─────┐      │       ☀         │    ╔═════╗     │
+│    │     │      │                 │    ║     ║     │
+│    │ BED │      │   ┌───────┐     │    ║ DESK║     │
+│    │     │      │   │ TABLE │     │    ║     ║     │
+│    └─────┘      │   │       │     │    ╚═════╝     │
+│                 │   └───────┘     │                 │
+│  ◯              │                 │         ⚹       │
+│                 │      ◉          │                 │
+│                 │                 │                 │
+├─────────────────┼─────────────────┼─────────────────┤
+│     DOOR        │     DOOR        │     DOOR        │
+└─────────────────┴─────────────────┴─────────────────┘
+
+Room Layout Description:
+- Room 1 (Left): Bedroom with bed and round object (rug/ottoman)
+- Room 2 (Middle): Dining area with table, window with sunlight, and chair
+- Room 3 (Right): Office/study with desk and decorative item/plant
+- Each room has its own door at the bottom

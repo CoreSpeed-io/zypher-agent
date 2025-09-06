@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg" style="background: white;">
+    <!-- Simple representation of two mice -->
+    
+    <!-- Grass -->
+    <g stroke="#228B22" stroke-width="3" fill="none">
+        <path d="M 0 590 L 5 575 L 10 585 L 15 570" />
+        <path d="M 40 590 L 45 575 L 50 585 L 55 570" />
+        <path d="M 80 590 L 85 575 L 90 585 L 95 570" />
+        <path d="M 120 590 L 125 575 L 130 585 L 135 570" />
+        <path d="M 160 590 L 165 575 L 170 585 L 175 570" />
+        <path d="M 200 590 L 205 575 L 210 585 L 215 570" />
+        <path d="M 240 590 L 245 575 L 250 585 L 255 570" />
+        <path d="M 280 590 L 285 575 L 290 585 L 295 570" />
+        <path d="M 320 590 L 325 575 L 330 585 L 335 570" />
+        <path d="M 360 590 L 365 575 L 370 585 L 375 570" />
+        <path d="M 400 590 L 405 575 L 410 585 L 415 570" />
+        <path d="M 440 590 L 445 575 L 450 585 L 455 570" />
+        <path d="M 480 590 L 485 575 L 490 585 L 495 570" />
+        <path d="M 520 590 L 525 575 L 530 585 L 535 570" />
+        <path d="M 560 590 L 565 575 L 570 585 L 575 570" />
+        <path d="M 600 590 L 605 575 L 610 585 L 615 570" />
+        <path d="M 640 590 L 645 575 L 650 585 L 655 570" />
+        <path d="M 680 590 L 685 575 L 690 585 L 695 570" />
+        <path d="M 720 590 L 725 575 L 730 585 L 735 570" />
+        <path d="M 760 590 L 765 575 L 770 585 L 775 570" />
+    </g>
+
+    <!-- Cheese -->
+    <polygon points="650,400 710,400 700,360 640,360" fill="#FFD700" stroke="#FFA500" stroke-width="2" />
+    <circle cx="665" cy="385" r="5" fill="#FFA500" />
+    <circle cx="685" cy="375" r="4" fill="#FFA500" />
+    <circle cx="675" cy="392" r="3" fill="#FFA500" />
+
+    <!-- Hearts -->
+    <path d="M 350,205 C 345,195 335,195 340,205 C 335,195 325,195 330,205 C 330,215 350,225 350,225 C 350,225 370,215 370,205 C 375,195 365,195 360,205 C 365,195 355,195 350,205 Z" fill="#FF69B4" />
+    <path d="M 100,155 C 95,145 85,145 90,155 C 85,145 75,145 80,155 C 80,165 100,175 100,175 C 100,175 120,165 120,155 C 125,145 115,145 110,155 C 115,145 105,145 100,155 Z" fill="#FF69B4" />
+    <path d="M 700,185 C 695,175 685,175 690,185 C 685,175 675,175 680,185 C 680,195 700,205 700,205 C 700,205 720,195 720,185 C 725,175 715,175 710,185 C 715,175 705,175 700,185 Z" fill="#FF69B4" />
+
+    <!-- Mouse 1 (larger) -->
+    <g>
+        <!-- Body -->
+        <ellipse cx="200" cy="300" rx="60" ry="40" fill="#8B4513" stroke="#654321" stroke-width="2" />
+        
+        <!-- Head -->
+        <ellipse cx="150" cy="290" rx="35" ry="30" fill="#A0522D" stroke="#654321" stroke-width="2" />
+        
+        <!-- Ears -->
+        <ellipse cx="130" cy="275" rx="12" ry="18" fill="#8B4513" stroke="#654321" stroke-width="1" />
+        <ellipse cx="140" cy="265" rx="12" ry="18" fill="#8B4513" stroke="#654321" stroke-width="1" />
+        
+        <!-- Inner ears -->
+        <ellipse cx="130" cy="275" rx="6" ry="9" fill="#FFB6C1" />
+        <ellipse cx="140" cy="265" rx="6" ry="9" fill="#FFB6C1" />
+        
+        <!-- Eyes -->
+        <circle cx="135" cy="285" r="4" fill="black" />
+        <circle cx="155" cy="280" r="4" fill="black" />
+        
+        <!-- Eye shine -->
+        <circle cx="137" cy="283" r="1.5" fill="white" />
+        <circle cx="157" cy="278" r="1.5" fill="white" />
+        
+        <!-- Nose -->
+        <ellipse cx="120" cy="295" rx="3" ry="2" fill="#FFB6C1" />
+        
+        <!-- Whiskers -->
+        <line x1="115" y1="292" x2="100" y2="288" stroke="black" stroke-width="1" />
+        <line x1="115" y1="295" x2="100" y2="295" stroke="black" stroke-width="1" />
+        <line x1="115" y1="298" x2="100" y2="302" stroke="black" stroke-width="1" />
+        
+        <!-- Tail -->
+        <path d="M 260 305 Q 300 280 320 310 Q 340 340 310 360" stroke="#8B4513" stroke-width="8" fill="none" />
+        
+        <!-- Feet -->
+        <ellipse cx="170" cy="330" rx="8" ry="5" fill="#FFB6C1" />
+        <ellipse cx="210" cy="335" rx="8" ry="5" fill="#FFB6C1" />
+        <ellipse cx="230" cy="330" rx="8" ry="5" fill="#FFB6C1" />
+        <ellipse cx="250" cy="325" rx="8" ry="5" fill="#FFB6C1" />
+    </g>
+
+    <!-- Mouse 2 (smaller) -->
+    <g>
+        <!-- Body -->
+        <ellipse cx="500" cy="350" rx="48" ry="32" fill="#8B4513" stroke="#654321" stroke-width="2" />
+        
+        <!-- Head -->
+        <ellipse cx="460" cy="342" rx="28" ry="24" fill="#A0522D" stroke="#654321" stroke-width="2" />
+        
+        <!-- Ears -->
+        <ellipse cx="444" cy="330" rx="10" ry="14" fill="#8B4513" stroke="#654321" stroke-width="1" />
+        <ellipse cx="452" cy="322" rx="10" ry="14" fill="#8B4513" stroke="#654321" stroke-width="1" />
+        
+        <!-- Inner ears -->
+        <ellipse cx="444" cy="330" rx="5" ry="7" fill="#FFB6C1" />
+        <ellipse cx="452" cy="322" rx="5" ry="7" fill="#FFB6C1" />
+        
+        <!-- Eyes -->
+        <circle cx="448" cy="338" r="3" fill="black" />
+        <circle cx="464" cy="334" r="3" fill="black" />
+        
+        <!-- Eye shine -->
+        <circle cx="450" cy="336" r="1" fill="white" />
+        <circle cx="466" cy="332" r="1" fill="white" />
+        
+        <!-- Nose -->
+        <ellipse cx="436" cy="346" rx="2" ry="1.5" fill="#FFB6C1" />
+        
+        <!-- Whiskers -->
+        <line x1="432" y1="344" x2="420" y2="341" stroke="black" stroke-width="1" />
+        <line x1="432" y1="346" x2="420" y2="346" stroke="black" stroke-width="1" />
+        <line x1="432" y1="348" x2="420" y2="350" stroke="black" stroke-width="1" />
+        
+        <!-- Tail -->
+        <path d="M 548 354 Q 580 340 596 362 Q 612 384 584 398" stroke="#8B4513" stroke-width="6" fill="none" />
+        
+        <!-- Feet -->
+        <ellipse cx="476" cy="374" rx="6" ry="4" fill="#FFB6C1" />
+        <ellipse cx="508" cy="378" rx="6" ry="4" fill="#FFB6C1" />
+        <ellipse cx="524" cy="374" rx="6" ry="4" fill="#FFB6C1" />
+        <ellipse cx="540" cy="370" rx="6" ry="4" fill="#FFB6C1" />
+    </g>
+
+    <!-- Title -->
+    <text x="400" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#654321">Two Cute Mice</text>
+</svg>

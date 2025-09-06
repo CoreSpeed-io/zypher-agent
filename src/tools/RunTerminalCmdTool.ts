@@ -9,6 +9,7 @@ export const RunTerminalCmdTool: Tool<{
   command: string;
   isBackground: boolean;
   requireUserApproval: boolean;
+  walkpath?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "run_terminal_cmd",
@@ -22,12 +23,16 @@ export const RunTerminalCmdTool: Tool<{
     requireUserApproval: z
       .boolean()
       .describe("Whether user must approve before execution"),
+    walkpath: z
+      .string()
+      .optional()
+      .describe("Walk workspace path for the command"),
     explanation: z
       .string()
       .optional()
       .describe("One sentence explanation for tool usage"),
   }),
-  execute: async ({ command, isBackground }) => {
+  execute: async ({ command, isBackground, walkpath }) => {
     try {
       if (isBackground) {
         // For background processes, use spawn
@@ -35,12 +40,13 @@ export const RunTerminalCmdTool: Tool<{
           shell: true,
           detached: true,
           stdio: "ignore",
+          cwd: walkpath,
         });
         child.unref();
         return `Started background command: ${command}`;
       }
 
-      const { stdout, stderr } = await execAsync(command);
+      const { stdout, stderr } = await execAsync(command, { cwd: walkpath });
       if (stderr) {
         return `Command executed with warnings:\n${stderr}\nOutput:\n${stdout}`;
       }
