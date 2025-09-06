@@ -435,7 +435,7 @@ On error:
                 data: { targetFile, action: EditFileAction.REPLACE_STR_FIRST },
               });
             }
-            
+
             return await replaceStringInFile(
               targetFile,
               oldContent,
@@ -454,7 +454,7 @@ On error:
                 data: { targetFile, action: EditFileAction.REPLACE_STR_ALL },
               });
             }
-            
+
             return await replaceStringInFile(
               targetFile,
               oldContent,
