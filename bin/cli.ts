@@ -49,7 +49,7 @@ const { options: cli } = await new Command()
   .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
   .option("-w, --workspace <workspace:string>", "Workspace directory")
   .option(
-    "--working <workingDirectory:string>",
+    "--walk <workingDirectory:string>",
     "Working directory override for tools/checkpoints (no chdir)",
   )
   .option("-u, --user-id <userId:string>", "Custom user ID")
@@ -134,7 +134,7 @@ async function main(): Promise<void> {
       providerInstance,
       mcpServerManager,
       loopInterceptorManager,
-      { userId: cli.userId, workingDirectory: cli.working },
+      { userId: cli.userId, workingDirectory: cli.walk },
     );
 
     // Register all available tools

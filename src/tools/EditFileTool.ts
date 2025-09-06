@@ -12,7 +12,6 @@ enum EditFileAction {
   REPLACE_STR_FIRST = "replace_str_first",
   OVERWRITE = "overwrite",
   PATCH = "patch",
-  CREATE = "create",
   UNDO = "undo",
 }
 
@@ -22,33 +21,6 @@ async function statBytes(path: string): Promise<number> {
     return s.size ?? 0;
   } catch {
     return 0;
-  }
-}
-
-async function createFile(targetFile: string) {
-  try {
-    const parent = dirname(targetFile);
-    if (parent) await ensureDir(parent);
-
-    await Deno.create(targetFile);
-
-    return JSON.stringify({
-      ok: true,
-      tool: "edit_file",
-      targetFile,
-      action: EditFileAction.CREATE,
-      bytesBefore: 0,
-      bytesAfter: 0,
-      changed: true,
-      details: { created: true },
-    });
-  } catch (e) {
-    return JSON.stringify({
-      ok: false,
-      tool: "edit_file",
-      error: `Failed to create file: ${e instanceof Error ? e.message : e}`,
-      data: { targetFile, action: EditFileAction.CREATE },
-    });
   }
 }
 
@@ -238,6 +210,7 @@ async function patchFile(
     if (patched === false) {
       throw new Error("Incompatible patch");
     }
+
     await Deno.writeTextFile(targetFile, patched);
     const bytesAfter = await statBytes(targetFile);
     return JSON.stringify({
@@ -307,7 +280,6 @@ export function defineEditFileTool(backupDir: string = "./backup"): {
     insertAt?: number;
     oldContent?: string;
     reFlags?: string;
-    workingDirectory?: string;
   }>;
 } {
   const EditFileTool = defineTool({
@@ -317,7 +289,7 @@ export function defineEditFileTool(backupDir: string = "./backup"): {
 Parameters:
 - targetFile: The target file to edit.
 - instructions: One sentence explanation of the intended change (for logging/audit).
-- action: One of "create" | "insert" | "replace_regex" | "replace_str_first" | "replace_str_all" | "overwrite" | "patch" | "undo". Default "create".
+- action: One of "overwrite" | "insert" | "replace_regex" | "replace_str_first" | "replace_str_all" | "patch" | "undo". Default "overwrite".
 - oldContent (optional):
   - For REPLACE_STR_*: the search string.
   - For REPLACE_REGEX: the regex *pattern* (JS RegExp source string).
@@ -331,9 +303,8 @@ Parameters:
 - insertAt (optional): 1-based line number to insert BEFORE (for "insert"). If > EOF, appends at end.
 
 Behavior:
-- Validates file existence before editing (except CREATE).
+- Validates file existence before editing.
 - Produces metadata about the change (bytes before/after, whether content changed).
-- CREATE: creates an empty file.
 - OVERWRITE: replaces the entire file content, creating a new file with the specified content if it doesn't exist.
 - REPLACE_STR_FIRST: replaces the first occurrence; returns count (=0 or 1).
 - REPLACE_STR_ALL: replaces all occurrences; returns total count.
@@ -375,7 +346,7 @@ On error:
       action: z
         .nativeEnum(EditFileAction)
         .describe("The action to perform")
-        .default(EditFileAction.CREATE),
+        .default(EditFileAction.OVERWRITE),
       oldContent: z
         .string()
         .optional()
@@ -399,28 +370,22 @@ On error:
         ),
     }),
 
-    execute: async (
-      { targetFile, action, oldContent, newContent, reFlags, insertAt },
-      ctx,
-    ): Promise<string> => {
-      const workingDirectory = ctx?.workingDirectory;
-      const resolve = (
-        p: string,
-      ) => (isAbsolute(p) ? p : join(workingDirectory ?? Deno.cwd(), p));
+    execute: async ({
+      targetFile,
+      action,
+      oldContent,
+      newContent,
+      reFlags,
+      insertAt,
+    }, ctx): Promise<string> => {
+      const resolve = (p: string) =>
+        isAbsolute(p) ? p : join(ctx?.workingDirectory ?? Deno.cwd(), p);
       const targetResolved = resolve(targetFile);
       const backupResolvedDir = resolve(backupDir);
       await ensureDir(backupResolvedDir);
       const fileName = basename(targetResolved);
       try {
         await Deno.stat(targetResolved);
-        if (action === EditFileAction.CREATE) {
-          return JSON.stringify({
-            ok: false,
-            tool: "edit_file",
-            error: `${targetResolved} already exists`,
-            data: { targetFile: targetResolved, action: EditFileAction.CREATE },
-          });
-        }
         // Backup original file
         if (action !== EditFileAction.UNDO) {
           await Deno.copyFile(
@@ -429,10 +394,7 @@ On error:
           );
         }
       } catch {
-        if (
-          action !== EditFileAction.CREATE &&
-          action !== EditFileAction.OVERWRITE
-        ) {
+        if (action !== EditFileAction.OVERWRITE) {
           return JSON.stringify({
             ok: false,
             tool: "edit_file",
@@ -446,9 +408,6 @@ On error:
         const bytesBefore = await statBytes(targetResolved);
 
         switch (action) {
-          case EditFileAction.CREATE: {
-            return await createFile(targetResolved);
-          }
           case EditFileAction.OVERWRITE: {
             return await overwriteFile(targetResolved, newContent, bytesBefore);
           }
@@ -486,6 +445,7 @@ On error:
                 },
               });
             }
+
             return await replaceStringInFile(
               targetResolved,
               oldContent,
@@ -507,6 +467,7 @@ On error:
                 },
               });
             }
+
             return await replaceStringInFile(
               targetResolved,
               oldContent,

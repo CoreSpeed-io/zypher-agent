@@ -5,12 +5,7 @@ import {
   saveMessageHistory,
 } from "./utils/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
-import {
-  applyCheckpoint,
-  type Checkpoint,
-  createCheckpoint,
-  getCheckpointDetails,
-} from "./checkpoints.ts";
+import { type Checkpoint, CheckpointManager } from "./checkpoints.ts";
 import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import type { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
@@ -115,6 +110,7 @@ export class ZypherAgent {
   #messages: Message[];
   #system: string;
   #workingDirectory?: string;
+  #checkpointManager?: CheckpointManager;
 
   // Task execution state
   #isTaskRunning: boolean = false;
@@ -143,6 +139,7 @@ export class ZypherAgent {
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#customInstructions = config.customInstructions;
     this.#workingDirectory = config.workingDirectory;
+    this.#checkpointManager = new CheckpointManager(this.#workingDirectory);
   }
 
   async init(): Promise<void> {
@@ -221,7 +218,7 @@ export class ZypherAgent {
   async applyCheckpoint(checkpointId: string): Promise<boolean> {
     try {
       // Apply the checkpoint to the filesystem
-      await applyCheckpoint(checkpointId, this.#workingDirectory);
+      await this.#checkpointManager!.applyCheckpoint(checkpointId);
 
       // Update message history to discard messages beyond the checkpoint
       const checkpointIndex = this.#messages.findIndex(
@@ -352,13 +349,11 @@ export class ZypherAgent {
         const checkpointName = `Before task: ${
           taskDescription.substring(0, 50)
         }${taskDescription.length > 50 ? "..." : ""}`;
-        checkpointId = await createCheckpoint(
+        checkpointId = await this.#checkpointManager!.createCheckpoint(
           checkpointName,
-          this.#workingDirectory,
         );
-        checkpoint = await getCheckpointDetails(
+        checkpoint = await this.#checkpointManager!.getCheckpointDetails(
           checkpointId,
-          this.#workingDirectory,
         );
       }
 
