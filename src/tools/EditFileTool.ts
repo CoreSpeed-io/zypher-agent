@@ -9,7 +9,7 @@ enum EditFileAction {
   INSERT = "insert",
   REPLACE_REGEX = "replace_regex",
   REPLACE_STR_ALL = "replace_str_all",
-  REPLACE_STR_FIRST = "replace_str_first"
+  REPLACE_STR_FIRST = "replace_str_first",
   OVERWRITE = "overwrite",
   PATCH = "patch",
   UNDO = "undo",
