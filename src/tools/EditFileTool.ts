@@ -390,7 +390,7 @@ On error:
           );
         }
       } catch {
-        if ( action !== EditFileAction.OVERWRITE ) {
+        if (action !== EditFileAction.OVERWRITE) {
           return JSON.stringify({
             ok: false,
             tool: "edit_file",
