@@ -77,7 +77,10 @@ export const CopyFileTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ sourceFile, destinationFile, overwrite }, ctx) => {
+  execute: async (
+    { sourceFile, destinationFile, overwrite },
+    ctx,
+  ) => {
     const workingDirectory = ctx?.workingDirectory;
     try {
       const resolve = (p: string) =>

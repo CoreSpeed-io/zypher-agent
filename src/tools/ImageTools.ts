@@ -199,7 +199,13 @@ export function defineImageTools(openaiApiKey: string): {
     }),
 
     execute: async (
-      { prompt, size, quality, background, destinationPath },
+      {
+        prompt,
+        size,
+        quality,
+        background,
+        destinationPath,
+      },
       ctx,
     ): Promise<string> => {
       const workingDirectory = ctx?.workingDirectory;
@@ -285,7 +291,14 @@ export function defineImageTools(openaiApiKey: string): {
     }),
 
     execute: async (
-      { sourcePath, mimeType, prompt, size, quality, destinationPath },
+      {
+        sourcePath,
+        mimeType,
+        prompt,
+        size,
+        quality,
+        destinationPath,
+      },
       ctx,
     ): Promise<string> => {
       const workingDirectory = ctx?.workingDirectory;

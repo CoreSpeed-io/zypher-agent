@@ -28,41 +28,6 @@ export interface Checkpoint {
 }
 
 /**
- * Manager that encapsulates a working directory for checkpoint operations.
- * Prefer this for cleaner call sites instead of passing workingDirectory
- * to every function.
- */
-// Prefer withWorkingDirectory() functional API for checkpoint operations
-
-/**
- * Functional alternative: get a bound API where workingDirectory is auto-injected.
- * Usage:
- *   const cp = withWorkingDirectory('/abs/path');
- *   await cp.createCheckpoint('Before changes');
- */
-export interface BoundCheckpointApi {
-  createCheckpoint(name: string): Promise<string>;
-  getCheckpointDetails(checkpointId: string): Promise<Checkpoint>;
-  listCheckpoints(): Promise<Checkpoint[]>;
-  applyCheckpoint(checkpointId: string): Promise<void>;
-}
-
-export function withWorkingDirectory(
-  workingDirectory?: string,
-): BoundCheckpointApi {
-  const api = { createCheckpoint, getCheckpointDetails, listCheckpoints, applyCheckpoint } as const;
-  return new Proxy(api as unknown as BoundCheckpointApi, {
-    get(target, prop, receiver) {
-      const original = (api as unknown as Record<string | symbol, unknown>)[prop];
-      if (typeof original === "function") {
-        return (...args: unknown[]) => (original as Function)(...args, workingDirectory);
-      }
-      return Reflect.get(target, prop, receiver);
-    },
-  });
-}
-
-/**
  * Gets the path to the checkpoints directory for the current workspace
  *
  * @returns Promise resolving to the path to the checkpoints directory

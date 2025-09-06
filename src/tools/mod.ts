@@ -38,17 +38,25 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(
   name: string,
   description: string,
   schema: T,
-  execute: (params: InferParams<T>, ctx?: { workingDirectory?: string }) => Promise<string>,
+  execute: (
+    params: InferParams<T>,
+    ctx?: { workingDirectory?: string },
+  ) => Promise<string>,
 ): Tool<InferParams<T>> {
   // Convert Zod schema to JSON Schema
   const schemaWithPassthrough = schema.passthrough();
-  const jsonSchema = zodToJsonSchema(schemaWithPassthrough, { target: "jsonSchema7" });
+  const jsonSchema = zodToJsonSchema(schemaWithPassthrough, {
+    target: "jsonSchema7",
+  });
 
   return {
     name,
     description,
     parameters: jsonSchema as AnthropicTool.InputSchema,
-    execute: async (params: InferParams<T>, ctx?: { workingDirectory?: string }) => {
+    execute: async (
+      params: InferParams<T>,
+      ctx?: { workingDirectory?: string },
+    ) => {
       // Validate params using Zod schema
       const validatedParams = await schemaWithPassthrough.parseAsync(params);
       return execute(validatedParams, ctx);
@@ -61,7 +69,10 @@ export function defineTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
   name: string;
   description: string;
   parameters: T;
-  execute: (params: InferParams<T>, ctx?: { workingDirectory?: string }) => Promise<string>;
+  execute: (
+    params: InferParams<T>,
+    ctx?: { workingDirectory?: string },
+  ) => Promise<string>;
 }): Tool<InferParams<T>> {
   return createTool(
     options.name,
