@@ -5,7 +5,8 @@ import {
   saveMessageHistory,
 } from "./utils/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
-import { type Checkpoint, CheckpointManager } from "./checkpoints.ts";
+import type { Checkpoint } from "./checkpoints.ts";
+import { CheckpointManager } from "./checkpoints.ts";
 import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import type { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
