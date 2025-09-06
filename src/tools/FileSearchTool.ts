@@ -3,7 +3,7 @@ import { defineTool, type Tool } from "./mod.ts";
 
 export const FileSearchTool: Tool<{
   query: string;
-  walkpath?: string | undefined;
+  workingDirectory?: string | undefined;
   explanation: string;
 }> = defineTool({
   name: "file_search",
@@ -11,22 +11,17 @@ export const FileSearchTool: Tool<{
     "Fast file search based on fuzzy matching against file path. Use if you know part of the file path but don't know where it's located exactly. Response will be capped to 10 results. Make your query more specific if need to filter results further.",
   parameters: z.object({
     query: z.string().describe("Fuzzy filename to search for"),
-    walkpath: z
-      .string()
-      .optional()
-      .describe("Walk workspace path to run fd in"),
-    explanation: z
-      .string()
-      .describe(
-        "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
-      ),
+    explanation: z.string().describe(
+      "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
+    ),
   }),
-  execute: async ({ query, walkpath }) => {
+  execute: async ({ query }, ctx) => {
+    const workingDirectory = ctx?.workingDirectory;
     try {
       // Using fd (modern alternative to find) with fuzzy matching
       const command = new Deno.Command("fd", {
         args: ["-t", "f", "-d", "10", "-l", query],
-        cwd: walkpath,
+        cwd: workingDirectory,
       });
 
       const { stdout, stderr } = await command.output();

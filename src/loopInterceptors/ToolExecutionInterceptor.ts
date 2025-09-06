@@ -56,8 +56,10 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     }
 
     try {
-      // TODO: support abort signal in tool execution
-      return await tool.execute(parameters);
+      return await tool.execute(parameters, {
+        workingDirectory: (options as unknown as { workingDirectory?: string })
+          ?.workingDirectory,
+      });
     } catch (error) {
       return `Error executing tool '${name}': ${formatError(error)}`;
     }
@@ -83,17 +85,16 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
         const workingDir = context.workingDirectory;
         const rawParams = (block.input ?? {}) as Record<string, unknown>;
         const params: Record<string, unknown> = { ...rawParams };
-        if (workingDir && params.walkpath === undefined) {
-          params.walkpath = workingDir;
+        if (workingDir && params.workingDirectory === undefined) {
+          params.workingDirectory = workingDir;
         }
 
-        const result = await this.#executeToolCall(
-          block.name,
-          params,
-          {
-            signal: context.signal,
-          },
-        );
+        const result = await this.#executeToolCall(block.name, params, {
+          signal: context.signal,
+          // pass workingDirectory separately via options -> execute(ctx)
+          // This avoids exposing it in tool input schema or model output
+          ...(workingDir ? { workingDirectory: workingDir } : {}),
+        });
 
         // Add tool response to messages
         const toolMessage: Message = {

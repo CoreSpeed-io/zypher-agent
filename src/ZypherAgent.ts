@@ -91,10 +91,10 @@ export interface ZypherAgentConfig {
   /** Custom instructions to override the default instructions. */
   customInstructions?: string;
   /**
-   * Optional workspace directory to "walk" in without changing process cwd.
+   * Optional working directory override without changing process cwd.
    * When set, tools and checkpoints operate relative to this directory.
    */
-  walkWorkspaceDirectory?: string;
+  workingDirectory?: string;
 }
 
 export class ZypherAgent {
@@ -114,7 +114,7 @@ export class ZypherAgent {
 
   #messages: Message[];
   #system: string;
-  #walkWorkspaceDirectory?: string;
+  #workingDirectory?: string;
 
   // Task execution state
   #isTaskRunning: boolean = false;
@@ -142,7 +142,7 @@ export class ZypherAgent {
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#customInstructions = config.customInstructions;
-    this.#walkWorkspaceDirectory = config.walkWorkspaceDirectory;
+    this.#workingDirectory = config.workingDirectory;
   }
 
   async init(): Promise<void> {
@@ -158,7 +158,7 @@ export class ZypherAgent {
 
     // Load message history if enabled
     if (this.#persistHistory) {
-      this.#messages = await loadMessageHistory(this.#walkWorkspaceDirectory);
+      this.#messages = await loadMessageHistory(this.#workingDirectory);
     }
   }
 
@@ -168,8 +168,8 @@ export class ZypherAgent {
    */
   async #loadSystemPrompt(): Promise<void> {
     const userInfo = getCurrentUserInfo();
-    const effectiveUserInfo = this.#walkWorkspaceDirectory
-      ? { ...userInfo, workspacePath: this.#walkWorkspaceDirectory }
+    const effectiveUserInfo = this.#workingDirectory
+      ? { ...userInfo, workspacePath: this.#workingDirectory }
       : userInfo;
     this.#system = await getSystemPrompt(
       effectiveUserInfo,
@@ -221,7 +221,7 @@ export class ZypherAgent {
   async applyCheckpoint(checkpointId: string): Promise<boolean> {
     try {
       // Apply the checkpoint to the filesystem
-      await applyCheckpoint(checkpointId, this.#walkWorkspaceDirectory);
+      await applyCheckpoint(checkpointId, this.#workingDirectory);
 
       // Update message history to discard messages beyond the checkpoint
       const checkpointIndex = this.#messages.findIndex(
@@ -234,7 +234,7 @@ export class ZypherAgent {
 
         // Save updated message history if enabled
         if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages);
+          await saveMessageHistory(this.#messages, this.#workingDirectory);
         }
       }
 
@@ -354,11 +354,11 @@ export class ZypherAgent {
         }${taskDescription.length > 50 ? "..." : ""}`;
         checkpointId = await createCheckpoint(
           checkpointName,
-          this.#walkWorkspaceDirectory,
+          this.#workingDirectory,
         );
         checkpoint = await getCheckpointDetails(
           checkpointId,
-          this.#walkWorkspaceDirectory,
+          this.#workingDirectory,
         );
       }
 
@@ -449,7 +449,7 @@ export class ZypherAgent {
           messages: this.#messages,
           lastResponse: responseText,
           tools: toolCalls,
-          workingDirectory: this.#walkWorkspaceDirectory ?? Deno.cwd(),
+          workingDirectory: this.#workingDirectory ?? Deno.cwd(),
           stopReason: finalMessage.stop_reason,
           signal: mergedSignal,
         };
@@ -473,7 +473,7 @@ export class ZypherAgent {
 
       // Save updated message history if enabled
       if (this.#persistHistory) {
-        await saveMessageHistory(this.#messages, this.#walkWorkspaceDirectory);
+        await saveMessageHistory(this.#messages, this.#workingDirectory);
       }
 
       return this.messages;
@@ -488,10 +488,7 @@ export class ZypherAgent {
         };
 
         if (this.#persistHistory) {
-          await saveMessageHistory(
-            this.#messages,
-            this.#walkWorkspaceDirectory,
-          );
+          await saveMessageHistory(this.#messages, this.#workingDirectory);
         }
 
         return this.messages;

@@ -28,14 +28,49 @@ export interface Checkpoint {
 }
 
 /**
+ * Manager that encapsulates a working directory for checkpoint operations.
+ * Prefer this for cleaner call sites instead of passing workingDirectory
+ * to every function.
+ */
+// Prefer withWorkingDirectory() functional API for checkpoint operations
+
+/**
+ * Functional alternative: get a bound API where workingDirectory is auto-injected.
+ * Usage:
+ *   const cp = withWorkingDirectory('/abs/path');
+ *   await cp.createCheckpoint('Before changes');
+ */
+export interface BoundCheckpointApi {
+  createCheckpoint(name: string): Promise<string>;
+  getCheckpointDetails(checkpointId: string): Promise<Checkpoint>;
+  listCheckpoints(): Promise<Checkpoint[]>;
+  applyCheckpoint(checkpointId: string): Promise<void>;
+}
+
+export function withWorkingDirectory(
+  workingDirectory?: string,
+): BoundCheckpointApi {
+  const api = { createCheckpoint, getCheckpointDetails, listCheckpoints, applyCheckpoint } as const;
+  return new Proxy(api as unknown as BoundCheckpointApi, {
+    get(target, prop, receiver) {
+      const original = (api as unknown as Record<string | symbol, unknown>)[prop];
+      if (typeof original === "function") {
+        return (...args: unknown[]) => (original as Function)(...args, workingDirectory);
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}
+
+/**
  * Gets the path to the checkpoints directory for the current workspace
  *
  * @returns Promise resolving to the path to the checkpoints directory
  */
 async function getWorkspaceCheckpointsDir(
-  walkpath?: string,
+  workingDirectory?: string,
 ): Promise<string> {
-  const workspaceDir = await getWorkspaceDataDir(walkpath);
+  const workspaceDir = await getWorkspaceDataDir(workingDirectory);
   const checkpointsDir = path.join(workspaceDir, "checkpoints");
 
   // Create checkpoints directory if it doesn't exist
@@ -52,10 +87,10 @@ let _gitEnvCache: Map<string, Record<string, string>> | undefined;
  * @returns Promise resolving to the Git command prefix
  */
 async function getGitEnv(
-  walkpath?: string,
+  workingDirectory?: string,
 ): Promise<Record<string, string>> {
-  const checkpointsDir = await getWorkspaceCheckpointsDir(walkpath);
-  const workTree = walkpath ?? Deno.cwd();
+  const checkpointsDir = await getWorkspaceCheckpointsDir(workingDirectory);
+  const workTree = workingDirectory ?? Deno.cwd();
   if (!_gitEnvCache) _gitEnvCache = new Map();
   const cacheKey = `${checkpointsDir}::${workTree}`;
   const cached = _gitEnvCache.get(cacheKey);
@@ -72,13 +107,13 @@ async function getGitEnv(
  * Initialize the checkpoint repository if it doesn't exist
  */
 async function initCheckpointRepo(
-  walkpath?: string,
+  workingDirectory?: string,
 ): Promise<void> {
   // Check if Git repository already exists and is valid
   try {
     await runCommand("git", {
       args: ["status"],
-      env: await getGitEnv(walkpath),
+      env: await getGitEnv(workingDirectory),
     });
     return; // It's a valid Git repository, so we're done
   } catch {
@@ -86,26 +121,14 @@ async function initCheckpointRepo(
   }
 
   // Initialize a new git repository (non-bare)
-  await runCommand("git", {
-    args: ["init"],
-    env: await getGitEnv(walkpath),
-  });
+  await runCommand("git", { args: ["init"], env: await getGitEnv(workingDirectory) });
 
   // Configure the repository
-  await runCommand("git", {
-    args: ["config", "user.name", "ZypherAgent"],
-    env: await getGitEnv(walkpath),
-  });
-  await runCommand("git", {
-    args: ["config", "user.email", "zypher@corespeed.io"],
-    env: await getGitEnv(walkpath),
-  });
+  await runCommand("git", { args: ["config", "user.name", "ZypherAgent"], env: await getGitEnv(workingDirectory) });
+  await runCommand("git", { args: ["config", "user.email", "zypher@corespeed.io"], env: await getGitEnv(workingDirectory) });
 
   // Create an initial empty commit
-  await runCommand("git", {
-    args: ["commit", "--allow-empty", "-m", "Initial checkpoint repository"],
-    env: await getGitEnv(walkpath),
-  });
+  await runCommand("git", { args: ["commit", "--allow-empty", "-m", "Initial checkpoint repository"], env: await getGitEnv(workingDirectory) });
 }
 
 /**
@@ -116,22 +139,22 @@ async function initCheckpointRepo(
  */
 export async function createCheckpoint(
   name: string,
-  walkpath?: string,
+  workingDirectory?: string,
 ): Promise<string> {
   try {
     // Initialize the checkpoint repository if needed
-    await initCheckpointRepo(walkpath);
+    await initCheckpointRepo(workingDirectory);
 
     // Add all files to the index
     await runCommand("git", {
       args: ["add", "-A"],
-      env: await getGitEnv(walkpath),
+      env: await getGitEnv(workingDirectory),
     });
 
     // Check if there are any changes
     const { stdout: status } = await runCommand("git", {
       args: ["status", "--porcelain"],
-      env: await getGitEnv(walkpath),
+      env: await getGitEnv(workingDirectory),
     });
     const hasChanges = new TextDecoder().decode(status).trim().length > 0;
 
@@ -144,13 +167,13 @@ export async function createCheckpoint(
     // Create the commit (using --allow-empty to handle cases with no changes)
     await runCommand("git", {
       args: ["commit", "--allow-empty", "-m", commitMessage],
-      env: await getGitEnv(walkpath),
+      env: await getGitEnv(workingDirectory),
     });
 
     // Get the commit hash
     const { stdout: commitHash } = await runCommand("git", {
       args: ["rev-parse", "HEAD"],
-      env: await getGitEnv(walkpath),
+      env: await getGitEnv(workingDirectory),
     });
 
     const checkpointId = new TextDecoder().decode(commitHash).trim();
@@ -173,13 +196,13 @@ export async function createCheckpoint(
  */
 export async function getCheckpointDetails(
   checkpointId: string,
-  walkpath?: string,
+  workingDirectory?: string,
 ): Promise<Checkpoint> {
   try {
     // Get commit details
     const { stdout: commitInfo } = await runCommand("git", {
       args: ["show", "--no-patch", "--format=%H%n%B%n%aI", checkpointId],
-      env: await getGitEnv(walkpath),
+      env: await getGitEnv(workingDirectory),
     });
 
     const lines = new TextDecoder().decode(commitInfo).trim().split("\n");
@@ -221,7 +244,7 @@ export async function getCheckpointDetails(
     // Get files changed in this commit
     const { stdout: filesChanged } = await runCommand("git", {
       args: ["diff-tree", "--no-commit-id", "--name-only", "-r", checkpointId],
-      env: await getGitEnv(walkpath),
+      env: await getGitEnv(workingDirectory),
     });
 
     const files = new TextDecoder().decode(filesChanged).trim().split("\n")
@@ -243,16 +266,18 @@ export async function getCheckpointDetails(
  *
  * @returns Promise resolving to an array of checkpoints
  */
-export async function listCheckpoints(): Promise<Checkpoint[]> {
+export async function listCheckpoints(
+  workingDirectory?: string,
+): Promise<Checkpoint[]> {
   try {
     // Ensure the checkpoint repository is initialized
-    await initCheckpointRepo();
+    await initCheckpointRepo(workingDirectory);
 
     // Get all checkpoint commits with a custom delimiter between commits
     // Using a unique delimiter "###COMMIT###" that won't appear in commit messages
     const { stdout } = await runCommand("git", {
       args: ["log", "--pretty=format:###COMMIT###%n%H%n%aI%n%s"],
-      env: await getGitEnv(),
+      env: await getGitEnv(workingDirectory),
     });
 
     if (!new TextDecoder().decode(stdout).trim()) {
@@ -300,7 +325,7 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
       // Get files for this checkpoint
       const { stdout: filesChanged } = await runCommand("git", {
         args: ["diff-tree", "--no-commit-id", "--name-only", "-r", id],
-        env: await getGitEnv(),
+        env: await getGitEnv(workingDirectory),
       });
 
       const files = new TextDecoder().decode(filesChanged).trim().split("\n")
@@ -329,17 +354,17 @@ export async function listCheckpoints(): Promise<Checkpoint[]> {
  */
 export async function applyCheckpoint(
   checkpointId: string,
-  walkpath?: string,
+  workingDirectory?: string,
 ): Promise<void> {
   try {
     // Verify the checkpoint exists
     await runCommand("git", {
       args: ["cat-file", "-e", checkpointId],
-      env: await getGitEnv(walkpath),
+      env: await getGitEnv(workingDirectory),
     });
 
     // Get checkpoint details
-    const checkpoint = await getCheckpointDetails(checkpointId, walkpath);
+    const checkpoint = await getCheckpointDetails(checkpointId, workingDirectory);
 
     // If this is an advice-only checkpoint (no files), warn that there are no changes to apply
     if (!checkpoint.files || checkpoint.files.length === 0) {
@@ -355,7 +380,7 @@ export async function applyCheckpoint(
     // Use checkout to avoid changing the HEAD
     await runCommand("git", {
       args: ["checkout", checkpointId, "--", "."],
-      env: await getGitEnv(walkpath),
+      env: await getGitEnv(workingDirectory),
     });
   } catch (error) {
     throw new Error("Failed to apply checkpoint.", { cause: error });

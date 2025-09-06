@@ -6,21 +6,15 @@ import { ensureDir } from "@std/fs";
 
 export const DeleteFileTool: Tool<{
   targetFile: string;
-  walkpath?: string | undefined;
+  workingDirectory?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "delete_file",
   description: "Deletes a file at the specified path.",
   parameters: z.object({
-    targetFile: z
-      .string()
-      .describe(
-        "The path of the file to delete, relative to the workspace root.",
-      ),
-    walkpath: z
-      .string()
-      .optional()
-      .describe("Walk workspace path to resolve targetFile from"),
+    targetFile: z.string().describe(
+      "The path of the file to delete, relative to the workspace root.",
+    ),
     explanation: z
       .string()
       .optional()
@@ -28,11 +22,12 @@ export const DeleteFileTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ targetFile, walkpath }) => {
+  execute: async ({ targetFile }, ctx) => {
+    const workingDirectory = ctx?.workingDirectory;
     try {
       const resolved = path.isAbsolute(targetFile)
         ? targetFile
-        : path.join(walkpath ?? Deno.cwd(), targetFile);
+        : path.join(workingDirectory ?? Deno.cwd(), targetFile);
       await Deno.remove(resolved);
       return `Successfully deleted file: ${resolved}`;
     } catch (error) {
@@ -54,7 +49,7 @@ export const CopyFileTool: Tool<{
   sourceFile: string;
   destinationFile: string;
   overwrite?: boolean | undefined;
-  walkpath?: string | undefined;
+  workingDirectory?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "copy_file",
@@ -66,17 +61,9 @@ export const CopyFileTool: Tool<{
     destinationFile: z
       .string()
       .describe("The path where the file should be copied to."),
-    overwrite: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe(
-        "Whether to overwrite the destination file if it already exists.",
-      ),
-    walkpath: z
-      .string()
-      .optional()
-      .describe("Walk workspace path to resolve paths from"),
+    overwrite: z.boolean().optional().default(false).describe(
+      "Whether to overwrite the destination file if it already exists.",
+    ),
     explanation: z
       .string()
       .optional()
@@ -84,12 +71,11 @@ export const CopyFileTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async (
-    { sourceFile, destinationFile, overwrite, walkpath },
-  ) => {
+  execute: async ({ sourceFile, destinationFile, overwrite }, ctx) => {
+    const workingDirectory = ctx?.workingDirectory;
     try {
       const resolve = (p: string) =>
-        path.isAbsolute(p) ? p : path.join(walkpath ?? Deno.cwd(), p);
+        path.isAbsolute(p) ? p : path.join(workingDirectory ?? Deno.cwd(), p);
       const srcResolved = resolve(sourceFile);
       const dstResolved = resolve(destinationFile);
       // Check if source file exists

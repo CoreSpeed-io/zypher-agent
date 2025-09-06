@@ -148,7 +148,7 @@ export function defineImageTools(openaiApiKey: string): {
     quality: "auto" | "low" | "medium" | "high";
     background: "auto" | "transparent" | "opaque";
     destinationPath: string;
-    walkpath?: string | undefined;
+    workingDirectory?: string | undefined;
     explanation?: string | undefined;
   }>;
   ImageEditTool: Tool<{
@@ -158,7 +158,7 @@ export function defineImageTools(openaiApiKey: string): {
     size: "auto" | "1024x1024" | "1536x1024" | "1024x1536";
     quality: "auto" | "low" | "medium" | "high";
     destinationPath: string;
-    walkpath?: string | undefined;
+    workingDirectory?: string | undefined;
     explanation?: string | undefined;
   }>;
 } {
@@ -195,24 +195,18 @@ export function defineImageTools(openaiApiKey: string): {
       quality: qualitySchema,
       background: backgroundSchema,
       destinationPath: destinationPathSchema,
-      walkpath: z.string().optional().describe(
-        "Walk workspace path to resolve destinationPath from",
-      ),
       explanation: explanationSchema,
     }),
 
-    execute: async ({
-      prompt,
-      size,
-      quality,
-      background,
-      destinationPath,
-      walkpath,
-    }): Promise<string> => {
+    execute: async (
+      { prompt, size, quality, background, destinationPath },
+      ctx,
+    ): Promise<string> => {
+      const workingDirectory = ctx?.workingDirectory;
       try {
         const resolvedDestination = path.isAbsolute(destinationPath)
           ? destinationPath
-          : path.join(walkpath ?? Deno.cwd(), destinationPath);
+          : path.join(workingDirectory ?? Deno.cwd(), destinationPath);
         // Create parent directory if it doesn't exist
         const parentDir = path.dirname(resolvedDestination);
         await ensureDir(parentDir);
@@ -287,28 +281,21 @@ export function defineImageTools(openaiApiKey: string): {
       size: sizeSchema,
       quality: qualitySchema,
       destinationPath: destinationPathSchema,
-      walkpath: z.string().optional().describe(
-        "Walk workspace path to resolve paths from",
-      ),
       explanation: explanationSchema,
     }),
 
-    execute: async ({
-      sourcePath,
-      mimeType,
-      prompt,
-      size,
-      quality,
-      destinationPath,
-      walkpath,
-    }): Promise<string> => {
+    execute: async (
+      { sourcePath, mimeType, prompt, size, quality, destinationPath },
+      ctx,
+    ): Promise<string> => {
+      const workingDirectory = ctx?.workingDirectory;
       try {
         const resolvedSource = path.isAbsolute(sourcePath)
           ? sourcePath
-          : path.join(walkpath ?? Deno.cwd(), sourcePath);
+          : path.join(workingDirectory ?? Deno.cwd(), sourcePath);
         const resolvedDestination = path.isAbsolute(destinationPath)
           ? destinationPath
-          : path.join(walkpath ?? Deno.cwd(), destinationPath);
+          : path.join(workingDirectory ?? Deno.cwd(), destinationPath);
 
         // Validate source image exists
         if (!(await fileExists(resolvedSource))) {
@@ -336,9 +323,6 @@ export function defineImageTools(openaiApiKey: string): {
           model: "gpt-image-1",
           image: imageFile,
           prompt: prompt,
-          // TODO: OpenAI SDK issue, see https://platform.openai.com/docs/api-reference/images/createEdit for API reference
-          // Disable type checking until the SDK fixes the issue
-          //@ts-ignore-next-line
           size: size,
           quality: quality,
           n: 1,

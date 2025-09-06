@@ -145,3 +145,6 @@ dist
 
 # npm publish artifacts
 npm/
+
+# Ignore test workspace outputs
+/test/

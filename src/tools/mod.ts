@@ -29,7 +29,7 @@ export interface Tool<P extends BaseParams = BaseParams> {
   /**
    * Execute the tool with the given parameters
    */
-  execute(params: P): Promise<string>;
+  execute(params: P, ctx?: { workingDirectory?: string }): Promise<string>;
 }
 
 type InferParams<T extends z.ZodType> = z.infer<T>;
@@ -38,19 +38,20 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(
   name: string,
   description: string,
   schema: T,
-  execute: (params: InferParams<T>) => Promise<string>,
+  execute: (params: InferParams<T>, ctx?: { workingDirectory?: string }) => Promise<string>,
 ): Tool<InferParams<T>> {
   // Convert Zod schema to JSON Schema
-  const jsonSchema = zodToJsonSchema(schema, { target: "jsonSchema7" });
+  const schemaWithPassthrough = schema.passthrough();
+  const jsonSchema = zodToJsonSchema(schemaWithPassthrough, { target: "jsonSchema7" });
 
   return {
     name,
     description,
     parameters: jsonSchema as AnthropicTool.InputSchema,
-    execute: async (params: InferParams<T>) => {
+    execute: async (params: InferParams<T>, ctx?: { workingDirectory?: string }) => {
       // Validate params using Zod schema
-      const validatedParams = await schema.parseAsync(params);
-      return execute(validatedParams);
+      const validatedParams = await schemaWithPassthrough.parseAsync(params);
+      return execute(validatedParams, ctx);
     },
   };
 }
@@ -60,7 +61,7 @@ export function defineTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
   name: string;
   description: string;
   parameters: T;
-  execute: (params: InferParams<T>) => Promise<string>;
+  execute: (params: InferParams<T>, ctx?: { workingDirectory?: string }) => Promise<string>;
 }): Tool<InferParams<T>> {
   return createTool(
     options.name,

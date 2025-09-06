@@ -307,7 +307,7 @@ export function defineEditFileTool(backupDir: string = "./backup"): {
     insertAt?: number;
     oldContent?: string;
     reFlags?: string;
-    walkpath?: string;
+    workingDirectory?: string;
   }>;
 } {
   const EditFileTool = defineTool({
@@ -390,31 +390,19 @@ On error:
         .describe(
           `The RegExp flags (e.g. 'g', 'i') to use for REPLACE_REGEX, default is 'g'`,
         ),
-      insertAt: z
-        .number()
-        .min(1)
-        .optional()
-        .describe(
-          "1-based line number to insert BEFORE (for insert)",
-        ),
-      walkpath: z
-        .string()
-        .optional()
-        .describe("Walk workspace path to resolve targetFile/backupDir from"),
+      insertAt: z.number().min(1).optional().describe(
+        "1-based line number to insert BEFORE (for insert)",
+      ),
     }),
 
-    execute: async ({
-      targetFile,
-      action,
-      oldContent,
-      newContent,
-      reFlags,
-      insertAt,
-      walkpath,
-    }): Promise<string> => {
+    execute: async (
+      { targetFile, action, oldContent, newContent, reFlags, insertAt },
+      ctx,
+    ): Promise<string> => {
+      const workingDirectory = ctx?.workingDirectory;
       const resolve = (
         p: string,
-      ) => (isAbsolute(p) ? p : join(walkpath ?? Deno.cwd(), p));
+      ) => (isAbsolute(p) ? p : join(workingDirectory ?? Deno.cwd(), p));
       const targetResolved = resolve(targetFile);
       const backupResolvedDir = resolve(backupDir);
       await ensureDir(backupResolvedDir);
