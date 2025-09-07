@@ -40,6 +40,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     parameters: Record<string, unknown>,
     options?: {
       signal?: AbortSignal;
+      workingDirectory?: string;
     },
   ): Promise<string> {
     const tool = this.#mcpServerManager.getTool(name);
@@ -57,8 +58,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
 
     try {
       return await tool.execute(parameters, {
-        workingDirectory: (options as unknown as { workingDirectory?: string })
-          ?.workingDirectory,
+        workingDirectory: options?.workingDirectory,
       });
     } catch (error) {
       return `Error executing tool '${name}': ${formatError(error)}`;
