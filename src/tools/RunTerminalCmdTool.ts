@@ -27,7 +27,10 @@ export const RunTerminalCmdTool: Tool<{
       .optional()
       .describe("One sentence explanation for tool usage"),
   }),
-  execute: async ({ command, isBackground }, ctx: ToolExecutionContext = { workingDirectory: Deno.cwd() }) => {
+  execute: async (
+    { command, isBackground },
+    ctx: ToolExecutionContext = { workingDirectory: Deno.cwd() },
+  ) => {
     const workingDirectory = ctx.workingDirectory;
     try {
       if (isBackground) {

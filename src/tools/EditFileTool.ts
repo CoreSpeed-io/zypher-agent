@@ -370,14 +370,17 @@ On error:
         ),
     }),
 
-    execute: async ({
-      targetFile,
-      action,
-      oldContent,
-      newContent,
-      reFlags,
-      insertAt,
-    }, ctx: ToolExecutionContext = { workingDirectory: Deno.cwd() }): Promise<string> => {
+    execute: async (
+      {
+        targetFile,
+        action,
+        oldContent,
+        newContent,
+        reFlags,
+        insertAt,
+      },
+      ctx: ToolExecutionContext = { workingDirectory: Deno.cwd() },
+    ): Promise<string> => {
       const resolve = (p: string) =>
         isAbsolute(p) ? p : join(ctx.workingDirectory, p);
       const targetResolved = resolve(targetFile);
