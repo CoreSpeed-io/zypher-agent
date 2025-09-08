@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 
 export const FileSearchTool: Tool<{
   query: string;
-  workingDirectory?: string | undefined;
   explanation: string;
 }> = defineTool({
   name: "file_search",
@@ -17,8 +16,8 @@ export const FileSearchTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ query }, ctx) => {
-    const workingDirectory = ctx?.workingDirectory;
+  execute: async ({ query }, ctx?: ToolExecutionContext) => {
+    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
     try {
       // Using fd (modern alternative to find) with fuzzy matching
       const command = new Deno.Command("fd", {

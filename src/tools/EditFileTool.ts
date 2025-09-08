@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import { applyPatch } from "diff";
 import { fileExists } from "../utils/data.ts";
 import { basename, dirname, isAbsolute, join } from "@std/path";
@@ -377,9 +377,9 @@ On error:
       newContent,
       reFlags,
       insertAt,
-    }, ctx): Promise<string> => {
+    }, ctx: ToolExecutionContext = { workingDirectory: Deno.cwd() }): Promise<string> => {
       const resolve = (p: string) =>
-        isAbsolute(p) ? p : join(ctx?.workingDirectory ?? Deno.cwd(), p);
+        isAbsolute(p) ? p : join(ctx.workingDirectory, p);
       const targetResolved = resolve(targetFile);
       const backupResolvedDir = resolve(backupDir);
       await ensureDir(backupResolvedDir);

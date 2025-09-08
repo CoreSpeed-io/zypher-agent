@@ -147,4 +147,5 @@ dist
 npm/
 
 # Ignore test workspace outputs
-/test/
+test/*
+src/scripts

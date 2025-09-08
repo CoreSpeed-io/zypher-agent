@@ -1,12 +1,11 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 
 export const GrepSearchTool: Tool<{
   query: string;
   caseSensitive?: boolean | undefined;
   includePattern?: string | undefined;
   excludePattern?: string | undefined;
-  workingDirectory?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "grep_search",
@@ -37,9 +36,9 @@ export const GrepSearchTool: Tool<{
   }),
   execute: async (
     { query, caseSensitive, includePattern, excludePattern },
-    ctx,
+    ctx?: ToolExecutionContext,
   ) => {
-    const workingDirectory = ctx?.workingDirectory;
+    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
     try {
       // Build the arguments array for ripgrep
       const args = ["--line-number", "--no-heading"];

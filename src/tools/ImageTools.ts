@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import OpenAI, { toFile } from "@openai/openai";
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
@@ -148,7 +148,6 @@ export function defineImageTools(openaiApiKey: string): {
     quality: "auto" | "low" | "medium" | "high";
     background: "auto" | "transparent" | "opaque";
     destinationPath: string;
-    workingDirectory?: string | undefined;
     explanation?: string | undefined;
   }>;
   ImageEditTool: Tool<{
@@ -158,7 +157,6 @@ export function defineImageTools(openaiApiKey: string): {
     size: "auto" | "1024x1024" | "1536x1024" | "1024x1536";
     quality: "auto" | "low" | "medium" | "high";
     destinationPath: string;
-    workingDirectory?: string | undefined;
     explanation?: string | undefined;
   }>;
 } {
@@ -206,13 +204,13 @@ export function defineImageTools(openaiApiKey: string): {
         background,
         destinationPath,
       },
-      ctx,
+      ctx?: ToolExecutionContext,
     ): Promise<string> => {
-      const workingDirectory = ctx?.workingDirectory;
+      const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
       try {
         const resolvedDestination = path.isAbsolute(destinationPath)
           ? destinationPath
-          : path.join(workingDirectory ?? Deno.cwd(), destinationPath);
+          : path.join(workingDirectory, destinationPath);
         // Create parent directory if it doesn't exist
         const parentDir = path.dirname(resolvedDestination);
         await ensureDir(parentDir);
@@ -299,16 +297,16 @@ export function defineImageTools(openaiApiKey: string): {
         quality,
         destinationPath,
       },
-      ctx,
+      ctx?: ToolExecutionContext,
     ): Promise<string> => {
-      const workingDirectory = ctx?.workingDirectory;
+      const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
       try {
         const resolvedSource = path.isAbsolute(sourcePath)
           ? sourcePath
-          : path.join(workingDirectory ?? Deno.cwd(), sourcePath);
+          : path.join(workingDirectory, sourcePath);
         const resolvedDestination = path.isAbsolute(destinationPath)
           ? destinationPath
-          : path.join(workingDirectory ?? Deno.cwd(), destinationPath);
+          : path.join(workingDirectory, destinationPath);
 
         // Validate source image exists
         if (!(await fileExists(resolvedSource))) {

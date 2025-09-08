@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import * as path from "@std/path";
 
 export const ReadFileTool: Tool<{
@@ -7,7 +7,6 @@ export const ReadFileTool: Tool<{
   startLineOneIndexed: number;
   endLineOneIndexedInclusive: number;
   shouldReadEntireFile: boolean;
-  workingDirectory?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "read_file",
@@ -44,13 +43,13 @@ export const ReadFileTool: Tool<{
       endLineOneIndexedInclusive,
       shouldReadEntireFile,
     },
-    ctx,
+    ctx?: ToolExecutionContext,
   ) => {
-    const workingDirectory = ctx?.workingDirectory;
+    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
     try {
       const resolvedPath = path.isAbsolute(relativePath)
         ? relativePath
-        : path.join(workingDirectory ?? Deno.cwd(), relativePath);
+        : path.join(workingDirectory, relativePath);
       const content = await Deno.readTextFile(resolvedPath);
       const lines = content.split("\n");
 

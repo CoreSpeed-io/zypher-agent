@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import * as path from "@std/path";
 
 export const ListDirTool: Tool<{
   relativePath: string;
-  workingDirectory?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "list_dir",
@@ -21,13 +20,13 @@ export const ListDirTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ relativePath }, ctx) => {
-    const workingDirectory = ctx?.workingDirectory;
+  execute: async ({ relativePath }, ctx?: ToolExecutionContext) => {
+    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
     try {
       const entries = [] as string[];
       const basePath = path.isAbsolute(relativePath)
         ? relativePath
-        : path.join(workingDirectory ?? Deno.cwd(), relativePath);
+        : path.join(workingDirectory, relativePath);
       for await (const entry of Deno.readDir(basePath)) {
         const fullPath = path.join(basePath, entry.name);
         const fileInfo = await Deno.stat(fullPath);

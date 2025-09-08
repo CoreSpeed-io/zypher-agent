@@ -57,9 +57,10 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     }
 
     try {
-      return await tool.execute(parameters, {
-        workingDirectory: options?.workingDirectory,
-      });
+      const ctx = {
+        workingDirectory: options?.workingDirectory ?? Deno.cwd(),
+      };
+      return await tool.execute(parameters, ctx);
     } catch (error) {
       return `Error executing tool '${name}': ${formatError(error)}`;
     }
@@ -83,16 +84,10 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     for (const block of toolBlocks) {
       if (block.type === "tool_use") {
         const workingDir = context.workingDirectory;
-        const rawParams = (block.input ?? {}) as Record<string, unknown>;
-        const params: Record<string, unknown> = { ...rawParams };
-        if (workingDir && params.workingDirectory === undefined) {
-          params.workingDirectory = workingDir;
-        }
+        const params = (block.input ?? {}) as Record<string, unknown>;
 
         const result = await this.#executeToolCall(block.name, params, {
           signal: context.signal,
-          // pass workingDirectory separately via options -> execute(ctx)
-          // This avoids exposing it in tool input schema or model output
           ...(workingDir ? { workingDirectory: workingDir } : {}),
         });
 

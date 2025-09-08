@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import { exec, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -9,7 +9,6 @@ export const RunTerminalCmdTool: Tool<{
   command: string;
   isBackground: boolean;
   requireUserApproval: boolean;
-  workingDirectory?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "run_terminal_cmd",
@@ -28,8 +27,8 @@ export const RunTerminalCmdTool: Tool<{
       .optional()
       .describe("One sentence explanation for tool usage"),
   }),
-  execute: async ({ command, isBackground }, ctx) => {
-    const workingDirectory = ctx?.workingDirectory;
+  execute: async ({ command, isBackground }, ctx: ToolExecutionContext = { workingDirectory: Deno.cwd() }) => {
+    const workingDirectory = ctx.workingDirectory;
     try {
       if (isBackground) {
         // For background processes, use spawn

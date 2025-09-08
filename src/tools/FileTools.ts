@@ -1,12 +1,11 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import * as path from "@std/path";
 import { fileExists } from "../utils/mod.ts";
 import { ensureDir } from "@std/fs";
 
 export const DeleteFileTool: Tool<{
   targetFile: string;
-  workingDirectory?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "delete_file",
@@ -24,12 +23,12 @@ export const DeleteFileTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ targetFile }, ctx) => {
-    const workingDirectory = ctx?.workingDirectory;
+  execute: async ({ targetFile }, ctx?: ToolExecutionContext) => {
+    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
     try {
       const resolved = path.isAbsolute(targetFile)
         ? targetFile
-        : path.join(workingDirectory ?? Deno.cwd(), targetFile);
+        : path.join(workingDirectory, targetFile);
       await Deno.remove(resolved);
       return `Successfully deleted file: ${resolved}`;
     } catch (error) {
@@ -51,7 +50,6 @@ export const CopyFileTool: Tool<{
   sourceFile: string;
   destinationFile: string;
   overwrite?: boolean | undefined;
-  workingDirectory?: string | undefined;
   explanation?: string | undefined;
 }> = defineTool({
   name: "copy_file",
@@ -79,12 +77,12 @@ export const CopyFileTool: Tool<{
   }),
   execute: async (
     { sourceFile, destinationFile, overwrite },
-    ctx,
+    ctx?: ToolExecutionContext,
   ) => {
-    const workingDirectory = ctx?.workingDirectory;
+    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
     try {
       const resolve = (p: string) =>
-        path.isAbsolute(p) ? p : path.join(workingDirectory ?? Deno.cwd(), p);
+        path.isAbsolute(p) ? p : path.join(workingDirectory, p);
       const srcResolved = resolve(sourceFile);
       const dstResolved = resolve(destinationFile);
       // Check if source file exists
