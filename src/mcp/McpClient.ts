@@ -17,360 +17,486 @@
  * - SSEClientTransport with OAuth for HTTP server communication
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { assign, createActor, setup, waitFor } from "xstate";
 import { createTool, type Tool } from "../tools/mod.ts";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { jsonToZod } from "./utils/zod.ts";
-import { ConnectionMode } from "./utils/transport.ts";
-import type { ZypherMcpServer } from "./types/local.ts";
-import type { OAuthProviderOptions } from "./types/auth.ts";
-import { McpOAuthClientProvider } from "./auth/McpOAuthClientProvider.ts";
-import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
-import { McpError } from "./types/error.ts";
-import { formatError } from "../error.ts";
+import { jsonToZod } from "./utils.ts";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import type { McpServerEndpoint } from "./mod.ts";
+import { formatError, isAbortError } from "../error.ts";
+import { assert } from "@std/assert";
+import { connectToCliServer, connectToRemoteServer } from "./transport.ts";
 
-/**
- * Configuration options for the MCP client
- */
-export interface IMcpClientConfig {
-  id?: string;
-  /** Optional client name for identification */
+/** Client-specific configuration options */
+export interface McpClientOptions {
+  /** Optional name of the client for identification */
   name?: string;
-  /** Optional version string */
+  /** Optional version of the client */
   version?: string;
+}
+
+type McpClientStatus =
+  | "disconnected" // Not connected, not trying to connect
+  | "connecting" // In process of connecting
+  | "connected" // Successfully connected
+  | "disconnecting" // In process of disconnecting
+  | "disconnectingDueToError" // Disconnecting due to an error
+  | "error" // Connection failed, can retry
+  | "aborting" // Aborting connection attempt
+  | "disposed"; // Being disposed (final state)
+
+// XState machine events - simplified to only result events
+type McpClientEvent =
+  | { type: "retry" }
+  | { type: "aborted" }
+  | { type: "disconnected" }
+  | { type: "connectionFailed"; error?: Error }
+  | { type: "connectionSuccess" }
+  | { type: "updateDesiredState"; desiredState: McpClientDesiredState }
+  | { type: "toolDiscovered"; tools: Tool[] }
+  | { type: "error"; error: Error };
+
+type McpClientDesiredState = "connected" | "disconnected" | "disposed";
+
+interface McpClientContext {
+  desiredState: McpClientDesiredState;
+  lastError?: Error;
 }
 
 /**
  * MCPClient handles communication with MCP servers and tool execution
  */
 export class McpClient {
-  #client: Client;
-  #connectionAttempts = new Set<string>();
-  // Current connection state of the client
-  #status:
-    | "connected"
-    | "disconnected"
-    | "auth_needed"
-    | "disabled"
-    | "connecting" = "disconnected";
-  static readonly REASON_TRANSPORT_FALLBACK = "transport-fallback";
-  static readonly REASON_AUTH_NEEDED = "auth-needed";
-  transport:
-    | StdioClientTransport
-    | SSEClientTransport
-    | StreamableHTTPClientTransport
-    | null = null;
-  #server: ZypherMcpServer;
+  readonly #client: Client;
+  readonly #serverEndpoint: McpServerEndpoint;
+  readonly #machine;
+  readonly #actor;
+
   #tools: Tool[] = [];
-  // Cached OAuth provider for the current connection (if any)
-  #oauthProvider?: McpOAuthClientProvider;
+  #connectAbortController: AbortController = new AbortController();
+  #transport: Transport | null = null;
 
   /**
-   * Creates a new MCPClient instance
-   * @param config Optional configuration for the client
+   * Creates a new MCPClient instance with separated server and client configuration
+   * @param serverEndpoint Server endpoint information for connection
+   * @param clientOptions Client configuration options
    */
   constructor(
-    config: IMcpClientConfig,
-    server: ZypherMcpServer,
+    serverEndpoint: McpServerEndpoint,
+    clientOptions?: McpClientOptions,
   ) {
-    this.#server = server;
     this.#client = new Client({
-      id: config.id ?? "",
-      name: config.name ?? "d8c3fc66-e479-4359-ae88-a757d4dfdf28",
-      version: config.version ?? "1.0.0",
+      name: clientOptions?.name ?? "zypher-agent",
+      version: clientOptions?.version ?? "1.0.0",
+    });
+    this.#serverEndpoint = serverEndpoint;
+
+    // Create and start the XState machine
+    this.#machine = setup({
+      types: {} as {
+        events: McpClientEvent;
+        context: McpClientContext;
+      },
+      actions: {
+        connect: () => this.#connect(),
+        abortConnection: () => this.#abortConnection(),
+        disconnect: () => this.#disconnect(),
+      },
+      guards: {
+        desiredNotConnected: ({ context }) => {
+          return context.desiredState !== "connected";
+        },
+        desiredDisposed: ({ context }) => {
+          return context.desiredState === "disposed";
+        },
+        desiredConnected: ({ context }) => {
+          return context.desiredState === "connected";
+        },
+      },
+    }).createMachine({
+      id: "McpClient",
+      initial: "disconnected",
+      context: {
+        desiredState: "disconnected",
+        lastError: undefined,
+      },
+      on: {
+        updateDesiredState: {
+          actions: assign({
+            desiredState: ({ event }) => event.desiredState,
+          }),
+        },
+      },
+      states: {
+        disconnected: {
+          always: [
+            {
+              target: "disposed",
+              guard: { type: "desiredDisposed" },
+            },
+            {
+              target: "connecting",
+              guard: { type: "desiredConnected" },
+            },
+          ],
+        },
+        connecting: {
+          entry: { type: "connect" },
+          on: {
+            connectionSuccess: {
+              target: "connected",
+            },
+            connectionFailed: {
+              target: "error",
+              actions: assign({
+                lastError: ({ event }) => event.error,
+              }),
+            },
+          },
+          always: {
+            target: "aborting",
+            guard: { type: "desiredNotConnected" },
+          },
+        },
+        connected: {
+          initial: "initial",
+          on: {
+            error: {
+              target: "disconnectingDueToError",
+              actions: assign({
+                lastError: ({ event }) => event.error,
+              }),
+            },
+          },
+          always: {
+            target: "disconnecting",
+            guard: { type: "desiredNotConnected" },
+          },
+          states: {
+            initial: {
+              on: {
+                toolDiscovered: {
+                  target: "toolDiscovered",
+                },
+              },
+            },
+            toolDiscovered: {
+              type: "final",
+            },
+          },
+        },
+        error: {
+          on: {
+            retry: {
+              target: "connecting",
+            },
+          },
+          always: [
+            {
+              target: "disconnected",
+              guard: { type: "desiredNotConnected" },
+            },
+          ],
+        },
+        aborting: {
+          entry: { type: "abortConnection" },
+          on: {
+            aborted: {
+              target: "disconnected",
+            },
+          },
+        },
+        disconnecting: {
+          entry: { type: "disconnect" },
+          on: {
+            disconnected: {
+              target: "disconnected",
+            },
+          },
+        },
+        disconnectingDueToError: {
+          on: {
+            disconnected: {
+              target: "error",
+            },
+          },
+          entry: {
+            type: "disconnect",
+          },
+        },
+        disposed: {
+          type: "final",
+        },
+      },
+    });
+
+    this.#actor = createActor(this.#machine);
+    this.#actor.start();
+
+    // Subscribe to state changes for logging
+    this.#actor.subscribe((snapshot) => {
+      console.log(`McpClient [${this.#serverEndpoint.id}] state transition:`, {
+        currentState: snapshot.value,
+        desiredState: snapshot.context.desiredState,
+      });
     });
   }
 
   /**
-   * Connects to the MCP server
-   * @param mode Connection mode (CLI or SSE)
-   * @param config Server configuration
+   * Connects to the MCP server and discovers available tools
+   * @returns Promise resolving to the list of available tools
    */
-  async connect(
-    mode: ConnectionMode = ConnectionMode.HTTP_FIRST,
-    oAuthProviderOptions?: OAuthProviderOptions,
-  ): Promise<void> {
-    // Mark the client as attempting to connect
-    this.#status = "connecting";
-    this.#connectionAttempts.clear();
-    await this.#connectRecursive(mode, oAuthProviderOptions);
-  }
+  async #connect(): Promise<void> {
+    const signal = this.#connectAbortController.signal;
 
-  async #connectRecursive(
-    mode: ConnectionMode,
-    oAuthProviderOptions?: OAuthProviderOptions,
-    oAuthProvider?: McpOAuthClientProvider,
-  ): Promise<void> {
-    // If mode is CLI, handle CLI connection and skip remote logic.
-    if (mode === ConnectionMode.CLI) {
-      if (!this.#server.packages || this.#server.packages.length === 0) {
-        throw new McpError(
-          "server_error",
-          "Connection Error: No packages defined for CLI mode.",
+    try {
+      // Connect using appropriate transport
+      if ("command" in this.#serverEndpoint && this.#serverEndpoint.command) {
+        this.#transport = await connectToCliServer(
+          this.#client,
+          this.#serverEndpoint.command,
+          signal,
+        );
+      } else if (
+        "remote" in this.#serverEndpoint && this.#serverEndpoint.remote
+      ) {
+        this.#transport = await connectToRemoteServer(
+          this.#client,
+          this.#serverEndpoint.remote,
+          signal,
+        );
+      } else {
+        throw new Error(
+          "Invalid server endpoint configuration: either command or remote is required",
         );
       }
-      await this.#handleCliConnect();
+
+      console.log(`McpClient [${this.#serverEndpoint.id}] connected`);
+      this.#actor.send({ type: "connectionSuccess" });
+    } catch (error) {
+      if (isAbortError(error)) {
+        this.#actor.send({ type: "aborted" });
+      } else {
+        this.#actor.send({
+          type: "connectionFailed",
+          error: new Error(
+            `Failed to connect to MCP server: ${formatError(error)}`,
+          ),
+        });
+      }
+    }
+
+    // Once connected, discover tools
+    try {
+      console.log(
+        `McpClient [${this.#serverEndpoint.id}] Discovering tools...`,
+      );
+      await this.#discoverTools(signal);
+      this.#actor.send({ type: "toolDiscovered", tools: this.#tools });
+    } catch (error) {
+      this.#actor.send({
+        type: "error",
+        error: new Error(
+          `Failed to discover tools.`,
+          {
+            cause: error,
+          },
+        ),
+      });
+    }
+  }
+
+  #abortConnection(): void {
+    // abort the current connection
+    this.#connectAbortController.abort();
+    // then create a new abort controller for the next connection
+    this.#connectAbortController = new AbortController();
+  }
+
+  /**
+   * Cleans up resources and closes connections
+   */
+  async #disconnect(): Promise<void> {
+    if (!this.#transport) {
+      throw new Error(
+        "Transport should not be null at this state: disconnecting",
+      );
+    }
+
+    try {
+      await this.#client.close();
+      console.log(`McpClient [${this.#serverEndpoint.id}] closed`);
+    } catch (error) {
+      // Ignore errors during close - we're cleaning up anyway
+      console.warn("Error during client close, ignoring:", error);
+    }
+    this.#transport = null;
+    this.#tools = [];
+    this.#actor.send({ type: "disconnected" });
+  }
+
+  /**
+   * Disposes of the client and cleans up all resources
+   * Should be called when the client is no longer needed
+   */
+  async dispose(): Promise<void> {
+    this.#actor.send({ type: "updateDesiredState", desiredState: "disposed" });
+
+    // wait for the machine to reach the disposed state
+    await waitFor(
+      this.#actor,
+      (snapshot) => snapshot.value === "disposed",
+      {
+        timeout: 30_000, // 30 seconds (30,000 milliseconds)
+      },
+    );
+  }
+
+  /**
+   * Waits for the client to complete the full connection sequence
+   *
+   * This method waits for the entire connection process to complete, including:
+   * 1. Establishing connection to the MCP server
+   * 2. Discovering and registering available tools (reaches connected.toolDiscovered state)
+   *
+   * The connection sequence has substates:
+   * - connected.initial: Just connected, tool discovery not yet started
+   * - connected.toolDiscovered: Full connection complete, tools discovered and ready
+   *
+   * Note: This method requires desiredEnabled to be set to true first.
+   * If desiredEnabled is false, this method will throw immediately rather than wait.
+   * If desiredEnabled is changed to false while waiting, the method will throw.
+   *
+   * @param timeout Optional timeout in milliseconds (default: 10 seconds)
+   * @returns Promise that resolves when fully connected (including tool discovery) or rejects on timeout/error
+   * @throws Error if desiredEnabled is not true, changes to false during waiting, or connection fails
+   */
+  async waitForConnection(timeout: number = 10_000): Promise<void> {
+    const snapshot = this.#actor.getSnapshot();
+    if (snapshot.context.desiredState !== "connected") {
+      throw new Error(
+        "Cannot wait for connection: desiredEnabled is not set to true",
+      );
+    }
+
+    // If desiredEnabled is true, the machine can only be in the connecting or connected state
+    // If already fully connected (tools discovered), return immediately
+    if (snapshot.matches({ connected: "toolDiscovered" })) {
       return;
     }
 
-    // For other modes, handle remote transports (SSE/HTTP) with fallback.
-    if (!this.#server.remotes || this.#server.remotes.length === 0) {
+    // At this point, the machine can be in connecting state or connected.initial state
+    assert(
+      snapshot.value === "connecting" ||
+        snapshot.matches({ connected: "initial" }),
+    );
+
+    await waitFor(
+      this.#actor,
+      (snapshot) =>
+        snapshot.matches({ connected: "toolDiscovered" }) ||
+        snapshot.value === "error" ||
+        snapshot.context.desiredState !== "connected",
+      { timeout },
+    );
+
+    const finalSnapshot = this.#actor.getSnapshot();
+
+    // Check if desired state changed during waiting
+    if (finalSnapshot.context.desiredState !== "connected") {
       throw new Error(
-        `Connection failed: No remote servers configured for mode '${mode}'`,
+        "Connection attempt cancelled: desiredEnabled was set to false",
       );
     }
 
-    const remote = this.#server.remotes[0];
-    const sseFailed = this.#connectionAttempts.has(SSEClientTransport.name);
-    const httpFailed = this.#connectionAttempts.has(
-      StreamableHTTPClientTransport.name,
-    );
-
-    const useSse = mode === ConnectionMode.SSE_ONLY ||
-      (mode === ConnectionMode.SSE_FIRST && !sseFailed) ||
-      (mode === ConnectionMode.HTTP_FIRST && httpFailed);
-
-    const mcpServerUrl = new URL(remote.url);
-
-    this.transport = useSse
-      ? new SSEClientTransport(mcpServerUrl, {
-        authProvider: oAuthProvider,
-      })
-      : new StreamableHTTPClientTransport(mcpServerUrl, {
-        authProvider: oAuthProvider,
-      });
-
-    // Cache the OAuth provider for later use (e.g., callback handling)
-    if (oAuthProvider) {
-      this.#oauthProvider = oAuthProvider;
-    }
-
-    try {
-      await this.#client.connect(this.transport);
-      // Update status upon successful connection
-      this.#status = "connected";
-      console.log(
-        `Connected to remote server using ${this.transport.constructor.name}`,
-      );
-    } catch (error) {
-      const transportId = this.transport.constructor.name;
-      if (this.#isFallbackError(mode, error)) {
-        this.#connectionAttempts.add(transportId);
-
-        const sseFailed = this.#connectionAttempts.has(SSEClientTransport.name);
-        const httpFailed = this.#connectionAttempts.has(
-          StreamableHTTPClientTransport.name,
-        );
-
-        // Only attempt fallback if we are in a fallback-enabled mode and haven't exhausted all options.
-        if (
-          (mode === ConnectionMode.SSE_FIRST && !httpFailed) ||
-          (mode === ConnectionMode.HTTP_FIRST && !sseFailed)
-        ) {
-          return await this.#connectRecursive(
-            mode,
-            oAuthProviderOptions,
-            oAuthProvider,
-          );
-        }
-
-        throw error; // All fallback options exhausted or not a fallback mode.
-      } else if (this.#isAuthError(error)) {
-        if (this.#connectionAttempts.has(McpClient.REASON_AUTH_NEEDED)) {
-          throw new McpError(
-            "server_error",
-            "Authentication failed after retry. Giving up.",
-          );
-        }
-        this.#connectionAttempts.add(McpClient.REASON_AUTH_NEEDED);
-        // Mark status as needing authentication so higher layers can react
-        this.#status = "auth_needed";
-
-        // If we have an existing OAuth provider, try to use it
-        if (oAuthProvider) {
-          return await this.#connectRecursive(
-            mode,
-            oAuthProviderOptions,
-            oAuthProvider,
-          );
-        }
-        // Ensure OAuth options are properly set
-        const effectiveOAuthOptions: OAuthProviderOptions =
-          oAuthProviderOptions || {
-            serverUrl: this.#server.remotes?.[0]?.url || "",
-            callbackPort: 8964, // Use different port to avoid conflict with API server
-            clientName: "zypher-agent-api",
-            host: "localhost",
-          };
-
-        // Create OAuth provider and initiate flow
-        const newOAuthProvider = new McpOAuthClientProvider(
-          effectiveOAuthOptions,
-          // Propagate optional onRedirect handler so that higher layers can capture
-          // the authorization URL and expose it to the frontend. Ensure the passed
-          // handler conforms to the expected Promise<void> signature.
-          effectiveOAuthOptions.onRedirect
-            ? async (url: string) => {
-              await effectiveOAuthOptions.onRedirect?.(url);
-            }
-            : undefined,
-        );
-        await newOAuthProvider.initialize();
-
-        // Check if we already have tokens
-        const existingTokens = await newOAuthProvider.tokens();
-        if (existingTokens) {
-          try {
-            return await this.#connectRecursive(
-              mode,
-              effectiveOAuthOptions,
-              newOAuthProvider,
-            );
-          } catch (error) {
-            // If the existing tokens failed and it's still an auth error,
-            // clear the tokens and start fresh OAuth flow
-            if (this.#isAuthError(error)) {
-              await newOAuthProvider.clearOAuthData();
-              // Continue to start fresh OAuth flow below
-            } else {
-              throw error;
-            }
-          }
-        }
-
-        // No tokens available, need to start OAuth flow
-
-        // Reset auth attempts to allow the OAuth flow to proceed
-        this.#connectionAttempts.delete(McpClient.REASON_AUTH_NEEDED);
-
-        // Attempt connection which will trigger OAuth flow
-        return await this.#connectRecursive(
-          mode,
-          effectiveOAuthOptions,
-          newOAuthProvider,
-        );
-      }
-      // For all other errors, mark the client as disconnected before propagating
-      this.#status = "disconnected";
-      throw error;
-    }
-  }
-
-  async #handleCliConnect(): Promise<void> {
-    const config = this.#server.packages?.[0];
-    if (!config) {
-      throw new McpError(
-        "server_error",
-        "Connection Error: First package configuration is missing for CLI mode.",
-      );
-    }
-    const isFromMcpStore = this.#server.isFromMcpStore;
-    const commonEnvVars = ["PATH", "HOME", "SHELL", "TERM"];
-    const filteredEnvVars = {
-      ...Object.fromEntries(
-        commonEnvVars
-          .map((key) => [key, Deno.env.get(key)])
-          .filter(([_, value]) => value !== null),
-      ),
-      LANG: Deno.env.get("LANG") || "en_US.UTF-8",
-    };
-    const cliEnv = Object.fromEntries(
-      config.environmentVariables?.map((
-        env,
-      ) => [env.name, env.value ?? ""]) ?? [],
-    );
-    const packageArgs =
-      config.packageArguments?.map((arg) => arg.value ?? "") ?? [];
-    const runtimeArgs =
-      config.runtimeArguments?.map((arg) => arg.value ?? "") ?? [];
-    const allArgs = [
-      ...(isFromMcpStore ? [config.name] : []),
-      ...runtimeArgs,
-      ...packageArgs,
-    ];
-    console.log("config", config);
-    const command = this.#parseCommand(config.registryName);
-    console.log("[command]", command, "with args:", allArgs);
-    this.transport = new StdioClientTransport({
-      command: command,
-      args: allArgs,
-      env: { ...filteredEnvVars, ...cliEnv },
-    });
-    await this.#client.connect(this.transport);
-    // Update status upon successful connection
-    this.#status = "connected";
-    return;
-  }
-
-  #parseCommand(command: string): string {
-    switch (command) {
-      case "npm":
-        return "npx";
-      case "yarn":
-        return "npx";
-      case "pnpm":
-        return "npx";
-      case "bun":
-        return "npx";
-      case "pypi":
-        return "uvx";
-      case "pipx":
-        return "uvx";
-      case "uv":
-        return "uvx";
-      case "docker":
-        return "docker";
-      default:
-        return command;
+    if (finalSnapshot.value === "error") {
+      // Get the actual error from context
+      const actualError = finalSnapshot.context.lastError;
+      throw actualError ??
+        new Error("Failed to connect to MCP server, unknown error");
     }
   }
 
   /**
-   * Connects to an MCP server and discovers available tools
-   * @param config Configuration for the server connection
-   * @param mode Connection mode (CLI or SSE)
-   * @returns Promise resolving to the list of available tools
-   * @throws Error if connection fails or server is not responsive
+   * Checks if this client is connected to a server
+   * @returns True if connected, false otherwise
    */
-  async retrieveTools(
-    mode: ConnectionMode,
-    oAuthProviderOptions?: OAuthProviderOptions,
-  ): Promise<Tool[]> {
-    try {
-      // Connect to the server
-      await this.connect(mode, oAuthProviderOptions);
-      console.log("Connected to MCP server", this.#server.name);
+  get connected(): boolean {
+    const snapshot = this.#actor.getSnapshot();
+    return snapshot.context.desiredState === "connected" &&
+      snapshot.matches("connected");
+  }
 
-      // Once connected, discover tools
-      console.log("Connected to MCP server, discovering tools...");
-      await this.#discoverTools();
+  get status(): McpClientStatus {
+    const snapshot = this.#actor.getSnapshot();
 
-      return this.#tools;
-    } catch (error) {
-      const errorMessage = error instanceof Error
-        ? error.message
-        : "Unknown error";
-      throw new McpError(
-        "server_error",
-        `Failed to connect to MCP server: ${errorMessage}`,
-      );
+    // Use XState's matches method for type-safe state checking
+    if (snapshot.matches("disconnected")) return "disconnected";
+    if (snapshot.matches("connecting")) return "connecting";
+    if (snapshot.matches("connected")) return "connected";
+    if (snapshot.matches("disconnecting")) return "disconnecting";
+    if (snapshot.matches("disconnectingDueToError")) {
+      return "disconnectingDueToError";
     }
+    if (snapshot.matches("error")) return "error";
+    if (snapshot.matches("aborting")) return "aborting";
+    if (snapshot.matches("disposed")) return "disposed";
+
+    // This should never happen if our state machine is properly defined
+    throw new Error(`Unknown state: ${JSON.stringify(snapshot.value)}`);
+  }
+
+  /**
+   * Gets the desired enabled state
+   * @returns True if desired to be enabled, false otherwise
+   */
+  get desiredEnabled(): boolean {
+    return this.#actor.getSnapshot().context.desiredState === "connected";
+  }
+
+  /**
+   * Sets the desired enabled state and triggers connection/disconnection
+   * @param enabled Whether the client should be enabled
+   */
+  set desiredEnabled(enabled: boolean) {
+    this.#actor.send({
+      type: "updateDesiredState",
+      desiredState: enabled ? "connected" : "disconnected",
+    });
+  }
+
+  /**
+   * Gets all tools managed by this client
+   * @returns Array of tools
+   */
+  get tools(): Tool[] {
+    return [...this.#tools];
+  }
+
+  /**
+   * Gets the number of tools managed by this client
+   * @returns Number of tools
+   */
+  get toolCount(): number {
+    return this.#tools.length;
   }
 
   /**
    * Discovers and registers tools from the MCP server
    * @private
    */
-  async #discoverTools(): Promise<void> {
-    const toolResult = await this.#client.listTools();
-    console.log(`Discovered ${toolResult.tools.length} tools from server`);
+  async #discoverTools(signal: AbortSignal): Promise<void> {
+    const toolResult = await this.#client.listTools({
+      signal,
+    });
+    console.log(
+      `McpClient [${this.#serverEndpoint.id}] Discovered ${toolResult.tools.length} tools from server`,
+    );
 
     // Convert MCP tools to our internal tool format
     this.#tools = toolResult.tools.map((tool) => {
       const inputSchema = jsonToZod(tool.inputSchema);
       return createTool(
-        `${this.#server.name}_${tool.name}`,
+        `${this.#serverEndpoint.id}_${tool.name}`,
         tool.description ?? "",
         inputSchema,
         async (params: Record<string, unknown>) => {
@@ -385,40 +511,12 @@ export class McpClient {
   }
 
   /**
-   * Gets all tools managed by this client
-   * @returns Array of tools
-   */
-  getTools(): Tool[] {
-    return [...this.#tools];
-  }
-
-  /**
    * Gets a specific tool by name
    * @param name The name of the tool to retrieve
    * @returns The tool if found, undefined otherwise
    */
   getTool(name: string): Tool | undefined {
     return this.#tools.find((tool) => tool.name === name);
-  }
-
-  /**
-   * Gets the number of tools managed by this client
-   * @returns Number of tools
-   */
-  getToolCount(): number {
-    return this.#tools.length;
-  }
-
-  /**
-   * Checks if this client is connected to a server
-   * @returns True if connected, false otherwise
-   */
-  isConnected(): boolean {
-    return this.transport !== null;
-  }
-
-  toggleEnabled(enabled: boolean): void {
-    this.#status = enabled ? "connected" : "disconnected";
   }
 
   /**
@@ -436,126 +534,5 @@ export class McpClient {
       arguments: toolCall.input,
     });
     return result;
-  }
-
-  /**
-   * Cleans up resources and closes connections
-   * Should be called when the client is no longer needed
-   */
-  async cleanup(): Promise<void> {
-    if (this.transport) {
-      try {
-        await this.#client.close();
-        // Mark status as disconnected after cleanup
-        this.#status = "disconnected";
-        this.transport = null;
-      } catch (error) {
-        const errorMessage = error instanceof Error
-          ? error.message
-          : "Unknown error";
-        console.error(
-          "Error during cleanup:",
-          formatError(errorMessage),
-        );
-      }
-    }
-  }
-
-  #isFallbackError(mode: ConnectionMode, error: unknown): boolean {
-    const shouldAttemptFallback = mode === ConnectionMode.HTTP_FIRST ||
-      mode === ConnectionMode.SSE_FIRST;
-
-    if (!shouldAttemptFallback || !(error instanceof Error)) {
-      return false;
-    }
-
-    const errorMessage = error.message.toLowerCase();
-    return (
-      errorMessage.includes("405") ||
-      errorMessage.includes("method not allowed") ||
-      errorMessage.includes("404") ||
-      errorMessage.includes("not found")
-    );
-  }
-
-  #isAuthError(error: unknown): boolean {
-    // Directly check for known UnauthorizedError type from MCP SDK
-    if (error instanceof UnauthorizedError) {
-      return true;
-    }
-
-    const errorMessage = (error instanceof Error ? error.message : "")
-      .toLowerCase();
-
-    return (
-      errorMessage.includes("401") ||
-      errorMessage.includes("403") ||
-      errorMessage.includes("unauthorized") ||
-      errorMessage.includes("auth needed") ||
-      errorMessage.includes("auth error") ||
-      errorMessage.includes("oauth") ||
-      errorMessage.includes("oauth 2.0")
-    );
-  }
-
-  getStatus():
-    | "connected"
-    | "disconnected"
-    | "auth_needed"
-    | "connecting"
-    | "disabled" {
-    return this.#status;
-  }
-
-  /**
-   * Handles OAuth callback from frontend
-   * @param code OAuth authorization code
-   * @param state OAuth state parameter
-   * @param clientName Optional client name
-   * @returns Promise resolving to success status
-   */
-  async handleOAuthCallback(
-    code: string,
-    state: string,
-    clientName?: string,
-  ): Promise<boolean> {
-    try {
-      console.log(`Handling OAuth callback for server ${this.#server.name}`);
-      console.log(`Code: ${code.substring(0, 10)}...`);
-      console.log(`State: ${state}`);
-      console.log(`Client name: ${clientName}`);
-
-      const oauthProvider = this.#oauthProvider;
-
-      if (!oauthProvider) {
-        console.error("No OAuth provider found for this transport");
-        this.#status = "auth_needed";
-        return false;
-      }
-
-      // Handle the OAuth callback through the provider
-      const success = await oauthProvider.handleOAuthCallback(code, state);
-
-      if (success) {
-        this.#status = "connected";
-        console.log(
-          `OAuth authentication successful for server ${this.#server.name}`,
-        );
-        return true;
-      } else {
-        this.#status = "auth_needed";
-        console.log(
-          `OAuth authentication failed for server ${this.#server.name}`,
-        );
-        return false;
-      }
-    } catch (error) {
-      console.error(
-        `OAuth callback failed for server ${this.#server.name}:`,
-        error,
-      );
-      this.#status = "auth_needed";
-      return false;
-    }
   }
 }

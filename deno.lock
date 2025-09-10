@@ -36,6 +36,7 @@
     "npm:openai@5.12.0": "5.12.0_zod@3.25.76",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
+    "npm:xstate@^5.21.0": "5.21.0",
     "npm:zod-to-json-schema@^3.24.6": "3.24.6_zod@3.25.76",
     "npm:zod@^3.25.76": "3.25.76"
   },
@@ -1684,6 +1685,9 @@
     "wrappy@1.0.2": {
       "integrity": "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="
     },
+    "xstate@5.21.0": {
+      "integrity": "sha512-y4wmqxjyAa0tgz4k3m/MgTF1kDOahE5+xLfWt5eh1sk+43DatLhKlI8lQDJZpvihZavjbD3TUgy2PRMphhhqgQ=="
+    },
     "zod-to-json-schema@3.24.6_zod@3.25.76": {
       "integrity": "sha512-h/z3PKvcTcTetyjl1fkj79MHNEjm+HpD6NXheWjzOekY7kV+lwDYnHw+ivHkijnCSMz1yJaWBD9vu/Fcmk+vEg==",
       "dependencies": [
@@ -1714,6 +1718,7 @@
       "npm:openai@5.12.0",
       "npm:rxjs-for-await@1",
       "npm:rxjs@^7.8.2",
+      "npm:xstate@^5.21.0",
       "npm:zod-to-json-schema@^3.24.6",
       "npm:zod@^3.25.76"
     ]
