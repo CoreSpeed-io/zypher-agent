@@ -1,6 +1,4 @@
 import { z } from "zod";
-import { createTool, type Tool } from "../tools/mod.ts";
-import type { Tool as McpTool } from "@modelcontextprotocol/sdk/types.js";
 
 export function jsonToZod(inputSchema: {
   type: "object";

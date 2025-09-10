@@ -23,7 +23,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
   connectToCliServer,
   connectToRemoteServer,
-} from "../src/mcp/transport.ts";
+} from "../src/mcp/connect.ts";
 import type { McpCommandConfig, McpRemoteConfig } from "../src/mcp/mod.ts";
 
 describe("Transport Integration Tests", () => {
@@ -88,7 +88,9 @@ describe("Transport Integration Tests", () => {
       setTimeout(() => abortController.abort(), 100);
 
       await expect(
-        connectToCliServer(client, commandConfig, abortController.signal),
+        connectToCliServer(client, commandConfig, {
+          signal: abortController.signal,
+        }),
       ).rejects.toThrow("abort");
     });
   });
@@ -147,7 +149,9 @@ describe("Transport Integration Tests", () => {
       abortController.abort();
 
       await expect(
-        connectToRemoteServer(client, remoteConfig, abortController.signal),
+        connectToRemoteServer(client, remoteConfig, {
+          signal: abortController.signal,
+        }),
       ).rejects.toThrow("abort");
     });
   });

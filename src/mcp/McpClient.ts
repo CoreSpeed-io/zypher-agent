@@ -24,7 +24,7 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { McpServerEndpoint } from "./mod.ts";
 import { formatError, isAbortError } from "../error.ts";
 import { assert } from "@std/assert";
-import { connectToCliServer, connectToRemoteServer } from "./transport.ts";
+import { connectToServer } from "./connect.ts";
 
 /** Client-specific configuration options */
 export interface McpClientOptions {
@@ -250,25 +250,11 @@ export class McpClient {
 
     try {
       // Connect using appropriate transport
-      if ("command" in this.#serverEndpoint && this.#serverEndpoint.command) {
-        this.#transport = await connectToCliServer(
-          this.#client,
-          this.#serverEndpoint.command,
-          signal,
-        );
-      } else if (
-        "remote" in this.#serverEndpoint && this.#serverEndpoint.remote
-      ) {
-        this.#transport = await connectToRemoteServer(
-          this.#client,
-          this.#serverEndpoint.remote,
-          signal,
-        );
-      } else {
-        throw new Error(
-          "Invalid server endpoint configuration: either command or remote is required",
-        );
-      }
+      this.#transport = await connectToServer(
+        this.#client,
+        this.#serverEndpoint,
+        { signal },
+      );
 
       console.log(`McpClient [${this.#serverEndpoint.id}] connected`);
       this.#actor.send({ type: "connectionSuccess" });
