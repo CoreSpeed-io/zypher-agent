@@ -6,6 +6,7 @@ import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type {
   McpCommandConfig,
@@ -131,15 +132,60 @@ export async function connectToRemoteServer(
 
   console.log(`Connecting to remote MCP server: ${mcpServerUrl}`);
 
-  const transport = new StreamableHTTPClientTransport(
-    mcpServerUrl,
-    {
-      authProvider: options?.oauth?.authProvider,
-    },
-  );
+  // Following the MCP specification for backwards compatibility:
+  // - Attempts to use StreamableHTTPClientTransport first
+  // - If that fails with 4xx status, falls back to SSEClientTransport
 
   try {
+    return await attemptToConnect(
+      client,
+      () =>
+        new StreamableHTTPClientTransport(
+          mcpServerUrl,
+          {
+            authProvider: options?.oauth?.authProvider,
+          },
+        ),
+      options,
+    );
+  } catch (error) {
+    if (is4xxError(error)) {
+      console.warn(
+        "Got 4xx error while trying to connect to remote MCP server with StreamableHTTPClientTransport",
+        error,
+      );
+      console.warn("Falling back to SSE transport");
+      // Fall back to SSE transport
+      return await attemptToConnect(
+        client,
+        () =>
+          new SSEClientTransport(
+            mcpServerUrl,
+            {
+              authProvider: options?.oauth?.authProvider,
+            },
+          ),
+        options,
+      );
+    } else {
+      throw error;
+    }
+  }
+}
+
+/** Attempts to connect to the MCP server with the given transport and options */
+async function attemptToConnect(
+  client: Client,
+  buildTransport: () => StreamableHTTPClientTransport | SSEClientTransport,
+  options?: {
+    signal?: AbortSignal;
+    oauth?: OAuthOptions;
+  },
+): Promise<Transport> {
+  const transport = buildTransport();
+  try {
     await client.connect(transport, { signal: options?.signal });
+    return transport;
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       if (!options?.oauth) {
@@ -152,21 +198,24 @@ export async function connectToRemoteServer(
       // The OAuth provider has already shown the authorization URL via redirectToAuthorization
       const authorizationCode = await options.oauth.callbackHandler
         .waitForCallback();
-      console.log("Authorization code:", authorizationCode);
 
-      // Exchange the authorization code for an access token
+      // Exchange the authorization code for an access token so the next connection attempt will succeed
       await transport.finishAuth(authorizationCode);
-
-      // Retry the connection
-      await connectToRemoteServer(client, remoteConfig, {
-        signal: options?.signal,
-        oauth: options.oauth,
-      });
+      return await attemptToConnect(client, buildTransport, options);
     } else {
       throw error;
     }
   }
-  console.log(`Connected using HTTP transport: ${mcpServerUrl}`);
+}
 
-  return transport;
+/**
+ * Checks if an error indicates a 4xx HTTP status (server doesn't support modern
+ * transport), excluding 401 unauthorized errors
+ */
+function is4xxError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+
+  const message = error.message;
+  // Match HTTP/http 4xx status codes excluding 401 (unauthorized)
+  return /\bHTTP\s*4(?!01\b)\d{2}\b/i.test(message);
 }
