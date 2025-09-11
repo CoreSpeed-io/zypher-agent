@@ -5,7 +5,7 @@
  * It guides you through the complete OAuth flow:
  * 1. Prints an authorization URL for you to visit
  * 2. You authorize the application in your browser
- * 3. You copy and paste the callback URL back into the script
+ * 3. You copy and paste the callback URL back
  * 4. Script completes OAuth flow and connects to the MCP server
  * 5. Displays server capabilities (tools, resources, prompts)
  *

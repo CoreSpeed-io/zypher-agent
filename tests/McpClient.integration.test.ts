@@ -15,6 +15,7 @@ describe("McpClient Integration Tests", () => {
     const endpoint: McpServerEndpoint = {
       id: "echo-server",
       displayName: "Echo Server",
+      type: "command",
       command: {
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-everything"],
@@ -34,6 +35,7 @@ describe("McpClient Integration Tests", () => {
   test("should handle desired state pattern correctly", async () => {
     const endpoint: McpServerEndpoint = {
       id: "test-server",
+      type: "command",
       command: {
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-everything"],
@@ -66,6 +68,7 @@ describe("McpClient Integration Tests", () => {
   test("should handle connection failure gracefully", async () => {
     const endpoint: McpServerEndpoint = {
       id: "failing-server",
+      type: "command",
       command: {
         command: "nonexistent-command-that-will-fail",
         args: [],
@@ -93,6 +96,7 @@ describe("McpClient Integration Tests", () => {
   test("should handle invalid empty command gracefully", async () => {
     const endpoint: McpServerEndpoint = {
       id: "invalid-command",
+      type: "command",
       command: {
         command: "", // Invalid empty command
         args: [],
@@ -116,6 +120,7 @@ describe("McpClient Integration Tests", () => {
   test("should disable client correctly and clear tools", async () => {
     const endpoint: McpServerEndpoint = {
       id: "disable-test",
+      type: "command",
       command: {
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-everything"],
@@ -151,6 +156,7 @@ describe("McpClient Integration Tests", () => {
   test("should not change state when setting same desired enabled value", async () => {
     const endpoint: McpServerEndpoint = {
       id: "no-change-test",
+      type: "command",
       command: {
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-everything"],

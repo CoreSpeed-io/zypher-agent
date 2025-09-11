@@ -51,21 +51,17 @@ export async function connectToServer(
   },
 ): Promise<Transport> {
   // Connect using appropriate transport
-  if ("command" in serverEndpoint && serverEndpoint.command) {
+  if (serverEndpoint.type === "command") {
     return await connectToCliServer(
       client,
       serverEndpoint.command,
       { signal: options?.signal },
     );
-  } else if ("remote" in serverEndpoint && serverEndpoint.remote) {
+  } else {
     return await connectToRemoteServer(
       client,
       serverEndpoint.remote,
       { signal: options?.signal },
-    );
-  } else {
-    throw new Error(
-      "Invalid server endpoint configuration: either command or remote is required",
     );
   }
 }
@@ -99,11 +95,21 @@ export async function connectToCliServer(
 }
 
 /**
- * Connects to a remote MCP server using HTTP transport
+ * Connects to a remote MCP server with automatic transport fallback
+ *
+ * Implements the MCP specification for backwards compatibility by attempting
+ * multiple transport methods in sequence:
+ * 1. First attempts StreamableHTTPClientTransport (modern streaming transport)
+ * 2. If that fails with a 4xx HTTP error (excluding 401), falls back to SSEClientTransport
+ *
+ * Both transports support OAuth authentication when oauth options are provided.
+ * If a 401 Unauthorized error occurs, the OAuth flow will be initiated automatically.
+ *
  * @param client The MCP client instance
- * @param endpoint The server endpoint configuration
- * @param signal Optional abort signal for cancellation
- * @returns Promise that resolves when connected
+ * @param remoteConfig The remote server endpoint configuration
+ * @param options Optional configuration including abort signal and OAuth settings
+ * @returns Promise that resolves to the connected transport
+ * @throws Error if connection fails on all transport attempts or OAuth is required but not provided
  */
 export async function connectToRemoteServer(
   client: Client,

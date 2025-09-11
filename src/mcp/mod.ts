@@ -34,13 +34,13 @@ export type McpServerEndpoint =
   }
   & (
     | {
+      type: "command";
       /** CLI command configuration for local server execution */
       command: McpCommandConfig;
-      remote?: never;
     }
     | {
+      type: "remote";
       /** Remote server configuration for HTTP/SSE connections */
       remote: McpRemoteConfig;
-      command?: never;
     }
   );
