@@ -84,27 +84,12 @@ export async function connectToCliServer(
     signal?: AbortSignal;
   },
 ): Promise<Transport> {
-  const commonEnvVars = ["PATH", "HOME", "SHELL", "TERM"];
-  const filteredEnvVars = {
-    ...Object.fromEntries(
-      commonEnvVars
-        .map((key) => [key, Deno.env.get(key)])
-        .filter(([_, value]) => value !== null),
-    ),
-    LANG: Deno.env.get("LANG") || "en_US.UTF-8",
-  };
-
-  const env = {
-    ...filteredEnvVars,
-    ...commandConfig.env,
-  };
-
   console.log("CLI transport config", commandConfig);
 
   const transport = new StdioClientTransport({
     command: commandConfig.command,
     args: commandConfig.args,
-    env,
+    env: commandConfig.env,
   });
 
   await client.connect(transport, { signal: options?.signal });
