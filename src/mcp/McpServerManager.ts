@@ -74,6 +74,8 @@ export class McpServerManager {
     // First disable the client (disconnects and cleans up resources)
     state.client.desiredEnabled = false;
 
+    // TODO: should we wait for the client to be disconnected?
+
     // Remove server state
     this.#serverStateMap.delete(id);
   }
@@ -146,6 +148,7 @@ export class McpServerManager {
     for (const [_, state] of this.#serverStateMap.entries()) {
       state.client.desiredEnabled = false;
     }
+    // TODO: should we wait for the clients to be disconnected?
     this.#serverStateMap.clear();
     this.#toolbox.clear();
   }
