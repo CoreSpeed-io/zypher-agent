@@ -76,8 +76,6 @@ function inferProvider(
 }
 
 async function main(): Promise<void> {
-  await mcpServerManager.init();
-
   try {
     // Handle workspace option
     if (cli.workspace) {

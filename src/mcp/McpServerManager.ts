@@ -1,25 +1,19 @@
 import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
-import { z } from "zod";
-import { getWorkspaceDataDir } from "../utils/mod.ts";
-import { join } from "@std/path";
-import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
-import { type ZypherMcpServer, ZypherMcpServerSchema } from "./types/local.ts";
-import { ConnectionMode } from "./utils/transport.ts";
-import type { OAuthProviderOptions } from "./types/auth.ts";
-import { McpError } from "./types/error.ts";
-import { formatError } from "../error.ts";
-import type { Server } from "./types/store.ts";
+import type { McpServerEndpoint } from "./mod.ts";
 
 /**
- * Optional OAuth provider factory function type
- * Applications can provide this to create OAuth providers for remote servers
+ * Represents the state of an MCP server including its configuration,
+ * client connection, enabled status, and associated tools
  */
-export type OAuthProviderFactory = (
-  serverId: string,
-  serverUrl: string,
-  clientName: string,
-) => Promise<OAuthClientProvider | undefined>;
+interface McpServerState {
+  /** The server configuration */
+  server: McpServerEndpoint;
+  /** The MCP client instance for this server */
+  client: McpClient;
+  /** Whether the server is enabled */
+  enabled: boolean;
+}
 
 /**
  * McpServerManager is a class that manages MCP (Model Context Protocol) servers and their tools.
@@ -28,288 +22,40 @@ export type OAuthProviderFactory = (
  * Authentication is handled by the McpClient layer.
  */
 export class McpServerManager {
-  #config: ZypherMcpServer[] | null = null;
-  // serverMap maintains all server configurations
-  #serverMap = new Map<string, ZypherMcpServer>();
-  // clientMap maintains all MCP clients, keyed by server ID
-  #clientMap = new Map<string, McpClient>();
+  // Unified state map containing server config, client, and enabled status
+  #serverStateMap = new Map<string, McpServerState>();
   // toolbox for directly registered tools (non-MCP tools)
   #toolbox: Map<string, Tool> = new Map();
-  #initialized = false;
-  #configFile = "mcp.json";
-  #dataDir: string | null = null;
-  #mcpRegistryBaseUrl: string | null = null;
-
-  #createMcpClient(
-    server: ZypherMcpServer,
-  ): McpClient {
-    return new McpClient(
-      {
-        id: server._id,
-        name: server.name,
-      },
-      server,
-    );
-  }
-
-  /**
-   * Initializes the McpServerManager by loading configuration and setting up servers
-   * @returns The initialized McpServerManager instance
-   */
-  async init(): Promise<McpServerManager> {
-    if (this.#initialized) {
-      return this;
-    }
-
-    // Get workspace data directory
-    this.#dataDir = await getWorkspaceDataDir();
-
-    // Get MCP API base URL
-    this.#mcpRegistryBaseUrl = Deno.env.get("MCP_SERVER_REGISTRY_URL") ?? null;
-
-    // Load and parse server configs from mcp.json
-    await this.#loadConfig();
-
-    // Initialize servers and fetch their tools
-    await this.#initializeServers();
-
-    this.#initialized = true;
-    return this;
-  }
-
-  /**
-   * Gets the full path for a configuration file
-   * @param filename The configuration file name
-   * @returns The full path to the configuration file
-   */
-  #getConfigPath = (filename: string): string => {
-    if (!this.#dataDir) {
-      throw new McpError(
-        "server_error",
-        "Data directory not initialized",
-      );
-    }
-    return join(this.#dataDir, filename);
-  };
-
-  /**
-   * Loads and validates the MCP configuration from mcp.json
-   * @throws Error if config file is invalid or cannot be loaded
-   */
-  #loadConfig = async (): Promise<void> => {
-    try {
-      const configPath = this.#getConfigPath(this.#configFile);
-      try {
-        await Deno.stat(configPath);
-      } catch {
-        const defaultConfig: ZypherMcpServer[] = [];
-        await Deno.writeTextFile(
-          configPath,
-          JSON.stringify(defaultConfig, null, 2),
-        );
-        this.#config = defaultConfig;
-        return;
-      }
-
-      this.#config = ZypherMcpServerSchema.array().parse(
-        JSON.parse(await Deno.readTextFile(configPath)),
-      );
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new McpError(
-          "invalid_config",
-          `Invalid MCP config structure: ${formatError(error)}`,
-        );
-      }
-      const errorMessage = error instanceof Error
-        ? error.message
-        : "Unknown error";
-      throw new McpError(
-        "server_error",
-        `Failed to load MCP config: ${formatError(errorMessage)}`,
-      );
-    }
-  };
-
-  /**
-   * Reloads the configuration from mcp.json and reinitializes all servers
-   * @throws Error if reload fails
-   */
-  async reloadConfig(): Promise<void> {
-    try {
-      // Cleanup existing servers
-      await this.cleanup();
-
-      // Reset state
-      this.#initialized = false;
-      this.#config = null;
-
-      // Reload configuration
-      await this.init();
-    } catch (error) {
-      const errorMessage = error instanceof Error
-        ? error.message
-        : "Unknown error";
-      throw new McpError(
-        "server_error",
-        `Failed to reload MCP config: ${formatError(errorMessage)}`,
-      );
-    }
-  }
-
-  /**
-   * Initializes all configured servers and registers their tools
-   * @throws Error if config is not loaded or server initialization fails
-   */
-  #initializeServers = async (
-    oAuthProviderOptions?: OAuthProviderOptions,
-  ): Promise<void> => {
-    if (!this.#config) {
-      throw new McpError(
-        "server_error",
-        "Config not loaded. Call loadConfig() first.",
-      );
-    }
-
-    // Initialize all servers from config
-    for (const serverConfig of this.#config) {
-      this.#serverMap.set(serverConfig._id, serverConfig);
-    }
-
-    // Then initialize clients for all servers
-    const serverInitPromises = Array.from(this.#serverMap.entries()).map(
-      async ([serverId, server]) => {
-        try {
-          await this.#initializeServerClient(
-            serverId,
-            server,
-            oAuthProviderOptions,
-          );
-        } catch (error) {
-          console.error(
-            `Failed to initialize server ${server.name}: ${formatError(error)}`,
-          );
-          // Remove the failed server
-          this.#serverMap.delete(serverId);
-          this.#clientMap.delete(serverId);
-        }
-      },
-    );
-
-    await Promise.all(serverInitPromises);
-  };
-
-  /**
-   * Initializes the client for a server
-   * @param serverId The server ID
-   * @param server The server configuration
-   */
-  async #initializeServerClient(
-    serverId: string,
-    server: ZypherMcpServer,
-    oAuthProviderOptions?: OAuthProviderOptions,
-  ): Promise<void> {
-    try {
-      console.log(`Initializing client for server: ${server.name}`);
-
-      // Create MCP client with server config
-      const client = await this.#createMcpClient(server);
-      this.#clientMap.set(serverId, client);
-
-      // Only retrieve tools if server is enabled
-      if (server.isEnabled) {
-        const connectionMode = (server.remotes && server.remotes.length > 0)
-          ? ConnectionMode.HTTP_FIRST
-          : ConnectionMode.CLI;
-        console.log(
-          `Connection mode: ${
-            connectionMode !== ConnectionMode.CLI ? "REMOTE" : "CLI"
-          }`,
-        );
-
-        console.log("Retrieving tools from server...");
-        await client.retrieveTools(connectionMode, oAuthProviderOptions);
-        console.log(
-          `Successfully initialized ${client.getToolCount()} tools for server ${server.name}`,
-        );
-
-        if (client.getToolCount() > 0) {
-          console.log(
-            `Tool names: ${client.getTools().map((t) => t.name).join(", ")}`,
-          );
-        }
-      } else {
-        console.log(
-          `Server ${server.name} is disabled, skipping tool retrieval`,
-        );
-      }
-    } catch (error) {
-      console.error(
-        `Failed to initialize client for server ${server.name}:`,
-        formatError(error),
-      );
-      throw error;
-    }
-  }
 
   /**
    * Registers a new MCP server and its tools
-   * @param server Server configuration
+   * @param server Server configuration (server.id is used as the key)
+   * @param enabled Whether the server is enabled
    * @throws McpError if server registration fails or server already exists
    */
-  async registerServer(
-    server: ZypherMcpServer,
-    oAuthProviderOptions?: OAuthProviderOptions,
-  ): Promise<void | string> {
-    try {
-      if (!this.#config) {
-        throw new McpError(
-          "server_error",
-          "Config not loaded. Call loadConfig() first.",
-        );
-      }
-      if (this.#checkServerExists(server.name)) {
-        throw new McpError(
-          "already_exists",
-          `Server ${server.name} already exists`,
-        );
-      }
-
-      // Add server to map
-      this.#serverMap.set(server._id, server);
-
-      // Initialize server client
-      const authUrl = await this.#initializeServerClient(
-        server._id,
-        server,
-        oAuthProviderOptions,
-      );
-
-      this.#config.push(server);
-      await this.#saveConfig();
-      return authUrl;
-    } catch (error) {
-      // Clean up on failure
-      this.#serverMap.delete(server._id);
-      const client = this.#clientMap.get(server._id);
-      if (client) {
-        await client.cleanup();
-        this.#clientMap.delete(server._id);
-      }
-
-      if (error instanceof McpError) {
-        throw error;
-      }
-
-      console.error(
-        `Failed to register server ${server.name}:`,
-        formatError(error),
-      );
-      throw new McpError(
-        "server_error",
-        `Failed to register server ${server.name}: ${formatError(error)}`,
+  registerServer(
+    server: McpServerEndpoint,
+    enabled: boolean = true,
+  ): void {
+    if (this.#serverStateMap.has(server.id)) {
+      throw new Error(
+        `Server ${server.id} already exists`,
       );
     }
+
+    // Create MCP client
+    const client = new McpClient(server);
+
+    // Create server state
+    const state: McpServerState = {
+      server,
+      client,
+      enabled,
+    };
+    this.#serverStateMap.set(server.id, state);
+
+    // Set enabled state
+    state.client.desiredEnabled = enabled;
   }
 
   /**
@@ -317,70 +63,58 @@ export class McpServerManager {
    * @param id ID of the server to deregister
    * @throws Error if server is not found or deregistration fails
    */
-  async deregisterServer(id: string): Promise<void> {
-    const server = this.#getServer(id);
-    if (!server) {
-      throw new McpError(
-        "not_found",
+  deregisterServer(id: string): void {
+    const state = this.#serverStateMap.get(id);
+    if (!state) {
+      throw new Error(
         `Server with id ${id} not found`,
       );
     }
 
-    try {
-      // First cleanup the server client
-      const client = this.#clientMap.get(id);
-      if (client) {
-        await client.cleanup();
-        this.#clientMap.delete(id);
-      }
+    // First disable the client (disconnects and cleans up resources)
+    state.client.desiredEnabled = false;
 
-      // Remove server from map
-      this.#serverMap.delete(id);
+    // TODO: should we wait for the client to be disconnected?
 
-      // Update mcp.json file
-      if (this.#config) {
-        this.#config = this.#config.filter((server) => server._id !== id);
-        await this.#saveConfig();
-      }
-    } catch (error) {
-      throw new McpError(
-        "server_error",
-        `Failed to deregister server ${id}: ${formatError(error)}`,
-      );
-    }
+    // Remove server state
+    this.#serverStateMap.delete(id);
   }
 
   /**
-   * Updates the configuration of an existing server
-   * @param id ID of the server to update
-   * @param config New server configuration
+   * Updates server configuration and/or enabled status
+   * @param serverId The ID of the server
+   * @param updates Object containing server config and/or enabled status to update
    * @throws Error if server is not found or update fails
    */
-  async updateServerConfig(
-    id: string,
-    servers: ZypherMcpServer[],
-    oAuthProviderOptions?: OAuthProviderOptions,
-  ): Promise<void> {
-    const server = this.#getServer(id);
-    if (!server) {
-      throw new McpError(
-        "not_found",
-        `Server with id ${id} not found`,
+  updateServer(
+    serverId: string,
+    updates: {
+      server?: McpServerEndpoint;
+      enabled?: boolean;
+    },
+  ): void {
+    const state = this.#serverStateMap.get(serverId);
+    if (!state) {
+      throw new Error(
+        `Server ${serverId} not found`,
       );
     }
 
-    try {
-      for (const server of servers) {
-        await this.deregisterServer(server._id);
-        // Register with new config but preserve the original name
-        await this.registerServer(server, oAuthProviderOptions);
-      }
-    } catch (error) {
-      throw new McpError(
-        "server_error",
-        `Failed to update server ${server.name}: ${formatError(error)}`,
-      );
+    const newEnabled = updates.enabled ?? state.enabled;
+    const hasConfigChange = updates.server !== undefined;
+
+    // If config changed, re-register the server
+    if (hasConfigChange) {
+      this.deregisterServer(serverId);
+      this.registerServer(updates.server!, newEnabled);
+      return;
     }
+
+    // Otherwise, just update enabled status
+    state.enabled = newEnabled;
+
+    // Use client's desiredEnabled = method to handle connection lifecycle
+    state.client.desiredEnabled = newEnabled;
   }
 
   /**
@@ -389,22 +123,17 @@ export class McpServerManager {
    */
   registerTool(tool: Tool): void {
     if (this.#toolbox.has(tool.name)) {
-      throw new McpError(
-        "already_exists",
+      throw new Error(
         `Tool ${tool.name} already registered`,
       );
     }
 
     // Check if any MCP server already provides a tool with this name
-    for (const [serverId, server] of this.#serverMap.entries()) {
-      if (server.isEnabled) {
-        const client = this.#clientMap.get(serverId);
-        if (client?.getTool(tool.name)) {
-          throw new McpError(
-            "already_exists",
-            `Tool ${tool.name} already exists in MCP server ${server.name}`,
-          );
-        }
+    for (const [_serverId, state] of this.#serverStateMap.entries()) {
+      if (state.enabled && state.client.getTool(tool.name)) {
+        throw new Error(
+          `Tool ${tool.name} already exists in MCP server ${state.server.id}`,
+        );
       }
     }
 
@@ -414,141 +143,15 @@ export class McpServerManager {
   /**
    * Cleans up all server connections and resets the manager state
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     // Cleanup all server clients
-    for (const [serverId, client] of this.#clientMap.entries()) {
-      try {
-        await client.cleanup();
-      } catch (error) {
-        const server = this.#serverMap.get(serverId);
-        console.error(
-          `Error cleaning up server ${server?.name ?? serverId}:`,
-          error,
-        );
-      }
+    for (const [_, state] of this.#serverStateMap.entries()) {
+      state.client.desiredEnabled = false;
     }
-    this.#serverMap.clear();
-    this.#clientMap.clear();
+    // TODO: should we wait for the clients to be disconnected?
+    this.#serverStateMap.clear();
     this.#toolbox.clear();
-    this.#initialized = false;
   }
-
-  getAllServerWithTools(): ZypherMcpServer[] {
-    return Array.from(this.#serverMap.values()).map(
-      (server) => {
-        const client = this.#clientMap.get(server._id);
-        return {
-          ...server,
-          status: client?.getStatus(),
-          tools: client?.getTools().map((tool) => tool.name) ?? [],
-        };
-      },
-    );
-  }
-
-  /**
-   * Sets the status of a server and saves it to mcp.json
-   * @param serverId The ID of the server
-   * @param enabled The new status
-   */
-  async setServerStatus(serverId: string, enabled: boolean): Promise<void> {
-    const server = this.#getServer(serverId);
-    if (!server) {
-      throw new McpError(
-        "not_found",
-        `Server ${serverId} not found`,
-      );
-    }
-
-    const wasEnabled = server.isEnabled;
-    server.isEnabled = enabled;
-
-    // If enabling a previously disabled server, initialize its tools
-    if (enabled && !wasEnabled) {
-      const client = this.#clientMap.get(serverId);
-      if (client && !client.isConnected()) {
-        try {
-          await this.#initializeServerClient(serverId, server);
-        } catch (error) {
-          // Revert the status on failure
-          server.isEnabled = wasEnabled;
-          throw new McpError(
-            "server_error",
-            `Failed to enable server ${serverId}: ${formatError(error)}`,
-          );
-        }
-      }
-    }
-
-    // Update the config
-    if (this.#config?.find((server) => server._id === serverId)) {
-      const configServer = this.#config.find((server) =>
-        server._id === serverId
-      );
-      if (configServer) {
-        configServer.isEnabled = enabled;
-      }
-      await this.#saveConfig();
-    }
-  }
-
-  #getServer = (id: string): ZypherMcpServer | undefined => {
-    return this.#serverMap.get(id);
-  };
-
-  #checkServerExists(serverName: string): boolean {
-    return this.#serverMap.values().some((server) =>
-      server.name === serverName
-    );
-  }
-
-  /**
-   * Deregisters a server by its name and removes its tools
-   * @param serverName Name of the server to deregister
-   * @throws Error if server is not found or deregistration fails
-   */
-  async deregisterServerById(serverId: string): Promise<void> {
-    const server = this.#getServer(serverId);
-    if (!server) {
-      throw new McpError(
-        "not_found",
-        `Server with id '${serverId}' not found`,
-      );
-    }
-
-    // Use the existing deregisterServer method with the actual ID
-    await this.deregisterServer(server._id);
-  }
-
-  getServerConfig(serverId: string): ZypherMcpServer {
-    const server = this.#getServer(serverId);
-    if (!server) {
-      throw new McpError(
-        "not_found",
-        `Server ${serverId} not found`,
-      );
-    }
-    // Return config without enabled property
-    return server;
-  }
-
-  /**
-   * Saves the current configuration to mcp.json
-   */
-  #saveConfig = async (): Promise<void> => {
-    if (!this.#config) {
-      throw new McpError(
-        "server_error",
-        "Config not loaded. Call loadConfig() first.",
-      );
-    }
-
-    // Write config to file - config already contains the current state
-    await Deno.writeTextFile(
-      this.#getConfigPath(this.#configFile),
-      JSON.stringify(this.#config, null, 2),
-    );
-  };
 
   /**
    * Gets all registered tools from all enabled servers and directly registered tools
@@ -563,14 +166,11 @@ export class McpServerManager {
     }
 
     // Add tools from enabled MCP servers
-    for (const [serverId, server] of this.#serverMap.entries()) {
-      if (server.isEnabled) {
-        const client = this.#clientMap.get(serverId);
-        if (client) {
-          for (const tool of client.getTools()) {
-            // MCP tools take precedence over directly registered tools with same name
-            allTools.set(tool.name, tool);
-          }
+    for (const [_serverId, state] of this.#serverStateMap.entries()) {
+      if (state.enabled) {
+        for (const tool of state.client.tools) {
+          // MCP tools take precedence over directly registered tools with same name
+          allTools.set(tool.name, tool);
         }
       }
     }
@@ -585,14 +185,11 @@ export class McpServerManager {
    */
   getTool(name: string): Tool | undefined {
     // Check MCP servers first (they take precedence)
-    for (const [serverId, server] of this.#serverMap.entries()) {
-      if (server.isEnabled) {
-        const client = this.#clientMap.get(serverId);
-        if (client) {
-          const tool = client.getTool(name);
-          if (tool) {
-            return tool;
-          }
+    for (const [_serverId, state] of this.#serverStateMap.entries()) {
+      if (state.enabled) {
+        const tool = state.client.getTool(name);
+        if (tool) {
+          return tool;
         }
       }
     }
@@ -601,18 +198,9 @@ export class McpServerManager {
     return this.#toolbox.get(name);
   }
 
-  /**
-   * Debug method to log current state of servers and tools
-   */
-  getClient(id: string): McpClient | undefined {
-    return this.#clientMap.get(id);
-  }
-
   debugLogState(): void {
     console.log("\n=== MCP SERVER MANAGER STATE ===");
-    console.log(`Initialized: ${this.#initialized}`);
-    console.log(`Number of servers: ${this.#serverMap.size}`);
-    console.log(`Number of clients: ${this.#clientMap.size}`);
+    console.log(`Number of servers: ${this.#serverStateMap.size}`);
     console.log(`Number of directly registered tools: ${this.#toolbox.size}`);
 
     const allTools = this.getAllTools();
@@ -626,17 +214,16 @@ export class McpServerManager {
       );
     }
 
-    for (const server of this.#serverMap.values()) {
-      const client = this.#clientMap.get(server._id);
-      console.log(`\nServer: ${server.name}`);
-      console.log(`  - ID: ${server._id}`);
-      console.log(`  - Enabled: ${server.isEnabled}`);
-      console.log(`  - Connected: ${client?.isConnected() ?? false}`);
-      console.log(`  - Tools count: ${client?.getToolCount() ?? 0}`);
+    for (const [serverId, state] of this.#serverStateMap.entries()) {
+      console.log(`\nServer: ${state.server.displayName || state.server.id}`);
+      console.log(`  - ID: ${serverId}`);
+      console.log(`  - Enabled: ${state.enabled}`);
+      console.log(`  - Connected: ${state.client.connected ?? false}`);
+      console.log(`  - Tools count: ${state.client.toolCount ?? 0}`);
 
-      if (client && client.getToolCount() > 0) {
+      if (state.client.toolCount > 0) {
         console.log(
-          `  - Tool names: ${client.getTools().map((t) => t.name).join(", ")}`,
+          `  - Tool names: ${state.client.tools.map((t) => t.name).join(", ")}`,
         );
       }
     }
@@ -645,85 +232,5 @@ export class McpServerManager {
       `\nAll available tools: ${Array.from(allTools.keys()).join(", ")}`,
     );
     console.log("=== END STATE ===\n");
-  }
-
-  /**
-   * Fetches MCP server configuration from a remote endpoint and registers the server
-   * @param id The ID of the server to register from the registry
-   * @returns Promise resolving when the server is registered
-   * @throws Error if the fetch fails or registration fails
-   */
-  async registerServerFromRegistry(
-    id: string,
-    token: string,
-    oAuthProviderOptions: OAuthProviderOptions,
-  ) {
-    try {
-      console.log(`Fetching configuration for server ${id} from registry...`);
-
-      // Validate registry URL
-      if (!this.#mcpRegistryBaseUrl) {
-        throw new McpError(
-          "server_error",
-          "MCP registry URL not configured. Set MCP_SERVER_REGISTRY_URL environment variable.",
-        );
-      }
-
-      // Fetch server config from registry
-      const url = `${this.#mcpRegistryBaseUrl}/servers/${id}`;
-      console.log(`Fetching from: ${url}`);
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      console.log(["[response]", response]);
-
-      if (!response.ok) {
-        throw new McpError(
-          "server_error",
-          `Failed to fetch server config: ${response.status} ${response.statusText}`,
-        );
-      }
-
-      const data = await response.json();
-      // Parse and validate the server configuration (handles nested structures automatically)
-      const parsed = ZypherMcpServerSchema.parse(data.server);
-
-      // Use friendly name for server registration if available, otherwise use registry ID
-      const serverName = parsed.name || data.name || id;
-      console.log(
-        `Registering server as: ${serverName}${
-          parsed.name ? " (friendly name extracted from config)" : ""
-        }`,
-      );
-
-      // Use the friendly name for server registration (affects tool names)
-      await this.registerServer({
-        ...parsed,
-        isEnabled: true,
-        isFromMcpStore: true,
-      }, oAuthProviderOptions);
-      console.log(
-        `Successfully registered server from registry: ${id}${
-          parsed.name ? ` as '${serverName}'` : ""
-        }`,
-      );
-    } catch (error) {
-      console.error(`Failed to register server ${id} from registry:`, error);
-      throw new McpError(
-        "server_error",
-        `Failed to register server ${id} from registry: ${formatError(error)}`,
-      );
-    }
-  }
-
-  async getAllServersFromRegistry(): Promise<Server[]> {
-    const url = `${this.#mcpRegistryBaseUrl}/servers`;
-    const response = await fetch(url);
-    const result = await response.json();
-    return result.data;
   }
 }
