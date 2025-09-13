@@ -10,7 +10,15 @@ import { AbortError, formatError } from "../error.ts";
  * Manages and executes loop interceptors
  */
 export class LoopInterceptorManager {
-  private interceptors: LoopInterceptor[] = [];
+  #interceptors: LoopInterceptor[];
+
+  /**
+   * Creates a new LoopInterceptorManager
+   * @param initialInterceptors Optional array of interceptors to register immediately
+   */
+  constructor(initialInterceptors: LoopInterceptor[] = []) {
+    this.#interceptors = [...initialInterceptors];
+  }
 
   /**
    * Register a new loop interceptor
@@ -18,13 +26,13 @@ export class LoopInterceptorManager {
    */
   register(interceptor: LoopInterceptor): void {
     // Check for name conflicts
-    if (this.interceptors.some((i) => i.name === interceptor.name)) {
+    if (this.#interceptors.some((i) => i.name === interceptor.name)) {
       throw new Error(
         `Loop interceptor with name '${interceptor.name}' is already registered`,
       );
     }
 
-    this.interceptors.push(interceptor);
+    this.#interceptors.push(interceptor);
   }
 
   /**
@@ -33,9 +41,9 @@ export class LoopInterceptorManager {
    * @returns boolean True if interceptor was found and removed
    */
   unregister(name: string): boolean {
-    const index = this.interceptors.findIndex((i) => i.name === name);
+    const index = this.#interceptors.findIndex((i) => i.name === name);
     if (index >= 0) {
-      this.interceptors.splice(index, 1);
+      this.#interceptors.splice(index, 1);
       return true;
     }
     return false;
@@ -46,7 +54,7 @@ export class LoopInterceptorManager {
    * @returns string[] Array of interceptor names
    */
   getRegisteredNames(): string[] {
-    return this.interceptors.map((i) => i.name);
+    return this.#interceptors.map((i) => i.name);
   }
 
   /**
@@ -58,7 +66,7 @@ export class LoopInterceptorManager {
     context: InterceptorContext,
   ): Promise<InterceptorResult> {
     // Execute interceptors sequentially until one decides to CONTINUE
-    for (const interceptor of this.interceptors) {
+    for (const interceptor of this.#interceptors) {
       // Check for abort signal
       if (context.signal?.aborted) {
         throw new AbortError("Aborted while running loop interceptors");
@@ -96,7 +104,7 @@ export class LoopInterceptorManager {
    * Clear all registered interceptors
    */
   clear(): void {
-    this.interceptors = [];
+    this.#interceptors = [];
   }
 
   /**
@@ -104,6 +112,6 @@ export class LoopInterceptorManager {
    * @returns number Count of registered interceptors
    */
   count(): number {
-    return this.interceptors.length;
+    return this.#interceptors.length;
   }
 }
