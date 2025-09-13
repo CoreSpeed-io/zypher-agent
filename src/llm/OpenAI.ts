@@ -36,6 +36,13 @@ export interface OpenAIModelProviderOptions extends ModelProviderOptions {
   openaiClientOptions?: ClientOptions;
 }
 
+function isReasoningModel(model: string): boolean {
+  return model.startsWith("o1") ||
+    model.startsWith("o3") ||
+    model.startsWith("o4") ||
+    (model.startsWith("gpt-5") && !model.startsWith("gpt-5-chat"));
+}
+
 export class OpenAIModelProvider implements ModelProvider {
   #client: OpenAI;
   #reasoningEffort: "low" | "medium" | "high";
@@ -94,7 +101,8 @@ export class OpenAIModelProvider implements ModelProvider {
       ],
       max_completion_tokens: params.maxTokens,
       tools: openaiTools,
-      reasoning_effort: this.#reasoningEffort,
+      ...(isReasoningModel(params.model) &&
+        { reasoning_effort: this.#reasoningEffort }),
       safety_identifier: params.userId,
     });
 
