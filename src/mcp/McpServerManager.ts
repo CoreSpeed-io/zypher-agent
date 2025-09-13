@@ -31,12 +31,13 @@ export class McpServerManager {
    * Registers a new MCP server and its tools
    * @param server Server configuration (server.id is used as the key)
    * @param enabled Whether the server is enabled
+   * @returns Promise that resolves when the server is fully connected and ready (if enabled)
    * @throws McpError if server registration fails or server already exists
    */
-  registerServer(
+  async registerServer(
     server: McpServerEndpoint,
     enabled: boolean = true,
-  ): void {
+  ): Promise<void> {
     if (this.#serverStateMap.has(server.id)) {
       throw new Error(
         `Server ${server.id} already exists`,
@@ -56,6 +57,11 @@ export class McpServerManager {
 
     // Set enabled state
     state.client.desiredEnabled = enabled;
+
+    // Wait for connection to be ready if enabled
+    if (enabled) {
+      await state.client.waitForConnection();
+    }
   }
 
   /**
