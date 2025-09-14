@@ -12,7 +12,7 @@ import {
   RunTerminalCmdTool,
 } from "@zypher/tools/mod.ts";
 import { Command, EnumType } from "@cliffy/command";
-import chalk from "npm:chalk@5";
+import chalk from "chalk";
 import {
   AnthropicModelProvider,
   OpenAIModelProvider,
