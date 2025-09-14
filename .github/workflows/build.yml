@@ -37,15 +37,6 @@ jobs:
       - name: Run unit tests
         run: deno test --ignore=**/*.integration.test.ts
 
-      - name: Git status before publish
-        run: git status --porcelain
-
-      - name: JSR publish dry run (debug)
-        run: deno publish --dry-run --allow-slow-types || true
-
-      - name: Show lock diff if changed
-        run: git diff -- deno.lock || true
-
       - name: JSR publish dry run
         run: deno publish --dry-run --allow-slow-types
 
