@@ -134,6 +134,7 @@ async function main(): Promise<void> {
     const openaiApiKey = cli.provider === "openai"
       ? cli.apiKey
       : cli.openaiApiKey;
+
     if (openaiApiKey) {
       const { ImageGenTool, ImageEditTool } = defineImageTools(openaiApiKey);
       mcpServerManager.registerTool(ImageGenTool);
