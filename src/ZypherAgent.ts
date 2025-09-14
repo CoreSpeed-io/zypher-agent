@@ -164,15 +164,13 @@ export class ZypherAgent {
     this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
 
     // Services and interceptors
-    this.#mcpServerManager = services.mcpServerManager ?? new McpServerManager();
-    if (services.loopInterceptorManager) {
-      this.#loopInterceptorManager = services.loopInterceptorManager;
-    } else {
-      const manager = new LoopInterceptorManager();
-      manager.register(new ToolExecutionInterceptor(this.#mcpServerManager));
-      manager.register(new MaxTokensInterceptor());
-      this.#loopInterceptorManager = manager;
-    }
+    this.#mcpServerManager = services.mcpServerManager ??
+      new McpServerManager();
+    this.#loopInterceptorManager = services.loopInterceptorManager ??
+      new LoopInterceptorManager([
+        new ToolExecutionInterceptor(this.#mcpServerManager),
+        new MaxTokensInterceptor(),
+      ]);
     this.#storageService = services.storageService;
   }
 
