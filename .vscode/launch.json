@@ -10,8 +10,18 @@
       "request": "launch",
       "program": "${workspaceFolder}/bin/cli.ts",
       "runtimeExecutable": "deno",
-      "runtimeArgs": ["run", "--unstable-node-globals"],
-      "args": ["bin/cli.ts", "-w", "${input:workspace}"],
+      "runtimeArgs": [
+        "run",
+        "--unstable-node-globals"
+      ],
+      "args": [
+        "-w",
+        "${input:workspace}",
+        "-k",
+        "${input:key}",
+        "-m",
+        "${input:model}"
+      ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": [
@@ -25,8 +35,15 @@
       "request": "launch",
       "program": "${workspaceFolder}/bin/api-server/src/index.ts",
       "runtimeExecutable": "deno",
-      "runtimeArgs": ["run", "--unstable-node-globals"],
-      "args": ["bin/api-server/src/index.ts", "-w", "${input:workspace}"],
+      "runtimeArgs": [
+        "run",
+        "--unstable-node-globals"
+      ],
+      "args": [
+        "bin/api-server/src/index.ts",
+        "-w",
+        "${input:workspace}"
+      ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": [
@@ -44,6 +61,18 @@
       "type": "promptString",
       "default": "test_workspace",
       "description": "The workspace to run the agent in"
+    },
+    {
+      "id": "key",
+      "type": "promptString",
+      "default": "",
+      "description": "The API key to use"
+    },
+    {
+      "id": "model",
+      "type": "promptString",
+      "default": "gpt-5",
+      "description": "The model to use"
     }
   ]
 }
