@@ -86,7 +86,6 @@ export class NotesStore {
     notesModel: string,
     maxTokens = DEFAULT_MAX_TOKENS_MEMORY,
   ) {
-    ensureDir(notesDir);
     this.#file = path.join(notesDir, "notes.json");
     this.#modelProvider = modelProvider;
     this.#notesModel = notesModel;
@@ -94,6 +93,7 @@ export class NotesStore {
   }
 
   async #load(): Promise<Notes> {
+    await ensureDir(path.dirname(this.#file));
     try {
       const txt = await Deno.readTextFile(this.#file);
       return JSON.parse(txt) as Notes;
@@ -103,6 +103,7 @@ export class NotesStore {
   }
 
   async #save(data: Notes) {
+    await ensureDir(path.dirname(this.#file));
     await Deno.writeTextFile(this.#file, JSON.stringify(data, null, 2));
   }
 
