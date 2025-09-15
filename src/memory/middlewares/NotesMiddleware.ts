@@ -36,7 +36,6 @@ export class NotesMiddleware {
       assistantText,
     });
 
-    // if (!facts.length) return;
 
     try {
       await this.store.upsertFacts(facts);
