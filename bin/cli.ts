@@ -112,7 +112,6 @@ async function main(): Promise<void> {
 
     const memoryModel = cli.memoryModel ?? modelToUse;
     console.log(`🗂️ Using memory model: ${chalk.cyan(memoryModel)}`);
-
     // Initialize the agent with provided options
     const providerInstance = selectedProvider === "openai"
       ? new OpenAIModelProvider({
@@ -124,16 +123,17 @@ async function main(): Promise<void> {
         baseUrl: cli.baseUrl,
       });
 
+    const mm = new MiddlewareManager();
+
     const agent = new ZypherAgent(
       providerInstance,
-      mcpServerManager,
-      loopInterceptorManager,
-      { userId: cli.userId },
-      new MiddlewareManager(),
+      {
+        userId: cli.userId,
+      },
+      mm,
     );
-
     // Add Notes middleware for memory
-    agent.addMiddleware(
+    mm.add(
       new NotesMiddleware(
         new NotesStore(
           cli.memoryDir ?? DEFAULT_MEMORY_DIR,
@@ -142,7 +142,6 @@ async function main(): Promise<void> {
         ),
       ),
     );
-
     const mcpServerManager = agent.mcpServerManager;
 
     // Register all available tools
