@@ -35,7 +35,7 @@ import {
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import * as path from "@std/path";
-import type { Middleware, MiddlewareManager } from "./memory/mod.ts";
+import type { MiddlewareManager } from "./memory/mod.ts";
 
 export type TaskEvent =
   | TaskTextEvent
