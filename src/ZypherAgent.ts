@@ -246,14 +246,6 @@ export class ZypherAgent {
   }
 
   /**
-   * Add a middleware to the agent's middleware manager
-   * @param middleware The middleware to add
-   */
-  addMiddleware(middleware: Middleware): void {
-    this.#middlewareManager?.add(middleware);
-  }
-
-  /**
    * Set a custom system prompt, replacing the default prompt
    * @param prompt The custom system prompt
    */
