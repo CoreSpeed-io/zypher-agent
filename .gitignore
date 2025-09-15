@@ -145,8 +145,3 @@ dist
 
 # npm publish artifacts
 npm/
-
-bench/GAIA
-bench/output
-bench/workspace
-test_workspace/
