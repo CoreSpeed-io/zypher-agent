@@ -33,6 +33,7 @@ import {
   type LoopInterceptorManager,
 } from "./loopInterceptors/mod.ts";
 import * as path from "@std/path";
+import type { Middleware, MiddlewareManager } from "./memory/mod.ts";
 
 export type TaskEvent =
   | TaskTextEvent
@@ -104,6 +105,7 @@ export class ZypherAgent {
   readonly #fileAttachmentCacheDir?: string;
   readonly #customInstructions?: string;
   readonly #loopInterceptorManager: LoopInterceptorManager;
+  readonly #middlewareManager: MiddlewareManager;
 
   #fileAttachmentManager?: FileAttachmentManager;
 
@@ -119,6 +121,7 @@ export class ZypherAgent {
     mcpServerManager: McpServerManager,
     loopInterceptorManager: LoopInterceptorManager,
     config: ZypherAgentConfig = {},
+    middlewareManager: MiddlewareManager,
     storageService?: StorageService,
   ) {
     const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
@@ -136,6 +139,7 @@ export class ZypherAgent {
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#customInstructions = config.customInstructions;
+    this.#middlewareManager = middlewareManager;
   }
 
   async init(): Promise<void> {
@@ -199,6 +203,22 @@ export class ZypherAgent {
     if (this.#persistHistory) {
       void saveMessageHistory(this.#messages);
     }
+  }
+
+  /**
+   * Add a middleware to the agent's middleware manager
+   * @param middleware The middleware to add
+   */
+  addMiddleware(middleware: Middleware): void {
+    this.#middlewareManager?.add(middleware);
+  }
+
+  /**
+   * Set a custom system prompt, replacing the default prompt
+   * @param prompt The custom system prompt
+   */
+  setSystemPrompt(prompt: string): void {
+    this.#system = prompt;
   }
 
   /**
@@ -384,6 +404,15 @@ export class ZypherAgent {
           throw new AbortError("Task aborted");
         }
 
+        // Inject notes via middleware
+        await this.#middlewareManager?.beforeModelCall?.(
+          this,
+          {
+            system: this.#system,
+            messages: this.#messages,
+          },
+        );
+
         const stream = this.#modelProvider.streamChat(
           {
             model,
@@ -415,6 +444,12 @@ export class ZypherAgent {
         };
         this.#messages.push(assistantMessage);
         yield { type: "message", message: assistantMessage };
+
+        // Invoke afterAssistantMessage middleware
+        await this.#middlewareManager?.afterAssistantMessage?.(this, {
+          system: this.#system,
+          messages: this.#messages,
+        });
 
         // Check for cancellation
         if (mergedSignal.aborted) {

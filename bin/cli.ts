@@ -26,10 +26,16 @@ import {
   AnthropicModelProvider,
   OpenAIModelProvider,
 } from "@zypher/llm/mod.ts";
+import {
+  MiddlewareManager,
+  NotesMiddleware,
+  NotesStore,
+} from "@zypher/memory/mod.ts";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
 const DEFAULT_BACKUP_DIR = "./.backup";
+const DEFAULT_MEMORY_DIR = "./.memory";
 
 const providerType = new EnumType(["anthropic", "openai"]);
 
@@ -54,6 +60,14 @@ const { options: cli } = await new Command()
     "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
   )
   .option("--backup-dir <backupDir:string>", "Directory to store backups")
+  .option(
+    "--memory-dir <memoryDir:string>",
+    "Directory to store memory files",
+  )
+  .option(
+    "--memory-model <memoryModel:string>",
+    "Model to use for memory mechanism, should be compatible with the main model",
+  )
   .parse(Deno.args);
 
 const mcpServerManager = new McpServerManager();
@@ -109,6 +123,9 @@ async function main(): Promise<void> {
         : DEFAULT_ANTHROPIC_MODEL);
     console.log(`🧠 Using model: ${chalk.cyan(modelToUse)}`);
 
+    const memoryModel = cli.memoryModel ?? modelToUse;
+    console.log(`🗂️ Using memory model: ${chalk.cyan(memoryModel)}`);
+
     // Initialize the agent with provided options
     const providerInstance = selectedProvider === "openai"
       ? new OpenAIModelProvider({
@@ -131,6 +148,18 @@ async function main(): Promise<void> {
       mcpServerManager,
       loopInterceptorManager,
       { userId: cli.userId },
+      new MiddlewareManager(),
+    );
+
+    // Add Notes middleware for memory
+    agent.addMiddleware(
+      new NotesMiddleware(
+        new NotesStore(
+          cli.memoryDir ?? DEFAULT_MEMORY_DIR,
+          providerInstance,
+          memoryModel,
+        ),
+      ),
     );
 
     // Register all available tools
