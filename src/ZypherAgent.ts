@@ -12,7 +12,7 @@ import {
   getCheckpointDetails,
 } from "./checkpoints.ts";
 import type { ContentBlock, FileAttachment, Message } from "./message.ts";
-import type { McpServerManager } from "./mcp/McpServerManager.ts";
+import { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
 import { Completer } from "./utils/mod.ts";
 import {
@@ -30,7 +30,9 @@ import {
 } from "./storage/mod.ts";
 import {
   LoopDecision,
-  type LoopInterceptorManager,
+  LoopInterceptorManager,
+  MaxTokensInterceptor,
+  ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import * as path from "@std/path";
 import type { Middleware, MiddlewareManager } from "./memory/mod.ts";
@@ -77,6 +79,15 @@ export interface TaskCancelledEvent {
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MAX_ITERATIONS = 25;
 
+export interface ZypherAgentServices {
+  /** Custom MCP server manager. If not provided, a default instance will be created. */
+  mcpServerManager?: McpServerManager;
+  /** Custom loop interceptor manager. If not provided, a default instance will be created. */
+  loopInterceptorManager?: LoopInterceptorManager;
+  /** Storage service for file attachments */
+  storageService?: StorageService;
+}
+
 export interface ZypherAgentConfig {
   maxTokens?: number;
   /** Whether to load and save message history. Defaults to true. */
@@ -116,13 +127,21 @@ export class ZypherAgent {
   #isTaskRunning: boolean = false;
   #taskCompleter: Completer<void> | null = null;
 
+  /**
+   * Creates a new ZypherAgent instance
+   *
+   * @param modelProvider The AI model provider to use for chat completions
+   * @param config Configuration options for the agent's behavior
+   * @param services External services for the agent. The agent takes ownership of all provided services:
+   *   - mcpServerManager: Creates default instance if not provided
+   *   - loopInterceptorManager: Creates default with ToolExecutionInterceptor and MaxTokensInterceptor if not provided
+   *   - storageService: Optional, no default created - only used if explicitly provided
+   */
   constructor(
     modelProvider: ModelProvider,
-    mcpServerManager: McpServerManager,
-    loopInterceptorManager: LoopInterceptorManager,
     config: ZypherAgentConfig = {},
     middlewareManager: MiddlewareManager,
-    storageService?: StorageService,
+    services: ZypherAgentServices = {},
   ) {
     const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
 
@@ -133,12 +152,19 @@ export class ZypherAgent {
     this.#persistHistory = config.persistHistory ?? true;
     this.#enableCheckpointing = config.enableCheckpointing ?? true;
     this.#userId = userId;
-    this.#mcpServerManager = mcpServerManager;
-    this.#loopInterceptorManager = loopInterceptorManager;
-    this.#storageService = storageService;
+
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#customInstructions = config.customInstructions;
+
+    this.#mcpServerManager = services.mcpServerManager ??
+      new McpServerManager();
+    this.#loopInterceptorManager = services.loopInterceptorManager ??
+      new LoopInterceptorManager([
+        new ToolExecutionInterceptor(this.#mcpServerManager),
+        new MaxTokensInterceptor(),
+      ]);
+    this.#storageService = services.storageService;
     this.#middlewareManager = middlewareManager;
   }
 
@@ -191,6 +217,20 @@ export class ZypherAgent {
    */
   get isTaskRunning(): boolean {
     return this.#isTaskRunning;
+  }
+
+  /**
+   * Get the MCP server manager for configuration
+   */
+  get mcpServerManager(): McpServerManager {
+    return this.#mcpServerManager;
+  }
+
+  /**
+   * Get the loop interceptor manager for configuration
+   */
+  get loopInterceptorManager(): LoopInterceptorManager {
+    return this.#loopInterceptorManager;
   }
 
   /**

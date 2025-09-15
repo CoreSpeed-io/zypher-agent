@@ -1,14 +1,5 @@
 import "@std/dotenv/load";
-import {
-  formatError,
-  McpServerManager,
-  runAgentInTerminal,
-  ZypherAgent,
-} from "@zypher/mod.ts";
-import {
-  LoopInterceptorManager,
-  ToolExecutionInterceptor,
-} from "@zypher/loopInterceptors/mod.ts";
+import { formatError, runAgentInTerminal, ZypherAgent } from "@zypher/mod.ts";
 import {
   CopyFileTool,
   defineEditFileTool,
@@ -70,8 +61,6 @@ const { options: cli } = await new Command()
   )
   .parse(Deno.args);
 
-const mcpServerManager = new McpServerManager();
-
 function inferProvider(
   provider?: string,
   model?: string,
@@ -90,8 +79,6 @@ function inferProvider(
 }
 
 async function main(): Promise<void> {
-  await mcpServerManager.init();
-
   try {
     // Handle workspace option
     if (cli.workspace) {
@@ -137,12 +124,6 @@ async function main(): Promise<void> {
         baseUrl: cli.baseUrl,
       });
 
-    // Create interceptor manager with default interceptors for CLI
-    const loopInterceptorManager = new LoopInterceptorManager();
-    loopInterceptorManager.register(
-      new ToolExecutionInterceptor(mcpServerManager),
-    );
-
     const agent = new ZypherAgent(
       providerInstance,
       mcpServerManager,
@@ -161,6 +142,8 @@ async function main(): Promise<void> {
         ),
       ),
     );
+
+    const mcpServerManager = agent.mcpServerManager;
 
     // Register all available tools
     mcpServerManager.registerTool(ReadFileTool);
