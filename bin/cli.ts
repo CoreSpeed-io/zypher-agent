@@ -38,9 +38,8 @@ const { options: cli } = await new Command()
     "Model provider",
   )
   .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
-  .option("-w, --workspace <workspace:string>", "Workspace directory")
   .option(
-    "--workDir <workingDirectory:string>",
+    "-w, --workDir <workingDirectory:string>",
     "Working directory override for tools/checkpoints (no chdir)",
   )
   .option("-u, --user-id <userId:string>", "Custom user ID")
@@ -70,25 +69,17 @@ function inferProvider(
 
 async function main(): Promise<void> {
   try {
-    // Handle workspace option
-    if (cli.workspace) {
-      try {
-        Deno.chdir(cli.workspace);
-        console.log(`🚀 Changed working directory to: ${Deno.cwd()}`);
-      } catch (error) {
-        throw new Error(
-          `Failed to change to workspace directory: ${formatError(error)}`,
-        );
-      }
-    }
-
     // Log CLI configuration
     if (cli.userId) {
-      console.log(`👤 Using custom user ID: ${cli.userId}`);
+      console.log(`👤 Using user ID: ${cli.userId}`);
     }
 
     if (cli.baseUrl) {
-      console.log(`🌐 Using custom API base URL: ${cli.baseUrl}`);
+      console.log(`🌐 Using API base URL: ${cli.baseUrl}`);
+    }
+
+    if (cli.workDir) {
+      console.log(`💻 Using working directory: ${cli.workDir}`);
     }
 
     const selectedProvider = inferProvider(cli.provider, cli.model);
