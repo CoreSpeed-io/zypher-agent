@@ -36,9 +36,8 @@ export const GrepSearchTool: Tool<{
   }),
   execute: async (
     { query, caseSensitive, includePattern, excludePattern },
-    ctx?: ToolExecutionContext,
+    ctx: ToolExecutionContext,
   ) => {
-    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
     try {
       // Build the arguments array for ripgrep
       const args = ["--line-number", "--no-heading"];
@@ -64,7 +63,7 @@ export const GrepSearchTool: Tool<{
       // Execute the command
       const command = new Deno.Command("rg", {
         args: args,
-        cwd: workingDirectory,
+        cwd: ctx.workingDirectory,
       });
 
       const { stdout, stderr } = await command.output();

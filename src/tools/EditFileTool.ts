@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import { applyPatch } from "diff";
 import { fileExists } from "../utils/data.ts";
-import { basename, dirname, isAbsolute, join } from "@std/path";
+import { basename, dirname, join, resolve } from "@std/path";
 import { ensureDir } from "@std/fs";
 
 enum EditFileAction {
@@ -379,12 +379,10 @@ On error:
         reFlags,
         insertAt,
       },
-      ctx: ToolExecutionContext = { workingDirectory: Deno.cwd() },
+      ctx: ToolExecutionContext,
     ): Promise<string> => {
-      const resolve = (p: string) =>
-        isAbsolute(p) ? p : join(ctx.workingDirectory, p);
-      const targetResolved = resolve(targetFile);
-      const backupResolvedDir = resolve(backupDir);
+      const targetResolved = resolve(ctx.workingDirectory, targetFile);
+      const backupResolvedDir = resolve(ctx.workingDirectory, backupDir);
       await ensureDir(backupResolvedDir);
       const fileName = basename(targetResolved);
       try {
@@ -393,7 +391,7 @@ On error:
         if (action !== EditFileAction.UNDO) {
           await Deno.copyFile(
             targetResolved,
-            `${backupResolvedDir}/${fileName}.bak`,
+            join(backupResolvedDir, `${fileName}.bak`),
           );
         }
       } catch {

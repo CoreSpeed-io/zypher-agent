@@ -208,9 +208,10 @@ export function defineImageTools(openaiApiKey: string): {
     ): Promise<string> => {
       const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
       try {
-        const resolvedDestination = path.isAbsolute(destinationPath)
-          ? destinationPath
-          : path.join(workingDirectory, destinationPath);
+        const resolvedDestination = path.resolve(
+          workingDirectory,
+          destinationPath,
+        );
         // Create parent directory if it doesn't exist
         const parentDir = path.dirname(resolvedDestination);
         await ensureDir(parentDir);
@@ -297,16 +298,14 @@ export function defineImageTools(openaiApiKey: string): {
         quality,
         destinationPath,
       },
-      ctx?: ToolExecutionContext,
+      ctx: ToolExecutionContext,
     ): Promise<string> => {
-      const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
       try {
-        const resolvedSource = path.isAbsolute(sourcePath)
-          ? sourcePath
-          : path.join(workingDirectory, sourcePath);
-        const resolvedDestination = path.isAbsolute(destinationPath)
-          ? destinationPath
-          : path.join(workingDirectory, destinationPath);
+        const resolvedSource = path.resolve(ctx.workingDirectory, sourcePath);
+        const resolvedDestination = path.resolve(
+          ctx.workingDirectory,
+          destinationPath,
+        );
 
         // Validate source image exists
         if (!(await fileExists(resolvedSource))) {

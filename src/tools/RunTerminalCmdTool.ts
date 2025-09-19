@@ -29,9 +29,8 @@ export const RunTerminalCmdTool: Tool<{
   }),
   execute: async (
     { command, isBackground },
-    ctx: ToolExecutionContext = { workingDirectory: Deno.cwd() },
+    ctx: ToolExecutionContext,
   ) => {
-    const workingDirectory = ctx.workingDirectory;
     try {
       if (isBackground) {
         // For background processes, use spawn
@@ -39,14 +38,14 @@ export const RunTerminalCmdTool: Tool<{
           shell: true,
           detached: true,
           stdio: "ignore",
-          cwd: workingDirectory,
+          cwd: ctx.workingDirectory,
         });
         child.unref();
         return `Started background command: ${command}`;
       }
 
       const { stdout, stderr } = await execAsync(command, {
-        cwd: workingDirectory,
+        cwd: ctx.workingDirectory,
       });
       if (stderr) {
         return `Command executed with warnings:\n${stderr}\nOutput:\n${stdout}`;

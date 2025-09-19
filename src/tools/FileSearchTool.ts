@@ -16,13 +16,12 @@ export const FileSearchTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ query }, ctx?: ToolExecutionContext) => {
-    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
+  execute: async ({ query }, ctx: ToolExecutionContext) => {
     try {
       // Using fd (modern alternative to find) with fuzzy matching
       const command = new Deno.Command("fd", {
         args: ["-t", "f", "-d", "10", "-l", query],
-        cwd: workingDirectory,
+        cwd: ctx.workingDirectory,
       });
 
       const { stdout, stderr } = await command.output();

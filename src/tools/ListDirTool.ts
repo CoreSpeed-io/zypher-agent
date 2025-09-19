@@ -20,13 +20,10 @@ export const ListDirTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ relativePath }, ctx?: ToolExecutionContext) => {
-    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
+  execute: async ({ relativePath }, ctx: ToolExecutionContext) => {
     try {
       const entries = [] as string[];
-      const basePath = path.isAbsolute(relativePath)
-        ? relativePath
-        : path.join(workingDirectory, relativePath);
+      const basePath = path.resolve(ctx.workingDirectory, relativePath);
       for await (const entry of Deno.readDir(basePath)) {
         const fullPath = path.join(basePath, entry.name);
         const fileInfo = await Deno.stat(fullPath);

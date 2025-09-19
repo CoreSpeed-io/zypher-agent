@@ -43,13 +43,10 @@ export const ReadFileTool: Tool<{
       endLineOneIndexedInclusive,
       shouldReadEntireFile,
     },
-    ctx?: ToolExecutionContext,
+    ctx: ToolExecutionContext,
   ) => {
-    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
     try {
-      const resolvedPath = path.isAbsolute(relativePath)
-        ? relativePath
-        : path.join(workingDirectory, relativePath);
+      const resolvedPath = path.resolve(ctx.workingDirectory, relativePath);
       const content = await Deno.readTextFile(resolvedPath);
       const lines = content.split("\n");
 

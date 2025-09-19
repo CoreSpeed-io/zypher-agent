@@ -23,12 +23,9 @@ export const DeleteFileTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ targetFile }, ctx?: ToolExecutionContext) => {
-    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
+  execute: async ({ targetFile }, ctx: ToolExecutionContext) => {
     try {
-      const resolved = path.isAbsolute(targetFile)
-        ? targetFile
-        : path.join(workingDirectory, targetFile);
+      const resolved = path.resolve(ctx.workingDirectory, targetFile);
       await Deno.remove(resolved);
       return `Successfully deleted file: ${resolved}`;
     } catch (error) {
@@ -77,12 +74,10 @@ export const CopyFileTool: Tool<{
   }),
   execute: async (
     { sourceFile, destinationFile, overwrite },
-    ctx?: ToolExecutionContext,
+    ctx: ToolExecutionContext,
   ) => {
-    const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
     try {
-      const resolve = (p: string) =>
-        path.isAbsolute(p) ? p : path.join(workingDirectory, p);
+      const resolve = (p: string) => path.resolve(ctx.workingDirectory, p);
       const srcResolved = resolve(sourceFile);
       const dstResolved = resolve(destinationFile);
       // Check if source file exists
