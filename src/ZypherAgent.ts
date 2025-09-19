@@ -490,7 +490,7 @@ export class ZypherAgent {
           messages: this.#messages,
           lastResponse: responseText,
           tools: toolCalls,
-          workingDirectory: this.#workingDirectory ?? Deno.cwd(),
+          workingDirectory: this.#workingDirectory,
           stopReason: finalMessage.stop_reason,
           signal: mergedSignal,
         };
