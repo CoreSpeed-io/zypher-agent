@@ -106,23 +106,24 @@ export interface ZypherAgentConfig {
 
 export class ZypherAgent {
   readonly #modelProvider: ModelProvider;
+  readonly #mcpServerManager: McpServerManager;
+  readonly #loopInterceptorManager: LoopInterceptorManager;
+  readonly #checkpointManager: CheckpointManager;
+  readonly #storageService?: StorageService;
+
   readonly #maxTokens: number;
   readonly #persistHistory: boolean;
   readonly #enableCheckpointing: boolean;
   readonly #userId?: string;
-  readonly #mcpServerManager: McpServerManager;
   readonly #taskTimeoutMs: number;
-  readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
   readonly #customInstructions?: string;
-  readonly #loopInterceptorManager: LoopInterceptorManager;
+  readonly #workingDirectory: string;
 
   #fileAttachmentManager?: FileAttachmentManager;
 
   #messages: Message[];
   #system: string;
-  #workingDirectory?: string;
-  #checkpointManager?: CheckpointManager;
 
   // Task execution state
   #isTaskRunning: boolean = false;
@@ -157,8 +158,10 @@ export class ZypherAgent {
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#customInstructions = config.customInstructions;
     // Working directory and checkpoint manager
-    this.#workingDirectory = config.workingDirectory;
-    this.#checkpointManager = new CheckpointManager(this.#workingDirectory ?? Deno.cwd());
+    this.#workingDirectory = config.workingDirectory ?? Deno.cwd();
+    this.#checkpointManager = new CheckpointManager(
+      this.#workingDirectory,
+    );
 
     // Optional file attachment cache dir from config
     this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
@@ -250,7 +253,7 @@ export class ZypherAgent {
 
     // Save updated message history if enabled
     if (this.#persistHistory) {
-      void saveMessageHistory(this.#messages);
+      void saveMessageHistory(this.#messages, this.#workingDirectory);
     }
   }
 
@@ -264,7 +267,7 @@ export class ZypherAgent {
   async applyCheckpoint(checkpointId: string): Promise<boolean> {
     try {
       // Apply the checkpoint to the filesystem
-      await this.#checkpointManager!.applyCheckpoint(checkpointId);
+      await this.#checkpointManager.applyCheckpoint(checkpointId);
 
       // Update message history to discard messages beyond the checkpoint
       const checkpointIndex = this.#messages.findIndex(
@@ -395,10 +398,10 @@ export class ZypherAgent {
         const checkpointName = `Before task: ${
           taskDescription.substring(0, 50)
         }${taskDescription.length > 50 ? "..." : ""}`;
-        checkpointId = await this.#checkpointManager!.createCheckpoint(
+        checkpointId = await this.#checkpointManager.createCheckpoint(
           checkpointName,
         );
-        checkpoint = await this.#checkpointManager!.getCheckpointDetails(
+        checkpoint = await this.#checkpointManager.getCheckpointDetails(
           checkpointId,
         );
       }

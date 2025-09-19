@@ -49,13 +49,12 @@ export async function getZypherDir(): Promise<string> {
  * @returns {Promise<string>} Path to the workspace-specific directory
  */
 export async function getWorkspaceDataDir(
-  workingDirectory?: string,
+  workingDirectory: string,
 ): Promise<string> {
   const dataDir = await getZypherDir();
 
   // Create workspace-specific directory
-  const workspacePath = workingDirectory ?? Deno.cwd();
-  const workspaceHash = encodeBase64(workspacePath);
+  const workspaceHash = encodeBase64(workingDirectory);
   const workspaceDir = path.join(dataDir, workspaceHash);
 
   try {
@@ -74,7 +73,7 @@ export async function getWorkspaceDataDir(
  * @returns {Promise<Message[]>} Array of messages from history, empty array if no history exists
  */
 export async function loadMessageHistory(
-  workingDirectory?: string,
+  workingDirectory: string,
 ): Promise<Message[]> {
   try {
     const workspaceDir = await getWorkspaceDataDir(workingDirectory);
@@ -122,7 +121,7 @@ export async function loadMessageHistory(
  */
 export async function saveMessageHistory(
   messages: Message[],
-  workingDirectory?: string,
+  workingDirectory: string,
 ): Promise<void> {
   try {
     const workspaceDir = await getWorkspaceDataDir(workingDirectory);
