@@ -34,7 +34,7 @@ export interface Checkpoint {
  */
 export class CheckpointManager {
   #workingDirectory: string;
-  static #_gitEnvCache: Map<string, Record<string, string>> | undefined;
+  #gitEnv?: Record<string, string>;
 
   constructor(workingDirectory?: string) {
     this.#workingDirectory = workingDirectory ?? Deno.cwd();
@@ -57,20 +57,10 @@ export class CheckpointManager {
    */
   private async getGitEnv(): Promise<Record<string, string>> {
     const checkpointsDir = await this.getWorkspaceCheckpointsDir();
-    const workTree = this.#workingDirectory;
-
-    if (!CheckpointManager.#_gitEnvCache) {
-      CheckpointManager.#_gitEnvCache = new Map();
-    }
-
-    const cacheKey = `${checkpointsDir}::${workTree}`;
-    const cached = CheckpointManager.#_gitEnvCache.get(cacheKey);
-    if (cached) return cached;
-
-    const env = { GIT_DIR: checkpointsDir, GIT_WORK_TREE: workTree };
-    CheckpointManager.#_gitEnvCache.set(cacheKey, env);
-
-    return env;
+    return this.#gitEnv ??= {
+      GIT_DIR: checkpointsDir,
+      GIT_WORK_TREE: this.#workingDirectory,
+    };
   }
 
   /**
