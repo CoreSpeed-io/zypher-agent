@@ -2,7 +2,7 @@ name: Publish to JSR
 
 on:
   push:
-    branches: [main]
+    branches: [main, ci/add-jsr-publish-workflow]  # Add test branch
     paths: ["deno.json"]
 
 permissions:
@@ -75,10 +75,15 @@ jobs:
       - name: Publish to JSR
         run: |
           echo "📦 Publishing v${{ needs.check-version-change.outputs.new-version }} to JSR..."
-          deno publish
-          echo "✅ Successfully published!"
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            deno publish
+            echo "✅ Successfully published!"
+          else
+            echo "🧪 Test mode - skipping actual publish (not on main branch)"
+          fi
 
       - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main'  # Only create release on main
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
