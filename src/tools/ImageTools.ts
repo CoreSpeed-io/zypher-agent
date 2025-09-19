@@ -204,12 +204,11 @@ export function defineImageTools(openaiApiKey: string): {
         background,
         destinationPath,
       },
-      ctx?: ToolExecutionContext,
+      ctx: ToolExecutionContext,
     ): Promise<string> => {
-      const workingDirectory = ctx?.workingDirectory ?? Deno.cwd();
       try {
         const resolvedDestination = path.resolve(
-          workingDirectory,
+          ctx.workingDirectory,
           destinationPath,
         );
         // Create parent directory if it doesn't exist

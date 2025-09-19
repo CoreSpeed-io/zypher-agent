@@ -14,7 +14,7 @@ export const DeleteFileTool: Tool<{
     targetFile: z
       .string()
       .describe(
-        "The path of the file to delete, relative to the workspace root.",
+        "The path of the file to delete (relative or absolute).",
       ),
     explanation: z
       .string()
