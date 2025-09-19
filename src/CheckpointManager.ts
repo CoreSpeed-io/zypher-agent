@@ -36,11 +36,11 @@ export class CheckpointManager {
   #workingDirectory: string;
   #gitEnv?: Record<string, string>;
 
-  constructor(workingDirectory?: string) {
-    this.#workingDirectory = workingDirectory ?? Deno.cwd();
+  constructor(workingDirectory: string) {
+    this.#workingDirectory = workingDirectory;
   }
 
-  private async getWorkspaceCheckpointsDir(): Promise<string> {
+  async #getWorkspaceCheckpointsDir(): Promise<string> {
     const workspaceDir = await getWorkspaceDataDir(this.#workingDirectory);
     const checkpointsDir = path.join(workspaceDir, "checkpoints");
 
@@ -55,8 +55,8 @@ export class CheckpointManager {
    *
    * @returns Promise resolving to the Git command prefix
    */
-  private async getGitEnv(): Promise<Record<string, string>> {
-    const checkpointsDir = await this.getWorkspaceCheckpointsDir();
+  async #getGitEnv(): Promise<Record<string, string>> {
+    const checkpointsDir = await this.#getWorkspaceCheckpointsDir();
     return this.#gitEnv ??= {
       GIT_DIR: checkpointsDir,
       GIT_WORK_TREE: this.#workingDirectory,
@@ -66,12 +66,12 @@ export class CheckpointManager {
   /**
    * Initialize the checkpoint repository if it doesn't exist
    */
-  async initRepo(): Promise<void> {
+  async #initCheckpointRepo(): Promise<void> {
     // Check if Git repository already exists and is valid
     try {
       await runCommand("git", {
         args: ["status"],
-        env: await this.getGitEnv(),
+        env: await this.#getGitEnv(),
       });
       return; // It's a valid Git repository, so we're done
     } catch {
@@ -81,23 +81,23 @@ export class CheckpointManager {
     // Initialize a new git repository (non-bare)
     await runCommand("git", {
       args: ["init"],
-      env: await this.getGitEnv(),
+      env: await this.#getGitEnv(),
     });
 
     // Configure the repository
     await runCommand("git", {
       args: ["config", "user.name", "ZypherAgent"],
-      env: await this.getGitEnv(),
+      env: await this.#getGitEnv(),
     });
     await runCommand("git", {
       args: ["config", "user.email", "zypher@corespeed.io"],
-      env: await this.getGitEnv(),
+      env: await this.#getGitEnv(),
     });
 
     // Create an initial empty commit
     await runCommand("git", {
       args: ["commit", "--allow-empty", "-m", "Initial checkpoint repository"],
-      env: await this.getGitEnv(),
+      env: await this.#getGitEnv(),
     });
   }
 
@@ -110,18 +110,18 @@ export class CheckpointManager {
   async createCheckpoint(name: string): Promise<string> {
     try {
       // Initialize the checkpoint repository if needed
-      await this.initRepo();
+      await this.#initCheckpointRepo();
 
       // Add all files to the index
       await runCommand("git", {
         args: ["add", "-A"],
-        env: await this.getGitEnv(),
+        env: await this.#getGitEnv(),
       });
 
       // Check if there are any changes
       const { stdout: status } = await runCommand("git", {
         args: ["status", "--porcelain"],
-        env: await this.getGitEnv(),
+        env: await this.#getGitEnv(),
       });
       const hasChanges = new TextDecoder().decode(status).trim().length > 0;
 
@@ -134,13 +134,13 @@ export class CheckpointManager {
       // Create the commit (using --allow-empty to handle cases with no changes)
       await runCommand("git", {
         args: ["commit", "--allow-empty", "-m", commitMessage],
-        env: await this.getGitEnv(),
+        env: await this.#getGitEnv(),
       });
 
       // Get the commit hash
       const { stdout: commitHash } = await runCommand("git", {
         args: ["rev-parse", "HEAD"],
-        env: await this.getGitEnv(),
+        env: await this.#getGitEnv(),
       });
 
       const checkpointId = new TextDecoder().decode(commitHash).trim();
@@ -166,7 +166,7 @@ export class CheckpointManager {
       // Get commit details
       const { stdout: commitInfo } = await runCommand("git", {
         args: ["show", "--no-patch", "--format=%H%n%B%n%aI", checkpointId],
-        env: await this.getGitEnv(),
+        env: await this.#getGitEnv(),
       });
 
       const lines = new TextDecoder().decode(commitInfo).trim().split("\n");
@@ -214,7 +214,7 @@ export class CheckpointManager {
           "-r",
           checkpointId,
         ],
-        env: await this.getGitEnv(),
+        env: await this.#getGitEnv(),
       });
 
       const files = new TextDecoder().decode(filesChanged).trim().split("\n")
@@ -241,13 +241,13 @@ export class CheckpointManager {
     try {
       // Ensure the checkpoint repository is initialized
 
-      await this.initRepo();
+      await this.#initCheckpointRepo();
 
       // Get all checkpoint commits with a custom delimiter between commits
       // Using a unique delimiter "###COMMIT###" that won't appear in commit messages
       const { stdout } = await runCommand("git", {
         args: ["log", "--pretty=format:###COMMIT###%n%H%n%aI%n%s"],
-        env: await this.getGitEnv(),
+        env: await this.#getGitEnv(),
       });
 
       if (!new TextDecoder().decode(stdout).trim()) {
@@ -297,7 +297,7 @@ export class CheckpointManager {
         // Get files for this checkpoint
         const { stdout: filesChanged } = await runCommand("git", {
           args: ["diff-tree", "--no-commit-id", "--name-only", "-r", id],
-          env: await this.getGitEnv(),
+          env: await this.#getGitEnv(),
         });
 
         const files = new TextDecoder().decode(filesChanged).trim().split("\n")
@@ -328,7 +328,7 @@ export class CheckpointManager {
   async applyCheckpoint(checkpointId: string): Promise<void> {
     await runCommand("git", {
       args: ["cat-file", "-e", checkpointId],
-      env: await this.getGitEnv(),
+      env: await this.#getGitEnv(),
     });
 
     // Get checkpoint details
@@ -348,7 +348,7 @@ export class CheckpointManager {
     // Use checkout to avoid changing the HEAD
     await runCommand("git", {
       args: ["checkout", checkpointId, "--", "."],
-      env: await this.getGitEnv(),
+      env: await this.#getGitEnv(),
     });
   }
   catch(error: Error) {
