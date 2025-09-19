@@ -7,6 +7,7 @@ import {
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
+import type { ToolExecutionContext } from "../tools/mod.ts";
 
 export type ToolApprovalHandler = (
   name: string,
@@ -38,6 +39,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
   async #executeToolCall(
     name: string,
     parameters: Record<string, unknown>,
+    ctx: ToolExecutionContext,
     options?: {
       signal?: AbortSignal;
     },
@@ -50,14 +52,13 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     const approved = this.#handleToolApproval
       ? await this.#handleToolApproval(name, parameters, options || {})
       : true;
-    console.log(`Tool call approved: ${approved}`);
+    console.log(`Tool call ${name} approved: ${approved}`);
     if (!approved) {
-      return "Tool call rejected by user";
+      return `Tool call ${name} rejected by user`;
     }
 
     try {
-      // TODO: support abort signal in tool execution
-      return await tool.execute(parameters);
+      return await tool.execute(parameters, ctx);
     } catch (error) {
       return `Error executing tool '${name}': ${formatError(error)}`;
     }
@@ -80,9 +81,14 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     // Execute all tool calls
     for (const block of toolBlocks) {
       if (block.type === "tool_use") {
+        const params = (block.input ?? {}) as Record<string, unknown>;
+
         const result = await this.#executeToolCall(
           block.name,
-          block.input as Record<string, unknown>,
+          params,
+          {
+            workingDirectory: context.workingDirectory,
+          } satisfies ToolExecutionContext,
           {
             signal: context.signal,
           },

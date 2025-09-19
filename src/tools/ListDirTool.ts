@@ -1,18 +1,18 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import * as path from "@std/path";
 
 export const ListDirTool: Tool<{
-  relativePath: string;
+  targetPath: string;
   explanation?: string | undefined;
 }> = defineTool({
   name: "list_dir",
   description:
     "List the contents of a directory. The quick tool to use for discovery, before using more targeted tools like semantic search or file reading. Useful to try to understand the file structure before diving deeper into specific files. Can be used to explore the codebase.",
   parameters: z.object({
-    relativePath: z
+    targetPath: z
       .string()
-      .describe("Path to list contents of, relative to the workspace root."),
+      .describe("Path to list contents of (relative or absolute)."),
     explanation: z
       .string()
       .optional()
@@ -20,11 +20,12 @@ export const ListDirTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ relativePath }) => {
+  execute: async ({ targetPath }, ctx: ToolExecutionContext) => {
     try {
-      const entries = [];
-      for await (const entry of Deno.readDir(relativePath)) {
-        const fullPath = path.join(relativePath, entry.name);
+      const entries: string[] = [];
+      const basePath = path.resolve(ctx.workingDirectory, targetPath);
+      for await (const entry of Deno.readDir(basePath)) {
+        const fullPath = path.join(basePath, entry.name);
         const fileInfo = await Deno.stat(fullPath);
         const type = entry.isDirectory ? "directory" : "file";
         const size = fileInfo.size;
