@@ -199,12 +199,9 @@ export class ZypherAgent {
    * This method reads custom rules from the current working directory
    */
   async #loadSystemPrompt(): Promise<void> {
-    const userInfo = getCurrentUserInfo();
-    const effectiveUserInfo = this.#workingDirectory
-      ? { ...userInfo, workspacePath: this.#workingDirectory }
-      : userInfo;
+    const userInfo = getCurrentUserInfo(this.#workingDirectory);
     this.#system = await getSystemPrompt(
-      effectiveUserInfo,
+      userInfo,
       this.#customInstructions,
     );
   }
