@@ -51,10 +51,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(
   ) => Promise<string>,
 ): Tool<InferParams<T>> {
   // Convert Zod schema to JSON Schema
-  const schemaWithPassthrough = schema.passthrough();
-  const jsonSchema = zodToJsonSchema(schemaWithPassthrough, {
-    target: "jsonSchema7",
-  });
+  const jsonSchema = zodToJsonSchema(schema, { target: "jsonSchema7" });
 
   return {
     name,
@@ -65,7 +62,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(
       ctx: ToolExecutionContext,
     ) => {
       // Validate params using Zod schema
-      const validatedParams = await schemaWithPassthrough.parseAsync(params);
+      const validatedParams = await schema.parseAsync(params);
       return execute(validatedParams, ctx);
     },
   };
