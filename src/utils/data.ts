@@ -48,11 +48,13 @@ export async function getZypherDir(): Promise<string> {
  *
  * @returns {Promise<string>} Path to the workspace-specific directory
  */
-export async function getWorkspaceDataDir(): Promise<string> {
+export async function getWorkspaceDataDir(
+  workingDirectory: string,
+): Promise<string> {
   const dataDir = await getZypherDir();
 
   // Create workspace-specific directory
-  const workspaceHash = encodeBase64(Deno.cwd());
+  const workspaceHash = encodeBase64(workingDirectory);
   const workspaceDir = path.join(dataDir, workspaceHash);
 
   try {
@@ -70,9 +72,11 @@ export async function getWorkspaceDataDir(): Promise<string> {
  *
  * @returns {Promise<Message[]>} Array of messages from history, empty array if no history exists
  */
-export async function loadMessageHistory(): Promise<Message[]> {
+export async function loadMessageHistory(
+  workingDirectory: string,
+): Promise<Message[]> {
   try {
-    const workspaceDir = await getWorkspaceDataDir();
+    const workspaceDir = await getWorkspaceDataDir(workingDirectory);
     const historyPath = path.join(workspaceDir, "history.json");
 
     // Check if file exists before trying to read it
@@ -115,9 +119,12 @@ export async function loadMessageHistory(): Promise<Message[]> {
  * @param {Message[]} messages - Array of messages to save
  * @returns {Promise<void>}
  */
-export async function saveMessageHistory(messages: Message[]): Promise<void> {
+export async function saveMessageHistory(
+  messages: Message[],
+  workingDirectory: string,
+): Promise<void> {
   try {
-    const workspaceDir = await getWorkspaceDataDir();
+    const workspaceDir = await getWorkspaceDataDir(workingDirectory);
     const historyPath = path.join(workspaceDir, "history.json");
 
     await Deno.writeTextFile(historyPath, JSON.stringify(messages, null, 2));

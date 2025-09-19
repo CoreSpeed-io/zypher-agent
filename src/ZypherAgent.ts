@@ -5,12 +5,8 @@ import {
   saveMessageHistory,
 } from "./utils/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
-import {
-  applyCheckpoint,
-  type Checkpoint,
-  createCheckpoint,
-  getCheckpointDetails,
-} from "./checkpoints.ts";
+import type { Checkpoint } from "./CheckpointManager.ts";
+import { CheckpointManager } from "./CheckpointManager.ts";
 import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
@@ -101,20 +97,28 @@ export interface ZypherAgentConfig {
   fileAttachmentCacheDir?: string;
   /** Custom instructions to override the default instructions. */
   customInstructions?: string;
+  /**
+   * Optional working directory override without changing process cwd.
+   * When set, tools and checkpoints operate relative to this directory.
+   */
+  workingDirectory?: string;
 }
 
 export class ZypherAgent {
   readonly #modelProvider: ModelProvider;
+  readonly #mcpServerManager: McpServerManager;
+  readonly #loopInterceptorManager: LoopInterceptorManager;
+  readonly #checkpointManager: CheckpointManager;
+  readonly #storageService?: StorageService;
+
   readonly #maxTokens: number;
   readonly #persistHistory: boolean;
   readonly #enableCheckpointing: boolean;
   readonly #userId?: string;
-  readonly #mcpServerManager: McpServerManager;
   readonly #taskTimeoutMs: number;
-  readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
   readonly #customInstructions?: string;
-  readonly #loopInterceptorManager: LoopInterceptorManager;
+  readonly #workingDirectory: string;
 
   #fileAttachmentManager?: FileAttachmentManager;
 
@@ -153,7 +157,16 @@ export class ZypherAgent {
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#customInstructions = config.customInstructions;
+    // Working directory and checkpoint manager
+    this.#workingDirectory = config.workingDirectory ?? Deno.cwd();
+    this.#checkpointManager = new CheckpointManager(
+      this.#workingDirectory,
+    );
 
+    // Optional file attachment cache dir from config
+    this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
+
+    // Services and interceptors
     this.#mcpServerManager = services.mcpServerManager ??
       new McpServerManager();
     this.#loopInterceptorManager = services.loopInterceptorManager ??
@@ -177,7 +190,7 @@ export class ZypherAgent {
 
     // Load message history if enabled
     if (this.#persistHistory) {
-      this.#messages = await loadMessageHistory();
+      this.#messages = await loadMessageHistory(this.#workingDirectory);
     }
   }
 
@@ -186,7 +199,7 @@ export class ZypherAgent {
    * This method reads custom rules from the current working directory
    */
   async #loadSystemPrompt(): Promise<void> {
-    const userInfo = getCurrentUserInfo();
+    const userInfo = getCurrentUserInfo(this.#workingDirectory);
     this.#system = await getSystemPrompt(
       userInfo,
       this.#customInstructions,
@@ -237,7 +250,7 @@ export class ZypherAgent {
 
     // Save updated message history if enabled
     if (this.#persistHistory) {
-      void saveMessageHistory(this.#messages);
+      void saveMessageHistory(this.#messages, this.#workingDirectory);
     }
   }
 
@@ -251,7 +264,7 @@ export class ZypherAgent {
   async applyCheckpoint(checkpointId: string): Promise<boolean> {
     try {
       // Apply the checkpoint to the filesystem
-      await applyCheckpoint(checkpointId);
+      await this.#checkpointManager.applyCheckpoint(checkpointId);
 
       // Update message history to discard messages beyond the checkpoint
       const checkpointIndex = this.#messages.findIndex(
@@ -264,7 +277,7 @@ export class ZypherAgent {
 
         // Save updated message history if enabled
         if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages);
+          await saveMessageHistory(this.#messages, this.#workingDirectory);
         }
       }
 
@@ -382,8 +395,12 @@ export class ZypherAgent {
         const checkpointName = `Before task: ${
           taskDescription.substring(0, 50)
         }${taskDescription.length > 50 ? "..." : ""}`;
-        checkpointId = await createCheckpoint(checkpointName);
-        checkpoint = await getCheckpointDetails(checkpointId);
+        checkpointId = await this.#checkpointManager.createCheckpoint(
+          checkpointName,
+        );
+        checkpoint = await this.#checkpointManager.getCheckpointDetails(
+          checkpointId,
+        );
       }
 
       const messageContent: ContentBlock[] = [
@@ -473,7 +490,7 @@ export class ZypherAgent {
           messages: this.#messages,
           lastResponse: responseText,
           tools: toolCalls,
-          workingDirectory: Deno.cwd(),
+          workingDirectory: this.#workingDirectory,
           stopReason: finalMessage.stop_reason,
           signal: mergedSignal,
         };
@@ -497,7 +514,7 @@ export class ZypherAgent {
 
       // Save updated message history if enabled
       if (this.#persistHistory) {
-        await saveMessageHistory(this.#messages);
+        await saveMessageHistory(this.#messages, this.#workingDirectory);
       }
 
       return this.messages;
@@ -512,7 +529,7 @@ export class ZypherAgent {
         };
 
         if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages);
+          await saveMessageHistory(this.#messages, this.#workingDirectory);
         }
 
         return this.messages;

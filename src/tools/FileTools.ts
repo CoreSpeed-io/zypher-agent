@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import * as path from "@std/path";
 import { fileExists } from "../utils/mod.ts";
 import { ensureDir } from "@std/fs";
@@ -14,7 +14,7 @@ export const DeleteFileTool: Tool<{
     targetFile: z
       .string()
       .describe(
-        "The path of the file to delete, relative to the workspace root.",
+        "The path of the file to delete (relative or absolute).",
       ),
     explanation: z
       .string()
@@ -23,10 +23,11 @@ export const DeleteFileTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ targetFile }) => {
+  execute: async ({ targetFile }, ctx: ToolExecutionContext) => {
     try {
-      await Deno.remove(targetFile);
-      return `Successfully deleted file: ${targetFile}`;
+      const resolved = path.resolve(ctx.workingDirectory, targetFile);
+      await Deno.remove(resolved);
+      return `Successfully deleted file: ${resolved}`;
     } catch (error) {
       if (error instanceof Error) {
         if (error instanceof Deno.errors.NotFound) {
@@ -73,25 +74,28 @@ export const CopyFileTool: Tool<{
   }),
   execute: async (
     { sourceFile, destinationFile, overwrite },
+    ctx: ToolExecutionContext,
   ) => {
     try {
+      const srcResolved = path.resolve(ctx.workingDirectory, sourceFile);
+      const dstResolved = path.resolve(ctx.workingDirectory, destinationFile);
       // Check if source file exists
-      if (!(await fileExists(sourceFile))) {
-        return `Error: Source file not found: ${sourceFile}`;
+      if (!(await fileExists(srcResolved))) {
+        return `Error: Source file not found: ${srcResolved}`;
       }
 
       // Check if destination file already exists
-      const destinationExists = await fileExists(destinationFile);
+      const destinationExists = await fileExists(dstResolved);
       if (destinationExists && !overwrite) {
-        return `Destination file already exists: ${destinationFile}. Use overwrite=true to replace it.`;
+        return `Destination file already exists: ${dstResolved}. Use overwrite=true to replace it.`;
       }
 
       // Create destination directory if needed
-      await ensureDir(path.dirname(destinationFile));
+      await ensureDir(path.dirname(dstResolved));
 
       // Copy the file
-      await Deno.copyFile(sourceFile, destinationFile);
-      return `Successfully copied file from ${sourceFile} to ${destinationFile}${
+      await Deno.copyFile(srcResolved, dstResolved);
+      return `Successfully copied file from ${srcResolved} to ${dstResolved}${
         destinationExists ? " (overwritten)" : ""
       }.`;
     } catch (error) {

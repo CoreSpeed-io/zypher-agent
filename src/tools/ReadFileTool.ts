@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
+import * as path from "@std/path";
 
 export const ReadFileTool: Tool<{
-  relativePath: string;
+  filePath: string;
   startLineOneIndexed: number;
   endLineOneIndexedInclusive: number;
   shouldReadEntireFile: boolean;
@@ -12,10 +13,10 @@ export const ReadFileTool: Tool<{
   description:
     "Read the contents of a file. the output of this tool call will be the 1-indexed file contents from start_line_one_indexed to end_line_one_indexed_inclusive, together with a summary of the lines outside start_line_one_indexed and end_line_one_indexed_inclusive.\nNote that this call can view at most 250 lines at a time.\n\nWhen using this tool to gather information, it's your responsibility to ensure you have the COMPLETE context. Specifically, each time you call this command you should:\n1) Assess if the contents you viewed are sufficient to proceed with your task.\n2) Take note of where there are lines not shown.\n3) If the file contents you have viewed are insufficient, and you suspect they may be in lines not shown, proactively call the tool again to view those lines.\n4) When in doubt, call this tool again to gather more information. Remember that partial file views may miss critical dependencies, imports, or functionality.\n\nIn some cases, if reading a range of lines is not enough, you may choose to read the entire file.\nReading entire files is often wasteful and slow, especially for large files (i.e. more than a few hundred lines). So you should use this option sparingly.\nReading the entire file is not allowed in most cases. You are only allowed to read the entire file if it has been edited or manually attached to the conversation by the user.",
   parameters: z.object({
-    relativePath: z
+    filePath: z
       .string()
       .describe(
-        "The path of the file to read, relative to the workspace root.",
+        "The path of the file to read (relative or absolute).",
       ),
     startLineOneIndexed: z
       .number()
@@ -35,14 +36,18 @@ export const ReadFileTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({
-    relativePath,
-    startLineOneIndexed,
-    endLineOneIndexedInclusive,
-    shouldReadEntireFile,
-  }) => {
+  execute: async (
+    {
+      filePath,
+      startLineOneIndexed,
+      endLineOneIndexedInclusive,
+      shouldReadEntireFile,
+    },
+    ctx: ToolExecutionContext,
+  ) => {
     try {
-      const content = await Deno.readTextFile(relativePath);
+      const resolvedPath = path.resolve(ctx.workingDirectory, filePath);
+      const content = await Deno.readTextFile(resolvedPath);
       const lines = content.split("\n");
 
       if (shouldReadEntireFile) {

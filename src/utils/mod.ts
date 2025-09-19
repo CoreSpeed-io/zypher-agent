@@ -16,16 +16,12 @@ export interface UserInfo {
 /**
  * Gets information about the current user's system environment.
  *
- * @returns {UserInfo} Object containing OS version, workspace path, and shell information
- *
- * @example
- * const userInfo = getCurrentUserInfo();
- * console.log(userInfo.osVersion); // 'darwin 24.3.0'
+ * @returns {UserInfo} Object containing OS version, current working directory, and shell information
  */
-export function getCurrentUserInfo(): UserInfo {
+export function getCurrentUserInfo(workingDirectory: string): UserInfo {
   return {
     osVersion: `${Deno.build.os} ${Deno.osRelease()}`,
-    workspacePath: Deno.cwd(),
+    workspacePath: workingDirectory,
     shell: Deno.env.get("SHELL") ?? "/bin/bash",
   };
 }

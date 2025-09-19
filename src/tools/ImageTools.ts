@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool, type Tool } from "./mod.ts";
+import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import OpenAI, { toFile } from "@openai/openai";
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
@@ -196,16 +196,23 @@ export function defineImageTools(openaiApiKey: string): {
       explanation: explanationSchema,
     }),
 
-    execute: async ({
-      prompt,
-      size,
-      quality,
-      background,
-      destinationPath,
-    }): Promise<string> => {
+    execute: async (
+      {
+        prompt,
+        size,
+        quality,
+        background,
+        destinationPath,
+      },
+      ctx: ToolExecutionContext,
+    ): Promise<string> => {
       try {
+        const resolvedDestination = path.resolve(
+          ctx.workingDirectory,
+          destinationPath,
+        );
         // Create parent directory if it doesn't exist
-        const parentDir = path.dirname(destinationPath);
+        const parentDir = path.dirname(resolvedDestination);
         await ensureDir(parentDir);
 
         // Generate image using gpt-image-1
@@ -226,7 +233,7 @@ export function defineImageTools(openaiApiKey: string): {
 
         // Save images to the destination path
         const generatedFiles = await saveImages(
-          destinationPath,
+          resolvedDestination,
           response.data,
         );
 
@@ -281,26 +288,35 @@ export function defineImageTools(openaiApiKey: string): {
       explanation: explanationSchema,
     }),
 
-    execute: async ({
-      sourcePath,
-      mimeType,
-      prompt,
-      size,
-      quality,
-      destinationPath,
-    }): Promise<string> => {
+    execute: async (
+      {
+        sourcePath,
+        mimeType,
+        prompt,
+        size,
+        quality,
+        destinationPath,
+      },
+      ctx: ToolExecutionContext,
+    ): Promise<string> => {
       try {
+        const resolvedSource = path.resolve(ctx.workingDirectory, sourcePath);
+        const resolvedDestination = path.resolve(
+          ctx.workingDirectory,
+          destinationPath,
+        );
+
         // Validate source image exists
-        if (!fileExists(sourcePath)) {
-          throw new Error(`Source image not found: ${sourcePath}`);
+        if (!(await fileExists(resolvedSource))) {
+          throw new Error(`Source image not found: ${resolvedSource}`);
         }
 
         // Create parent directory for destination if it doesn't exist
-        const parentDir = path.dirname(destinationPath);
+        const parentDir = path.dirname(resolvedDestination);
         await ensureDir(parentDir);
 
         // Create a file read stream using Deno's API
-        const fileStream = await Deno.open(sourcePath, { read: true });
+        const fileStream = await Deno.open(resolvedSource, { read: true });
 
         // Use OpenAI's toFile function to convert the stream to a file
         const imageFile = await toFile(
@@ -331,7 +347,10 @@ export function defineImageTools(openaiApiKey: string): {
         }
 
         // Save edited images to the destination path
-        const generatedFiles = await saveImages(destinationPath, response.data);
+        const generatedFiles = await saveImages(
+          resolvedDestination,
+          response.data,
+        );
 
         // Return success message
         return formatSuccessMessage(
