@@ -22,7 +22,7 @@ export const ListDirTool: Tool<{
   }),
   execute: async ({ targetPath }, ctx: ToolExecutionContext) => {
     try {
-      const entries = [] as string[];
+      const entries: string[] = [];
       const basePath = path.resolve(ctx.workingDirectory, targetPath);
       for await (const entry of Deno.readDir(basePath)) {
         const fullPath = path.join(basePath, entry.name);

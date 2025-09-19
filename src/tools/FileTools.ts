@@ -77,9 +77,8 @@ export const CopyFileTool: Tool<{
     ctx: ToolExecutionContext,
   ) => {
     try {
-      const resolve = (p: string) => path.resolve(ctx.workingDirectory, p);
-      const srcResolved = resolve(sourceFile);
-      const dstResolved = resolve(destinationFile);
+      const srcResolved = path.resolve(ctx.workingDirectory, sourceFile);
+      const dstResolved = path.resolve(ctx.workingDirectory, destinationFile);
       // Check if source file exists
       if (!(await fileExists(srcResolved))) {
         return `Error: Source file not found: ${srcResolved}`;
