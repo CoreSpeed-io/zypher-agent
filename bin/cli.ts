@@ -40,7 +40,7 @@ const { options: cli } = await new Command()
   .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
   .option(
     "-w, --workDir <workingDirectory:string>",
-    "Working directory override for tools/checkpoints (no chdir)",
+    "Working directory for agent operations",
   )
   .option("-u, --user-id <userId:string>", "Custom user ID")
   .option(
