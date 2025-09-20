@@ -67,6 +67,8 @@ jobs:
       - name: Generate changelog
         id: changelog
         uses: mikepenz/release-changelog-builder-action@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Dry run publish
         run: |
