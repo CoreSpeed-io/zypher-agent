@@ -38,41 +38,8 @@ jobs:
             echo "No version change in deno.json"
           fi
 
-  generate-changelog:
-    needs: check-version-change
-    if: needs.check-version-change.outputs.version-changed == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      changelog: ${{ steps.changelog.outputs.changelog }}
-      has-previous-tag: ${{ steps.check-tag.outputs.has-previous-tag }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Need full history for changelog
-
-      - name: Check for previous version tag
-        id: check-tag
-        run: |
-          PREVIOUS_TAG=$(git tag --list --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
-          if [ -n "$PREVIOUS_TAG" ]; then
-            echo "previous-tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
-            echo "has-previous-tag=true" >> $GITHUB_OUTPUT
-            echo "Found previous tag: $PREVIOUS_TAG"
-          else
-            echo "has-previous-tag=false" >> $GITHUB_OUTPUT
-            echo "No previous version tags found - skipping changelog generation"
-          fi
-
-      - name: Generate changelog
-        id: changelog
-        if: steps.check-tag.outputs.has-previous-tag == 'true'
-        uses: mikepenz/release-changelog-builder-action@v5
-        with:
-          fromTag: ${{ steps.check-tag.outputs.previous-tag }}
-
   publish:
-    needs: [check-version-change, generate-changelog]
+    needs: [check-version-change]
     if: needs.check-version-change.outputs.version-changed == 'true'
     runs-on: ubuntu-latest
 
@@ -95,6 +62,10 @@ jobs:
           deno check .
           deno test --ignore=**/*.integration.test.ts
 
+      - name: Generate changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+
       - name: Publish to JSR
         run: |
           echo "📦 Publishing v${{ needs.check-version-change.outputs.new-version }} to JSR..."
@@ -114,7 +85,7 @@ jobs:
           tag_name: v${{ needs.check-version-change.outputs.new-version }}
           release_name: Release v${{ needs.check-version-change.outputs.new-version }}
           body: |
-            ${{ needs.generate-changelog.outputs.changelog || format('Release v{0}', needs.check-version-change.outputs.new-version) }}
+            ${{ steps.changelog.outputs.changelog || format('Release v{0}', needs.check-version-change.outputs.new-version) }}
 
             ---
             📦 **JSR Package**: https://jsr.io/@corespeed/zypher/v${{ needs.check-version-change.outputs.new-version }}
