@@ -78,7 +78,7 @@ jobs:
             ---
             📦 **JSR Package**: https://jsr.io/@corespeed/zypher/v${{ needs.check-version-change.outputs.new-version }}
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(needs.check-version-change.outputs.new-version, '-') }}
 
       - name: Publish to JSR
         run: |
