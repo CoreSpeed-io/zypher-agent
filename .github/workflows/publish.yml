@@ -2,7 +2,7 @@ name: Publish to JSR
 
 on:
   push:
-    branches: [main, ci/add-jsr-publish-workflow] # Add test branch
+    branches: [main]
     paths: ["deno.json"]
 
 jobs:
@@ -66,7 +66,6 @@ jobs:
         uses: mikepenz/release-changelog-builder-action@v5
 
       - name: Create GitHub Release
-        if: github.ref == 'refs/heads/main' # Only create release on main
         uses: actions/create-release@v1
         with:
           tag_name: v${{ needs.check-version-change.outputs.new-version }}
@@ -82,9 +81,5 @@ jobs:
       - name: Publish to JSR
         run: |
           echo "📦 Publishing v${{ needs.check-version-change.outputs.new-version }} to JSR..."
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            deno publish
-            echo "✅ Successfully published!"
-          else
-            echo "🧪 Test mode - skipping actual publish (not on main branch)"
-          fi
+          deno publish
+          echo "✅ Successfully published!"
