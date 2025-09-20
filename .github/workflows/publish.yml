@@ -5,10 +5,6 @@ on:
     branches: [main, ci/add-jsr-publish-workflow] # Add test branch
     paths: ["deno.json"]
 
-permissions:
-  contents: write # Required for creating GitHub releases
-  id-token: write # The OIDC ID token is used for authentication with JSR.
-
 jobs:
   check-version-change:
     runs-on: ubuntu-latest
@@ -41,6 +37,9 @@ jobs:
     needs: [check-version-change]
     if: needs.check-version-change.outputs.version-changed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required for creating GitHub releases
+      id-token: write # Required for JSR authentication
 
     steps:
       - uses: actions/checkout@v4
