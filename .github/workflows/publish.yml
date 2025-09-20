@@ -7,7 +7,7 @@ on:
   workflow_dispatch: # Allow manual trigger for failed publishes
 
 permissions:
-  contents: read
+  contents: write # Required for creating GitHub releases
   id-token: write # The OIDC ID token is used for authentication with JSR.
 
 jobs:
@@ -64,23 +64,12 @@ jobs:
 
       - name: Generate changelog
         id: changelog
+        continue-on-error: true
         uses: mikepenz/release-changelog-builder-action@v5
-
-      - name: Publish to JSR
-        run: |
-          echo "📦 Publishing v${{ needs.check-version-change.outputs.new-version }} to JSR..."
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            deno publish
-            echo "✅ Successfully published!"
-          else
-            echo "🧪 Test mode - skipping actual publish (not on main branch)"
-          fi
 
       - name: Create GitHub Release
         if: github.ref == 'refs/heads/main' # Only create release on main
         uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ needs.check-version-change.outputs.new-version }}
           release_name: Release v${{ needs.check-version-change.outputs.new-version }}
@@ -91,3 +80,13 @@ jobs:
             📦 **JSR Package**: https://jsr.io/@corespeed/zypher/v${{ needs.check-version-change.outputs.new-version }}
           draft: false
           prerelease: false
+
+      - name: Publish to JSR
+        run: |
+          echo "📦 Publishing v${{ needs.check-version-change.outputs.new-version }} to JSR..."
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            deno publish
+            echo "✅ Successfully published!"
+          else
+            echo "🧪 Test mode - skipping actual publish (not on main branch)"
+          fi
