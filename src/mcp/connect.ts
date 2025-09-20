@@ -134,6 +134,9 @@ export async function connectToRemoteServer(
         new StreamableHTTPClientTransport(
           mcpServerUrl,
           {
+            requestInit: {
+              headers: remoteConfig.headers,
+            },
             authProvider: options?.oauth?.authProvider,
           },
         ),
@@ -153,6 +156,9 @@ export async function connectToRemoteServer(
           new SSEClientTransport(
             mcpServerUrl,
             {
+              requestInit: {
+                headers: remoteConfig.headers,
+              },
               authProvider: options?.oauth?.authProvider,
             },
           ),
