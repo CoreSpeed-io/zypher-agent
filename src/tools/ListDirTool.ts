@@ -21,22 +21,15 @@ export const ListDirTool: Tool<{
       ),
   }),
   execute: async ({ targetPath }, ctx: ToolExecutionContext) => {
-    try {
-      const entries: string[] = [];
-      const basePath = path.resolve(ctx.workingDirectory, targetPath);
-      for await (const entry of Deno.readDir(basePath)) {
-        const fullPath = path.join(basePath, entry.name);
-        const fileInfo = await Deno.stat(fullPath);
-        const type = entry.isDirectory ? "directory" : "file";
-        const size = fileInfo.size;
-        entries.push(`[${type}] ${entry.name} (${size} bytes)`);
-      }
-      return entries.join("\n");
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error listing directory: ${error.message}`;
-      }
-      return "Error listing directory: Unknown error";
+    const entries: string[] = [];
+    const basePath = path.resolve(ctx.workingDirectory, targetPath);
+    for await (const entry of Deno.readDir(basePath)) {
+      const fullPath = path.join(basePath, entry.name);
+      const fileInfo = await Deno.stat(fullPath);
+      const type = entry.isDirectory ? "directory" : "file";
+      const size = fileInfo.size;
+      entries.push(`[${type}] ${entry.name} (${size} bytes)`);
     }
+    return entries.join("\n");
   },
 });

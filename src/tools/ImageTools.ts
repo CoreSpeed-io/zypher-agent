@@ -3,8 +3,6 @@ import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import OpenAI, { toFile } from "@openai/openai";
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
-import { APIError } from "@openai/openai";
-import { formatError } from "../error.ts";
 import { fileExists } from "../utils/mod.ts";
 
 // Common parameter schemas
@@ -50,40 +48,6 @@ function formatSuccessMessage(
   const fileCount = generatedFiles.length;
   const fileList = generatedFiles.map((file) => `- ${file}`).join("\n");
   return `${fileCount} ${successMessage} and saved to:\n${fileList}`;
-}
-
-/**
- * Handle common error cases for image tools
- *
- * @param error - The error that was thrown
- * @param operation - The operation being performed ("creating" or "editing")
- * @returns Formatted error message
- */
-function handleImageToolError(error: unknown, operation: string): string {
-  // Handle OpenAI API specific errors
-  if (error instanceof APIError) {
-    switch (error.status) {
-      case 429:
-        return `OpenAI's servers are busy right now. Please wait a few minutes before trying again. (Error: ${error.message})`;
-      case 400:
-        return `OpenAI couldn't process your request. This might be because your description contains content they don't allow${
-          operation === "editing"
-            ? " or there's an issue with the image format"
-            : ""
-        }. Please try a different description${
-          operation === "editing" ? " or image" : ""
-        }. (Error: ${error.message})`;
-      case 401:
-        return `There's an issue with the OpenAI API key. Please check if your API key is set correctly in the environment variables. (Error: ${error.message})`;
-      default:
-        return `OpenAI encountered an error while processing your request. This is on their end - please try again in a few minutes. (Error: ${error.message})`;
-    }
-  }
-
-  // Handle other errors
-  return `Something went wrong while ${operation} your image. Please try again. ${
-    formatError(error)
-  }`;
 }
 
 /**
@@ -206,45 +170,41 @@ export function defineImageTools(openaiApiKey: string): {
       },
       ctx: ToolExecutionContext,
     ): Promise<string> => {
-      try {
-        const resolvedDestination = path.resolve(
-          ctx.workingDirectory,
-          destinationPath,
+      const resolvedDestination = path.resolve(
+        ctx.workingDirectory,
+        destinationPath,
+      );
+      // Create parent directory if it doesn't exist
+      const parentDir = path.dirname(resolvedDestination);
+      await ensureDir(parentDir);
+
+      // Generate image using gpt-image-1
+      const response = await openai.images.generate({
+        model: "gpt-image-1",
+        prompt: prompt,
+        size: size,
+        quality,
+        background: background,
+        n: 1,
+      });
+
+      if (!response.data || response.data.length === 0) {
+        throw new Error(
+          "OpenAI didn't return any images. This is unusual - please try again.",
         );
-        // Create parent directory if it doesn't exist
-        const parentDir = path.dirname(resolvedDestination);
-        await ensureDir(parentDir);
-
-        // Generate image using gpt-image-1
-        const response = await openai.images.generate({
-          model: "gpt-image-1",
-          prompt: prompt,
-          size: size,
-          quality,
-          background: background,
-          n: 1,
-        });
-
-        if (!response.data || response.data.length === 0) {
-          throw new Error(
-            "OpenAI didn't return any images. This is unusual - please try again.",
-          );
-        }
-
-        // Save images to the destination path
-        const generatedFiles = await saveImages(
-          resolvedDestination,
-          response.data,
-        );
-
-        // Return success message
-        return formatSuccessMessage(
-          generatedFiles,
-          "images successfully generated",
-        );
-      } catch (error: unknown) {
-        return handleImageToolError(error, "creating");
       }
+
+      // Save images to the destination path
+      const generatedFiles = await saveImages(
+        resolvedDestination,
+        response.data,
+      );
+
+      // Return success message
+      return formatSuccessMessage(
+        generatedFiles,
+        "images successfully generated",
+      );
     },
   });
 
@@ -299,67 +259,60 @@ export function defineImageTools(openaiApiKey: string): {
       },
       ctx: ToolExecutionContext,
     ): Promise<string> => {
-      try {
-        const resolvedSource = path.resolve(ctx.workingDirectory, sourcePath);
-        const resolvedDestination = path.resolve(
-          ctx.workingDirectory,
-          destinationPath,
-        );
+      const resolvedSource = path.resolve(ctx.workingDirectory, sourcePath);
+      const resolvedDestination = path.resolve(
+        ctx.workingDirectory,
+        destinationPath,
+      );
 
-        // Validate source image exists
-        if (!(await fileExists(resolvedSource))) {
-          throw new Error(`Source image not found: ${resolvedSource}`);
-        }
-
-        // Create parent directory for destination if it doesn't exist
-        const parentDir = path.dirname(resolvedDestination);
-        await ensureDir(parentDir);
-
-        // Create a file read stream using Deno's API
-        const fileStream = await Deno.open(resolvedSource, { read: true });
-
-        // Use OpenAI's toFile function to convert the stream to a file
-        const imageFile = await toFile(
-          fileStream.readable,
-          path.basename(sourcePath),
-          {
-            type: mimeType,
-          },
-        );
-
-        // Generate edited image using OpenAI's gpt-image-1 model
-        const response = await openai.images.edit({
-          model: "gpt-image-1",
-          image: imageFile,
-          prompt: prompt,
-          // TODO: OpenAI SDK issue, see https://platform.openai.com/docs/api-reference/images/createEdit for API reference
-          // Disable type checking until the SDK fixes the issue
-          //@ts-ignore-next-line
-          size: size,
-          quality: quality,
-          n: 1,
-        });
-
-        if (!response.data || response.data.length === 0) {
-          throw new Error(
-            "OpenAI didn't return any edited images. This is unusual - please try again.",
-          );
-        }
-
-        // Save edited images to the destination path
-        const generatedFiles = await saveImages(
-          resolvedDestination,
-          response.data,
-        );
-
-        // Return success message
-        return formatSuccessMessage(
-          generatedFiles,
-          "edited images successfully generated",
-        );
-      } catch (error: unknown) {
-        return handleImageToolError(error, "editing");
+      // Validate source image exists
+      if (!(await fileExists(resolvedSource))) {
+        throw new Error(`Source image not found: ${resolvedSource}`);
       }
+
+      // Create parent directory for destination if it doesn't exist
+      const parentDir = path.dirname(resolvedDestination);
+      await ensureDir(parentDir);
+
+      // Create a file read stream using Deno's API
+      const fileStream = await Deno.open(resolvedSource, { read: true });
+
+      // Use OpenAI's toFile function to convert the stream to a file
+      const imageFile = await toFile(
+        fileStream.readable,
+        path.basename(sourcePath),
+        {
+          type: mimeType,
+        },
+      );
+
+      // Generate edited image using OpenAI's gpt-image-1 model
+      const response = await openai.images.edit({
+        model: "gpt-image-1",
+        image: imageFile,
+        prompt: prompt,
+        size: size,
+        quality: quality,
+        n: 1,
+      });
+
+      if (!response.data || response.data.length === 0) {
+        throw new Error(
+          "OpenAI didn't return any edited images. This is unusual - please try again.",
+        );
+      }
+
+      // Save edited images to the destination path
+      const generatedFiles = await saveImages(
+        resolvedDestination,
+        response.data,
+      );
+
+      // Return success message
+      return formatSuccessMessage(
+        generatedFiles,
+        "edited images successfully generated",
+      );
     },
   });
 

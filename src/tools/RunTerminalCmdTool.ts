@@ -31,31 +31,24 @@ export const RunTerminalCmdTool: Tool<{
     { command, isBackground },
     ctx: ToolExecutionContext,
   ) => {
-    try {
-      if (isBackground) {
-        // For background processes, use spawn
-        const child = spawn(command, [], {
-          shell: true,
-          detached: true,
-          stdio: "ignore",
-          cwd: ctx.workingDirectory,
-        });
-        child.unref();
-        return `Started background command: ${command}`;
-      }
-
-      const { stdout, stderr } = await execAsync(command, {
+    if (isBackground) {
+      // For background processes, use spawn
+      const child = spawn(command, [], {
+        shell: true,
+        detached: true,
+        stdio: "ignore",
         cwd: ctx.workingDirectory,
       });
-      if (stderr) {
-        return `Command executed with warnings:\n${stderr}\nOutput:\n${stdout}`;
-      }
-      return `Command executed successfully:\n${stdout}`;
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error executing command: ${error.message}`;
-      }
-      return "Error executing command: Unknown error";
+      child.unref();
+      return `Started background command: ${command}`;
     }
+
+    const { stdout, stderr } = await execAsync(command, {
+      cwd: ctx.workingDirectory,
+    });
+    if (stderr) {
+      return `Command executed with warnings:\n${stderr}\nOutput:\n${stdout}`;
+    }
+    return `Command executed successfully:\n${stdout}`;
   },
 });

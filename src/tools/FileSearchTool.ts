@@ -17,40 +17,33 @@ export const FileSearchTool: Tool<{
       ),
   }),
   execute: async ({ query }, ctx: ToolExecutionContext) => {
-    try {
-      // Using fd (modern alternative to find) with fuzzy matching
-      const command = new Deno.Command("fd", {
-        args: ["-t", "f", "-d", "10", "-l", query],
-        cwd: ctx.workingDirectory,
-      });
+    // Using fd (modern alternative to find) with fuzzy matching
+    const command = new Deno.Command("fd", {
+      args: ["-t", "f", "-d", "10", "-l", query],
+      cwd: ctx.workingDirectory,
+    });
 
-      const { stdout, stderr } = await command.output();
-      const textDecoder = new TextDecoder();
-      const stdoutText = textDecoder.decode(stdout);
-      const stderrText = textDecoder.decode(stderr);
+    const { stdout, stderr } = await command.output();
+    const textDecoder = new TextDecoder();
+    const stdoutText = textDecoder.decode(stdout);
+    const stderrText = textDecoder.decode(stderr);
 
-      if (!stdoutText && !stderrText) {
-        return "No matching files found.";
-      }
-
-      // Split results and take only first 10
-      const files = stdoutText
-        .split("\n")
-        .filter(Boolean)
-        .slice(0, 10)
-        .map((file) => `- ${file}`)
-        .join("\n");
-
-      if (stderrText) {
-        return `Search completed with warnings:\n${stderrText}\nMatching files:\n${files}`;
-      }
-
-      return `Matching files:\n${files}`;
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error searching files: ${error.message}`;
-      }
-      return "Error searching files: Unknown error";
+    if (!stdoutText && !stderrText) {
+      return "No matching files found.";
     }
+
+    // Split results and take only first 10
+    const files = stdoutText
+      .split("\n")
+      .filter(Boolean)
+      .slice(0, 10)
+      .map((file) => `- ${file}`)
+      .join("\n");
+
+    if (stderrText) {
+      return `Search completed with warnings:\n${stderrText}\nMatching files:\n${files}`;
+    }
+
+    return `Matching files:\n${files}`;
   },
 });

@@ -38,51 +38,44 @@ export const GrepSearchTool: Tool<{
     { query, caseSensitive, includePattern, excludePattern },
     ctx: ToolExecutionContext,
   ) => {
-    try {
-      // Build the arguments array for ripgrep
-      const args = ["--line-number", "--no-heading"];
+    // Build the arguments array for ripgrep
+    const args = ["--line-number", "--no-heading"];
 
-      if (!caseSensitive) {
-        args.push("-i");
-      }
-
-      if (includePattern) {
-        args.push("-g", includePattern);
-      }
-
-      if (excludePattern) {
-        args.push("-g", `!${excludePattern}`);
-      }
-
-      // Add max count to avoid overwhelming output
-      args.push("-m", "50");
-
-      // Add the search query
-      args.push(query);
-
-      // Execute the command
-      const command = new Deno.Command("rg", {
-        args: args,
-        cwd: ctx.workingDirectory,
-      });
-
-      const { stdout, stderr } = await command.output();
-      const textDecoder = new TextDecoder();
-      const stdoutText = textDecoder.decode(stdout);
-      const stderrText = textDecoder.decode(stderr);
-
-      if (!stdoutText && !stderrText) {
-        return "No matches found.";
-      }
-      if (stderrText) {
-        return `Search completed with warnings:\n${stderrText}\nResults:\n${stdoutText}`;
-      }
-      return stdoutText;
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error performing search: ${error.message}`;
-      }
-      return "Error performing search: Unknown error";
+    if (!caseSensitive) {
+      args.push("-i");
     }
+
+    if (includePattern) {
+      args.push("-g", includePattern);
+    }
+
+    if (excludePattern) {
+      args.push("-g", `!${excludePattern}`);
+    }
+
+    // Add max count to avoid overwhelming output
+    args.push("-m", "50");
+
+    // Add the search query
+    args.push(query);
+
+    // Execute the command
+    const command = new Deno.Command("rg", {
+      args: args,
+      cwd: ctx.workingDirectory,
+    });
+
+    const { stdout, stderr } = await command.output();
+    const textDecoder = new TextDecoder();
+    const stdoutText = textDecoder.decode(stdout);
+    const stderrText = textDecoder.decode(stderr);
+
+    if (!stdoutText && !stderrText) {
+      return "No matches found.";
+    }
+    if (stderrText) {
+      return `Search completed with warnings:\n${stderrText}\nResults:\n${stdoutText}`;
+    }
+    return stdoutText;
   },
 });

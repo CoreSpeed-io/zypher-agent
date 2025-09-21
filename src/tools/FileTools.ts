@@ -24,22 +24,9 @@ export const DeleteFileTool: Tool<{
       ),
   }),
   execute: async ({ targetFile }, ctx: ToolExecutionContext) => {
-    try {
-      const resolved = path.resolve(ctx.workingDirectory, targetFile);
-      await Deno.remove(resolved);
-      return `Successfully deleted file: ${resolved}`;
-    } catch (error) {
-      if (error instanceof Error) {
-        if (error instanceof Deno.errors.NotFound) {
-          return `File not found: ${targetFile}`;
-        }
-        if (error instanceof Deno.errors.PermissionDenied) {
-          return `Permission denied to delete file: ${targetFile}`;
-        }
-        return `Error deleting file: ${error.message}`;
-      }
-      return "Error deleting file: Unknown error";
-    }
+    const resolved = path.resolve(ctx.workingDirectory, targetFile);
+    await Deno.remove(resolved);
+    return `Successfully deleted file: ${resolved}`;
   },
 });
 
@@ -76,36 +63,29 @@ export const CopyFileTool: Tool<{
     { sourceFile, destinationFile, overwrite },
     ctx: ToolExecutionContext,
   ) => {
-    try {
-      const srcResolved = path.resolve(ctx.workingDirectory, sourceFile);
-      const dstResolved = path.resolve(ctx.workingDirectory, destinationFile);
-      // Check if source file exists
-      if (!(await fileExists(srcResolved))) {
-        return `Error: Source file not found: ${srcResolved}`;
-      }
+    const srcResolved = path.resolve(ctx.workingDirectory, sourceFile);
+    const dstResolved = path.resolve(ctx.workingDirectory, destinationFile);
 
-      // Check if destination file already exists
-      const destinationExists = await fileExists(dstResolved);
-      if (destinationExists && !overwrite) {
-        return `Destination file already exists: ${dstResolved}. Use overwrite=true to replace it.`;
-      }
-
-      // Create destination directory if needed
-      await ensureDir(path.dirname(dstResolved));
-
-      // Copy the file
-      await Deno.copyFile(srcResolved, dstResolved);
-      return `Successfully copied file from ${srcResolved} to ${dstResolved}${
-        destinationExists ? " (overwritten)" : ""
-      }.`;
-    } catch (error) {
-      if (error instanceof Error) {
-        if (error instanceof Deno.errors.PermissionDenied) {
-          return `Permission denied to copy file: ${error.message}`;
-        }
-        return `Error copying file: ${error.message}`;
-      }
-      return "Error copying file: Unknown error";
+    // Check if source file exists
+    if (!(await fileExists(srcResolved))) {
+      throw new Error(`Source file not found: ${srcResolved}`);
     }
+
+    // Check if destination file already exists
+    const destinationExists = await fileExists(dstResolved);
+    if (destinationExists && !overwrite) {
+      throw new Error(
+        `Destination file already exists: ${dstResolved}. Use overwrite=true to replace it.`,
+      );
+    }
+
+    // Create destination directory if needed
+    await ensureDir(path.dirname(dstResolved));
+
+    // Copy the file
+    await Deno.copyFile(srcResolved, dstResolved);
+    return `Successfully copied file from ${srcResolved} to ${dstResolved}${
+      destinationExists ? " (overwritten)" : ""
+    }.`;
   },
 });

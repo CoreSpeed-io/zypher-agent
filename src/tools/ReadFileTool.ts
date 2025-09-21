@@ -45,45 +45,40 @@ export const ReadFileTool: Tool<{
     },
     ctx: ToolExecutionContext,
   ) => {
-    try {
-      const resolvedPath = path.resolve(ctx.workingDirectory, filePath);
-      const content = await Deno.readTextFile(resolvedPath);
-      const lines = content.split("\n");
+    const resolvedPath = path.resolve(ctx.workingDirectory, filePath);
+    const content = await Deno.readTextFile(resolvedPath);
+    const lines = content.split("\n");
 
-      if (shouldReadEntireFile) {
-        return content;
-      }
-
-      // Ensure we don't read more than 250 lines at a time
-      const maxLines = 250;
-      if (endLineOneIndexedInclusive - startLineOneIndexed + 1 > maxLines) {
-        return `Error: Cannot read more than ${maxLines} lines at a time. Please adjust the line range.`;
-      }
-
-      const startIdx = Math.max(0, startLineOneIndexed - 1);
-      const endIdx = Math.min(lines.length, endLineOneIndexedInclusive);
-
-      const selectedLines = lines.slice(startIdx, endIdx);
-      let result = "";
-
-      // Add summary of lines before selection
-      if (startIdx > 0) {
-        result += `[Lines 1-${startIdx} not shown]\n`;
-      }
-
-      result += selectedLines.join("\n");
-
-      // Add summary of lines after selection
-      if (endIdx < lines.length) {
-        result += `\n[Lines ${endIdx + 1}-${lines.length} not shown]`;
-      }
-
-      return result;
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error reading file: ${error.message}`;
-      }
-      return "Error reading file: Unknown error";
+    if (shouldReadEntireFile) {
+      return content;
     }
+
+    // Ensure we don't read more than 250 lines at a time
+    const maxLines = 250;
+    if (endLineOneIndexedInclusive - startLineOneIndexed + 1 > maxLines) {
+      throw new Error(
+        `Cannot read more than ${maxLines} lines at a time. Please adjust the line range.`,
+      );
+    }
+
+    const startIdx = Math.max(0, startLineOneIndexed - 1);
+    const endIdx = Math.min(lines.length, endLineOneIndexedInclusive);
+
+    const selectedLines = lines.slice(startIdx, endIdx);
+    let result = "";
+
+    // Add summary of lines before selection
+    if (startIdx > 0) {
+      result += `[Lines 1-${startIdx} not shown]\n`;
+    }
+
+    result += selectedLines.join("\n");
+
+    // Add summary of lines after selection
+    if (endIdx < lines.length) {
+      result += `\n[Lines ${endIdx + 1}-${lines.length} not shown]`;
+    }
+
+    return result;
   },
 });
