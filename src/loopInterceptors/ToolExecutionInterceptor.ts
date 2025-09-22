@@ -13,6 +13,7 @@ import {
 } from "./interface.ts";
 import type { ToolExecutionContext } from "../tools/mod.ts";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { formatError } from "../error.ts";
 
 export type ToolApprovalHandler = (
   name: string,
@@ -93,68 +94,100 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       if (block.type === "tool_use") {
         const params = (block.input ?? {}) as Record<string, unknown>;
 
-        const result = await this.#executeToolCall(
-          block.name,
-          params,
-          {
-            workingDirectory: context.workingDirectory,
-          } satisfies ToolExecutionContext,
-          {
-            signal: context.signal,
-          },
-        );
+        try {
+          const result = await this.#executeToolCall(
+            block.name,
+            params,
+            {
+              workingDirectory: context.workingDirectory,
+            } satisfies ToolExecutionContext,
+            {
+              signal: context.signal,
+            },
+          );
 
-        let toolResultContent: ContentBlock[];
-        if (result.structuredContent) {
-          toolResultContent = [
-            {
-              type: "tool_result" as const,
-              toolUseId: block.id,
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(result.structuredContent),
-                },
-              ],
-            },
-          ];
-        } else {
-          toolResultContent = [
-            {
-              type: "tool_result" as const,
-              toolUseId: block.id,
-              content: result.content.map((c): TextBlock | ImageBlock => {
-                if (c.type === "text") {
-                  return {
+          let toolResultContent: ContentBlock[];
+          if (result.isError) {
+            toolResultContent = [
+              {
+                type: "tool_result" as const,
+                toolUseId: block.id,
+                content: [
+                  {
                     type: "text",
-                    text: c.text,
-                  };
-                } else if (c.type === "image") {
-                  return {
-                    type: "image",
-                    source: {
-                      data: c.data,
-                      mediaType: c.mimeType,
-                      type: "base64",
-                    },
-                  };
-                } else {
-                  return {
+                    text: JSON.stringify(result), // pass the any error message to the LLM
+                  },
+                ],
+              },
+            ];
+          } else if (result.structuredContent) {
+            toolResultContent = [
+              {
+                type: "tool_result" as const,
+                toolUseId: block.id,
+                content: [
+                  {
                     type: "text",
-                    text: JSON.stringify(c),
-                  };
-                }
-              }),
-            },
-          ];
-        }
-        context.messages.push(
-          {
+                    text: JSON.stringify(result.structuredContent),
+                  },
+                ],
+              },
+            ];
+          } else {
+            toolResultContent = [
+              {
+                type: "tool_result" as const,
+                toolUseId: block.id,
+                content: result.content.map((c): TextBlock | ImageBlock => {
+                  if (c.type === "text") {
+                    return {
+                      type: "text",
+                      text: c.text,
+                    };
+                  } else if (c.type === "image") {
+                    return {
+                      type: "image",
+                      source: {
+                        data: c.data,
+                        mediaType: c.mimeType,
+                        type: "base64",
+                      },
+                    };
+                  } else {
+                    return {
+                      type: "text",
+                      text: JSON.stringify(c),
+                    };
+                  }
+                }),
+              },
+            ];
+          }
+          context.messages.push(
+            {
+              role: "user",
+              content: toolResultContent,
+              timestamp: new Date(),
+            } satisfies Message,
+          );
+        } catch (error) {
+          console.error(`Error executing tool ${block.name}:`, error);
+          context.messages.push({
             role: "user",
-            content: toolResultContent,
+            content: [{
+              type: "tool_result" as const,
+              toolUseId: block.id,
+              content: [{
+                type: "text",
+                text: `Error executing tool ${block.name}: ${
+                  formatError(error)
+                }`,
+              }],
+            }],
             timestamp: new Date(),
-          } satisfies Message,
-        );
+          });
+          continue;
+        }
       }
     }
 
