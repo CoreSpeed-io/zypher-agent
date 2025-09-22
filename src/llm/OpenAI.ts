@@ -145,6 +145,7 @@ export class OpenAIModelProvider implements ModelProvider {
   }
 }
 
+/** Format our internal message to OpenAI message to be used as input to the OpenAI API */
 function formatInputMessage(
   message: Message,
   fileAttachmentCacheMap?: FileAttachmentCacheMap,
@@ -156,7 +157,7 @@ function formatInputMessage(
       return {
         role: "tool",
         content: message.content[0].content?.toString() ?? "",
-        tool_call_id: message.content[0].tool_use_id,
+        tool_call_id: message.content[0].toolUseId,
       };
     }
 

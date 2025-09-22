@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
+import {
+  defineTool,
+  type Tool,
+  type ToolExecutionContext,
+  type ToolResult,
+} from "./mod.ts";
 import { applyPatch } from "diff";
 import { fileExists } from "../utils/data.ts";
 import { basename, dirname, join, resolve } from "@std/path";
@@ -88,7 +93,10 @@ export function defineEditFileTool(backupDir: string = "./backup"): {
       ]),
     }),
 
-    execute: async (params, ctx: ToolExecutionContext): Promise<string> => {
+    execute: async (
+      params,
+      ctx: ToolExecutionContext,
+    ): Promise<ToolResult> => {
       const target = resolve(ctx.workingDirectory, params.targetFile);
 
       const resolvedBackupDir = resolve(ctx.workingDirectory, backupDir);
@@ -201,7 +209,7 @@ export function defineEditFileTool(backupDir: string = "./backup"): {
       ),
     }),
 
-    execute: async (params, ctx: ToolExecutionContext): Promise<string> => {
+    execute: async (params, ctx: ToolExecutionContext): Promise<ToolResult> => {
       const targetResolved = resolve(ctx.workingDirectory, params.targetFile);
       const backupResolvedDir = resolve(ctx.workingDirectory, backupDir);
 

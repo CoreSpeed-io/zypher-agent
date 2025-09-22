@@ -17,10 +17,14 @@
  * - SSEClientTransport with OAuth for HTTP server communication
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import type {
+  CallToolResult,
+  CompatibilityCallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import { assign, createActor, setup, waitFor } from "xstate";
 import { createTool, type Tool } from "../tools/mod.ts";
 import { jsonToZod } from "./utils.ts";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { McpServerEndpoint } from "./mod.ts";
 import { formatError, isAbortError } from "../error.ts";
 import { assert } from "@std/assert";
@@ -490,7 +494,7 @@ export class McpClient {
             name: tool.name,
             input: params,
           });
-          return JSON.stringify(result);
+          return result;
         },
       );
     });
@@ -514,11 +518,55 @@ export class McpClient {
   async executeToolCall(toolCall: {
     name: string;
     input: Record<string, unknown>;
-  }): Promise<unknown> {
+  }): Promise<CallToolResult> {
     const result = await this.#client.callTool({
       name: toolCall.name,
       arguments: toolCall.input,
     });
+
+    return normalizeToCallToolResult(result);
+  }
+}
+
+/**
+ * Type guard to check if a result is in legacy format (has toolResult field)
+ */
+function isLegacyToolResult(
+  result: CompatibilityCallToolResult,
+): result is { toolResult: unknown } {
+  return result != null &&
+    typeof result === "object" &&
+    "toolResult" in result;
+}
+
+/**
+ * Type guard to check if a result is in current format (has content field)
+ */
+function isCurrentToolResult(
+  result: CompatibilityCallToolResult,
+): result is CallToolResult {
+  return result != null &&
+    typeof result === "object" &&
+    "content" in result &&
+    Array.isArray(result.content);
+}
+
+/**
+ * Normalizes a CompatibilityCallToolResult to CallToolResult using type guards
+ */
+function normalizeToCallToolResult(
+  result: CompatibilityCallToolResult,
+): CallToolResult {
+  if (isCurrentToolResult(result)) {
     return result;
   }
+
+  if (isLegacyToolResult(result)) {
+    return {
+      content: [{ type: "text", text: JSON.stringify(result.toolResult) }],
+    };
+  }
+
+  // Fallback for unexpected formats
+  throw new Error(`Unexpected tool result format: ${JSON.stringify(result)}`);
 }

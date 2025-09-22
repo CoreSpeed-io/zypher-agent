@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import type { Tool as AnthropicTool } from "@anthropic-ai/sdk/resources/messages";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 /**
  * Base interface for tool parameters
@@ -13,6 +13,11 @@ export type BaseParams = Record<string, unknown>;
 export interface ToolExecutionContext {
   workingDirectory: string;
 }
+
+/**
+ * The result of a tool execution
+ */
+export type ToolResult = CallToolResult | string;
 
 /**
  * Base interface for all tools
@@ -31,12 +36,28 @@ export interface Tool<P extends BaseParams = BaseParams> {
   /**
    * The JSON schema for the tool's parameters
    */
-  readonly parameters: AnthropicTool.InputSchema;
+  readonly parameters: InputSchema;
 
   /**
    * Execute the tool with the given parameters
    */
-  execute(params: P, ctx: ToolExecutionContext): Promise<string>;
+  execute(
+    params: P,
+    ctx: ToolExecutionContext,
+  ): Promise<ToolResult>;
+}
+
+/**
+ * [JSON schema](https://json-schema.org/draft/2020-12) for this tool's input.
+ *
+ * This defines the shape of the `input` that your tool accepts and that the model
+ * will produce.
+ */
+export interface InputSchema {
+  type: "object";
+  properties?: unknown | null;
+  required?: Array<string> | null;
+  [k: string]: unknown;
 }
 
 type InferParams<T extends z.ZodType> = z.infer<T>;
@@ -48,7 +69,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(
   execute: (
     params: InferParams<T>,
     ctx: ToolExecutionContext,
-  ) => Promise<string>,
+  ) => Promise<ToolResult>,
 ): Tool<InferParams<T>> {
   // Convert Zod schema to JSON Schema
   const jsonSchema = zodToJsonSchema(schema, { target: "jsonSchema7" });
@@ -56,7 +77,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(
   return {
     name,
     description,
-    parameters: jsonSchema as AnthropicTool.InputSchema,
+    parameters: jsonSchema as InputSchema,
     execute: async (
       params: InferParams<T>,
       ctx: ToolExecutionContext,
@@ -76,7 +97,7 @@ export function defineTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
   execute: (
     params: InferParams<T>,
     ctx: ToolExecutionContext,
-  ) => Promise<string>;
+  ) => Promise<ToolResult>;
 }): Tool<InferParams<T>> {
   return createTool(
     options.name,

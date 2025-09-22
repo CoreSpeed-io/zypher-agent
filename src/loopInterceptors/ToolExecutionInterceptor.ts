@@ -1,5 +1,9 @@
-import type { Message } from "../message.ts";
-import { formatError } from "../error.ts";
+import type {
+  ContentBlock,
+  ImageBlock,
+  Message,
+  TextBlock,
+} from "../message.ts";
 import type { McpServerManager } from "../mcp/McpServerManager.ts";
 import {
   type InterceptorContext,
@@ -8,6 +12,7 @@ import {
   type LoopInterceptor,
 } from "./interface.ts";
 import type { ToolExecutionContext } from "../tools/mod.ts";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 export type ToolApprovalHandler = (
   name: string,
@@ -43,10 +48,10 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     options?: {
       signal?: AbortSignal;
     },
-  ): Promise<string> {
+  ): Promise<CallToolResult> {
     const tool = this.#mcpServerManager.getTool(name);
     if (!tool) {
-      return `Error: Tool '${name}' not found`;
+      throw new Error(`Tool '${name}' not found`);
     }
 
     const approved = this.#handleToolApproval
@@ -54,13 +59,18 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       : true;
     console.log(`Tool call ${name} approved: ${approved}`);
     if (!approved) {
-      return `Tool call ${name} rejected by user`;
+      throw new Error(`Tool call ${name} rejected by user`);
     }
 
-    try {
-      return await tool.execute(parameters, ctx);
-    } catch (error) {
-      return `Error executing tool '${name}': ${formatError(error)}`;
+    const result = await tool.execute(parameters, ctx);
+    if (typeof result === "string") {
+      return {
+        content: [
+          { type: "text", text: result },
+        ],
+      };
+    } else {
+      return result;
     }
   }
 
@@ -94,20 +104,57 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
           },
         );
 
-        // Add tool response to messages
-        const toolMessage: Message = {
-          role: "user",
-          content: [
+        let toolResultContent: ContentBlock[];
+        if (result.structuredContent) {
+          toolResultContent = [
             {
               type: "tool_result" as const,
-              tool_use_id: block.id,
-              content: result,
+              toolUseId: block.id,
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(result.structuredContent),
+                },
+              ],
             },
-          ],
-          timestamp: new Date(),
-        };
-
-        context.messages.push(toolMessage);
+          ];
+        } else {
+          toolResultContent = [
+            {
+              type: "tool_result" as const,
+              toolUseId: block.id,
+              content: result.content.map((c): TextBlock | ImageBlock => {
+                if (c.type === "text") {
+                  return {
+                    type: "text",
+                    text: c.text,
+                  };
+                } else if (c.type === "image") {
+                  return {
+                    type: "image",
+                    source: {
+                      data: c.data,
+                      mediaType: c.mimeType,
+                      type: "base64",
+                    },
+                  };
+                } else {
+                  return {
+                    type: "text",
+                    text: JSON.stringify(c),
+                  };
+                }
+              }),
+            },
+          ];
+        }
+        context.messages.push(
+          {
+            role: "user",
+            content: toolResultContent,
+            timestamp: new Date(),
+          } satisfies Message,
+        );
       }
     }
 
