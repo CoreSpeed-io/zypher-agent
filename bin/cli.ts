@@ -11,17 +11,13 @@ import {
   ReadFileTool,
   RunTerminalCmdTool,
 } from "@zypher/tools/mod.ts";
+import { NotesStore } from "@zypher/memory/mod.ts";
 import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
 import {
   AnthropicModelProvider,
   OpenAIModelProvider,
 } from "@zypher/llm/mod.ts";
-import {
-  MiddlewareManager,
-  NotesMiddleware,
-  NotesStore,
-} from "@zypher/memory/mod.ts";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
@@ -123,25 +119,20 @@ async function main(): Promise<void> {
         baseUrl: cli.baseUrl,
       });
 
-    const mm = new MiddlewareManager();
-
+    const noteStore = new NotesStore(
+      cli.memoryDir ?? DEFAULT_MEMORY_DIR,
+      providerInstance,
+      modelToUse,
+    );
     const agent = new ZypherAgent(
       providerInstance,
       {
         userId: cli.userId,
       },
-      mm,
+      {},
+      noteStore,
     );
-    // Add Notes middleware for memory
-    mm.add(
-      new NotesMiddleware(
-        new NotesStore(
-          cli.memoryDir ?? DEFAULT_MEMORY_DIR,
-          providerInstance,
-          memoryModel,
-        ),
-      ),
-    );
+
     const mcpServerManager = agent.mcpServerManager;
 
     // Register all available tools

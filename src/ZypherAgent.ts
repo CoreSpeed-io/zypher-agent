@@ -32,10 +32,12 @@ import {
   LoopDecision,
   LoopInterceptorManager,
   MaxTokensInterceptor,
+  NotesInterceptor,
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import * as path from "@std/path";
-import type { MiddlewareManager } from "./memory/mod.ts";
+
+import type { NotesStore } from "./memory/mod.ts";
 
 export type TaskEvent =
   | TaskTextEvent
@@ -116,7 +118,6 @@ export class ZypherAgent {
   readonly #fileAttachmentCacheDir?: string;
   readonly #customInstructions?: string;
   readonly #loopInterceptorManager: LoopInterceptorManager;
-  readonly #middlewareManager: MiddlewareManager;
 
   #fileAttachmentManager?: FileAttachmentManager;
 
@@ -140,8 +141,8 @@ export class ZypherAgent {
   constructor(
     modelProvider: ModelProvider,
     config: ZypherAgentConfig = {},
-    middlewareManager: MiddlewareManager,
     services: ZypherAgentServices = {},
+    noteStore?: NotesStore,
   ) {
     const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
 
@@ -159,13 +160,27 @@ export class ZypherAgent {
 
     this.#mcpServerManager = services.mcpServerManager ??
       new McpServerManager();
+
     this.#loopInterceptorManager = services.loopInterceptorManager ??
       new LoopInterceptorManager([
         new ToolExecutionInterceptor(this.#mcpServerManager),
         new MaxTokensInterceptor(),
       ]);
+
+    if (noteStore) {
+      try {
+        this.#loopInterceptorManager.register(
+          new NotesInterceptor(noteStore),
+          true,
+        );
+      } catch {
+        console.error(
+          // Ignore registration errors (e.g. already registered)
+        );
+      }
+    }
+
     this.#storageService = services.storageService;
-    this.#middlewareManager = middlewareManager;
   }
 
   async init(): Promise<void> {
@@ -436,15 +451,6 @@ export class ZypherAgent {
           throw new AbortError("Task aborted");
         }
 
-        // Inject notes via middleware
-        await this.#middlewareManager?.beforeModelCall?.(
-          this,
-          {
-            system: this.#system,
-            messages: this.#messages,
-          },
-        );
-
         const stream = this.#modelProvider.streamChat(
           {
             model,
@@ -476,12 +482,6 @@ export class ZypherAgent {
         };
         this.#messages.push(assistantMessage);
         yield { type: "message", message: assistantMessage };
-
-        // Invoke afterAssistantMessage middleware
-        await this.#middlewareManager?.afterAssistantMessage?.(this, {
-          system: this.#system,
-          messages: this.#messages,
-        });
 
         // Check for cancellation
         if (mergedSignal.aborted) {

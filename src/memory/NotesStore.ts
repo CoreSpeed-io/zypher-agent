@@ -2,10 +2,7 @@ import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
 import type { ModelProvider } from "../llm/mod.ts";
 
-const DEFAULT_MAX_TOKENS_MEMORY = 8192;
-const DEFAULT_MIN_CONFIDENCE = 0.6;
-
-export type Fact = {
+export type Note = {
   k: string;
   v: string;
   conf?: number; // Confidence 0..1
@@ -15,166 +12,124 @@ export type Fact = {
 export type NoteRecord = {
   version: number;
   is_active: boolean;
-  pinned?: boolean;
   summary: string;
-  facts: Fact[];
+  notes: Note[];
   updated_at: string;
 };
 
-type Notes = { notes: NoteRecord[] };
-type Facts = { facts: Fact[] };
-
 type NotesFinal = {
   noop?: boolean;
-  pinned?: boolean;
-  facts?: Fact[];
+  notes?: Note[];
   summary?: string;
 };
 
+const DEFAULT_MIN_CONFIDENCE = 0.6;
+
 const SUMMARY_SYSTEM = `
 You are a careful summarizer for a personal notes knowledge base.
-Goal: produce a crisp, non-redundant overview of the CURRENT ACTIVE notes.
-Prioritize: pinned notes first, then most-recently updated.
-Be concrete; prefer bullets and short sentences.
-Do not invent facts. If conflicting facts exist, mention the conflict briefly.
-`.trim();
 
-const FACTS_SYSTEM = `
-You are a fact extractor for long-term memory.
-Only output facts that are stable, reusable, important, or worth highlighting:
-- User preferences (lang/theme/region/timezone…)
-- Aliases, URLs, IDs
-- Deadlines/due dates (ISO 8601)
-- Numeric constraints (budgets, limits, thresholds, version numbers, units, etc)
-- Highlight-worthy details that may not be strictly factual but are important enough to retain
+Goal: produce a crisp, non-redundant overview of the CURRENT ACTIVE notes only.
+Prioritize: most recently updated first.
+Style: bullet points, short sentences, concrete wording.
+Do not invent information. If conflicting notes exist, mention the conflict briefly.
 
-Do NOT output ephemeral details, vague opinions, or speculative information.
+Length: keep it concise (≤ 10 bullets or ~150–200 words).`;
 
-Return ONLY valid JSON matching this schema; do not include any extra text:
-{ "facts": [ { "k": string, "v": string, "conf"?: number, "source"?: "user" | "assistant" } ] }
-`.trim();
+const NOTE_TAKER_SYSTEM = `
+You are a careful notes taker for a personal knowledge base.
 
-const REDUCER_SYSTEM = `
-You are a careful notes reducer for a personal knowledge base.
-Your task: decide whether to update the notes. If no meaningful, stable change is needed, return {"noop": true}.
+Goal: Maintain a concise, task-aware notebook. Prefer information that is either stable/reusable OR clearly relevant to the ongoing task (requirements, decisions, constraints, TODOs with dates, key results, IDs/URLs/paths, commands).
 
-If updating, return the FULL and FINAL notes content to overwrite existing notes:
-- Prefer stable, reusable facts only (preferences, IDs, URLs, budgets, deadlines ISO 8601, numeric thresholds).
-- Remove obsolete/contradicted facts. Resolve conflicts; if uncertain, prefer most recent and mention uncertainty briefly in summary.
-- Deduplicate by key; each key is unique, short, and concrete.
-- Keep the total number of facts reasonable (<= 200).
-- Avoid vague opinions and ephemeral details.
+Task: Decide whether to update the notes.
+- Return exactly {"noop": true} only if BOTH are true:
+  1) The NEW CONTEXT is merely a paraphrase or minor rewording of existing notes (no new keys, no meaningfully changed values).
+  2) Any new content is trivial progress chatter (step-by-step logs) that does not change requirements, decisions, constraints, TODOs, dates, results, or references.
 
-Output JSON ONLY with this schema:
-{ "noop"?: boolean, "pinned"?: boolean, "facts"?: [{ "k": string, "v": string, "conf"?: number, "source"?: "user" | "assistant" }], "summary"?: string }
-Do NOT include any extra commentary.
-`.trim();
+Otherwise, update and return the FULL and FINAL notes to overwrite the existing active notes (or create a new active note). In particular, you SHOULD update when ANY of these occur:
+- New or changed task requirements/decisions/constraints (e.g., scope/rules/defaults/"from now on").
+- Deadlines (ISO 8601), budgets, numeric thresholds, versions, environment settings, answer/output formatting requirements (e.g., "use lowercase only", round to 2 decimal places").
+- TODOs or checkpoints become added/removed/completed, or dates/status change.
+- New or updated references (IDs, URLs, filepaths, commands, aliases).
+- Any key/value in the existing notes meaningfully changes.
+
+When updating:
+- Keep notes concise and concrete; avoid verbose logs. Prefer summarizing progress into compact state (e.g., "todo: draft done; review pending by 2025-09-30").
+- Deduplicate by key. Each key must be unique, short, and concrete. Prefer stable or task-relevant keys (e.g., "todo/review_deadline", "req/format", "link/spec").
+- Remove obsolete or contradicted notes. Resolve conflicts; if uncertain, prefer the most recent and briefly note uncertainty in "summary".
+- Keep total notes ≤ 200; if more candidates exist, keep the most recent, higher-confidence, or more task-relevant ones.
+- Keys ≤ 64 chars; values ≤ 2048 chars; if longer, shorten without changing meaning.
+- "conf" (0..1) is optional; if uncertain, omit it.
+- "source" is "user" or "assistant". If uncertain, preserve original when possible; otherwise use "user".
+
+Output STRICTLY ONE top-level JSON object with this exact schema and NO markdown code fences, NO extra commentary, NO prefix/suffix text:
+{
+  "noop"?: boolean,
+  "notes"?: [{ "k": string, "v": string, "conf"?: number, "source"?: "user" | "assistant" }],
+  "summary"?: string
+}`;
 
 export class NotesStore {
   #file: string;
   #modelProvider: ModelProvider;
   #notesModel: string;
   #maxTokens: number;
+  #minConf: number;
 
   #summarySystem = SUMMARY_SYSTEM;
-  #factsSystem = FACTS_SYSTEM;
-  #reducerSystem = REDUCER_SYSTEM;
+  #noteTakerSystem = NOTE_TAKER_SYSTEM;
 
   constructor(
-    notesDir = ".memory",
+    notesDir: string,
     modelProvider: ModelProvider,
     notesModel: string,
-    maxTokens = DEFAULT_MAX_TOKENS_MEMORY,
+    maxTokens = 8192,
+    minConf = DEFAULT_MIN_CONFIDENCE,
   ) {
     this.#file = path.join(notesDir, "notes.json");
     this.#modelProvider = modelProvider;
     this.#notesModel = notesModel;
     this.#maxTokens = maxTokens;
+    this.#minConf = minConf;
   }
 
-  async #load(): Promise<Notes> {
+  async #load(): Promise<NoteRecord[]> {
     await ensureDir(path.dirname(this.#file));
     try {
       const txt = await Deno.readTextFile(this.#file);
-      return JSON.parse(txt) as Notes;
+      return JSON.parse(txt) as NoteRecord[];
     } catch {
-      return { notes: [] };
+      return [];
     }
   }
 
-  async #save(data: Notes) {
+  async #save(data: NoteRecord[]) {
     await ensureDir(path.dirname(this.#file));
     await Deno.writeTextFile(this.#file, JSON.stringify(data, null, 2));
   }
 
-  async getActiveNote(): Promise<NoteRecord | null> {
+  async getActiveNote() {
     const db = await this.#load();
-    const note = db.notes.find((n) => n.is_active);
+    const note = db.find((n) => n.is_active);
     return note ?? null;
   }
 
-  async listActiveNotes(): Promise<NoteRecord[]> {
+  async buildSummary() {
     const db = await this.#load();
-    return db.notes.filter((n) => n.is_active);
-  }
-
-  async upsertFacts(
-    facts: Fact[],
-    opts?: { pinned?: boolean },
-  ): Promise<NoteRecord | null> {
-    if (facts.length === 0) return null;
-
-    const db = await this.#load();
-    const now = new Date().toISOString();
-
-    const current = db.notes.find((n) => n.is_active);
-
-    // Merge facts by key
-    const mergedMap = new Map<string, string>();
-    for (const f of current?.facts ?? []) mergedMap.set(f.k, f.v);
-    for (const f of facts) mergedMap.set(f.k, f.v);
-    const mergedFacts = [...mergedMap.entries()].map(([k, v]) => ({ k, v }));
-
-    // Simple local summary
-    const summary = this.#summarize(mergedFacts);
-
-    if (current) current.is_active = false;
-
-    const newRec: NoteRecord = {
-      version: (current?.version ?? 0) + 1,
-      is_active: true,
-      pinned: opts?.pinned ?? current?.pinned ?? false,
-      summary,
-      facts: mergedFacts,
-      updated_at: now,
-    };
-    db.notes.push(newRec);
-    await this.#save(db);
-    return newRec;
-  }
-
-  async buildSummary(): Promise<{ version: number; text: string } | null> {
-    const notes = await this.listActiveNotes();
+    const notes = db.filter((n) => n.is_active);
     if (notes.length === 0) return null;
 
-    const sorted = [...notes].sort((a, b) => {
-      const pa = a.pinned ? 1 : 0, pb = b.pinned ? 1 : 0;
-      if (pa !== pb) return pb - pa;
-      return b.updated_at.localeCompare(a.updated_at);
-    });
-
     const lines: string[] = [];
-    for (const n of sorted) {
+    for (const n of notes) {
       lines.push(`- [NOTES] v${n.version} @${n.updated_at}`);
-      for (const f of n.facts) lines.push(`  • ${f.k} = ${f.v}`);
+      for (const f of n.notes) lines.push(`  • ${f.k} = ${f.v}`);
     }
 
     const userContent = `
 Summarize the following ACTIVE notes into a concise, reusable overview.
 
-ACTIVE NOTES (pinned first, recent first):
+ACTIVE NOTES (recent first):
 ${lines.join("\n")}
-`.trim();
+`;
 
     const assistantText = await this.#chatOnce({
       model: this.#notesModel,
@@ -183,94 +138,38 @@ ${lines.join("\n")}
     });
 
     return {
-      version: Math.max(...sorted.map((s) => s.version)),
-      text: assistantText.trim(),
+      version: Math.max(...notes.map((s) => s.version)),
+      text: assistantText,
     };
   }
 
   // Simple local summary as fallback
-  #summarize(facts: Fact[]): string {
-    const head = "Current known facts: ";
-    const body = facts.map((f) => `${f.k}=${f.v}`).join("; ");
+  #summarize(notes: Note[]): string {
+    const head = "Current notes: ";
+    const body = notes.map((f) => `${f.k}=${f.v}`).join("; ");
     return `${head}${body}`;
   }
 
-  async extractFacts(params: {
-    userText: string;
-    assistantText: string;
-    model?: string; // defaults to this.#notesModel
-    minConf?: number; // drop facts below this confidence
-  }): Promise<Fact[]> {
-    const {
-      userText,
-      assistantText,
-      model = this.#notesModel,
-      minConf = DEFAULT_MIN_CONFIDENCE,
-    } = params;
-
-    const prompt = `
-Extract long-term memory facts from the following two texts.
-Return ONLY JSON and match the schema shown in the system prompt.
-
-User:
-${userText || "(empty)"}
-
-Assistant:
-${assistantText || "(empty)"}
-`.trim();
-
-    const raw = await this.#chatOnce({
-      model,
-      system: this.#factsSystem,
-      user: prompt,
-    });
-
-    const parsed = this.#safeParseFactsJSON(raw);
-
-    // Deduplicate by key, filter by confidence
-    const map = new Map<string, Fact>();
-    for (const f of parsed) {
-      const fact: Fact = {
-        k: String(f.k || "").slice(0, 64),
-        v: String(f.v || "").slice(0, 2048),
-        conf: typeof f.conf === "number"
-          ? Math.max(0, Math.min(1, f.conf))
-          : undefined,
-        source: f.source === "assistant" ? "assistant" : "user",
-      };
-      if (!fact.k || !fact.v) continue;
-      if (fact.conf !== undefined && fact.conf < minConf) {
-        continue;
-      }
-      map.set(fact.k, fact);
-    }
-    return [...map.values()];
-  }
-
-  async reduceWithModel(params: {
-    userText: string;
-    assistantText: string;
+  async noteWithModel(params: {
+    content: string;
     model?: string;
-    minConf?: number;
   }): Promise<{
     changed: boolean;
     result: NoteRecord | null;
     reason?: "noop" | "invalid" | "empty" | "same";
   }> {
     const model = params.model ?? this.#notesModel;
-    const minConf = params.minConf ?? DEFAULT_MIN_CONFIDENCE;
 
-    const current = await this.getActiveNote();
-    const currentPinned = current?.pinned ?? false;
-    const currentFacts = current?.facts ?? [];
+    const db = await this.#load();
+    const current = db.find((n) => n.is_active);
+    const currentNotes = current?.notes ?? [];
 
     const userContent = `
 CURRENT ACTIVE NOTE:
 ${
       JSON.stringify(
         {
-          pinned: currentPinned,
-          facts: currentFacts,
+          notes: currentNotes,
         },
         null,
         2,
@@ -278,23 +177,14 @@ ${
     }
 
 NEW CONTEXT:
-${
-      JSON.stringify(
-        {
-          user: params.userText || "(empty)",
-          assistant: params.assistantText || "(empty)",
-        },
-        null,
-        2,
-      )
-    }
-`.trim();
+${params.content || "(empty)"}
+`;
 
     const finalObj = await this.#chatOnceJson({
       model,
-      system: this.#reducerSystem,
+      system: this.#noteTakerSystem,
       user: userContent,
-    }) as NotesFinal | null;
+    }) as NotesFinal;
 
     if (!finalObj || typeof finalObj !== "object") {
       return { changed: false, result: null, reason: "invalid" };
@@ -304,15 +194,12 @@ ${
       return { changed: false, result: null, reason: "noop" };
     }
 
-    const pinned: boolean = typeof finalObj.pinned === "boolean"
-      ? finalObj.pinned
-      : currentPinned;
-    const factsRaw: Fact[] = Array.isArray(finalObj.facts)
-      ? finalObj.facts
-      : currentFacts;
+    const notesRaw: Note[] = Array.isArray(finalObj.notes)
+      ? finalObj.notes
+      : currentNotes;
 
-    const map = new Map<string, Fact>();
-    for (const f of factsRaw) {
+    const map = new Map<string, Note>();
+    for (const f of notesRaw) {
       const k = String(f?.k ?? "").trim().slice(0, 64);
       const v = String(f?.v ?? "").trim().slice(0, 2048);
       if (!k || !v) continue;
@@ -320,7 +207,7 @@ ${
       let conf: number | undefined = undefined;
       if (typeof f?.conf === "number") {
         conf = Math.max(0, Math.min(1, f.conf));
-        if (conf < minConf) continue;
+        if (conf < this.#minConf) continue;
       }
 
       const source: "user" | "assistant" = f?.source === "assistant"
@@ -328,40 +215,25 @@ ${
         : "user";
       map.set(k, { k, v, conf, source });
     }
-    const cleanedFacts = [...map.values()];
+    const cleanedNotes = [...map.values()];
 
     const providedSummary = typeof finalObj.summary === "string"
-      ? finalObj.summary.trim()
+      ? finalObj.summary
       : "";
-    const summary = providedSummary || this.#summarize(cleanedFacts);
+    const summary = providedSummary || this.#summarize(cleanedNotes);
 
-    const samePinned = pinned === currentPinned;
-    const eq = (a: Fact[], b: Fact[]) => {
-      if (a.length !== b.length) return false;
-      const A = new Map(a.map((f) => [f.k, f.v]));
-      for (const f of b) {
-        if (!A.has(f.k) || A.get(f.k) !== f.v) return false;
-      }
-      return true;
-    };
-    if (samePinned && eq(cleanedFacts, currentFacts)) {
-      return { changed: false, result: null, reason: "same" };
-    }
-
-    const db = await this.#load();
     const now = new Date().toISOString();
     if (current) current.is_active = false;
 
     const newRec: NoteRecord = {
       version: (current?.version ?? 0) + 1,
       is_active: true,
-      pinned,
       summary,
-      facts: cleanedFacts,
+      notes: cleanedNotes,
       updated_at: now,
     };
 
-    db.notes.push(newRec);
+    db.push(newRec);
     await this.#save(db);
 
     return { changed: true, result: newRec };
@@ -393,12 +265,12 @@ ${
         finalText += c.text;
       }
     }
-    return (finalText || "").trim();
+    return (finalText || "");
   }
 
   async #chatOnceJson(
     args: { model: string; system: string; user: string },
-  ): Promise<Facts | null> {
+  ) {
     const raw = await this.#chatOnce(args);
 
     const tryParse = (s: string) => {
@@ -426,42 +298,5 @@ ${
     }
 
     return obj ?? {};
-  }
-
-  /**
-   * Extract JSON from model output (handles raw JSON or fenced ```json blocks),
-   * then validate shape and return an array of candidate Fact-like objects.
-   */
-  #safeParseFactsJSON(output: string): Array<Partial<Fact>> {
-    const text = output.trim();
-
-    const tryParse = (s: string): Facts | null => {
-      try {
-        return JSON.parse(s);
-      } catch {
-        return null;
-      }
-    };
-
-    let obj = tryParse(text);
-
-    if (!obj) {
-      const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-      if (fence?.[1]) obj = tryParse(fence[1].trim());
-    }
-
-    if (!obj) {
-      const firstBrace = text.indexOf("{");
-      const lastBrace = text.lastIndexOf("}");
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        obj = tryParse(text.slice(firstBrace, lastBrace + 1));
-      }
-    }
-
-    const facts = Array.isArray(obj?.facts) ? obj.facts : [];
-
-    return facts.filter((it: Fact) =>
-      it && typeof it.k === "string" && typeof it.v === "string"
-    );
   }
 }
