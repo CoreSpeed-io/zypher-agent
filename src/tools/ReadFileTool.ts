@@ -38,6 +38,32 @@ function isSupportedImageType(
   );
 }
 
+/**
+ * Detects if a file is likely binary by checking for null bytes in the first 1KB.
+ * This is a heuristic approach - text files typically don't contain null bytes,
+ * while binary files (executables, images, archives, etc.) often do.
+ * Not 100% accurate but catches most common binary formats.
+ */
+async function isLikelyBinaryFile(filePath: string): Promise<boolean> {
+  const file = await Deno.open(filePath, { read: true });
+  const buffer = new Uint8Array(1024); // Sample first 1KB
+
+  let bytesRead: number | null = null;
+  try {
+    bytesRead = await file.read(buffer);
+  } finally {
+    file.close();
+  }
+
+  if (bytesRead === null || bytesRead === 0) {
+    return false; // Empty file, treat as text
+  }
+
+  const chunk = buffer.slice(0, bytesRead);
+  // Check for null bytes (0x00) which are common in binary files
+  return chunk.some((byte) => byte === 0);
+}
+
 export const ReadFileTool: Tool<{
   filePath: string;
   startLine?: number;
@@ -117,13 +143,9 @@ Specifically, each time you call this command you should:
       };
     }
 
-    // Try to read as text file first
-    let content: string;
-    try {
-      content = await Deno.readTextFile(resolvedPath);
-    } catch (error) {
-      console.error("Error reading file as text:", error);
-      // If reading as text fails, provide file metadata instead
+    // Check if file is binary before attempting to read as text
+    const isLikelyBinary = await isLikelyBinaryFile(resolvedPath);
+    if (isLikelyBinary) {
       const fileStats = await Deno.stat(resolvedPath);
       return {
         content: [{
@@ -132,13 +154,15 @@ Specifically, each time you call this command you should:
         }],
         structuredContent: {
           type: "file_info",
-          name: filePath,
+          path: filePath,
+          fileType: "binary",
           size: fileStats.size,
           lastModified: fileStats.mtime?.toISOString(),
-          fileType: "binary",
         },
       };
     }
+
+    const content = await Deno.readTextFile(resolvedPath);
 
     // If no line range specified, return entire file
     if (startLine === undefined || endLine === undefined) {
