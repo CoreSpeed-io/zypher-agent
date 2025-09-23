@@ -73,7 +73,7 @@ export interface UrlImageSource {
 
 export interface ToolUseBlock {
   type: "tool_use";
-  id: string;
+  toolUseId: string;
   name: string;
   input: unknown;
 }

@@ -213,7 +213,7 @@ Cached at: ${cache.cachePath}`,
           } else if (block.type === "tool_use") {
             return {
               type: "tool_use" as const,
-              id: block.id,
+              id: block.toolUseId,
               name: block.name,
               input: block.input,
             } satisfies Anthropic.ToolUseBlockParam;
@@ -325,7 +325,7 @@ function mapA7cContentBlockToContentBlock(
     case "tool_use":
       return {
         type: "tool_use",
-        id: block.id,
+        toolUseId: block.id,
         name: block.name,
         input: block.input,
       };

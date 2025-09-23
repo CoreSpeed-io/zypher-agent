@@ -131,7 +131,7 @@ export class OpenAIModelProvider implements ModelProvider {
             ...(
               message.tool_calls?.map((c) => ({
                 type: "tool_use" as const,
-                id: c.id,
+                toolUseId: c.id,
                 name: c.function.name,
                 input: JSON.parse(c.function.arguments),
               })) ?? []
@@ -243,7 +243,7 @@ Cached at: ${cache.cachePath}`,
           tool_calls: toolCalls.map((
             c,
           ) => ({
-            id: c.id,
+            id: c.toolUseId,
             type: "function",
             function: {
               name: c.name,

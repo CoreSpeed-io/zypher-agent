@@ -1,8 +1,9 @@
 import type {
-  ContentBlock,
   ImageBlock,
   Message,
   TextBlock,
+  ToolResultBlock,
+  ToolUseBlock,
 } from "../message.ts";
 import type { McpServerManager } from "../mcp/McpServerManager.ts";
 import {
@@ -12,7 +13,6 @@ import {
   type LoopInterceptor,
 } from "./interface.ts";
 import type { ToolExecutionContext } from "../tools/mod.ts";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { formatError } from "../error.ts";
 
 export type ToolApprovalHandler = (
@@ -44,34 +44,92 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
    */
   async #executeToolCall(
     name: string,
+    toolUseId: string,
     parameters: Record<string, unknown>,
     ctx: ToolExecutionContext,
     options?: {
       signal?: AbortSignal;
     },
-  ): Promise<CallToolResult> {
-    const tool = this.#mcpServerManager.getTool(name);
-    if (!tool) {
-      throw new Error(`Tool '${name}' not found`);
-    }
+  ): Promise<ToolResultBlock> {
+    try {
+      const tool = this.#mcpServerManager.getTool(name);
+      if (!tool) {
+        throw new Error(`Tool '${name}' not found`);
+      }
 
-    const approved = this.#handleToolApproval
-      ? await this.#handleToolApproval(name, parameters, options || {})
-      : true;
-    console.log(`Tool call ${name} approved: ${approved}`);
-    if (!approved) {
-      throw new Error(`Tool call ${name} rejected by user`);
-    }
+      const approved = this.#handleToolApproval
+        ? await this.#handleToolApproval(name, parameters, options || {})
+        : true;
+      console.log(`Tool call ${name} approved: ${approved}`);
+      if (!approved) {
+        throw new Error(`Tool call ${name} rejected by user`);
+      }
 
-    const result = await tool.execute(parameters, ctx);
-    if (typeof result === "string") {
+      const result = await tool.execute(parameters, ctx);
+
+      if (typeof result === "string") {
+        return {
+          type: "tool_result" as const,
+          toolUseId,
+          content: [
+            { type: "text", text: result },
+          ],
+        };
+      } else if (result.isError) {
+        return {
+          type: "tool_result" as const,
+          toolUseId,
+          content: [
+            // pass `isError` and all other potential error details to the LLM
+            { type: "text", text: JSON.stringify(result) },
+          ],
+        };
+      } else if (result.structuredContent) {
+        return {
+          type: "tool_result" as const,
+          toolUseId,
+          content: [
+            { type: "text", text: JSON.stringify(result.structuredContent) },
+          ],
+        };
+      } else {
+        return {
+          type: "tool_result" as const,
+          toolUseId,
+          content: result.content.map((c): TextBlock | ImageBlock => {
+            if (c.type === "text") {
+              return {
+                type: "text",
+                text: c.text,
+              };
+            } else if (c.type === "image") {
+              return {
+                type: "image",
+                source: {
+                  data: c.data,
+                  mediaType: c.mimeType,
+                  type: "base64",
+                },
+              };
+            } else {
+              return {
+                type: "text",
+                text: JSON.stringify(c),
+              };
+            }
+          }),
+        };
+      }
+    } catch (error) {
+      console.error(`Error executing tool ${name}:`, error);
       return {
-        content: [
-          { type: "text", text: result },
-        ],
+        type: "tool_result" as const,
+        toolUseId,
+        content: [{
+          type: "text",
+          text: `Error executing tool ${name}: ${formatError(error)}`,
+        }],
       };
-    } else {
-      return result;
     }
   }
 
@@ -82,114 +140,39 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       return { decision: LoopDecision.COMPLETE };
     }
 
-    const toolBlocks = lastMessage.content.filter((block) =>
-      block.type === "tool_use"
-    );
+    const toolBlocks = lastMessage.content.filter((
+      block,
+    ): block is ToolUseBlock => block.type === "tool_use");
     if (toolBlocks.length === 0) {
       return { decision: LoopDecision.COMPLETE };
     }
 
-    // Execute all tool calls
-    for (const block of toolBlocks) {
-      if (block.type === "tool_use") {
+    const toolExecutionContext = {
+      workingDirectory: context.workingDirectory,
+    } satisfies ToolExecutionContext;
+
+    const toolResults = await Promise.all(
+      toolBlocks.map(async (block) => {
         const params = (block.input ?? {}) as Record<string, unknown>;
+        return await this.#executeToolCall(
+          block.name,
+          block.toolUseId,
+          params,
+          toolExecutionContext,
+          {
+            signal: context.signal,
+          },
+        );
+      }),
+    );
 
-        try {
-          const result = await this.#executeToolCall(
-            block.name,
-            params,
-            {
-              workingDirectory: context.workingDirectory,
-            } satisfies ToolExecutionContext,
-            {
-              signal: context.signal,
-            },
-          );
-
-          let toolResultContent: ContentBlock[];
-          if (result.isError) {
-            toolResultContent = [
-              {
-                type: "tool_result" as const,
-                toolUseId: block.id,
-                content: [
-                  {
-                    type: "text",
-                    text: JSON.stringify(result), // pass the any error message to the LLM
-                  },
-                ],
-              },
-            ];
-          } else if (result.structuredContent) {
-            toolResultContent = [
-              {
-                type: "tool_result" as const,
-                toolUseId: block.id,
-                content: [
-                  {
-                    type: "text",
-                    text: JSON.stringify(result.structuredContent),
-                  },
-                ],
-              },
-            ];
-          } else {
-            toolResultContent = [
-              {
-                type: "tool_result" as const,
-                toolUseId: block.id,
-                content: result.content.map((c): TextBlock | ImageBlock => {
-                  if (c.type === "text") {
-                    return {
-                      type: "text",
-                      text: c.text,
-                    };
-                  } else if (c.type === "image") {
-                    return {
-                      type: "image",
-                      source: {
-                        data: c.data,
-                        mediaType: c.mimeType,
-                        type: "base64",
-                      },
-                    };
-                  } else {
-                    return {
-                      type: "text",
-                      text: JSON.stringify(c),
-                    };
-                  }
-                }),
-              },
-            ];
-          }
-          context.messages.push(
-            {
-              role: "user",
-              content: toolResultContent,
-              timestamp: new Date(),
-            } satisfies Message,
-          );
-        } catch (error) {
-          console.error(`Error executing tool ${block.name}:`, error);
-          context.messages.push({
-            role: "user",
-            content: [{
-              type: "tool_result" as const,
-              toolUseId: block.id,
-              content: [{
-                type: "text",
-                text: `Error executing tool ${block.name}: ${
-                  formatError(error)
-                }`,
-              }],
-            }],
-            timestamp: new Date(),
-          });
-          continue;
-        }
-      }
-    }
+    context.messages.push(
+      {
+        role: "user",
+        content: toolResults,
+        timestamp: new Date(),
+      } satisfies Message,
+    );
 
     return {
       decision: LoopDecision.CONTINUE,
