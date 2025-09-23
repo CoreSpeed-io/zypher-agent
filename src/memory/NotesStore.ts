@@ -78,6 +78,15 @@ export class NotesStore {
   #summarySystem = SUMMARY_SYSTEM;
   #noteTakerSystem = NOTE_TAKER_SYSTEM;
 
+  /**
+   * Creates a new NotesStore instance.
+   *
+   * @param notesDir Directory where `notes.json` will be stored
+   * @param modelProvider ModelProvider instance for LLM interactions
+   * @param notesModel Model name used for note-taking and summarization
+   * @param maxTokens Maximum tokens for LLM responses (default: 8192)
+   * @param minConf Minimum confidence threshold for including notes (default: 0.6)
+   */
   constructor(
     notesDir: string,
     modelProvider: ModelProvider,
@@ -107,12 +116,26 @@ export class NotesStore {
     await Deno.writeTextFile(this.#file, JSON.stringify(data, null, 2));
   }
 
+  /**
+   * Retrieves the currently active note record from the database.
+   *
+   * @public
+   * @returns {Promise<NoteRecord | null>} The active note record, or null if none exists.
+   */
   async getActiveNote(): Promise<NoteRecord | null> {
     const db = await this.#load();
     const note = db.find((n) => n.is_active);
     return note ?? null;
   }
 
+  /**
+   * Generates a summary of all active notes using the LLM.
+   *
+   * @public
+   * @returns {Promise<{ version: number; text: string } | null>}
+   *    An object containing the highest version number and the generated summary
+   *    text, or null if no active notes exist.
+   */
   async buildSummary(): Promise<{ version: number; text: string } | null> {
     const db = await this.#load();
     const notes = db.filter((n) => n.is_active);
@@ -143,13 +166,28 @@ ${lines.join("\n")}
     };
   }
 
-  // Simple local summary as fallback
   #summarize(notes: Note[]): string {
     const head = "Current notes: ";
     const body = notes.map((f) => `${f.k}=${f.v}`).join("; ");
     return `${head}${body}`;
   }
 
+  /**
+   * Updates the active notes based on the provided content using the LLM.
+   * If the notes change, a new NoteRecord is created and saved.
+   *
+   * @public
+   * @param {Object} params - Parameters for updating notes.
+   * @param {string} params.content - The new context/content to analyze.
+   * @param {string} [params.model] - Optional model name; defaults to the configured notes model.
+   *
+   * @returns {Promise<{
+   *   changed: boolean,
+   *   result: NoteRecord | null,
+   *   reason?: "noop" | "invalid" | "empty" | "same"
+   * }>} An object describing whether notes changed, the resulting record if changed,
+   *    and a reason if not changed.
+   */
   async noteWithModel(params: {
     content: string;
     model?: string;
@@ -239,10 +277,6 @@ ${params.content || "(empty)"}
     return { changed: true, result: newRec };
   }
 
-  /**
-   * Chat once with the model, demonstrating streaming consumption.
-   * Returns the final assistant message content.
-   */
   async #chatOnce(
     args: { model: string; system: string; user: string },
   ): Promise<string> {
