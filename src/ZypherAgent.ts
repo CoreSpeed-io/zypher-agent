@@ -28,9 +28,12 @@ import {
   LoopDecision,
   LoopInterceptorManager,
   MaxTokensInterceptor,
+  NotesInterceptor,
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import * as path from "@std/path";
+
+import type { NotesStore } from "./memory/mod.ts";
 
 export type TaskEvent =
   | TaskTextEvent
@@ -143,6 +146,7 @@ export class ZypherAgent {
     modelProvider: ModelProvider,
     config: ZypherAgentConfig = {},
     services: ZypherAgentServices = {},
+    noteStore?: NotesStore,
   ) {
     const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
 
@@ -169,11 +173,26 @@ export class ZypherAgent {
     // Services and interceptors
     this.#mcpServerManager = services.mcpServerManager ??
       new McpServerManager();
+
     this.#loopInterceptorManager = services.loopInterceptorManager ??
       new LoopInterceptorManager([
         new ToolExecutionInterceptor(this.#mcpServerManager),
         new MaxTokensInterceptor(),
       ]);
+
+    if (noteStore) {
+      try {
+        this.#loopInterceptorManager.register(
+          new NotesInterceptor(noteStore),
+          true,
+        );
+      } catch {
+        console.error(
+          // Ignore registration errors (e.g. already registered)
+        );
+      }
+    }
+
     this.#storageService = services.storageService;
   }
 
@@ -252,6 +271,14 @@ export class ZypherAgent {
     if (this.#persistHistory) {
       void saveMessageHistory(this.#messages, this.#workingDirectory);
     }
+  }
+
+  /**
+   * Set a custom system prompt, replacing the default prompt
+   * @param prompt The custom system prompt
+   */
+  setSystemPrompt(prompt: string): void {
+    this.#system = prompt;
   }
 
   /**

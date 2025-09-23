@@ -15,5 +15,7 @@ export {
   ToolExecutionInterceptor,
 } from "./ToolExecutionInterceptor.ts";
 
+export { NotesInterceptor } from "./NotesInterceptor.ts";
+
 // Export error detection
 export * from "./errorDetection/mod.ts";
