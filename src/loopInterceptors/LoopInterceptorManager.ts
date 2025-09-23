@@ -23,6 +23,7 @@ export class LoopInterceptorManager {
   /**
    * Register a new loop interceptor
    * @param interceptor The interceptor to register
+   * @param insertAtBeginning If true, adds to the start of the chain (higher priority)
    */
   register(
     interceptor: LoopInterceptor,
