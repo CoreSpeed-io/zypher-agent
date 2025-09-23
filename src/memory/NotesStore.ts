@@ -107,13 +107,13 @@ export class NotesStore {
     await Deno.writeTextFile(this.#file, JSON.stringify(data, null, 2));
   }
 
-  async getActiveNote() {
+  async getActiveNote(): Promise<NoteRecord | null> {
     const db = await this.#load();
     const note = db.find((n) => n.is_active);
     return note ?? null;
   }
 
-  async buildSummary() {
+  async buildSummary(): Promise<{ version: number; text: string } | null> {
     const db = await this.#load();
     const notes = db.filter((n) => n.is_active);
     if (notes.length === 0) return null;
