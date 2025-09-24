@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  defineTool,
+  createTool,
   type Tool,
   type ToolExecutionContext,
   type ToolResult,
@@ -11,13 +11,13 @@ import { basename, dirname, join, resolve } from "@std/path";
 import { ensureDir } from "@std/fs";
 
 /**
- * Define a file editing tool with an optional backup directory
+ * Create file editing tools with an optional backup directory
  *
  * @param backupDir - The directory where file backups will be stored before edits are applied.
  *  Defaults to ./backup if not provided.
  * @returns An object containing the configured file editing tool
  */
-export function defineEditFileTool(backupDir: string = "./backup"): {
+export function createEditFileTool(backupDir: string = "./backup"): {
   EditFileTool: Tool<{
     targetFile: string;
     explanation: string;
@@ -43,11 +43,11 @@ export function defineEditFileTool(backupDir: string = "./backup"): {
     explanation: string;
   }>;
 } {
-  const EditFileTool = defineTool({
+  const EditFileTool = createTool({
     name: "edit_file",
     description:
       "Edit a text file using various actions like overwrite, insert, replace, or patch.",
-    parameters: z.object({
+    schema: z.object({
       targetFile: z.string().describe("The target file to edit"),
       explanation: z.string().describe(
         "One sentence explanation of the intended change",
@@ -199,10 +199,10 @@ export function defineEditFileTool(backupDir: string = "./backup"): {
     },
   });
 
-  const UndoFileTool = defineTool({
+  const UndoFileTool = createTool({
     name: "undo_file",
     description: "Restore a file from its backup.",
-    parameters: z.object({
+    schema: z.object({
       targetFile: z.string().describe("The target file to restore from backup"),
       explanation: z.string().describe(
         "One sentence explanation of why you're undoing",

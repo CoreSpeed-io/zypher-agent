@@ -1,15 +1,15 @@
 import { z } from "zod";
-import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
+import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import * as path from "@std/path";
 
 export const ListDirTool: Tool<{
   targetPath: string;
   explanation?: string | undefined;
-}> = defineTool({
+}> = createTool({
   name: "list_dir",
   description:
     "List the contents of a directory. The quick tool to use for discovery, before using more targeted tools like semantic search or file reading. Useful to try to understand the file structure before diving deeper into specific files. Can be used to explore the codebase.",
-  parameters: z.object({
+  schema: z.object({
     targetPath: z
       .string()
       .describe("Path to list contents of (relative or absolute)."),

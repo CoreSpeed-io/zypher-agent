@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
+import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import * as path from "@std/path";
 import { fileExists } from "../utils/mod.ts";
 import { ensureDir } from "@std/fs";
@@ -7,10 +7,10 @@ import { ensureDir } from "@std/fs";
 export const DeleteFileTool: Tool<{
   targetFile: string;
   explanation?: string | undefined;
-}> = defineTool({
+}> = createTool({
   name: "delete_file",
   description: "Deletes a file at the specified path.",
-  parameters: z.object({
+  schema: z.object({
     targetFile: z
       .string()
       .describe(
@@ -35,10 +35,10 @@ export const CopyFileTool: Tool<{
   destinationFile: string;
   overwrite?: boolean | undefined;
   explanation?: string | undefined;
-}> = defineTool({
+}> = createTool({
   name: "copy_file",
   description: "Copies a file from the source path to the destination path.",
-  parameters: z.object({
+  schema: z.object({
     sourceFile: z
       .string()
       .describe("The path of the source file to copy."),

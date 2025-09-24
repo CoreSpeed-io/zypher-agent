@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  defineTool,
+  createTool,
   type Tool,
   type ToolExecutionContext,
   type ToolResult,
@@ -69,7 +69,7 @@ export const ReadFileTool: Tool<{
   startLine?: number;
   endLine?: number;
   explanation?: string | undefined;
-}> = defineTool({
+}> = createTool({
   name: "read_file",
   description:
     `Read the contents of a file. Supports text files (with line-based reading) and images (JPEG, PNG, GIF, WebP, SVG) as rich content.
@@ -87,7 +87,7 @@ Specifically, each time you call this command you should:
 2) Take note of where there are lines not shown.
 3) If the file contents you have viewed are insufficient, and you suspect they may be in lines not shown, proactively call the tool again to view those lines.
 4) When in doubt, call this tool again to gather more information. Remember that partial file views may miss critical dependencies, imports, or functionality.`,
-  parameters: z.object({
+  schema: z.object({
     filePath: z
       .string()
       .describe(

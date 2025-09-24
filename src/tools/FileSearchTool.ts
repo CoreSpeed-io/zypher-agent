@@ -1,14 +1,14 @@
 import { z } from "zod";
-import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
+import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 
 export const FileSearchTool: Tool<{
   query: string;
   explanation: string;
-}> = defineTool({
+}> = createTool({
   name: "file_search",
   description:
     "Fast file search based on fuzzy matching against file path. Use if you know part of the file path but don't know where it's located exactly. Response will be capped to 10 results. Make your query more specific if need to filter results further.",
-  parameters: z.object({
+  schema: z.object({
     query: z.string().describe("Fuzzy filename to search for"),
     explanation: z
       .string()

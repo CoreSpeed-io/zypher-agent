@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
+import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import { exec, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -10,11 +10,11 @@ export const RunTerminalCmdTool: Tool<{
   isBackground: boolean;
   requireUserApproval: boolean;
   explanation?: string | undefined;
-}> = defineTool({
+}> = createTool({
   name: "run_terminal_cmd",
   description:
     "PROPOSE a command to run on behalf of the user.\nIf you have this tool, note that you DO have the ability to run commands directly on the USER's system.\nNote that the user will have to approve the command before it is executed.\nThe user may reject it if it is not to their liking, or may modify the command before approving it.  If they do change it, take those changes into account.\nThe actual command will NOT execute until the user approves it. The user may not approve it immediately. Do NOT assume the command has started running.\nIf the step is WAITING for user approval, it has NOT started running.",
-  parameters: z.object({
+  schema: z.object({
     command: z.string().describe("The terminal command to execute"),
     isBackground: z
       .boolean()

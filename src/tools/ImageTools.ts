@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool, type Tool, type ToolExecutionContext } from "./mod.ts";
+import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import OpenAI, { toFile } from "@openai/openai";
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
@@ -100,12 +100,12 @@ async function saveImages(
 }
 
 /**
- * Define image tools with a specific OpenAI API key
+ * Create image tools with a specific OpenAI API key
  *
  * @param openaiApiKey - The OpenAI API key to use for image operations
  * @returns An object containing the configured image generation and editing tools
  */
-export function defineImageTools(openaiApiKey: string): {
+export function createImageTools(openaiApiKey: string): {
   ImageGenTool: Tool<{
     prompt: string;
     size: "auto" | "1024x1024" | "1536x1024" | "1024x1536";
@@ -129,7 +129,7 @@ export function defineImageTools(openaiApiKey: string): {
     apiKey: openaiApiKey,
   });
 
-  const ImageGenTool = defineTool({
+  const ImageGenTool = createTool({
     name: "generate_image",
     description:
       "Generate an image using OpenAI's gpt-image-1 model based on a text description.\n\n" +
@@ -140,7 +140,7 @@ export function defineImageTools(openaiApiKey: string): {
       "- Be specific and detailed in descriptions\n" +
       "- Mention style, lighting, perspective if relevant\n" +
       "- Avoid prohibited content (violence, adult content, etc)\n\n",
-    parameters: z.object({
+    schema: z.object({
       prompt: z
         .string()
         .min(
@@ -208,7 +208,7 @@ export function defineImageTools(openaiApiKey: string): {
     },
   });
 
-  const ImageEditTool = defineTool({
+  const ImageEditTool = createTool({
     name: "edit_image",
     description:
       "Edit an existing image using OpenAI's gpt-image-1 model based on a text description.\n\n" +
@@ -220,7 +220,7 @@ export function defineImageTools(openaiApiKey: string): {
       "- Be specific about what you want to change in the image\n" +
       "- Describe both what to change and how to change it\n" +
       "- Avoid prohibited content (violence, adult content, etc)\n\n",
-    parameters: z.object({
+    schema: z.object({
       sourcePath: z
         .string()
         .describe(

@@ -62,57 +62,42 @@ export interface InputSchema {
 
 type InferParams<T extends z.ZodType> = z.infer<T>;
 
-export function createTool<T extends z.ZodObject<z.ZodRawShape>>(
-  name: string,
-  description: string,
-  schema: T,
+/**
+ * Helper function to create a tool with a simpler API
+ */
+export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
+  name: string;
+  description: string;
+  schema: T;
   execute: (
     params: InferParams<T>,
     ctx: ToolExecutionContext,
-  ) => Promise<ToolResult>,
-): Tool<InferParams<T>> {
+  ) => Promise<ToolResult>;
+}): Tool<InferParams<T>> {
   // Convert Zod schema to JSON Schema
-  const jsonSchema = zodToJsonSchema(schema, { target: "jsonSchema7" });
+  const jsonSchema = zodToJsonSchema(options.schema, { target: "jsonSchema7" });
 
   return {
-    name,
-    description,
+    name: options.name,
+    description: options.description,
     parameters: jsonSchema as InputSchema,
     execute: async (
       params: InferParams<T>,
       ctx: ToolExecutionContext,
     ) => {
       // Validate params using Zod schema
-      const validatedParams = await schema.parseAsync(params);
-      return execute(validatedParams, ctx);
+      const validatedParams = await options.schema.parseAsync(params);
+      return options.execute(validatedParams, ctx);
     },
   };
-}
-
-// Helper function to create a tool with a simpler API
-export function defineTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
-  name: string;
-  description: string;
-  parameters: T;
-  execute: (
-    params: InferParams<T>,
-    ctx: ToolExecutionContext,
-  ) => Promise<ToolResult>;
-}): Tool<InferParams<T>> {
-  return createTool(
-    options.name,
-    options.description,
-    options.parameters,
-    options.execute,
-  );
 }
 
 // Tool exports
 export { ReadFileTool } from "./ReadFileTool.ts";
 export { ListDirTool } from "./ListDirTool.ts";
-export { defineEditFileTool } from "./EditFileTool.ts";
+export { createEditFileTool } from "./EditFileTool.ts";
 export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
 export { GrepSearchTool } from "./GrepSearchTool.ts";
 export { FileSearchTool } from "./FileSearchTool.ts";
 export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
-export { defineImageTools } from "./ImageTools.ts";
+export { createImageTools } from "./ImageTools.ts";
