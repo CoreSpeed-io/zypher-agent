@@ -1,6 +1,5 @@
 import type {
   ImageBlock,
-  Message,
   TextBlock,
   ToolResultBlock,
   ToolUseBlock,
@@ -14,11 +13,13 @@ import {
 } from "./interface.ts";
 import type { ToolExecutionContext } from "../tools/mod.ts";
 import { formatError } from "../error.ts";
+import type { Subject } from "rxjs";
+import type { TaskEvent } from "../TaskEvents.ts";
 
 export type ToolApprovalHandler = (
   name: string,
   args: Record<string, unknown>,
-  options: { signal?: AbortSignal },
+  options?: { signal?: AbortSignal },
 ) => Promise<boolean>;
 
 /**
@@ -47,6 +48,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     toolUseId: string,
     parameters: Record<string, unknown>,
     ctx: ToolExecutionContext,
+    eventSubject: Subject<TaskEvent>,
     options?: {
       signal?: AbortSignal;
     },
@@ -57,13 +59,29 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
         throw new Error(`Tool '${name}' not found`);
       }
 
-      const approved = this.#handleToolApproval
-        ? await this.#handleToolApproval(name, parameters, options || {})
-        : true;
-      console.log(`Tool call ${name} approved: ${approved}`);
-      if (!approved) {
-        throw new Error(`Tool call ${name} rejected by user`);
+      if (this.#handleToolApproval) {
+        eventSubject.next({
+          type: "tool_use_pending_approval",
+          toolName: name,
+          parameters,
+        });
+        const approved = await this.#handleToolApproval(
+          name,
+          parameters,
+          options,
+        );
+
+        if (!approved) {
+          throw new Error(`Tool call ${name} rejected by user`);
+        }
       }
+
+      // auto approve if no approval handler is provided
+      console.log(`Tool call ${name} approved`);
+      eventSubject.next({
+        type: "tool_use_approved",
+        toolName: name,
+      });
 
       const result = await tool.execute(parameters, ctx);
 
@@ -159,6 +177,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
           block.toolUseId,
           params,
           toolExecutionContext,
+          context.eventSubject,
           {
             signal: context.signal,
           },
@@ -166,13 +185,11 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       }),
     );
 
-    context.messages.push(
-      {
-        role: "user",
-        content: toolResults,
-        timestamp: new Date(),
-      } satisfies Message,
-    );
+    context.messages.push({
+      role: "user",
+      content: toolResults,
+      timestamp: new Date(),
+    });
 
     return {
       decision: LoopDecision.CONTINUE,

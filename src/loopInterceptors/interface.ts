@@ -1,6 +1,8 @@
 import type { Message } from "../message.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { FinalMessage } from "../llm/mod.ts";
+import type { Subject } from "rxjs";
+import type { TaskEvent } from "../TaskEvents.ts";
 
 /**
  * Decision made by a loop interceptor
@@ -28,6 +30,17 @@ export interface InterceptorContext {
   stopReason?: FinalMessage["stop_reason"];
   /** Abort signal for cancellation */
   signal: AbortSignal;
+  /**
+   * RxJS Subject for emitting task events during interceptor execution.
+   *
+   * **Note**: Message events are automatically emitted when interceptors
+   * add new messages using push(). Other array operations (unshift, splice, pop, shift)
+   * do not auto-emit and require manual emission of TaskHistoryChangedEvent if needed.
+   *
+   * This subject can be used for custom task events like tool execution
+   * progress, approval requests, history modifications, etc.
+   */
+  eventSubject: Subject<TaskEvent>;
 }
 
 /**
@@ -42,6 +55,10 @@ export interface InterceptorResult {
 
 /**
  * Interface for loop interceptors that run after agent inference
+ *
+ * **Automatic Event Emission**: The message array in InterceptorContext automatically
+ * emits message events when modified using standard array methods (push, unshift, splice).
+ * Interceptors can simply use these methods without manual event emission.
  */
 export interface LoopInterceptor {
   /** Unique name of the interceptor */
@@ -52,6 +69,10 @@ export interface LoopInterceptor {
 
   /**
    * Execute the interceptor logic
+   *
+   * Message modifications using `context.messages.push()`, `unshift()`, or `splice()`
+   * will automatically emit the appropriate message events.
+   *
    * @param context Current interceptor context
    * @returns Promise<InterceptorResult> Decision and optional reasoning
    */

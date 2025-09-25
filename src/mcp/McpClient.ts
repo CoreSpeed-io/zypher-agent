@@ -485,18 +485,18 @@ export class McpClient {
     // Convert MCP tools to our internal tool format
     this.#tools = toolResult.tools.map((tool) => {
       const inputSchema = jsonToZod(tool.inputSchema);
-      return createTool(
-        `${this.#serverEndpoint.id}_${tool.name}`,
-        tool.description ?? "",
-        inputSchema,
-        async (params: Record<string, unknown>) => {
+      return createTool({
+        name: `${this.#serverEndpoint.id}_${tool.name}`,
+        description: tool.description ?? "",
+        schema: inputSchema,
+        execute: async (params: Record<string, unknown>) => {
           const result = await this.executeToolCall({
             name: tool.name,
             input: params,
           });
           return result;
         },
-      );
+      });
     });
   }
 
