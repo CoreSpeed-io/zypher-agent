@@ -107,8 +107,6 @@ async function main(): Promise<void> {
       {
         userId: cli.userId,
         workingDirectory: cli.workDir,
-        enableCheckpointing: false,
-        persistHistory: false,
       },
     );
 
