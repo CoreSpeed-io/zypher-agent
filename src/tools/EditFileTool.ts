@@ -17,7 +17,7 @@ import { ensureDir } from "@std/fs";
  *  Defaults to ./backup if not provided.
  * @returns An object containing the configured file editing tool
  */
-export function createEditFileTool(backupDir: string = "./backup"): {
+export function createEditFileTools(backupDir: string = "./backup"): {
   EditFileTool: Tool<{
     targetFile: string;
     explanation: string;

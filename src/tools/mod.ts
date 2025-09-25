@@ -95,7 +95,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
 // Tool exports
 export { ReadFileTool } from "./ReadFileTool.ts";
 export { ListDirTool } from "./ListDirTool.ts";
-export { createEditFileTool } from "./EditFileTool.ts";
+export { createEditFileTools as createEditFileTool } from "./EditFileTool.ts";
 export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
 export { GrepSearchTool } from "./GrepSearchTool.ts";
 export { FileSearchTool } from "./FileSearchTool.ts";
