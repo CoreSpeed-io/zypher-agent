@@ -2,7 +2,7 @@ import "@std/dotenv/load";
 import { formatError, runAgentInTerminal, ZypherAgent } from "@zypher/mod.ts";
 import {
   CopyFileTool,
-  createEditFileTool,
+  createEditFileTools,
   createImageTools,
   DeleteFileTool,
   FileSearchTool,
@@ -107,6 +107,8 @@ async function main(): Promise<void> {
       {
         userId: cli.userId,
         workingDirectory: cli.workDir,
+        enableCheckpointing: false,
+        persistHistory: false,
       },
     );
 
@@ -133,7 +135,7 @@ async function main(): Promise<void> {
     }
 
     const backupDir = cli.backupDir ?? DEFAULT_BACKUP_DIR;
-    const { EditFileTool } = createEditFileTool(backupDir);
+    const { EditFileTool } = createEditFileTools(backupDir);
     mcpServerManager.registerTool(EditFileTool);
 
     console.log(
