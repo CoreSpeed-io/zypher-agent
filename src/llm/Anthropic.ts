@@ -8,7 +8,7 @@ import type {
   StreamChatParams,
 } from "./ModelProvider.ts";
 import { Anthropic, type ClientOptions } from "@anthropic-ai/sdk";
-import { isFileAttachment, type Message } from "../message.ts";
+import type { ContentBlock, ImageBlock, Message } from "../message.ts";
 import { Observable } from "rxjs";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 
@@ -150,63 +150,102 @@ export class AnthropicModelProvider implements ModelProvider {
           text: content,
         } satisfies Anthropic.TextBlockParam,
       ]
-      : content.map((block) => {
-        if (isFileAttachment(block)) {
-          const cache = fileAttachmentCacheMap?.[block.fileId];
-          if (!cache) {
-            console.warn(
-              `Skipping file attachment as it is not cached. File ID: ${block.fileId}`,
-            );
-            return null;
-          }
-          // Increment the file attachment counter for each file attachment
-          fileAttachmentCount++;
+      : content.map(
+        (
+          block,
+        ):
+          | Anthropic.ContentBlockParam
+          | Anthropic.ContentBlockParam[]
+          | null => {
+          if (block.type === "file_attachment") {
+            const cache = fileAttachmentCacheMap?.[block.fileId];
+            if (!cache) {
+              console.warn(
+                `Skipping file attachment as it is not cached. File ID: ${block.fileId}`,
+              );
+              return null;
+            }
+            // Increment the file attachment counter for each file attachment
+            fileAttachmentCount++;
 
-          const attachmentIndex = fileAttachmentCount;
+            const attachmentIndex = fileAttachmentCount;
 
-          // Text block is always included for both image and PDF files
-          const textBlock: Anthropic.TextBlockParam = {
-            type: "text" as const,
-            text: `Attachment ${attachmentIndex}:
+            // Text block is always included for both image and PDF files
+            const textBlock: Anthropic.TextBlockParam = {
+              type: "text" as const,
+              text: `Attachment ${attachmentIndex}:
 MIME type: ${block.mimeType}
 Cached at: ${cache.cachePath}`,
-          };
+            };
 
-          // Handle different file types with appropriate block types
-          if (isSupportedImageType(block.mimeType)) {
-            return [
-              textBlock,
-              {
-                type: "image" as const,
-                source: {
-                  type: "url" as const,
-                  url: cache.signedUrl,
+            // Handle different file types with appropriate block types
+            if (isSupportedImageType(block.mimeType)) {
+              return [
+                textBlock,
+                {
+                  type: "image" as const,
+                  source: {
+                    type: "url" as const,
+                    url: cache.signedUrl,
+                  },
+                } satisfies Anthropic.ImageBlockParam,
+              ];
+            } else if (block.mimeType === "application/pdf") {
+              return [
+                textBlock,
+                {
+                  type: "document" as const,
+                  source: {
+                    type: "url" as const,
+                    url: cache.signedUrl,
+                  },
+                } satisfies Anthropic.DocumentBlockParam,
+              ];
+            }
+
+            // Fall back to just the text block for unsupported types
+            console.warn(
+              `File attachment ${block.fileId} is not supported by Anthropic (MIME type: ${block.mimeType}), this file will not be shown to the model.`,
+            );
+            return [textBlock];
+          } else if (block.type === "image") {
+            return mapImageBlockToA7cBlock(block);
+          } else if (block.type === "tool_use") {
+            return {
+              type: "tool_use" as const,
+              id: block.toolUseId,
+              name: block.name,
+              input: block.input,
+            } satisfies Anthropic.ToolUseBlockParam;
+          } else if (block.type === "tool_result") {
+            return {
+              type: "tool_result" as const,
+              tool_use_id: block.toolUseId,
+              content: block.content.map(
+                (c): Anthropic.TextBlockParam | Anthropic.ImageBlockParam => {
+                  if (c.type === "text") {
+                    return {
+                      type: "text" as const,
+                      text: c.text,
+                    } satisfies Anthropic.TextBlockParam;
+                  } else {
+                    return mapImageBlockToA7cBlock(c);
+                  }
                 },
-              } satisfies Anthropic.ImageBlockParam,
-            ];
-          } else if (block.mimeType === "application/pdf") {
-            return [
-              textBlock,
-              {
-                type: "document" as const,
-                source: {
-                  type: "url" as const,
-                  url: cache.signedUrl,
-                },
-              } satisfies Anthropic.DocumentBlockParam,
-            ];
+              ),
+            } satisfies Anthropic.ToolResultBlockParam;
+          } else {
+            return {
+              type: "text" as const,
+              text: block.text,
+            } satisfies Anthropic.TextBlockParam;
           }
-
-          // Fall back to just the text block for unsupported types
-          console.warn(
-            `File attachment ${block.fileId} is not supported by Anthropic (MIME type: ${block.mimeType}), this file will not be shown to the model.`,
-          );
-          return [textBlock];
-        }
-        return block;
-      })
-        .filter((block): block is Anthropic.ContentBlockParam => block !== null)
-        .flat();
+        },
+      )
+        .flat()
+        .filter((block): block is Anthropic.ContentBlockParam =>
+          block !== null
+        );
 
     // Add cache control to the last block of the last message
     if (isLastMessage && this.#enablePromptCaching && contentArray.length > 0) {
@@ -240,7 +279,7 @@ class AnthropicModelStream implements ModelStream {
       stream.on("message", (message) => {
         subscriber.next({
           type: "message",
-          message: mapMessage(message),
+          message: mapA7cMessageToMessage(message),
         });
       });
 
@@ -260,20 +299,46 @@ class AnthropicModelStream implements ModelStream {
 
   async finalMessage(): Promise<FinalMessage> {
     const finalMessage = await this.#stream.finalMessage();
-    return mapMessage(finalMessage);
+    return mapA7cMessageToMessage(finalMessage);
   }
 }
 
-function mapMessage(message: Anthropic.Message): FinalMessage {
+/** Map Anthropic message to our internal message */
+function mapA7cMessageToMessage(message: Anthropic.Message): FinalMessage {
   return {
     role: message.role,
-    content: message.content,
+    content: message.content.map(mapA7cContentBlockToContentBlock).filter((
+      block,
+    ): block is ContentBlock => block !== null),
     timestamp: new Date(),
-    stop_reason: mapStopReason(message.stop_reason),
+    stop_reason: mapA7cStopReason(message.stop_reason),
   };
 }
 
-function mapStopReason(
+/** Map Anthropic content block to our internal content block */
+function mapA7cContentBlockToContentBlock(
+  block: Anthropic.ContentBlock,
+): ContentBlock | null {
+  switch (block.type) {
+    case "text":
+      return { type: "text", text: block.text };
+    case "tool_use":
+      return {
+        type: "tool_use",
+        toolUseId: block.id,
+        name: block.name,
+        input: block.input,
+      };
+    default:
+      console.warn(
+        `Received unsupported block type: ${block.type} from Anthropic, ignoring...`,
+      );
+      return null;
+  }
+}
+
+/** Map Anthropic stop reason to our internal stop reason */
+function mapA7cStopReason(
   reason: Anthropic.Messages.StopReason | null,
 ): FinalMessage["stop_reason"] {
   switch (reason) {
@@ -287,5 +352,41 @@ function mapStopReason(
       return "stop_sequence";
     default:
       return "end_turn";
+  }
+}
+
+/** Map our internal image block to Anthropic image block
+ *  or text block with warning if the image type is unsupported */
+function mapImageBlockToA7cBlock(
+  block: ImageBlock,
+): Anthropic.ImageBlockParam | Anthropic.TextBlockParam {
+  if (isSupportedImageType(block.source.mediaType)) {
+    if (block.source.type === "base64") {
+      return {
+        type: "image" as const,
+        source: {
+          type: "base64",
+          data: block.source.data,
+          media_type: block.source.mediaType,
+        },
+      } satisfies Anthropic.ImageBlockParam;
+    } else {
+      return {
+        type: "image" as const,
+        source: {
+          type: "url",
+          url: block.source.url,
+        },
+      } satisfies Anthropic.ImageBlockParam;
+    }
+  } else {
+    console.warn(
+      `You provided an unsupported image source (MIME type: ${block.source.mediaType}), this image will not be shown to the model.`,
+    );
+    return {
+      type: "text" as const,
+      text:
+        `You provided an unsupported image source (MIME type: ${block.source.mediaType}), this image will not be shown to the model.`,
+    } satisfies Anthropic.TextBlockParam;
   }
 }

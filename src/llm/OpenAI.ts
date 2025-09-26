@@ -10,7 +10,7 @@ import type {
   StreamChatParams,
 } from "./ModelProvider.ts";
 import { type ClientOptions, OpenAI } from "@openai/openai";
-import { isFileAttachment, type Message } from "../message.ts";
+import { type ImageBlock, isFileAttachment, type Message } from "../message.ts";
 
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -97,7 +97,7 @@ export class OpenAIModelProvider implements ModelProvider {
           role: "system",
           content: params.system,
         },
-        ...formattedMessages,
+        ...formattedMessages.flat(),
       ],
       max_completion_tokens: params.maxTokens,
       tools: openaiTools,
@@ -131,7 +131,7 @@ export class OpenAIModelProvider implements ModelProvider {
             ...(
               message.tool_calls?.map((c) => ({
                 type: "tool_use" as const,
-                id: c.id,
+                toolUseId: c.id,
                 name: c.function.name,
                 input: JSON.parse(c.function.arguments),
               })) ?? []
@@ -145,30 +145,25 @@ export class OpenAIModelProvider implements ModelProvider {
   }
 }
 
+/** Format our internal message to OpenAI message to be used as input to the OpenAI API */
 function formatInputMessage(
   message: Message,
   fileAttachmentCacheMap?: FileAttachmentCacheMap,
-): OpenAI.Chat.ChatCompletionMessageParam {
+):
+  | OpenAI.Chat.ChatCompletionMessageParam
+  | OpenAI.Chat.ChatCompletionMessageParam[] {
   if (message.role === "user") {
-    if (
-      message.content.length === 1 && message.content[0].type === "tool_result"
-    ) {
-      return {
-        role: "tool",
-        content: message.content[0].content?.toString() ?? "",
-        tool_call_id: message.content[0].tool_use_id,
-      };
-    }
-
     // Track file attachment count separately from content index
     let attachmentIndex = 0;
+    // Track images from tool results that need to be included in user message
+    let toolResultImageIndex = 0;
 
-    return {
+    const toolMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+
+    const mainMessage = {
       role: message.role,
-      content: message.content.map(
-        (
-          c,
-        ):
+      content: message.content
+        .map((c):
           | OpenAI.Chat.ChatCompletionContentPart
           | OpenAI.Chat.ChatCompletionContentPart[]
           | null => {
@@ -177,6 +172,41 @@ function formatInputMessage(
               type: "text",
               text: c.text,
             };
+          } else if (c.type === "tool_result") {
+            // Collect images and text separately for OpenAI format
+            const toolResultParts: string[] = [];
+            const imageParts: OpenAI.Chat.ChatCompletionContentPartImage[] = [];
+
+            for (const block of c.content) {
+              if (block.type === "text") {
+                toolResultParts.push(block.text);
+              } else if (block.type === "image") {
+                const imageBlock = mapImageBlockToOpenAI(block);
+                toolResultImageIndex++;
+                if (imageBlock.type === "image_url") {
+                  toolResultParts.push(
+                    `[See image ${toolResultImageIndex} below]`,
+                  );
+                  imageParts.push(imageBlock);
+                } else {
+                  // For unsupported image types, just include the descriptive text
+                  toolResultParts.push(imageBlock.text);
+                }
+              }
+            }
+
+            // OpenAI expects tool results as separate messages with role "tool",
+            // not embedded in user message content. Extract and create separate tool message.
+            toolMessages.push({
+              role: "tool",
+              content: toolResultParts.join("\n"),
+              tool_call_id: c.toolUseId,
+            });
+
+            // Return images to be included in main user message
+            return imageParts;
+          } else if (c.type === "image") {
+            return mapImageBlockToOpenAI(c);
           } else if (isFileAttachment(c)) {
             const cache = fileAttachmentCacheMap?.[c.fileId];
             if (!cache) {
@@ -217,9 +247,25 @@ Cached at: ${cache.cachePath}`,
           }
 
           return null;
-        },
-      ).filter((c) => c !== null).flat(),
+        })
+        .filter((c) => c !== null)
+        .flat(),
     };
+
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+
+    // Add tool messages first
+    // because message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'
+    if (toolMessages.length > 0) {
+      messages.push(...toolMessages);
+    }
+
+    // Add main message only if it has content
+    if (mainMessage.content.length > 0) {
+      messages.push(mainMessage);
+    }
+
+    return messages;
   } else {
     const toolCalls = message.content.filter((c) => c.type === "tool_use");
     return {
@@ -242,7 +288,7 @@ Cached at: ${cache.cachePath}`,
           tool_calls: toolCalls.map((
             c,
           ) => ({
-            id: c.id,
+            id: c.toolUseId,
             type: "function",
             function: {
               name: c.name,
@@ -251,6 +297,36 @@ Cached at: ${cache.cachePath}`,
           })),
         }
         : {}),
+    };
+  }
+}
+
+function mapImageBlockToOpenAI(block: ImageBlock):
+  | OpenAI.Chat.ChatCompletionContentPartImage
+  | OpenAI.Chat.ChatCompletionContentPartText {
+  if (isSupportedImageType(block.source.mediaType)) {
+    if (block.source.type === "base64") {
+      return {
+        type: "image_url",
+        image_url: {
+          url: `data:${block.source.mediaType};base64,${block.source.data}`,
+          detail: "high",
+        },
+      };
+    } else {
+      return {
+        type: "image_url",
+        image_url: {
+          url: block.source.url,
+          detail: "high",
+        },
+      };
+    }
+  } else {
+    // For unsupported image types, return descriptive text
+    return {
+      type: "text",
+      text: `[Unsupported image type: ${block.source.mediaType}]`,
     };
   }
 }

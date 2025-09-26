@@ -2,8 +2,8 @@ import "@std/dotenv/load";
 import { formatError, runAgentInTerminal, ZypherAgent } from "@zypher/mod.ts";
 import {
   CopyFileTool,
-  defineEditFileTool,
-  defineImageTools,
+  createEditFileTools,
+  createImageTools,
   DeleteFileTool,
   FileSearchTool,
   GrepSearchTool,
@@ -127,13 +127,13 @@ async function main(): Promise<void> {
       : cli.openaiApiKey;
 
     if (openaiApiKey) {
-      const { ImageGenTool, ImageEditTool } = defineImageTools(openaiApiKey);
+      const { ImageGenTool, ImageEditTool } = createImageTools(openaiApiKey);
       mcpServerManager.registerTool(ImageGenTool);
       mcpServerManager.registerTool(ImageEditTool);
     }
 
     const backupDir = cli.backupDir ?? DEFAULT_BACKUP_DIR;
-    const { EditFileTool } = defineEditFileTool(backupDir);
+    const { EditFileTool } = createEditFileTools(backupDir);
     mcpServerManager.registerTool(EditFileTool);
 
     console.log(
