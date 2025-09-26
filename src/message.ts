@@ -1,7 +1,8 @@
-import type { Anthropic } from "@anthropic-ai/sdk";
-
 export type ContentBlock =
-  | Anthropic.ContentBlockParam
+  | TextBlock
+  | ImageBlock
+  | ToolUseBlock
+  | ToolResultBlock
   | FileAttachment;
 
 /**
@@ -33,7 +34,58 @@ export interface Message {
 }
 
 /**
- * Represents an image attachment in the message history
+ * Regular text content
+ */
+export interface TextBlock {
+  type: "text";
+  text: string;
+}
+
+/**
+ * Image content
+ */
+export interface ImageBlock {
+  type: "image";
+  source: Base64ImageSource | UrlImageSource;
+}
+
+/**
+ * Base64 image source
+ */
+export interface Base64ImageSource {
+  type: "base64";
+  /** The base64 encoded image data */
+  data: string;
+  /** The MIME type of the image */
+  mediaType: string;
+}
+
+/**
+ * URL image source
+ */
+export interface UrlImageSource {
+  type: "url";
+  /** The URL of the image */
+  url: string;
+  /** The MIME type of the image */
+  mediaType: string;
+}
+
+export interface ToolUseBlock {
+  type: "tool_use";
+  toolUseId: string;
+  name: string;
+  input: unknown;
+}
+
+export interface ToolResultBlock {
+  type: "tool_result";
+  toolUseId: string;
+  content: (TextBlock | ImageBlock)[];
+}
+
+/**
+ * File attachment content
  */
 export interface FileAttachment {
   type: "file_attachment";
