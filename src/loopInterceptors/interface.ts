@@ -56,9 +56,8 @@ export interface InterceptorResult {
 /**
  * Interface for loop interceptors that run after agent inference
  *
- * **Automatic Event Emission**: The message array in InterceptorContext automatically
- * emits message events when modified using standard array methods (push, unshift, splice).
- * Interceptors can simply use these methods without manual event emission.
+ * Interceptors can inject or modify LLM message context to influence subsequent
+ * agent behavior (e.g., add tool results, error messages, continuation prompts).
  */
 export interface LoopInterceptor {
   /** Unique name of the interceptor */
@@ -68,13 +67,26 @@ export interface LoopInterceptor {
   readonly description: string;
 
   /**
-   * Execute the interceptor logic
+   * Execute the interceptor's custom logic to influence agent behavior.
    *
-   * Message modifications using `context.messages.push()`, `unshift()`, or `splice()`
-   * will automatically emit the appropriate message events.
+   * This method is called after the LLM generates a response. You are provided
+   * an {@link InterceptorContext} containing the conversation messages, LLM response,
+   * available tools, and other context. Use your custom logic to determine
+   * if the agent should continue or complete the loop.
    *
-   * @param context Current interceptor context
-   * @returns Promise<InterceptorResult> Decision and optional reasoning
+   * **Modifying Message Context**: To influence subsequent agent behavior,
+   * inject or modify messages in `context.messages`:
+   * - Add new messages: `context.messages.push(newMessage)` (auto-emits TaskMessageEvent)
+   * - Modify existing messages: Use unshift, splice, pop, shift, or direct assignment
+   *
+   * **Event Emission**:
+   * - If you modify existing message history, you MUST emit TaskHistoryChangedEvent
+   *   via `context.eventSubject.next({ type: "history_changed" })` to notify
+   *   that this interceptor changed the history
+   * - You MAY also emit custom events to meet your specific needs
+   *
+   * @param context {@link InterceptorContext} with messages, tools, and event emission capabilities
+   * @returns {@link InterceptorResult} with {@link LoopDecision} on whether to continue or complete the loop
    */
   intercept(context: InterceptorContext): Promise<InterceptorResult>;
 }

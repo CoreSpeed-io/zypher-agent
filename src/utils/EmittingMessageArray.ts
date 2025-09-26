@@ -29,9 +29,9 @@ export function createEmittingMessageArray(
       if (prop === "push") {
         return function (...messages: Message[]): number {
           const result = target.push(...messages);
-          messages.forEach((message) => {
+          for (const message of messages) {
             eventSubject.next({ type: "message", message });
-          });
+          }
           return result;
         };
       }
