@@ -10,8 +10,9 @@ import type { TaskEvent } from "../TaskEvents.ts";
  * - push() -> Emits TaskMessageEvent for each new message
  * - All other operations (unshift, splice, pop, shift, index assignment) -> No auto-emission
  *
- * History modifications should be handled manually by interceptors using
- * context.eventSubject.next() with TaskHistoryChangedEvent when needed.
+ * Operations that modify existing message history (changing, removing, or inserting
+ * messages at existing positions) do not auto-emit. Interceptors MUST emit
+ * TaskHistoryChangedEvent via context.eventSubject.next() when they change the history.
  *
  * @param wrappedArray The existing Message array to wrap
  * @param eventSubject Subject to emit events through
@@ -37,8 +38,6 @@ export function createEmittingMessageArray(
       }
 
       // Default behavior for all other properties/methods
-      // History modifications (unshift, splice, pop, shift, index assignment)
-      // are handled manually by interceptors when needed
       return typeof value === "function" ? value.bind(target) : value;
     },
   });
