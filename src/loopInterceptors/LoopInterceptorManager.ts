@@ -23,15 +23,22 @@ export class LoopInterceptorManager {
   /**
    * Register a new loop interceptor
    * @param interceptor The interceptor to register
+   * @param insertAtBeginning If true, adds to the start of the chain (higher priority)
    */
-  register(interceptor: LoopInterceptor): void {
+  register(
+    interceptor: LoopInterceptor,
+    insertAtBeginning: boolean = false,
+  ): void {
     // Check for name conflicts
     if (this.#interceptors.some((i) => i.name === interceptor.name)) {
       throw new Error(
         `Loop interceptor with name '${interceptor.name}' is already registered`,
       );
     }
-
+    if (insertAtBeginning) {
+      this.#interceptors.unshift(interceptor);
+      return;
+    }
     this.#interceptors.push(interceptor);
   }
 

@@ -11,6 +11,7 @@ import {
   ReadFileTool,
   RunTerminalCmdTool,
 } from "@zypher/tools/mod.ts";
+import { NotesStore } from "@zypher/memory/mod.ts";
 import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
 import {
@@ -21,6 +22,7 @@ import {
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
 const DEFAULT_BACKUP_DIR = "./.backup";
+const DEFAULT_MEMORY_DIR = "./.memory";
 
 const providerType = new EnumType(["anthropic", "openai"]);
 
@@ -48,6 +50,14 @@ const { options: cli } = await new Command()
     "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
   )
   .option("--backup-dir <backupDir:string>", "Directory to store backups")
+  .option(
+    "--memory-dir <memoryDir:string>",
+    "Directory to store memory files",
+  )
+  .option(
+    "--memory-model <memoryModel:string>",
+    "Model to use for memory mechanism, should be compatible with the main model",
+  )
   .parse(Deno.args);
 
 function inferProvider(
@@ -91,6 +101,8 @@ async function main(): Promise<void> {
         : DEFAULT_ANTHROPIC_MODEL);
     console.log(`🧠 Using model: ${chalk.cyan(modelToUse)}`);
 
+    const memoryModel = cli.memoryModel ?? modelToUse;
+    console.log(`🗂️ Using memory model: ${chalk.cyan(memoryModel)}`);
     // Initialize the agent with provided options
     const providerInstance = selectedProvider === "openai"
       ? new OpenAIModelProvider({
@@ -102,12 +114,19 @@ async function main(): Promise<void> {
         baseUrl: cli.baseUrl,
       });
 
+    const noteStore = new NotesStore(
+      cli.memoryDir ?? DEFAULT_MEMORY_DIR,
+      providerInstance,
+      modelToUse,
+    );
     const agent = new ZypherAgent(
       providerInstance,
       {
         userId: cli.userId,
         workingDirectory: cli.workDir,
       },
+      {},
+      noteStore,
     );
 
     const mcpServerManager = agent.mcpServerManager;
