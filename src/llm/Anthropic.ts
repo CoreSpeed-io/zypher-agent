@@ -8,7 +8,7 @@ import type {
   StreamChatParams,
 } from "./ModelProvider.ts";
 import { Anthropic, type ClientOptions } from "@anthropic-ai/sdk";
-import type { ContentBlock, ImageBlock, Message } from "../message.ts";
+import type { ContentBlock, ImageBlock, Message } from "../message/mod.ts";
 import { Observable } from "rxjs";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 

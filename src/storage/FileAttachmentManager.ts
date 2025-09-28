@@ -3,7 +3,7 @@ import {
   type FileAttachment,
   isFileAttachment,
   type Message,
-} from "../message.ts";
+} from "../message/mod.ts";
 import type { StorageService } from "./StorageService.ts";
 import { fileExists } from "../utils/mod.ts";
 

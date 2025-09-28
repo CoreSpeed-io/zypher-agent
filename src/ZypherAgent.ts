@@ -7,10 +7,10 @@ import {
 import { getSystemPrompt } from "./prompt.ts";
 import type { Checkpoint } from "./CheckpointManager.ts";
 import { CheckpointManager } from "./CheckpointManager.ts";
-import type { ContentBlock, FileAttachment, Message } from "./message.ts";
-import { McpServerManager } from "./mcp/McpServerManager.ts";
-import type { StorageService } from "./storage/StorageService.ts";
-import { Completer } from "./utils/mod.ts";
+import type { ContentBlock, FileAttachment, Message } from "./message/mod.ts";
+import { McpServerManager } from "./mcp/mod.ts";
+import type { StorageService } from "./storage/mod.ts";
+import { Completer, createEmittingMessageArray } from "./utils/mod.ts";
 import {
   AbortError,
   formatError,
@@ -30,7 +30,6 @@ import {
   MaxTokensInterceptor,
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
-import { createEmittingMessageArray } from "./utils/EmittingMessageArray.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
 import * as path from "@std/path";
 

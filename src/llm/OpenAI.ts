@@ -1,5 +1,5 @@
 import { Observable } from "rxjs";
-import type { FileAttachmentCacheMap } from "../storage/FileAttachmentManager.ts";
+import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 import type {
   FinalMessage,
   ModelEvent,
@@ -10,7 +10,11 @@ import type {
   StreamChatParams,
 } from "./ModelProvider.ts";
 import { type ClientOptions, OpenAI } from "@openai/openai";
-import { type ImageBlock, isFileAttachment, type Message } from "../message.ts";
+import {
+  type ImageBlock,
+  isFileAttachment,
+  type Message,
+} from "../message/mod.ts";
 
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",

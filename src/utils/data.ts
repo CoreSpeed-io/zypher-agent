@@ -1,7 +1,7 @@
 import * as path from "@std/path";
 import { encodeBase64 } from "@std/encoding/base64";
-import type { Message } from "../message.ts";
-import { isMessage } from "../message.ts";
+import type { Message } from "../message/mod.ts";
+import { isMessage } from "../message/mod.ts";
 import { formatError } from "../error.ts";
 import { ensureDir } from "@std/fs";
 

@@ -1,5 +1,5 @@
 import type { Observable } from "rxjs";
-import type { Message } from "../message.ts";
+import type { Message } from "../message/mod.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 

@@ -1,4 +1,4 @@
-import type { Message } from "./message.ts";
+import type { Message } from "./message/mod.ts";
 
 export type TaskEvent =
   | TaskTextEvent

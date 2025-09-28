@@ -1,4 +1,4 @@
-import type { Message } from "../message.ts";
+import type { Message } from "../message/mod.ts";
 import {
   type InterceptorContext,
   type InterceptorResult,

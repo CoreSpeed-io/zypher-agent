@@ -3,8 +3,8 @@ import type {
   TextBlock,
   ToolResultBlock,
   ToolUseBlock,
-} from "../message.ts";
-import type { McpServerManager } from "../mcp/McpServerManager.ts";
+} from "../message/mod.ts";
+import type { McpServerManager } from "../mcp/mod.ts";
 import {
   type InterceptorContext,
   type InterceptorResult,
