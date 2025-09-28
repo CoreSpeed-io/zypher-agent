@@ -5,12 +5,8 @@ import {
   saveMessageHistory,
 } from "./utils/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
-import {
-  applyCheckpoint,
-  type Checkpoint,
-  createCheckpoint,
-  getCheckpointDetails,
-} from "./checkpoints.ts";
+import type { Checkpoint } from "./CheckpointManager.ts";
+import { CheckpointManager } from "./CheckpointManager.ts";
 import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
@@ -22,7 +18,7 @@ import {
   TaskConcurrencyError,
 } from "./error.ts";
 import type { ModelProvider } from "./llm/mod.ts";
-import { from, type Observable } from "rxjs";
+import { type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
 import {
   type FileAttachmentCacheMap,
@@ -35,48 +31,11 @@ import {
   NotesInterceptor,
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
+import { createEmittingMessageArray } from "./utils/EmittingMessageArray.ts";
+import type { TaskEvent } from "./TaskEvents.ts";
 import * as path from "@std/path";
 
 import type { NotesStore } from "./memory/mod.ts";
-
-export type TaskEvent =
-  | TaskTextEvent
-  | TaskMessageEvent
-  | TaskToolUseEvent
-  | TaskToolUseInputEvent
-  | TaskCancelledEvent;
-
-/**
- * Event for streaming incremental content updates
- */
-export interface TaskTextEvent {
-  type: "text";
-  content: string;
-}
-
-/**
- * Event for a complete message consisting of multiple accumulated text updates
- */
-export interface TaskMessageEvent {
-  type: "message";
-  message: Message;
-}
-
-export interface TaskToolUseEvent {
-  type: "tool_use";
-  toolName: string;
-}
-
-export interface TaskToolUseInputEvent {
-  type: "tool_use_input";
-  toolName: string;
-  partialInput: string;
-}
-
-export interface TaskCancelledEvent {
-  type: "cancelled";
-  reason: "user" | "timeout";
-}
 
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MAX_ITERATIONS = 25;
@@ -104,20 +63,28 @@ export interface ZypherAgentConfig {
   fileAttachmentCacheDir?: string;
   /** Custom instructions to override the default instructions. */
   customInstructions?: string;
+  /**
+   * Optional working directory override without changing process cwd.
+   * When set, tools and checkpoints operate relative to this directory.
+   */
+  workingDirectory?: string;
 }
 
 export class ZypherAgent {
   readonly #modelProvider: ModelProvider;
+  readonly #mcpServerManager: McpServerManager;
+  readonly #loopInterceptorManager: LoopInterceptorManager;
+  readonly #checkpointManager: CheckpointManager;
+  readonly #storageService?: StorageService;
+
   readonly #maxTokens: number;
   readonly #persistHistory: boolean;
   readonly #enableCheckpointing: boolean;
   readonly #userId?: string;
-  readonly #mcpServerManager: McpServerManager;
   readonly #taskTimeoutMs: number;
-  readonly #storageService?: StorageService;
   readonly #fileAttachmentCacheDir?: string;
   readonly #customInstructions?: string;
-  readonly #loopInterceptorManager: LoopInterceptorManager;
+  readonly #workingDirectory: string;
 
   #fileAttachmentManager?: FileAttachmentManager;
 
@@ -157,7 +124,16 @@ export class ZypherAgent {
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
     this.#customInstructions = config.customInstructions;
+    // Working directory and checkpoint manager
+    this.#workingDirectory = config.workingDirectory ?? Deno.cwd();
+    this.#checkpointManager = new CheckpointManager(
+      this.#workingDirectory,
+    );
 
+    // Optional file attachment cache dir from config
+    this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
+
+    // Services and interceptors
     this.#mcpServerManager = services.mcpServerManager ??
       new McpServerManager();
 
@@ -196,7 +172,7 @@ export class ZypherAgent {
 
     // Load message history if enabled
     if (this.#persistHistory) {
-      this.#messages = await loadMessageHistory();
+      this.#messages = await loadMessageHistory(this.#workingDirectory);
     }
   }
 
@@ -205,7 +181,7 @@ export class ZypherAgent {
    * This method reads custom rules from the current working directory
    */
   async #loadSystemPrompt(): Promise<void> {
-    const userInfo = getCurrentUserInfo();
+    const userInfo = getCurrentUserInfo(this.#workingDirectory);
     this.#system = await getSystemPrompt(
       userInfo,
       this.#customInstructions,
@@ -256,7 +232,7 @@ export class ZypherAgent {
 
     // Save updated message history if enabled
     if (this.#persistHistory) {
-      void saveMessageHistory(this.#messages);
+      void saveMessageHistory(this.#messages, this.#workingDirectory);
     }
   }
 
@@ -278,7 +254,7 @@ export class ZypherAgent {
   async applyCheckpoint(checkpointId: string): Promise<boolean> {
     try {
       // Apply the checkpoint to the filesystem
-      await applyCheckpoint(checkpointId);
+      await this.#checkpointManager.applyCheckpoint(checkpointId);
 
       // Update message history to discard messages beyond the checkpoint
       const checkpointIndex = this.#messages.findIndex(
@@ -291,7 +267,7 @@ export class ZypherAgent {
 
         // Save updated message history if enabled
         if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages);
+          await saveMessageHistory(this.#messages, this.#workingDirectory);
         }
       }
 
@@ -355,12 +331,23 @@ export class ZypherAgent {
       signal?: AbortSignal;
     },
   ): Observable<TaskEvent> {
-    return from(
-      this.#runTaskInternal(taskDescription, model, fileAttachments, options),
+    // Create a single Subject for all task events
+    const taskEventSubject = new Subject<TaskEvent>();
+
+    // Start the internal task execution (fire-and-forget)
+    this.#runTaskInternal(
+      taskEventSubject,
+      taskDescription,
+      model,
+      fileAttachments,
+      options,
     );
+
+    return taskEventSubject.asObservable();
   }
 
-  async *#runTaskInternal(
+  async #runTaskInternal(
+    taskEventSubject: Subject<TaskEvent>,
     taskDescription: string,
     model: string,
     fileAttachments?: FileAttachment[],
@@ -368,7 +355,7 @@ export class ZypherAgent {
       maxIterations?: number;
       signal?: AbortSignal;
     },
-  ): AsyncGenerator<TaskEvent> {
+  ): Promise<void> {
     // Use default maxIterations if not provided
     const maxIterations = options?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     if (!this.#checkAndSetTaskRunning()) {
@@ -409,8 +396,12 @@ export class ZypherAgent {
         const checkpointName = `Before task: ${
           taskDescription.substring(0, 50)
         }${taskDescription.length > 50 ? "..." : ""}`;
-        checkpointId = await createCheckpoint(checkpointName);
-        checkpoint = await getCheckpointDetails(checkpointId);
+        checkpointId = await this.#checkpointManager.createCheckpoint(
+          checkpointName,
+        );
+        checkpoint = await this.#checkpointManager.getCheckpointDetails(
+          checkpointId,
+        );
       }
 
       const messageContent: ContentBlock[] = [
@@ -430,7 +421,7 @@ export class ZypherAgent {
         timestamp: new Date(), // current timestamp
       };
       this.#messages.push(userMessage);
-      yield { type: "message", message: userMessage };
+      taskEventSubject.next({ type: "message", message: userMessage });
 
       const toolCalls = Array.from(
         this.#mcpServerManager.getAllTools().values(),
@@ -466,9 +457,9 @@ export class ZypherAgent {
         const modelEvents = stream.events;
         for await (const event of eachValueFrom(modelEvents)) {
           if (event.type === "text") {
-            yield { type: "text", content: event.text };
+            taskEventSubject.next({ type: "text", content: event.text });
           } else if (event.type === "message") {
-            yield { type: "message", message: event.message };
+            taskEventSubject.next({ type: "message", message: event.message });
           }
         }
 
@@ -481,7 +472,7 @@ export class ZypherAgent {
           timestamp: new Date(),
         };
         this.#messages.push(assistantMessage);
-        yield { type: "message", message: assistantMessage };
+        taskEventSubject.next({ type: "message", message: assistantMessage });
 
         // Check for cancellation
         if (mergedSignal.aborted) {
@@ -494,27 +485,27 @@ export class ZypherAgent {
           .map((block) => block.text)
           .join("");
 
-        const messageCountBefore = this.#messages.length;
+        // Create a proxied message array that automatically emits events when modified
+        const emittingMessages = createEmittingMessageArray(
+          this.#messages,
+          taskEventSubject,
+        );
 
         const interceptorContext = {
-          messages: this.#messages,
+          messages: emittingMessages,
           lastResponse: responseText,
           tools: toolCalls,
-          workingDirectory: Deno.cwd(),
+          workingDirectory: this.#workingDirectory,
           stopReason: finalMessage.stop_reason,
           signal: mergedSignal,
+          eventSubject: taskEventSubject,
         };
 
         const interceptorResult = await this.#loopInterceptorManager.execute(
           interceptorContext,
         );
 
-        if (interceptorResult.decision === LoopDecision.CONTINUE) {
-          // Yield any new messages added by interceptors
-          for (let i = messageCountBefore; i < this.#messages.length; i++) {
-            yield { type: "message", message: this.#messages[i] };
-          }
-        } else {
+        if (interceptorResult.decision === LoopDecision.COMPLETE) {
           // All interceptors decided to complete, exit the loop
           break;
         }
@@ -524,39 +515,39 @@ export class ZypherAgent {
 
       // Save updated message history if enabled
       if (this.#persistHistory) {
-        await saveMessageHistory(this.#messages);
+        await saveMessageHistory(this.#messages, this.#workingDirectory);
       }
 
-      return this.messages;
+      // Task completed successfully
     } catch (error) {
       if (isAbortError(error)) {
         console.log(formatError(error));
         console.log("🛑 Task aborted.");
 
-        yield {
+        taskEventSubject.next({
           type: "cancelled",
           reason: options?.signal?.aborted ? "user" : "timeout",
-        };
+        });
 
         if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages);
+          await saveMessageHistory(this.#messages, this.#workingDirectory);
         }
-
-        return this.messages;
       }
 
       console.error(formatError(error));
-
-      throw error;
+      taskEventSubject.error(error);
     } finally {
-      // Clean up resources
-      this.#isTaskRunning = false;
-
       // Clear task timeout if it exists
       if (timeoutId !== null) {
         clearTimeout(timeoutId);
       }
 
+      // Complete the task event subject if it hasn't errored
+      if (!taskEventSubject.closed) {
+        taskEventSubject.complete();
+      }
+
+      this.#isTaskRunning = false;
       this.#taskCompleter.resolve();
     }
   }

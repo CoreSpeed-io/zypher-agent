@@ -2,8 +2,8 @@ import "@std/dotenv/load";
 import { formatError, runAgentInTerminal, ZypherAgent } from "@zypher/mod.ts";
 import {
   CopyFileTool,
-  defineEditFileTool,
-  defineImageTools,
+  createEditFileTools,
+  createImageTools,
   DeleteFileTool,
   FileSearchTool,
   GrepSearchTool,
@@ -40,7 +40,10 @@ const { options: cli } = await new Command()
     "Model provider",
   )
   .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
-  .option("-w, --workspace <workspace:string>", "Workspace directory")
+  .option(
+    "-w, --workDir <workingDirectory:string>",
+    "Working directory for agent operations",
+  )
   .option("-u, --user-id <userId:string>", "Custom user ID")
   .option(
     "--openai-api-key <openaiApiKey:string>",
@@ -76,25 +79,17 @@ function inferProvider(
 
 async function main(): Promise<void> {
   try {
-    // Handle workspace option
-    if (cli.workspace) {
-      try {
-        Deno.chdir(cli.workspace);
-        console.log(`🚀 Changed working directory to: ${Deno.cwd()}`);
-      } catch (error) {
-        throw new Error(
-          `Failed to change to workspace directory: ${formatError(error)}`,
-        );
-      }
-    }
-
     // Log CLI configuration
     if (cli.userId) {
-      console.log(`👤 Using custom user ID: ${cli.userId}`);
+      console.log(`👤 Using user ID: ${cli.userId}`);
     }
 
     if (cli.baseUrl) {
-      console.log(`🌐 Using custom API base URL: ${cli.baseUrl}`);
+      console.log(`🌐 Using API base URL: ${cli.baseUrl}`);
+    }
+
+    if (cli.workDir) {
+      console.log(`💻 Using working directory: ${cli.workDir}`);
     }
 
     const selectedProvider = inferProvider(cli.provider, cli.model);
@@ -128,6 +123,7 @@ async function main(): Promise<void> {
       providerInstance,
       {
         userId: cli.userId,
+        workingDirectory: cli.workDir,
       },
       {},
       noteStore,
@@ -148,14 +144,15 @@ async function main(): Promise<void> {
     const openaiApiKey = cli.provider === "openai"
       ? cli.apiKey
       : cli.openaiApiKey;
+
     if (openaiApiKey) {
-      const { ImageGenTool, ImageEditTool } = defineImageTools(openaiApiKey);
+      const { ImageGenTool, ImageEditTool } = createImageTools(openaiApiKey);
       mcpServerManager.registerTool(ImageGenTool);
       mcpServerManager.registerTool(ImageEditTool);
     }
 
     const backupDir = cli.backupDir ?? DEFAULT_BACKUP_DIR;
-    const { EditFileTool } = defineEditFileTool(backupDir);
+    const { EditFileTool } = createEditFileTools(backupDir);
     mcpServerManager.registerTool(EditFileTool);
 
     console.log(

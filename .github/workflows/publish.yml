@@ -1,0 +1,87 @@
+name: Publish to JSR
+
+on:
+  push:
+    branches: [main]
+    paths: ["deno.json"]
+
+jobs:
+  check-version-change:
+    runs-on: ubuntu-latest
+    outputs:
+      version-changed: ${{ steps.check.outputs.changed }}
+      new-version: ${{ steps.check.outputs.new-version }}
+      old-version: ${{ steps.check.outputs.old-version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Only need previous commit
+
+      - name: Check version change
+        id: check
+        run: |
+          NEW_VERSION=$(jq -r '.version' deno.json)
+          OLD_VERSION=$(git show HEAD~1:deno.json | jq -r '.version' 2>/dev/null || echo "0.0.0")
+
+          if [ "$NEW_VERSION" != "$OLD_VERSION" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "old-version=$OLD_VERSION" >> $GITHUB_OUTPUT
+            echo "🚀 Version change detected: $OLD_VERSION → $NEW_VERSION"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No version change in deno.json"
+          fi
+
+  publish:
+    needs: [check-version-change]
+    if: needs.check-version-change.outputs.version-changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required for creating GitHub releases
+      id-token: write # Required for JSR authentication
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.1
+
+      - name: Install dependencies
+        run: deno install --frozen=true
+
+      - name: Run validation
+        run: |
+          echo "🔍 Validating v${{ needs.check-version-change.outputs.new-version }}..."
+          deno fmt --check
+          deno lint
+          deno check .
+          deno test --ignore=**/*.integration.test.ts
+
+      - name: Generate changelog
+        id: changelog
+        continue-on-error: true
+        uses: mikepenz/release-changelog-builder-action@v5
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.check-version-change.outputs.new-version }}
+          release_name: Release v${{ needs.check-version-change.outputs.new-version }}
+          body: |
+            ${{ steps.changelog.outputs.changelog || format('Release v{0}', needs.check-version-change.outputs.new-version) }}
+
+            ---
+            📦 **JSR Package**: https://jsr.io/@corespeed/zypher/v${{ needs.check-version-change.outputs.new-version }}
+          draft: false
+          prerelease: ${{ contains(needs.check-version-change.outputs.new-version, '-') }}
+
+      - name: Publish to JSR
+        run: |
+          echo "📦 Publishing v${{ needs.check-version-change.outputs.new-version }} to JSR..."
+          deno publish
+          echo "✅ Successfully published!"
