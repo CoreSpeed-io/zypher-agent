@@ -1,10 +1,3 @@
-import {
-  getCurrentUserInfo,
-  getZypherDir,
-  loadMessageHistory,
-  saveMessageHistory,
-} from "./utils/mod.ts";
-import { getSystemPrompt } from "./prompt.ts";
 import type { Checkpoint } from "./CheckpointManager.ts";
 import { CheckpointManager } from "./CheckpointManager.ts";
 import type { ContentBlock, FileAttachment, Message } from "./message/mod.ts";
@@ -31,10 +24,38 @@ import {
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
-import * as path from "@std/path";
+import type { MessageHistoryRepository } from "./message/MessageHistoryRepository.ts";
 
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MAX_ITERATIONS = 25;
+
+/**
+ * Function that loads the system prompt for the agent.
+ * This allows developers to implement custom prompt loading logic,
+ * such as reading from files, fetching from APIs, or computing dynamically.
+ */
+export type SystemPromptLoader = () => Promise<string>;
+
+/**
+ * ZypherContext represents the workspace and filesystem environment where the agent operates.
+ *
+ * This is fundamentally different from {@link ZypherAgentConfig}:
+ * - {@link ZypherContext} defines WHERE the agent operates (workspace/filesystem management)
+ * - {@link ZypherAgentConfig} defines HOW the agent behaves (behavioral configuration)
+ */
+export interface ZypherContext {
+  /** Working directory where the agent performs file operations and executes tasks */
+  workingDirectory: string;
+  /** Base zypher directory for all agent data storage (Defaults to ~/.zypher) */
+  zypherDir: string;
+  /** Workspace-specific data directory for isolated storage (Defaults to ~/.zypher/encoded_working_directory_path)
+   * Used for message history, checkpoints, and other workspace-specific data */
+  workspaceDataDir: string;
+  /** Unique identifier for tracking user-specific usage history */
+  userId?: string;
+  /** Directory to cache file attachments (Defaults to ~/.zypher/cache/files) */
+  fileAttachmentCacheDir: string;
+}
 
 export interface ZypherAgentServices {
   /** Custom MCP server manager. If not provided, a default instance will be created. */
@@ -43,27 +64,18 @@ export interface ZypherAgentServices {
   loopInterceptorManager?: LoopInterceptorManager;
   /** Storage service for file attachments */
   storageService?: StorageService;
+  /** Message history repository for conversation persistence. If not provided, messages won't be persisted. */
+  messageHistoryRepository?: MessageHistoryRepository;
 }
 
 export interface ZypherAgentConfig {
   maxTokens?: number;
-  /** Whether to load and save message history. Defaults to true. */
-  persistHistory?: boolean;
   /** Whether to enable checkpointing. Defaults to true. */
   enableCheckpointing?: boolean;
-  /** Unique identifier for tracking user-specific usage history */
-  userId?: string;
   /** Maximum allowed time for a task in milliseconds before it's automatically cancelled. Default is 1 minute (60000ms). Set to 0 to disable. */
   taskTimeoutMs?: number;
-  /** Directory to cache file attachments */
-  fileAttachmentCacheDir?: string;
   /** Custom instructions to override the default instructions. */
   customInstructions?: string;
-  /**
-   * Optional working directory override without changing process cwd.
-   * When set, tools and checkpoints operate relative to this directory.
-   */
-  workingDirectory?: string;
 }
 
 export class ZypherAgent {
@@ -72,20 +84,17 @@ export class ZypherAgent {
   readonly #loopInterceptorManager: LoopInterceptorManager;
   readonly #checkpointManager: CheckpointManager;
   readonly #storageService?: StorageService;
+  readonly #fileAttachmentManager?: FileAttachmentManager;
+  readonly #messageHistoryRepository?: MessageHistoryRepository;
+
+  readonly #systemPromptLoader: SystemPromptLoader;
 
   readonly #maxTokens: number;
-  readonly #persistHistory: boolean;
   readonly #enableCheckpointing: boolean;
-  readonly #userId?: string;
   readonly #taskTimeoutMs: number;
-  readonly #fileAttachmentCacheDir?: string;
-  readonly #customInstructions?: string;
-  readonly #workingDirectory: string;
-
-  #fileAttachmentManager?: FileAttachmentManager;
+  readonly #context: ZypherContext;
 
   #messages: Message[];
-  #system: string;
 
   // Task execution state
   #isTaskRunning: boolean = false;
@@ -95,38 +104,35 @@ export class ZypherAgent {
    * Creates a new ZypherAgent instance
    *
    * @param modelProvider The AI model provider to use for chat completions
+   * @param systemPromptLoader Function to load the system prompt for each task
+   * @param context ZypherContext containing workspace configuration
    * @param config Configuration options for the agent's behavior
    * @param services External services for the agent. The agent takes ownership of all provided services:
    *   - mcpServerManager: Creates default instance if not provided
    *   - loopInterceptorManager: Creates default with ToolExecutionInterceptor and MaxTokensInterceptor if not provided
    *   - storageService: Optional, no default created - only used if explicitly provided
+   *   - messageHistoryRepository: Repository for conversation persistence. Call loadHistory() for immediate access to history.
    */
   constructor(
     modelProvider: ModelProvider,
+    systemPromptLoader: SystemPromptLoader,
+    context: ZypherContext,
     config: ZypherAgentConfig = {},
     services: ZypherAgentServices = {},
   ) {
-    const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
-
     this.#modelProvider = modelProvider;
+    this.#systemPromptLoader = systemPromptLoader;
     this.#messages = [];
-    this.#system = ""; // Will be initialized in init()
     this.#maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
-    this.#persistHistory = config.persistHistory ?? true;
     this.#enableCheckpointing = config.enableCheckpointing ?? true;
-    this.#userId = userId;
 
     // Default timeout is 15 minutes, 0 = disabled
     this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
-    this.#customInstructions = config.customInstructions;
-    // Working directory and checkpoint manager
-    this.#workingDirectory = config.workingDirectory ?? Deno.cwd();
+    // Context and checkpoint manager
+    this.#context = context;
     this.#checkpointManager = new CheckpointManager(
-      this.#workingDirectory,
+      this.#context.workingDirectory,
     );
-
-    // Optional file attachment cache dir from config
-    this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
 
     // Services and interceptors
     this.#mcpServerManager = services.mcpServerManager ??
@@ -137,35 +143,17 @@ export class ZypherAgent {
         new MaxTokensInterceptor(),
       ]);
     this.#storageService = services.storageService;
-  }
 
-  async init(): Promise<void> {
-    await this.#loadSystemPrompt();
+    // Initialize message history repository only if provided
+    this.#messageHistoryRepository = services.messageHistoryRepository;
 
+    // Initialize file attachment manager if storage service is provided
     if (this.#storageService) {
       this.#fileAttachmentManager = new FileAttachmentManager(
         this.#storageService,
-        this.#fileAttachmentCacheDir ??
-          path.join(await getZypherDir(), "cache", "files"),
+        this.#context.fileAttachmentCacheDir,
       );
     }
-
-    // Load message history if enabled
-    if (this.#persistHistory) {
-      this.#messages = await loadMessageHistory(this.#workingDirectory);
-    }
-  }
-
-  /**
-   * Load or reload the system prompt with current custom rules
-   * This method reads custom rules from the current working directory
-   */
-  async #loadSystemPrompt(): Promise<void> {
-    const userInfo = getCurrentUserInfo(this.#workingDirectory);
-    this.#system = await getSystemPrompt(
-      userInfo,
-      this.#customInstructions,
-    );
   }
 
   /**
@@ -174,6 +162,22 @@ export class ZypherAgent {
    */
   get messages(): Message[] {
     return [...this.#messages];
+  }
+
+  /**
+   * Load message history from the repository if available.
+   * This method provides immediate access to conversation history for scenarios like:
+   * - Checkpoint rollback before running tasks
+   * - Message inspection and analysis
+   * - Resume from previous sessions
+   *
+   * If no repository is configured or messages are already loaded, this is a no-op.
+   * Note: runTask() will also load history automatically as a fallback.
+   */
+  async loadHistory(): Promise<void> {
+    if (this.#messageHistoryRepository && this.#messages.length === 0) {
+      this.#messages = await this.#messageHistoryRepository.load();
+    }
   }
 
   /**
@@ -211,8 +215,9 @@ export class ZypherAgent {
     this.#messages = [];
 
     // Save updated message history if enabled
-    if (this.#persistHistory) {
-      void saveMessageHistory(this.#messages, this.#workingDirectory);
+    if (this.#messageHistoryRepository) {
+      const repo = this.#messageHistoryRepository;
+      void repo.save(this.#messages);
     }
   }
 
@@ -238,8 +243,9 @@ export class ZypherAgent {
         this.#messages = this.#messages.slice(0, checkpointIndex);
 
         // Save updated message history if enabled
-        if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages, this.#workingDirectory);
+        if (this.#messageHistoryRepository) {
+          const repo = this.#messageHistoryRepository;
+          await repo.save(this.#messages);
         }
       }
 
@@ -357,8 +363,15 @@ export class ZypherAgent {
     }
 
     try {
-      // Reload system prompt to get current custom rules from working directory
-      await this.#loadSystemPrompt();
+      // Load system prompt and message history
+      const systemPrompt = await this.#systemPromptLoader();
+
+      // Load message history as fallback if repository provided and not already loaded
+      // Note: For immediate access to history (e.g., checkpoint rollback), call loadHistory() explicitly
+      if (this.#messageHistoryRepository && this.#messages.length === 0) {
+        const repo = this.#messageHistoryRepository;
+        this.#messages = await repo.load();
+      }
 
       let iterations = 0;
 
@@ -418,10 +431,10 @@ export class ZypherAgent {
           {
             model,
             maxTokens: this.#maxTokens,
-            system: this.#system,
+            system: systemPrompt,
             messages: this.#messages,
             tools: toolCalls,
-            userId: this.#userId,
+            userId: this.#context.userId,
           },
           cacheMap,
         );
@@ -467,7 +480,7 @@ export class ZypherAgent {
           messages: emittingMessages,
           lastResponse: responseText,
           tools: toolCalls,
-          workingDirectory: this.#workingDirectory,
+          workingDirectory: this.#context.workingDirectory,
           stopReason: finalMessage.stop_reason,
           signal: mergedSignal,
           eventSubject: taskEventSubject,
@@ -486,8 +499,9 @@ export class ZypherAgent {
       }
 
       // Save updated message history if enabled
-      if (this.#persistHistory) {
-        await saveMessageHistory(this.#messages, this.#workingDirectory);
+      if (this.#messageHistoryRepository) {
+        const repo = this.#messageHistoryRepository;
+        await repo.save(this.#messages);
       }
 
       // Task completed successfully
@@ -501,8 +515,9 @@ export class ZypherAgent {
           reason: options?.signal?.aborted ? "user" : "timeout",
         });
 
-        if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages, this.#workingDirectory);
+        if (this.#messageHistoryRepository) {
+          const repo = this.#messageHistoryRepository;
+          await repo.save(this.#messages);
         }
       }
 

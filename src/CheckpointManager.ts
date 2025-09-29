@@ -1,6 +1,7 @@
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
-import { getWorkspaceDataDir, runCommand } from "./utils/mod.ts";
+import { runCommand } from "./utils/mod.ts";
+import { createZypherContext } from "./utils/mod.ts";
 
 /**
  * Checkpoint information
@@ -41,8 +42,8 @@ export class CheckpointManager {
   }
 
   async #getWorkspaceCheckpointsDir(): Promise<string> {
-    const workspaceDir = await getWorkspaceDataDir(this.#workingDirectory);
-    const checkpointsDir = path.join(workspaceDir, "checkpoints");
+    const context = await createZypherContext(this.#workingDirectory);
+    const checkpointsDir = path.join(context.workspaceDataDir, "checkpoints");
 
     // Create checkpoints directory if it doesn't exist
     await ensureDir(checkpointsDir);

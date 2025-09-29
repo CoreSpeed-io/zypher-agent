@@ -8,6 +8,9 @@ export * from "./error.ts";
 export * from "./message/mod.ts";
 export * from "./prompt.ts";
 
+// Message history repositories
+export * from "./message/mod.ts";
+
 // Modules
 export * from "./llm/mod.ts";
 export * from "./loopInterceptors/mod.ts";

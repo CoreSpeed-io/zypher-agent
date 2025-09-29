@@ -1,5 +1,13 @@
 import "@std/dotenv/load";
-import { formatError, runAgentInTerminal, ZypherAgent } from "@zypher/mod.ts";
+import {
+  createZypherContext,
+  formatError,
+  getCurrentUserInfo,
+  getSystemPrompt,
+  JsonMessageHistoryRepository,
+  runAgentInTerminal,
+  ZypherAgent,
+} from "@zypher/mod.ts";
 import {
   CopyFileTool,
   createEditFileTools,
@@ -102,13 +110,30 @@ async function main(): Promise<void> {
         baseUrl: cli.baseUrl,
       });
 
+    // Create context and system prompt loader
+    const workingDir = cli.workDir ?? Deno.cwd();
+    const context = await createZypherContext(
+      workingDir,
+      undefined,
+      cli.userId,
+    );
+    const systemPromptLoader = async () => {
+      const userInfo = getCurrentUserInfo(workingDir);
+      return await getSystemPrompt(userInfo);
+    };
+
     const agent = new ZypherAgent(
       providerInstance,
+      systemPromptLoader,
+      context,
+      {},
       {
-        userId: cli.userId,
-        workingDirectory: cli.workDir,
+        messageHistoryRepository: new JsonMessageHistoryRepository(context),
       },
     );
+
+    // Load message history for immediate access to conversation state
+    await agent.loadHistory();
 
     const mcpServerManager = agent.mcpServerManager;
 
@@ -140,9 +165,6 @@ async function main(): Promise<void> {
       "🔧 Registered tools:",
       Array.from(mcpServerManager.getAllTools().keys()).join(", "),
     );
-
-    // Initialize the agent
-    await agent.init();
 
     await runAgentInTerminal(agent, modelToUse);
   } catch (error) {
