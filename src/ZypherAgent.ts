@@ -1,9 +1,4 @@
-import {
-  getCurrentUserInfo,
-  getZypherDir,
-  loadMessageHistory,
-  saveMessageHistory,
-} from "./utils/mod.ts";
+import { getCurrentUserInfo, getZypherDir } from "./utils/mod.ts";
 import { getSystemPrompt } from "./prompt.ts";
 import type { Checkpoint } from "./CheckpointManager.ts";
 import { CheckpointManager } from "./CheckpointManager.ts";
@@ -75,7 +70,6 @@ export class ZypherAgent {
   readonly #storageService?: StorageService;
 
   readonly #maxTokens: number;
-  readonly #persistHistory: boolean;
   readonly #enableCheckpointing: boolean;
   readonly #userId?: string;
   readonly #taskTimeoutMs: number;
@@ -113,7 +107,6 @@ export class ZypherAgent {
     this.#messages = [];
     this.#system = ""; // Will be initialized in init()
     this.#maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
-    this.#persistHistory = config.persistHistory ?? true;
     this.#enableCheckpointing = config.enableCheckpointing ?? true;
     this.#userId = userId;
 
@@ -149,11 +142,6 @@ export class ZypherAgent {
         this.#fileAttachmentCacheDir ??
           path.join(await getZypherDir(), "cache", "files"),
       );
-    }
-
-    // Load message history if enabled
-    if (this.#persistHistory) {
-      this.#messages = await loadMessageHistory(this.#workingDirectory);
     }
   }
 
@@ -210,11 +198,6 @@ export class ZypherAgent {
    */
   clearMessages(): void {
     this.#messages = [];
-
-    // Save updated message history if enabled
-    if (this.#persistHistory) {
-      void saveMessageHistory(this.#messages, this.#workingDirectory);
-    }
   }
 
   /**
@@ -237,11 +220,6 @@ export class ZypherAgent {
       if (checkpointIndex !== -1) {
         // Keep messages up to but excluding the checkpoint message
         this.#messages = this.#messages.slice(0, checkpointIndex);
-
-        // Save updated message history if enabled
-        if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages, this.#workingDirectory);
-        }
       }
 
       return true;
@@ -486,11 +464,6 @@ export class ZypherAgent {
         iterations++;
       }
 
-      // Save updated message history if enabled
-      if (this.#persistHistory) {
-        await saveMessageHistory(this.#messages, this.#workingDirectory);
-      }
-
       // Task completed successfully
     } catch (error) {
       if (isAbortError(error)) {
@@ -501,10 +474,6 @@ export class ZypherAgent {
           type: "cancelled",
           reason: options?.signal?.aborted ? "user" : "timeout",
         });
-
-        if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages, this.#workingDirectory);
-        }
       }
 
       console.error(formatError(error));
