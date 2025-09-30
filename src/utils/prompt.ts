@@ -34,10 +34,11 @@ const SUPPORTED_AGENT_RULE_TYPES = [
 ];
 
 /**
- * Reads custom rules from supported rule files.
- * Tries .zypherrules first, then falls back to other supported rules if not found.
+ * Reads custom rules from supported rule files in the current working directory.
+ * Searches for rule files in the following order and returns the first one found:
+ * .zypherrules, .cursorrules, .windsurfrules, CLAUDE.md, AGENTS.md
  *
- * @returns {Promise<string | null>} Contents of the rules file if found, null otherwise
+ * @returns Contents of the first matching rules file, or null if none found
  *
  * @example
  * const rules = await getCustomRules();
@@ -61,6 +62,17 @@ export async function getCustomRules(): Promise<string | null> {
   }
 }
 
+/**
+ * Generates the system prompt for the Zypher agent.
+ *
+ * @param workingDirectory The working directory where the agent operates
+ * @param options Optional configuration
+ * @param options.userInfo User environment information (OS version, workspace path, shell) to include in the prompt.
+ *  If not provided, defaults to {@link getCurrentUserInfo}(workingDirectory).
+ * @param options.customInstructions Additional instructions to append to the system prompt.
+ *  If not provided, defaults to {@link getCustomRules}(workingDirectory) which loads from supported rule files in the working directory.
+ * @returns The complete system prompt string including custom rules if found
+ */
 export async function getSystemPrompt(
   workingDirectory: string,
   options?: {

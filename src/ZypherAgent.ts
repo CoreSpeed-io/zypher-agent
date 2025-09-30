@@ -3,7 +3,11 @@ import type { CheckpointManager } from "./CheckpointManager.ts";
 import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
-import { Completer, createEmittingMessageArray } from "./utils/mod.ts";
+import {
+  Completer,
+  createEmittingMessageArray,
+  getSystemPrompt,
+} from "./utils/mod.ts";
 import {
   AbortError,
   formatError,
@@ -69,7 +73,7 @@ export interface ZypherAgentOptions {
   checkpointManager?: CheckpointManager;
   /** Override default implementations of core components */
   overrides?: {
-    /** Function that loads the system prompt for the agent. Defaults to empty string. */
+    /** Function that loads the system prompt for the agent. Defaults to {@link getSystemPrompt}. */
     systemPromptLoader?: SystemPromptLoader;
     /** Custom MCP server manager. If not provided, a default instance will be created. */
     mcpServerManager?: McpServerManager;
@@ -96,7 +100,6 @@ export class ZypherAgent {
   readonly #config: ZypherAgentConfig;
 
   #messages: Message[];
-  // Task execution state
   #taskCompleter: Completer<void> | null = null;
 
   /**
@@ -112,9 +115,9 @@ export class ZypherAgent {
     options: ZypherAgentOptions = {},
   ) {
     this.#modelProvider = modelProvider;
-    this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
-      (() => Promise.resolve(""));
     this.#context = context;
+    this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
+      (() => getSystemPrompt(context.workingDirectory));
     this.#config = {
       maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
