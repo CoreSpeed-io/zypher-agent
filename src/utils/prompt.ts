@@ -1,4 +1,29 @@
-import { fileExists, type UserInfo } from "./utils/mod.ts";
+import { fileExists } from "./data.ts";
+
+/**
+ * Information about the user's system environment.
+ */
+export interface UserInfo {
+  /** The operating system version (e.g., 'darwin 24.3.0') */
+  osVersion: string;
+  /** The absolute path of the current working directory */
+  workspacePath: string;
+  /** The user's shell (e.g., '/bin/zsh') */
+  shell: string;
+}
+
+/**
+ * Gets information about the current user's system environment.
+ *
+ * @returns {UserInfo} Object containing OS version, current working directory, and shell information
+ */
+export function getCurrentUserInfo(workingDirectory: string): UserInfo {
+  return {
+    osVersion: `${Deno.build.os} ${Deno.osRelease()}`,
+    workspacePath: workingDirectory,
+    shell: Deno.env.get("SHELL") ?? "unknown",
+  };
+}
 
 const SUPPORTED_AGENT_RULE_TYPES = [
   ".zypherrules", // Zypher's rules
@@ -37,9 +62,14 @@ export async function getCustomRules(): Promise<string | null> {
 }
 
 export async function getSystemPrompt(
-  userInfo: UserInfo,
-  customInstructions?: string,
+  workingDirectory: string,
+  options?: {
+    userInfo?: UserInfo;
+    customInstructions?: string;
+  },
 ): Promise<string> {
+  const userInfo = options?.userInfo ?? getCurrentUserInfo(workingDirectory);
+
   const systemPrompt =
     `You are Zypher, a powerful agentic AI coding assistant by CoreSpeed Inc.
 
@@ -113,7 +143,7 @@ The user's OS version is ${userInfo.osVersion}. The absolute path of the user's 
 Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
 `;
 
-  const customRules = customInstructions ?? (await getCustomRules());
+  const customRules = options?.customInstructions ?? await getCustomRules();
   const customRulesBlock = customRules
     ? `
 <custom_instructions>

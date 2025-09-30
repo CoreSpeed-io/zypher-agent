@@ -17,12 +17,7 @@ import {
   AnthropicModelProvider,
   OpenAIModelProvider,
 } from "@zypher/llm/mod.ts";
-import { getSystemPrompt } from "@zypher/prompt.ts";
-import {
-  getCurrentUserInfo,
-  getWorkspaceDataDir,
-  getZypherDir,
-} from "@zypher/utils/mod.ts";
+import { getWorkspaceDataDir, getZypherDir } from "@zypher/utils/mod.ts";
 import { join } from "@std/path";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
@@ -122,14 +117,6 @@ async function main(): Promise<void> {
         workspaceDataDir,
         fileAttachmentCacheDir,
         userId: cli.userId,
-      },
-      {
-        overrides: {
-          systemPromptLoader: async () => {
-            const userInfo = getCurrentUserInfo(workingDirectory);
-            return await getSystemPrompt(userInfo);
-          },
-        },
       },
     );
 
