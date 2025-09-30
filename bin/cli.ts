@@ -17,6 +17,13 @@ import {
   AnthropicModelProvider,
   OpenAIModelProvider,
 } from "@zypher/llm/mod.ts";
+import { getSystemPrompt } from "@zypher/prompt.ts";
+import {
+  getCurrentUserInfo,
+  getWorkspaceDataDir,
+  getZypherDir,
+} from "@zypher/utils/mod.ts";
+import { join } from "@std/path";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
@@ -102,11 +109,27 @@ async function main(): Promise<void> {
         baseUrl: cli.baseUrl,
       });
 
+    const workingDirectory = cli.workDir ?? Deno.cwd();
+    const zypherDir = await getZypherDir();
+    const workspaceDataDir = await getWorkspaceDataDir(workingDirectory);
+    const fileAttachmentCacheDir = join(zypherDir, "cache", "files");
+
     const agent = new ZypherAgent(
       providerInstance,
       {
+        workingDirectory,
+        zypherDir,
+        workspaceDataDir,
+        fileAttachmentCacheDir,
         userId: cli.userId,
-        workingDirectory: cli.workDir,
+      },
+      {
+        overrides: {
+          systemPromptLoader: async () => {
+            const userInfo = getCurrentUserInfo(workingDirectory);
+            return await getSystemPrompt(userInfo);
+          },
+        },
       },
     );
 
@@ -140,9 +163,6 @@ async function main(): Promise<void> {
       "🔧 Registered tools:",
       Array.from(mcpServerManager.getAllTools().keys()).join(", "),
     );
-
-    // Initialize the agent
-    await agent.init();
 
     await runAgentInTerminal(agent, modelToUse);
   } catch (error) {

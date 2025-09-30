@@ -1,5 +1,6 @@
 export * from "./data.ts";
 export * from "./completer.ts";
+export * from "./EmittingMessageArray.ts";
 
 /**
  * Information about the user's system environment.

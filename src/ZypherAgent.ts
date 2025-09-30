@@ -1,11 +1,9 @@
-import { getCurrentUserInfo, getZypherDir } from "./utils/mod.ts";
-import { getSystemPrompt } from "./prompt.ts";
 import type { Checkpoint } from "./CheckpointManager.ts";
-import { CheckpointManager } from "./CheckpointManager.ts";
+import type { CheckpointManager } from "./CheckpointManager.ts";
 import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
-import { Completer } from "./utils/mod.ts";
+import { Completer, createEmittingMessageArray } from "./utils/mod.ts";
 import {
   AbortError,
   formatError,
@@ -25,136 +23,123 @@ import {
   MaxTokensInterceptor,
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
-import { createEmittingMessageArray } from "./utils/EmittingMessageArray.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
-import * as path from "@std/path";
 
-const DEFAULT_MAX_TOKENS = 8192;
-const DEFAULT_MAX_ITERATIONS = 25;
+/**
+ * Function that loads the system prompt for the agent.
+ * This allows developers to implement custom prompt loading logic,
+ * such as reading from files, fetching from APIs, or computing dynamically.
+ */
+export type SystemPromptLoader = () => Promise<string>;
 
-export interface ZypherAgentServices {
-  /** Custom MCP server manager. If not provided, a default instance will be created. */
-  mcpServerManager?: McpServerManager;
-  /** Custom loop interceptor manager. If not provided, a default instance will be created. */
-  loopInterceptorManager?: LoopInterceptorManager;
-  /** Storage service for file attachments */
-  storageService?: StorageService;
+/**
+ * ZypherContext represents the workspace and filesystem environment where the agent operates.
+ *
+ * This is fundamentally different from {@link ZypherAgentConfig}:
+ * - {@link ZypherContext} defines WHERE the agent operates (workspace/filesystem management)
+ * - {@link ZypherAgentConfig} defines HOW the agent behaves (behavioral configuration)
+ */
+export interface ZypherContext {
+  /** Working directory where the agent performs file operations and executes tasks */
+  workingDirectory: string;
+  /** Base zypher directory for all agent data storage (Defaults to ~/.zypher) */
+  zypherDir: string;
+  /** Workspace-specific data directory for isolated storage (Defaults to ~/.zypher/encoded_working_directory_path)
+   * Used for message history, checkpoints, and other workspace-specific data */
+  workspaceDataDir: string;
+  /** Unique identifier for tracking user-specific usage history */
+  userId?: string;
+  /** Directory to cache file attachments (Defaults to ~/.zypher/cache/files) */
+  fileAttachmentCacheDir: string;
 }
 
 export interface ZypherAgentConfig {
-  maxTokens?: number;
-  /** Whether to load and save message history. Defaults to true. */
-  persistHistory?: boolean;
-  /** Whether to enable checkpointing. Defaults to true. */
-  enableCheckpointing?: boolean;
-  /** Unique identifier for tracking user-specific usage history */
-  userId?: string;
-  /** Maximum allowed time for a task in milliseconds before it's automatically cancelled. Default is 1 minute (60000ms). Set to 0 to disable. */
-  taskTimeoutMs?: number;
-  /** Directory to cache file attachments */
-  fileAttachmentCacheDir?: string;
-  /** Custom instructions to override the default instructions. */
-  customInstructions?: string;
-  /**
-   * Optional working directory override without changing process cwd.
-   * When set, tools and checkpoints operate relative to this directory.
-   */
-  workingDirectory?: string;
+  /** Maximum number of agent loop iterations. Defaults to 25. */
+  maxIterations: number;
+  /** Maximum tokens per response. Defaults to 8192. */
+  maxTokens: number;
+  /** Maximum allowed time for a task in milliseconds before it's automatically cancelled. Default is 15 minutes (900000ms). Set to 0 to disable. */
+  taskTimeoutMs: number;
 }
+
+export interface ZypherAgentOptions {
+  /** Storage service for file attachments */
+  storageService?: StorageService;
+  /** Checkpoint manager for creating and managing git-based checkpoints */
+  checkpointManager?: CheckpointManager;
+  /** Override default implementations of core components */
+  overrides?: {
+    /** Function that loads the system prompt for the agent. Defaults to empty string. */
+    systemPromptLoader?: SystemPromptLoader;
+    /** Custom MCP server manager. If not provided, a default instance will be created. */
+    mcpServerManager?: McpServerManager;
+    /** Custom loop interceptor manager. If not provided, a default instance will be created. */
+    loopInterceptorManager?: LoopInterceptorManager;
+  };
+  config?: Partial<ZypherAgentConfig>;
+}
+
+const DEFAULT_MAX_TOKENS = 8192;
+const DEFAULT_MAX_ITERATIONS = 25;
+const DEFAULT_TASK_TIMEOUT_MS = 900000;
 
 export class ZypherAgent {
   readonly #modelProvider: ModelProvider;
   readonly #mcpServerManager: McpServerManager;
   readonly #loopInterceptorManager: LoopInterceptorManager;
-  readonly #checkpointManager: CheckpointManager;
+  readonly #checkpointManager?: CheckpointManager;
+  readonly #systemPromptLoader: SystemPromptLoader;
   readonly #storageService?: StorageService;
+  readonly #fileAttachmentManager?: FileAttachmentManager;
 
-  readonly #maxTokens: number;
-  readonly #enableCheckpointing: boolean;
-  readonly #userId?: string;
-  readonly #taskTimeoutMs: number;
-  readonly #fileAttachmentCacheDir?: string;
-  readonly #customInstructions?: string;
-  readonly #workingDirectory: string;
-
-  #fileAttachmentManager?: FileAttachmentManager;
+  readonly #context: ZypherContext;
+  readonly #config: ZypherAgentConfig;
 
   #messages: Message[];
-  #system: string;
-
   // Task execution state
-  #isTaskRunning: boolean = false;
   #taskCompleter: Completer<void> | null = null;
 
   /**
    * Creates a new ZypherAgent instance
    *
    * @param modelProvider The AI model provider to use for chat completions
-   * @param config Configuration options for the agent's behavior
-   * @param services External services for the agent. The agent takes ownership of all provided services:
-   *   - mcpServerManager: Creates default instance if not provided
-   *   - loopInterceptorManager: Creates default with ToolExecutionInterceptor and MaxTokensInterceptor if not provided
-   *   - storageService: Optional, no default created - only used if explicitly provided
+   * @param context Workspace and filesystem environment configuration
+   * @param options Configuration options for the agent
    */
   constructor(
     modelProvider: ModelProvider,
-    config: ZypherAgentConfig = {},
-    services: ZypherAgentServices = {},
+    context: ZypherContext,
+    options: ZypherAgentOptions = {},
   ) {
-    const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
-
     this.#modelProvider = modelProvider;
+    this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
+      (() => Promise.resolve(""));
+    this.#context = context;
+    this.#config = {
+      maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
+      maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
+      taskTimeoutMs: options.config?.taskTimeoutMs ?? DEFAULT_TASK_TIMEOUT_MS, // Default is 15 minutes
+    };
     this.#messages = [];
-    this.#system = ""; // Will be initialized in init()
-    this.#maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
-    this.#enableCheckpointing = config.enableCheckpointing ?? true;
-    this.#userId = userId;
-
-    // Default timeout is 15 minutes, 0 = disabled
-    this.#taskTimeoutMs = config.taskTimeoutMs ?? 900000;
-    this.#customInstructions = config.customInstructions;
-    // Working directory and checkpoint manager
-    this.#workingDirectory = config.workingDirectory ?? Deno.cwd();
-    this.#checkpointManager = new CheckpointManager(
-      this.#workingDirectory,
-    );
-
-    // Optional file attachment cache dir from config
-    this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
 
     // Services and interceptors
-    this.#mcpServerManager = services.mcpServerManager ??
+    this.#mcpServerManager = options.overrides?.mcpServerManager ??
       new McpServerManager();
-    this.#loopInterceptorManager = services.loopInterceptorManager ??
+    this.#loopInterceptorManager = options.overrides?.loopInterceptorManager ??
       new LoopInterceptorManager([
         new ToolExecutionInterceptor(this.#mcpServerManager),
         new MaxTokensInterceptor(),
       ]);
-    this.#storageService = services.storageService;
-  }
 
-  async init(): Promise<void> {
-    await this.#loadSystemPrompt();
-
+    this.#storageService = options.storageService;
     if (this.#storageService) {
       this.#fileAttachmentManager = new FileAttachmentManager(
         this.#storageService,
-        this.#fileAttachmentCacheDir ??
-          path.join(await getZypherDir(), "cache", "files"),
+        context.fileAttachmentCacheDir,
       );
     }
-  }
 
-  /**
-   * Load or reload the system prompt with current custom rules
-   * This method reads custom rules from the current working directory
-   */
-  async #loadSystemPrompt(): Promise<void> {
-    const userInfo = getCurrentUserInfo(this.#workingDirectory);
-    this.#system = await getSystemPrompt(
-      userInfo,
-      this.#customInstructions,
-    );
+    this.#checkpointManager = options.checkpointManager;
   }
 
   /**
@@ -166,17 +151,17 @@ export class ZypherAgent {
   }
 
   /**
-   * Get the configured task timeout in milliseconds
+   * Get the configured agent configuration
    */
-  get taskTimeoutMs(): number {
-    return this.#taskTimeoutMs;
+  get config(): ZypherAgentConfig {
+    return this.#config;
   }
 
   /**
    * Check if a task is currently running
    */
   get isTaskRunning(): boolean {
-    return this.#isTaskRunning;
+    return this.#taskCompleter !== null;
   }
 
   /**
@@ -208,6 +193,10 @@ export class ZypherAgent {
    * @returns True if the checkpoint was applied successfully, false otherwise
    */
   async applyCheckpoint(checkpointId: string): Promise<boolean> {
+    if (!this.#checkpointManager) {
+      throw new Error("Checkpoint manager not provided");
+    }
+
     try {
       // Apply the checkpoint to the filesystem
       await this.#checkpointManager.applyCheckpoint(checkpointId);
@@ -227,28 +216,6 @@ export class ZypherAgent {
       console.error(`Error applying checkpoint: ${formatError(error)}`);
       return false;
     }
-  }
-
-  /**
-   * Atomically checks if a task is running and sets the flag if it's not
-   * This is a critical section that must be executed synchronously (not async)
-   * to ensure atomic "check-and-set" semantics
-   *
-   * This method should only be called by runTaskWithStreaming
-   *
-   * @returns true if the flag was successfully set (no task was running),
-   *          false if a task is already running
-   */
-  #checkAndSetTaskRunning(): boolean {
-    // This critical section is atomic because JavaScript is single-threaded
-    // and this method contains no async operations
-    if (this.#isTaskRunning) {
-      return false;
-    }
-
-    // Set the flag
-    this.#isTaskRunning = true;
-    return true;
   }
 
   /**
@@ -307,17 +274,16 @@ export class ZypherAgent {
       signal?: AbortSignal;
     },
   ): Promise<void> {
-    // Use default maxIterations if not provided
-    const maxIterations = options?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
-    if (!this.#checkAndSetTaskRunning()) {
+    // Check if a task is already running and set the completer atomically
+    // This is safe because JavaScript is single-threaded
+    if (this.#taskCompleter !== null) {
       throw new TaskConcurrencyError(
         "Cannot run multiple tasks concurrently. A task is already running.",
       );
     }
-
     this.#taskCompleter = new Completer<void>();
-    const timeoutController = new AbortController();
 
+    const timeoutController = new AbortController();
     // Create a composite signal that aborts if either the caller's signal or our timeout signal aborts
     const mergedSignal = options?.signal
       ? AbortSignal.any([options.signal, timeoutController.signal])
@@ -325,25 +291,27 @@ export class ZypherAgent {
 
     // Set up task timeout if enabled
     let timeoutId: number | null = null;
-    if (this.#taskTimeoutMs > 0) {
+    if (this.#config.taskTimeoutMs > 0) {
       timeoutId = setTimeout(
         () => {
-          console.log(`🕒 Task timed out after ${this.#taskTimeoutMs}ms`);
+          console.log(
+            `🕒 Task timed out after ${this.#config.taskTimeoutMs}ms`,
+          );
           timeoutController.abort();
         },
-        this.#taskTimeoutMs,
+        this.#config.taskTimeoutMs,
       );
     }
 
     try {
       // Reload system prompt to get current custom rules from working directory
-      await this.#loadSystemPrompt();
+      const systemPrompt = await this.#systemPromptLoader();
 
       let iterations = 0;
 
       let checkpointId: string | undefined;
       let checkpoint: Checkpoint | undefined;
-      if (this.#enableCheckpointing) {
+      if (this.#checkpointManager) {
         const checkpointName = `Before task: ${
           taskDescription.substring(0, 50)
         }${taskDescription.length > 50 ? "..." : ""}`;
@@ -387,6 +355,8 @@ export class ZypherAgent {
           );
       }
 
+      const maxIterations = options?.maxIterations ??
+        this.#config.maxIterations;
       while (iterations < maxIterations) {
         // Check for abort signal early
         if (mergedSignal.aborted) {
@@ -396,11 +366,11 @@ export class ZypherAgent {
         const stream = this.#modelProvider.streamChat(
           {
             model,
-            maxTokens: this.#maxTokens,
-            system: this.#system,
+            maxTokens: this.#config.maxTokens,
+            system: systemPrompt,
             messages: this.#messages,
             tools: toolCalls,
-            userId: this.#userId,
+            userId: this.#context.userId,
           },
           cacheMap,
         );
@@ -446,7 +416,7 @@ export class ZypherAgent {
           messages: emittingMessages,
           lastResponse: responseText,
           tools: toolCalls,
-          workingDirectory: this.#workingDirectory,
+          workingDirectory: this.#context.workingDirectory,
           stopReason: finalMessage.stop_reason,
           signal: mergedSignal,
           eventSubject: taskEventSubject,
@@ -489,8 +459,9 @@ export class ZypherAgent {
         taskEventSubject.complete();
       }
 
-      this.#isTaskRunning = false;
+      // Resolve and clear the task completer
       this.#taskCompleter.resolve();
+      this.#taskCompleter = null;
     }
   }
 
