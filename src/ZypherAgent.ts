@@ -170,14 +170,14 @@ export class ZypherAgent {
   /**
    * Get the MCP server manager for configuration
    */
-  get mcpServerManager(): McpServerManager {
+  get mcp(): McpServerManager {
     return this.#mcpServerManager;
   }
 
   /**
    * Get the loop interceptor manager for configuration
    */
-  get loopInterceptorManager(): LoopInterceptorManager {
+  get loopInterceptor(): LoopInterceptorManager {
     return this.#loopInterceptorManager;
   }
 

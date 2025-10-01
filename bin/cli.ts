@@ -120,7 +120,7 @@ async function main(): Promise<void> {
       },
     );
 
-    const mcpServerManager = agent.mcpServerManager;
+    const mcpServerManager = agent.mcp;
 
     // Register all available tools
     mcpServerManager.registerTool(ReadFileTool);
