@@ -2,6 +2,7 @@ export * from "./data.ts";
 export * from "./cli.ts";
 export * from "./prompt.ts";
 export * from "./completer.ts";
+export * from "./context.ts";
 export * from "./EmittingMessageArray.ts";
 
 /**

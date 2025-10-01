@@ -1,6 +1,7 @@
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
-import { getWorkspaceDataDir, runCommand } from "./utils/mod.ts";
+import { runCommand } from "./utils/mod.ts";
+import type { ZypherContext } from "./ZypherAgent.ts";
 
 /**
  * Checkpoint information
@@ -33,33 +34,17 @@ export interface Checkpoint {
  * @returns Promise resolving to the path to the checkpoints directory
  */
 export class CheckpointManager {
-  #workingDirectory: string;
-  #gitEnv?: Record<string, string>;
+  readonly #gitEnv: Record<string, string>;
+  readonly #checkpointsDir: string;
 
-  constructor(workingDirectory: string) {
-    this.#workingDirectory = workingDirectory;
-  }
-
-  async #getWorkspaceCheckpointsDir(): Promise<string> {
-    const workspaceDir = await getWorkspaceDataDir(this.#workingDirectory);
-    const checkpointsDir = path.join(workspaceDir, "checkpoints");
-
-    // Create checkpoints directory if it doesn't exist
-    await ensureDir(checkpointsDir);
-
-    return checkpointsDir;
-  }
-
-  /**
-   * Get the Git command with the proper git-dir and work-tree flags
-   *
-   * @returns Promise resolving to the Git command prefix
-   */
-  async #getGitEnv(): Promise<Record<string, string>> {
-    const checkpointsDir = await this.#getWorkspaceCheckpointsDir();
-    return this.#gitEnv ??= {
-      GIT_DIR: checkpointsDir,
-      GIT_WORK_TREE: this.#workingDirectory,
+  constructor(readonly context: ZypherContext) {
+    this.#checkpointsDir = path.join(
+      this.context.workspaceDataDir,
+      "checkpoints",
+    );
+    this.#gitEnv = {
+      GIT_DIR: this.#checkpointsDir,
+      GIT_WORK_TREE: this.context.workingDirectory,
     };
   }
 
@@ -67,11 +52,13 @@ export class CheckpointManager {
    * Initialize the checkpoint repository if it doesn't exist
    */
   async #initCheckpointRepo(): Promise<void> {
+    await ensureDir(this.#checkpointsDir);
+
     // Check if Git repository already exists and is valid
     try {
       await runCommand("git", {
         args: ["status"],
-        env: await this.#getGitEnv(),
+        env: this.#gitEnv,
       });
       return; // It's a valid Git repository, so we're done
     } catch {
@@ -81,23 +68,23 @@ export class CheckpointManager {
     // Initialize a new git repository (non-bare)
     await runCommand("git", {
       args: ["init"],
-      env: await this.#getGitEnv(),
+      env: this.#gitEnv,
     });
 
     // Configure the repository
     await runCommand("git", {
       args: ["config", "user.name", "ZypherAgent"],
-      env: await this.#getGitEnv(),
+      env: this.#gitEnv,
     });
     await runCommand("git", {
       args: ["config", "user.email", "zypher@corespeed.io"],
-      env: await this.#getGitEnv(),
+      env: this.#gitEnv,
     });
 
     // Create an initial empty commit
     await runCommand("git", {
       args: ["commit", "--allow-empty", "-m", "Initial checkpoint repository"],
-      env: await this.#getGitEnv(),
+      env: this.#gitEnv,
     });
   }
 
@@ -115,13 +102,13 @@ export class CheckpointManager {
       // Add all files to the index
       await runCommand("git", {
         args: ["add", "-A"],
-        env: await this.#getGitEnv(),
+        env: this.#gitEnv,
       });
 
       // Check if there are any changes
       const { stdout: status } = await runCommand("git", {
         args: ["status", "--porcelain"],
-        env: await this.#getGitEnv(),
+        env: this.#gitEnv,
       });
       const hasChanges = new TextDecoder().decode(status).trim().length > 0;
 
@@ -134,13 +121,13 @@ export class CheckpointManager {
       // Create the commit (using --allow-empty to handle cases with no changes)
       await runCommand("git", {
         args: ["commit", "--allow-empty", "-m", commitMessage],
-        env: await this.#getGitEnv(),
+        env: this.#gitEnv,
       });
 
       // Get the commit hash
       const { stdout: commitHash } = await runCommand("git", {
         args: ["rev-parse", "HEAD"],
-        env: await this.#getGitEnv(),
+        env: this.#gitEnv,
       });
 
       const checkpointId = new TextDecoder().decode(commitHash).trim();
@@ -166,7 +153,7 @@ export class CheckpointManager {
       // Get commit details
       const { stdout: commitInfo } = await runCommand("git", {
         args: ["show", "--no-patch", "--format=%H%n%B%n%aI", checkpointId],
-        env: await this.#getGitEnv(),
+        env: this.#gitEnv,
       });
 
       const lines = new TextDecoder().decode(commitInfo).trim().split("\n");
@@ -214,7 +201,7 @@ export class CheckpointManager {
           "-r",
           checkpointId,
         ],
-        env: await this.#getGitEnv(),
+        env: this.#gitEnv,
       });
 
       const files = new TextDecoder().decode(filesChanged).trim().split("\n")
@@ -247,7 +234,7 @@ export class CheckpointManager {
       // Using a unique delimiter "###COMMIT###" that won't appear in commit messages
       const { stdout } = await runCommand("git", {
         args: ["log", "--pretty=format:###COMMIT###%n%H%n%aI%n%s"],
-        env: await this.#getGitEnv(),
+        env: this.#gitEnv,
       });
 
       if (!new TextDecoder().decode(stdout).trim()) {
@@ -297,7 +284,7 @@ export class CheckpointManager {
         // Get files for this checkpoint
         const { stdout: filesChanged } = await runCommand("git", {
           args: ["diff-tree", "--no-commit-id", "--name-only", "-r", id],
-          env: await this.#getGitEnv(),
+          env: this.#gitEnv,
         });
 
         const files = new TextDecoder().decode(filesChanged).trim().split("\n")
@@ -328,7 +315,7 @@ export class CheckpointManager {
   async applyCheckpoint(checkpointId: string): Promise<void> {
     await runCommand("git", {
       args: ["cat-file", "-e", checkpointId],
-      env: await this.#getGitEnv(),
+      env: this.#gitEnv,
     });
 
     // Get checkpoint details
@@ -348,7 +335,7 @@ export class CheckpointManager {
     // Use checkout to avoid changing the HEAD
     await runCommand("git", {
       args: ["checkout", checkpointId, "--", "."],
-      env: await this.#getGitEnv(),
+      env: this.#gitEnv,
     });
   }
   catch(error: Error) {

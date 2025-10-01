@@ -1,5 +1,12 @@
 import "@std/dotenv/load";
-import { formatError, runAgentInTerminal, ZypherAgent } from "@zypher/mod.ts";
+import {
+  AnthropicModelProvider,
+  createZypherContext,
+  formatError,
+  OpenAIModelProvider,
+  runAgentInTerminal,
+  ZypherAgent,
+} from "@zypher/mod.ts";
 import {
   CopyFileTool,
   createEditFileTools,
@@ -13,12 +20,6 @@ import {
 } from "@zypher/tools/mod.ts";
 import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
-import {
-  AnthropicModelProvider,
-  OpenAIModelProvider,
-} from "@zypher/llm/mod.ts";
-import { getWorkspaceDataDir, getZypherDir } from "@zypher/utils/mod.ts";
-import { join } from "@std/path";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
@@ -105,19 +106,16 @@ async function main(): Promise<void> {
       });
 
     const workingDirectory = cli.workDir ?? Deno.cwd();
-    const zypherDir = await getZypherDir();
-    const workspaceDataDir = await getWorkspaceDataDir(workingDirectory);
-    const fileAttachmentCacheDir = join(zypherDir, "cache", "files");
+    const context = await createZypherContext(
+      workingDirectory,
+      {
+        userId: cli.userId,
+      },
+    );
 
     const agent = new ZypherAgent(
       providerInstance,
-      {
-        workingDirectory,
-        zypherDir,
-        workspaceDataDir,
-        fileAttachmentCacheDir,
-        userId: cli.userId,
-      },
+      context,
     );
 
     const mcpServerManager = agent.mcp;
