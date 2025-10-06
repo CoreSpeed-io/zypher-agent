@@ -90,18 +90,9 @@ control agent loop behavior. Interceptors run after each LLM response and can:
 ### Usage Pattern
 
 ```typescript
-const mcpManager = new McpServerManager();
-const interceptorManager = new LoopInterceptorManager();
-
-// Register interceptors
-interceptorManager.register(new ToolExecutionInterceptor(mcpManager));
-interceptorManager.register(new ErrorDetectionInterceptor());
-
 const agent = new ZypherAgent(
+  context,
   modelProvider,
-  mcpManager,
-  interceptorManager,
-  config,
 );
 ```
 
