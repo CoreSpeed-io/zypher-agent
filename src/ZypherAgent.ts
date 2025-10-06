@@ -110,8 +110,8 @@ export class ZypherAgent {
    * @param options Configuration options for the agent
    */
   constructor(
-    modelProvider: ModelProvider,
     context: ZypherContext,
+    modelProvider: ModelProvider,
     options: ZypherAgentOptions = {},
   ) {
     this.#modelProvider = modelProvider;

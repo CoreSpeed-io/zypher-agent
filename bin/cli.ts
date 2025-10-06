@@ -114,8 +114,8 @@ async function main(): Promise<void> {
     );
 
     const agent = new ZypherAgent(
-      providerInstance,
       context,
+      providerInstance,
     );
 
     const mcpServerManager = agent.mcp;
