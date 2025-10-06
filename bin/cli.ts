@@ -1,5 +1,12 @@
 import "@std/dotenv/load";
-import { formatError, runAgentInTerminal, ZypherAgent } from "@zypher/mod.ts";
+import {
+  AnthropicModelProvider,
+  createZypherContext,
+  formatError,
+  OpenAIModelProvider,
+  runAgentInTerminal,
+  ZypherAgent,
+} from "@zypher/mod.ts";
 import {
   CopyFileTool,
   createEditFileTools,
@@ -13,10 +20,6 @@ import {
 } from "@zypher/tools/mod.ts";
 import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
-import {
-  AnthropicModelProvider,
-  OpenAIModelProvider,
-} from "@zypher/llm/mod.ts";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
@@ -102,15 +105,20 @@ async function main(): Promise<void> {
         baseUrl: cli.baseUrl,
       });
 
-    const agent = new ZypherAgent(
-      providerInstance,
+    const workingDirectory = cli.workDir ?? Deno.cwd();
+    const context = await createZypherContext(
+      workingDirectory,
       {
         userId: cli.userId,
-        workingDirectory: cli.workDir,
       },
     );
 
-    const mcpServerManager = agent.mcpServerManager;
+    const agent = new ZypherAgent(
+      context,
+      providerInstance,
+    );
+
+    const mcpServerManager = agent.mcp;
 
     // Register all available tools
     mcpServerManager.registerTool(ReadFileTool);
@@ -140,9 +148,6 @@ async function main(): Promise<void> {
       "🔧 Registered tools:",
       Array.from(mcpServerManager.getAllTools().keys()).join(", "),
     );
-
-    // Initialize the agent
-    await agent.init();
 
     await runAgentInTerminal(agent, modelToUse);
   } catch (error) {
