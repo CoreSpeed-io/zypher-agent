@@ -3,6 +3,7 @@
 // Core agent
 export * from "./ZypherAgent.ts";
 export * from "./CheckpointManager.ts";
+export * from "./cli.ts";
 export * from "./error.ts";
 export * from "./message.ts";
 
