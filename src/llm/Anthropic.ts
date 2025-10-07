@@ -11,6 +11,9 @@ import { Anthropic, type ClientOptions } from "@anthropic-ai/sdk";
 import type { ContentBlock, ImageBlock, Message } from "../message.ts";
 import { Observable } from "rxjs";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "llm", "anthropic"]);
 
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -160,8 +163,11 @@ export class AnthropicModelProvider implements ModelProvider {
           if (block.type === "file_attachment") {
             const cache = fileAttachmentCacheMap?.[block.fileId];
             if (!cache) {
-              console.warn(
-                `Skipping file attachment as it is not cached. File ID: ${block.fileId}`,
+              logger.warn(
+                "Skipping file attachment {fileId} as it is not cached",
+                {
+                  fileId: block.fileId,
+                },
               );
               return null;
             }
@@ -204,8 +210,12 @@ Cached at: ${cache.cachePath}`,
             }
 
             // Fall back to just the text block for unsupported types
-            console.warn(
-              `File attachment ${block.fileId} is not supported by Anthropic (MIME type: ${block.mimeType}), this file will not be shown to the model.`,
+            logger.warn(
+              "File attachment {fileId} with MIME type {mimeType} is not supported by Anthropic, this file will not be shown to the model",
+              {
+                fileId: block.fileId,
+                mimeType: block.mimeType,
+              },
             );
             return [textBlock];
           } else if (block.type === "image") {
@@ -330,8 +340,11 @@ function mapA7cContentBlockToContentBlock(
         input: block.input,
       };
     default:
-      console.warn(
-        `Received unsupported block type: ${block.type} from Anthropic, ignoring...`,
+      logger.warn(
+        "Received unsupported block type {blockType} from Anthropic, ignoring",
+        {
+          blockType: block.type,
+        },
       );
       return null;
   }
@@ -380,8 +393,11 @@ function mapImageBlockToA7cBlock(
       } satisfies Anthropic.ImageBlockParam;
     }
   } else {
-    console.warn(
-      `You provided an unsupported image source (MIME type: ${block.source.mediaType}), this image will not be shown to the model.`,
+    logger.warn(
+      "You provided an unsupported image source with MIME type {mimeType}, this image will not be shown to the model",
+      {
+        mimeType: block.source.mediaType,
+      },
     );
     return {
       type: "text" as const,

@@ -13,6 +13,9 @@ import type {
   McpRemoteConfig,
   McpServerEndpoint,
 } from "./mod.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "mcp", "connect"]);
 
 /**
  * Interface for handling OAuth authorization callback
@@ -80,7 +83,7 @@ export async function connectToCliServer(
     signal?: AbortSignal;
   },
 ): Promise<Transport> {
-  console.log("CLI transport config", commandConfig);
+  logger.debug("CLI transport config: {command}", { command: commandConfig });
 
   const transport = new StdioClientTransport({
     command: commandConfig.command,
@@ -89,7 +92,9 @@ export async function connectToCliServer(
   });
 
   await client.connect(transport, { signal: options?.signal });
-  console.log(`Connected using CLI transport: ${commandConfig.command}`);
+  logger.info("Connected using CLI transport: {command}", {
+    command: commandConfig.command,
+  });
 
   return transport;
 }
@@ -121,7 +126,9 @@ export async function connectToRemoteServer(
 ): Promise<Transport> {
   const mcpServerUrl = new URL(remoteConfig.url);
 
-  console.log(`Connecting to remote MCP server: ${mcpServerUrl}`);
+  logger.info("Connecting to remote MCP server at {url}", {
+    url: mcpServerUrl.toString(),
+  });
 
   // Following the MCP specification for backwards compatibility:
   // - Attempts to use StreamableHTTPClientTransport first
@@ -144,11 +151,11 @@ export async function connectToRemoteServer(
     );
   } catch (error) {
     if (is4xxError(error)) {
-      console.warn(
-        "Got 4xx error while trying to connect to remote MCP server with StreamableHTTPClientTransport",
-        error,
+      logger.warn(
+        "Got 4xx error while trying to connect to remote MCP server with StreamableHTTPClientTransport: {error}",
+        { error },
       );
-      console.warn("Falling back to SSE transport");
+      logger.warn("Falling back to SSE transport");
       // Fall back to SSE transport
       return await attemptToConnect(
         client,

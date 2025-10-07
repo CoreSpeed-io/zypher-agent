@@ -29,6 +29,9 @@ import type { McpServerEndpoint } from "./mod.ts";
 import { formatError, isAbortError } from "../error.ts";
 import { assert } from "@std/assert";
 import { connectToServer } from "./connect.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "mcp", "client"]);
 
 /** Client-specific configuration options */
 export interface McpClientOptions {
@@ -238,10 +241,14 @@ export class McpClient {
 
     // Subscribe to state changes for logging
     this.#actor.subscribe((snapshot) => {
-      console.log(`McpClient [${this.#serverEndpoint.id}] state transition:`, {
-        currentState: snapshot.value,
-        desiredState: snapshot.context.desiredState,
-      });
+      logger.debug(
+        "McpClient [{serverId}] state transition: {currentState} (desired: {desiredState})",
+        {
+          serverId: this.#serverEndpoint.id,
+          currentState: snapshot.value,
+          desiredState: snapshot.context.desiredState,
+        },
+      );
     });
   }
 
@@ -260,7 +267,9 @@ export class McpClient {
         { signal },
       );
 
-      console.log(`McpClient [${this.#serverEndpoint.id}] connected`);
+      logger.info("McpClient [{serverId}] connected", {
+        serverId: this.#serverEndpoint.id,
+      });
       this.#actor.send({ type: "connectionSuccess" });
     } catch (error) {
       if (isAbortError(error)) {
@@ -277,9 +286,9 @@ export class McpClient {
 
     // Once connected, discover tools
     try {
-      console.log(
-        `McpClient [${this.#serverEndpoint.id}] Discovering tools...`,
-      );
+      logger.info("McpClient [{serverId}] discovering tools", {
+        serverId: this.#serverEndpoint.id,
+      });
       await this.#discoverTools(signal);
       this.#actor.send({ type: "toolDiscovered", tools: this.#tools });
     } catch (error) {
@@ -314,10 +323,12 @@ export class McpClient {
 
     try {
       await this.#client.close();
-      console.log(`McpClient [${this.#serverEndpoint.id}] closed`);
+      logger.info("McpClient [{serverId}] closed", {
+        serverId: this.#serverEndpoint.id,
+      });
     } catch (error) {
       // Ignore errors during close - we're cleaning up anyway
-      console.warn("Error during client close, ignoring:", error);
+      logger.warn("Error during client close, ignoring: {error}", { error });
     }
     this.#transport = null;
     this.#tools = [];
@@ -478,8 +489,12 @@ export class McpClient {
     const toolResult = await this.#client.listTools({
       signal,
     });
-    console.log(
-      `McpClient [${this.#serverEndpoint.id}] Discovered ${toolResult.tools.length} tools from server`,
+    logger.info(
+      "McpClient [{serverId}] discovered {toolCount} tools from server",
+      {
+        serverId: this.#serverEndpoint.id,
+        toolCount: toolResult.tools.length,
+      },
     );
 
     // Convert MCP tools to our internal tool format

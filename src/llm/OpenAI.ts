@@ -11,6 +11,9 @@ import type {
 } from "./ModelProvider.ts";
 import { type ClientOptions, OpenAI } from "@openai/openai";
 import { type ImageBlock, isFileAttachment, type Message } from "../message.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "llm", "openai"]);
 
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -210,8 +213,11 @@ function formatInputMessage(
           } else if (isFileAttachment(c)) {
             const cache = fileAttachmentCacheMap?.[c.fileId];
             if (!cache) {
-              console.warn(
-                `Skipping file attachment as it is not cached. File ID: ${c.fileId}`,
+              logger.warn(
+                "Skipping file attachment {fileId} as it is not cached",
+                {
+                  fileId: c.fileId,
+                },
               );
               return null;
             }
@@ -240,8 +246,12 @@ Cached at: ${cache.cachePath}`,
             }
 
             // Fall back to just the text block for unsupported types
-            console.warn(
-              `File attachment ${c.fileId} is not supported by OpenAI's Chat Completion API (MIME type: ${c.mimeType}), this file will not be shown to the model.`,
+            logger.warn(
+              "File attachment {fileId} with MIME type {mimeType} is not supported by OpenAI's Chat Completion API, this file will not be shown to the model",
+              {
+                fileId: c.fileId,
+                mimeType: c.mimeType,
+              },
             );
             return textBlock;
           }

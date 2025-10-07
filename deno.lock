@@ -7,6 +7,7 @@
     "jsr:@cliffy/table@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@david/code-block-writer@^13.0.3": "13.0.3",
     "jsr:@deno/dnt@~0.42.3": "0.42.3",
+    "jsr:@logtape/logtape@^1.1.1": "1.1.1",
     "jsr:@std/assert@^1.0.13": "1.0.14",
     "jsr:@std/assert@^1.0.14": "1.0.14",
     "jsr:@std/async@^1.0.13": "1.0.14",
@@ -81,6 +82,9 @@
         "jsr:@std/path@1",
         "jsr:@ts-morph/bootstrap"
       ]
+    },
+    "@logtape/logtape@1.1.1": {
+      "integrity": "65ebc4ae58238f7404d96b52112293279b1d256c578621a750e793c36e34c3d2"
     },
     "@std/assert@1.0.14": {
       "integrity": "68d0d4a43b365abc927f45a9b85c639ea18a9fab96ad92281e493e4ed84abaa4",
@@ -1723,6 +1727,7 @@
     "dependencies": [
       "jsr:@cliffy/command@^1.0.0-rc.8",
       "jsr:@deno/dnt@~0.42.3",
+      "jsr:@logtape/logtape@^1.1.1",
       "jsr:@std/assert@^1.0.14",
       "jsr:@std/crypto@^1.0.5",
       "jsr:@std/dotenv@~0.225.5",

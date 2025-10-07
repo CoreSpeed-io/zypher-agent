@@ -1,6 +1,9 @@
 import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "mcp", "manager"]);
 
 /**
  * Represents the state of an MCP server including its configuration,
@@ -205,38 +208,46 @@ export class McpServerManager {
   }
 
   debugLogState(): void {
-    console.log("\n=== MCP SERVER MANAGER STATE ===");
-    console.log(`Number of servers: ${this.#serverStateMap.size}`);
-    console.log(`Number of directly registered tools: ${this.#toolbox.size}`);
+    logger.debug("=== MCP SERVER MANAGER STATE ===");
+    logger.debug("Number of servers: {count}", {
+      count: this.#serverStateMap.size,
+    });
+    logger.debug("Number of directly registered tools: {count}", {
+      count: this.#toolbox.size,
+    });
 
     const allTools = this.getAllTools();
-    console.log(`Total number of tools: ${allTools.size}`);
+    logger.debug("Total number of tools: {count}", { count: allTools.size });
 
     if (this.#toolbox.size > 0) {
-      console.log(
-        `\nDirectly registered tools: ${
-          Array.from(this.#toolbox.keys()).join(", ")
-        }`,
-      );
+      logger.debug("Directly registered tools: {tools}", {
+        tools: Array.from(this.#toolbox.keys()).join(", "),
+      });
     }
 
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      console.log(`\nServer: ${state.server.displayName || state.server.id}`);
-      console.log(`  - ID: ${serverId}`);
-      console.log(`  - Enabled: ${state.enabled}`);
-      console.log(`  - Connected: ${state.client.connected ?? false}`);
-      console.log(`  - Tools count: ${state.client.toolCount ?? 0}`);
+      logger.debug("Server: {name}", {
+        name: state.server.displayName || state.server.id,
+      });
+      logger.debug("  - ID: {serverId}", { serverId });
+      logger.debug("  - Enabled: {enabled}", { enabled: state.enabled });
+      logger.debug("  - Connected: {connected}", {
+        connected: state.client.connected ?? false,
+      });
+      logger.debug("  - Tools count: {count}", {
+        count: state.client.toolCount ?? 0,
+      });
 
       if (state.client.toolCount > 0) {
-        console.log(
-          `  - Tool names: ${state.client.tools.map((t) => t.name).join(", ")}`,
-        );
+        logger.debug("  - Tool names: {tools}", {
+          tools: state.client.tools.map((t) => t.name).join(", "),
+        });
       }
     }
 
-    console.log(
-      `\nAll available tools: ${Array.from(allTools.keys()).join(", ")}`,
-    );
-    console.log("=== END STATE ===\n");
+    logger.debug("All available tools: {tools}", {
+      tools: Array.from(allTools.keys()).join(", "),
+    });
+    logger.debug("=== END STATE ===");
   }
 }

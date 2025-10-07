@@ -28,6 +28,7 @@ import {
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
+import { getLogger } from "@logtape/logtape";
 
 /**
  * Function that loads the system prompt for the agent.
@@ -86,6 +87,8 @@ export interface ZypherAgentOptions {
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MAX_ITERATIONS = 25;
 const DEFAULT_TASK_TIMEOUT_MS = 900000;
+
+const logger = getLogger(["zypher", "agent"]);
 
 export class ZypherAgent {
   readonly #modelProvider: ModelProvider;
@@ -216,7 +219,10 @@ export class ZypherAgent {
 
       return true;
     } catch (error) {
-      console.error(`Error applying checkpoint: ${formatError(error)}`);
+      logger.error("Error applying checkpoint {checkpointId}: {error}", {
+        checkpointId,
+        error: formatError(error),
+      });
       return false;
     }
   }
@@ -297,9 +303,9 @@ export class ZypherAgent {
     if (this.#config.taskTimeoutMs > 0) {
       timeoutId = setTimeout(
         () => {
-          console.log(
-            `🕒 Task timed out after ${this.#config.taskTimeoutMs}ms`,
-          );
+          logger.warn("Task timed out after {timeoutMs}ms", {
+            timeoutMs: this.#config.taskTimeoutMs,
+          });
           timeoutController.abort();
         },
         this.#config.taskTimeoutMs,
@@ -440,16 +446,19 @@ export class ZypherAgent {
       // Task completed successfully
     } catch (error) {
       if (isAbortError(error)) {
-        console.log(formatError(error));
-        console.log("🛑 Task aborted.");
+        logger.info("Task aborted ({reason}): {error}", {
+          reason: options?.signal?.aborted ? "user" : "timeout",
+          error: formatError(error),
+        });
 
         taskEventSubject.next({
           type: "cancelled",
           reason: options?.signal?.aborted ? "user" : "timeout",
         });
+      } else {
+        logger.error("Task error: {error}", { error: formatError(error) });
       }
 
-      console.error(formatError(error));
       taskEventSubject.error(error);
     } finally {
       // Clear task timeout if it exists

@@ -1,6 +1,9 @@
 import type { ErrorDetector } from "./interface.ts";
 import { extractErrorOutput } from "./utils.ts";
 import { fileExists } from "../../utils/mod.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "interceptors", "error-detection"]);
 
 // Workaround for Deno.Command not throwing an error when the command returns a non-zero exit code
 import { exec } from "node:child_process";
@@ -59,7 +62,7 @@ export class ESLintErrorDetector implements ErrorDetector {
 
       return null;
     } catch (error) {
-      console.warn("Error running ESLint check:", error);
+      logger.warn("Error running ESLint check: {error}", { error });
       return null;
     }
   }
@@ -181,7 +184,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
 
       return null;
     } catch (error) {
-      console.warn("Error running TypeScript check:", error);
+      logger.warn("Error running TypeScript check: {error}", { error });
       return null;
     }
   }

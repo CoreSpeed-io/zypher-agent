@@ -20,18 +20,28 @@ import {
 } from "@zypher/tools/mod.ts";
 import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
+import { configure, getConsoleSink } from "@logtape/logtape";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
 const DEFAULT_BACKUP_DIR = "./.backup";
 
 const providerType = new EnumType(["anthropic", "openai"]);
+const logLevelType = new EnumType([
+  "trace",
+  "debug",
+  "info",
+  "warning",
+  "error",
+  "fatal",
+]);
 
 // Parse command line arguments using Cliffy
 const { options: cli } = await new Command()
   .name("zypher")
   .description("Zypher Agent CLI")
   .type("provider", providerType)
+  .type("logLevel", logLevelType)
   .option("-k, --api-key <apiKey:string>", "Model provider API key", {
     required: true,
   })
@@ -51,6 +61,11 @@ const { options: cli } = await new Command()
     "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
   )
   .option("--backup-dir <backupDir:string>", "Directory to store backups")
+  .option(
+    "--log-level <level:logLevel>",
+    "Logging level (trace, debug, info, warning, error, fatal)",
+    { default: "warning" },
+  )
   .parse(Deno.args);
 
 function inferProvider(
@@ -72,6 +87,20 @@ function inferProvider(
 
 async function main(): Promise<void> {
   try {
+    // Configure LogTape for library logging
+    await configure({
+      sinks: {
+        console: getConsoleSink(),
+      },
+      loggers: [
+        {
+          category: ["zypher"],
+          lowestLevel: cli.logLevel,
+          sinks: ["console"],
+        },
+      ],
+    });
+
     // Log CLI configuration
     if (cli.userId) {
       console.log(`👤 Using user ID: ${cli.userId}`);

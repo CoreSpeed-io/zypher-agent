@@ -15,6 +15,9 @@ import type { ToolExecutionContext } from "../tools/mod.ts";
 import { formatError } from "../error.ts";
 import type { Subject } from "rxjs";
 import type { TaskEvent } from "../TaskEvents.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "interceptors", "tool-execution"]);
 
 export type ToolApprovalHandler = (
   name: string,
@@ -77,7 +80,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       }
 
       // auto approve if no approval handler is provided
-      console.log(`Tool call ${name} approved`);
+      logger.info("Tool call {toolName} approved", { toolName: name });
       eventSubject.next({
         type: "tool_use_approved",
         toolName: name,
@@ -139,7 +142,10 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
         };
       }
     } catch (error) {
-      console.error(`Error executing tool ${name}:`, error);
+      logger.error("Error executing tool {toolName}: {error}", {
+        toolName: name,
+        error: formatError(error),
+      });
       return {
         type: "tool_result" as const,
         toolUseId,

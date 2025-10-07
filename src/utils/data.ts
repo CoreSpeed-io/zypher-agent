@@ -3,6 +3,9 @@ import type { Message } from "../message.ts";
 import { isMessage } from "../message.ts";
 import { formatError } from "../error.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "utils"]);
 
 /**
  * Checks if a file exists and is readable.
@@ -41,7 +44,7 @@ export async function loadMessageHistory(
 
     // Validate that parsedData is an array
     if (!Array.isArray(parsedData)) {
-      console.warn("Message history is not an array, returning empty array");
+      logger.warn("Message history is not an array, returning empty array");
       return [];
     }
 
@@ -49,9 +52,11 @@ export async function loadMessageHistory(
     const messages: Message[] = parsedData.filter((item): item is Message => {
       const valid = isMessage(item);
       if (!valid) {
-        console.warn(
-          "Found invalid message in history, filtering it out:",
-          item,
+        logger.warn(
+          "Found invalid message in history, filtering it out: {item}",
+          {
+            item,
+          },
         );
       }
       return valid;
@@ -59,7 +64,7 @@ export async function loadMessageHistory(
 
     return messages;
   } catch (error) {
-    console.warn(
+    logger.warn(
       `Failed to load message history: ${
         formatError(error)
       }, falling back to empty history`,

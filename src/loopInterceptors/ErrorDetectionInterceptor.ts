@@ -6,6 +6,9 @@ import {
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "interceptors", "error-detection"]);
 
 /**
  * Loop interceptor that manages error detection with customizable error detectors.
@@ -118,9 +121,12 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
           applicableDetectors.push(detector);
         }
       } catch (error) {
-        console.warn(
-          `Error checking if detector ${detector.name} is applicable:`,
-          error,
+        logger.warn(
+          "Error checking if detector {detectorName} is applicable: {error}",
+          {
+            detectorName: detector.name,
+            error,
+          },
         );
       }
     }
@@ -143,7 +149,10 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
           errorMessages.push(result);
         }
       } catch (error) {
-        console.warn(`Error running detector ${detector.name}:`, error);
+        logger.warn("Error running detector {detectorName}: {error}", {
+          detectorName: detector.name,
+          error,
+        });
       }
     }
 

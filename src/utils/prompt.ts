@@ -1,4 +1,7 @@
 import { fileExists } from "./data.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "utils"]);
 
 /**
  * Information about the user's system environment.
@@ -57,7 +60,7 @@ export async function getCustomRules(): Promise<string | null> {
 
     return null;
   } catch (error) {
-    console.warn("Failed to read custom rules:", error);
+    logger.warn("Failed to read custom rules: {error}", { error });
     return null;
   }
 }

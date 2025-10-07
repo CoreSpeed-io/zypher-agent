@@ -2,6 +2,9 @@ import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
 import { runCommand } from "./utils/mod.ts";
 import type { ZypherContext } from "./ZypherAgent.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "checkpoint"]);
 
 /**
  * Checkpoint information
@@ -260,7 +263,7 @@ export class CheckpointManager {
 
         // Skip if we don't have valid id or timestamp
         if (!id || !timestamp) {
-          console.warn("Invalid commit entry, missing id or timestamp");
+          logger.warn("Invalid commit entry, missing id or timestamp");
           continue;
         }
 
@@ -323,7 +326,13 @@ export class CheckpointManager {
 
     // If this is an advice-only checkpoint (no files), warn that there are no changes to apply
     if (!checkpoint.files || checkpoint.files.length === 0) {
-      console.warn(`Checkpoint "${checkpoint.name}" contains no file changes.`);
+      logger.warn(
+        "Checkpoint {checkpointId} ({checkpointName}) contains no file changes",
+        {
+          checkpointId,
+          checkpointName: checkpoint.name,
+        },
+      );
       return;
     }
 

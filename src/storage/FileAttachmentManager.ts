@@ -6,6 +6,9 @@ import {
 } from "../message.ts";
 import type { StorageService } from "./StorageService.ts";
 import { fileExists } from "../utils/mod.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "storage"]);
 
 /**
  * A map of file attachment IDs to their cached file paths and signed URLs
@@ -39,14 +42,16 @@ export class FileAttachmentManager {
    */
   async getFileAttachment(fileId: string): Promise<FileAttachment | null> {
     if (!this.storageService) {
-      console.error("Storage service not initialized");
+      logger.error("Storage service not initialized");
       return null;
     }
 
     // Get metadata and check if the file exists
     const metadata = await this.storageService.getFileMetadata(fileId);
     if (!metadata) {
-      console.error(`Metadata for file ${fileId} could not be retrieved`);
+      logger.error("Metadata for file {fileId} could not be retrieved", {
+        fileId,
+      });
       return null;
     }
 
@@ -102,7 +107,7 @@ export class FileAttachmentManager {
     fileId: string,
   ): Promise<FileAttachmentCache | null> {
     if (!this.storageService) {
-      console.error("Storage service not initialized");
+      logger.error("Storage service not initialized");
       return null;
     }
 
@@ -111,9 +116,15 @@ export class FileAttachmentManager {
       // Download the file attachment from storage service to cache path
       try {
         await this.storageService.downloadFile(fileId, cachePath);
-        console.log("Cached file attachment", fileId, cachePath);
+        logger.debug("Cached file attachment {fileId} at {cachePath}", {
+          fileId,
+          cachePath,
+        });
       } catch (error) {
-        console.log("Failed to cache file attachment", fileId, error);
+        logger.warn("Failed to cache file attachment {fileId}: {error}", {
+          fileId,
+          error,
+        });
         return null;
       }
     }

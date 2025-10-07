@@ -5,6 +5,9 @@ import {
   type LoopInterceptor,
 } from "./interface.ts";
 import { AbortError, formatError } from "../error.ts";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["zypher", "interceptors"]);
 
 /**
  * Manages and executes loop interceptors
@@ -79,16 +82,21 @@ export class LoopInterceptorManager {
         // If this interceptor wants to continue, it takes control of the chain
         if (result.decision === LoopDecision.CONTINUE) {
           // Log which interceptor handled the request
-          console.log(`🔄 Loop interceptor executed: ${interceptor.name}`);
+          logger.debug("Loop interceptor {interceptorName} executed", {
+            interceptorName: interceptor.name,
+          });
           return result;
         }
 
         // If interceptor decides to COMPLETE, continue to next interceptor
         // (unless it's the last one)
       } catch (error) {
-        console.warn(
-          `Error running loop interceptor '${interceptor.name}':`,
-          formatError(error),
+        logger.warn(
+          "Error running loop interceptor {interceptorName}: {error}",
+          {
+            interceptorName: interceptor.name,
+            error: formatError(error),
+          },
         );
         // Continue with next interceptor even if one fails
       }
