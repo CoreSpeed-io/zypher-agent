@@ -360,11 +360,21 @@ export class ZypherAgent {
 
       const maxIterations = options?.maxIterations ??
         this.#config.maxIterations;
+      logger.info(
+        "Starting task loop with maximum {maxIterations} iterations",
+        {
+          maxIterations,
+        },
+      );
       while (iterations < maxIterations) {
         // Check for abort signal early
         if (mergedSignal.aborted) {
           throw new AbortError("Task aborted");
         }
+
+        logger.info("Running task loop iteration {iterations}", {
+          iterations: iterations + 1,
+        });
 
         const stream = this.#modelProvider.streamChat(
           {
@@ -388,6 +398,10 @@ export class ZypherAgent {
         }
 
         const finalMessage = await stream.finalMessage();
+
+        logger.debug("Received final message from model", {
+          finalMessage,
+        });
 
         // Create the assistant message using the complete content from finalMessage
         const assistantMessage: Message = {
@@ -438,6 +452,7 @@ export class ZypherAgent {
       }
 
       // Task completed successfully
+      logger.info("Task loop completed successfully");
     } catch (error) {
       if (isAbortError(error)) {
         const abortedReason = options?.signal?.aborted ? "user" : "timeout";
