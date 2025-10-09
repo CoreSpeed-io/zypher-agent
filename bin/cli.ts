@@ -147,16 +147,14 @@ async function main(): Promise<void> {
       providerInstance,
     );
 
-    const mcpServerManager = agent.mcp;
-
     // Register all available tools
-    mcpServerManager.registerTool(ReadFileTool);
-    mcpServerManager.registerTool(ListDirTool);
-    mcpServerManager.registerTool(RunTerminalCmdTool);
-    mcpServerManager.registerTool(GrepSearchTool);
-    mcpServerManager.registerTool(FileSearchTool);
-    mcpServerManager.registerTool(CopyFileTool);
-    mcpServerManager.registerTool(DeleteFileTool);
+    agent.mcp.registerTool(ReadFileTool);
+    agent.mcp.registerTool(ListDirTool);
+    agent.mcp.registerTool(RunTerminalCmdTool);
+    agent.mcp.registerTool(GrepSearchTool);
+    agent.mcp.registerTool(FileSearchTool);
+    agent.mcp.registerTool(CopyFileTool);
+    agent.mcp.registerTool(DeleteFileTool);
 
     // Image tools are powered by OpenAI only
     const openaiApiKey = cli.provider === "openai"
@@ -165,17 +163,17 @@ async function main(): Promise<void> {
 
     if (openaiApiKey) {
       const { ImageGenTool, ImageEditTool } = createImageTools(openaiApiKey);
-      mcpServerManager.registerTool(ImageGenTool);
-      mcpServerManager.registerTool(ImageEditTool);
+      agent.mcp.registerTool(ImageGenTool);
+      agent.mcp.registerTool(ImageEditTool);
     }
 
     const backupDir = cli.backupDir ?? DEFAULT_BACKUP_DIR;
     const { EditFileTool } = createEditFileTools(backupDir);
-    mcpServerManager.registerTool(EditFileTool);
+    agent.mcp.registerTool(EditFileTool);
 
     console.log(
       "🔧 Registered tools:",
-      Array.from(mcpServerManager.getAllTools().keys()).join(", "),
+      Array.from(agent.mcp.getAllTools().keys()).join(", "),
     );
 
     await runAgentInTerminal(agent, modelToUse);

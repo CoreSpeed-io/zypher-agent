@@ -86,20 +86,23 @@ export class LoopInterceptorManager {
       });
 
       try {
+        ctx.info("Loop interceptor {interceptorName} executing");
+
         // Execute the interceptor
         const result = await interceptor.intercept(context);
-        ctx.info("Loop interceptor executed");
 
         // If this interceptor wants to continue, it takes control of the chain
         if (result.decision === LoopDecision.CONTINUE) {
-          ctx.info("Loop interceptor {interceptorName} decided to continue");
+          ctx.info(
+            "Loop interceptor {interceptorName} executed and decided to continue",
+          );
           return result;
         }
 
         // If interceptor decides to COMPLETE, continue to next interceptor
         // (unless it's the last one)
         ctx.info(
-          "Loop interceptor {interceptorName} decided to complete the loop",
+          "Loop interceptor {interceptorName} executed and decided to complete the loop",
         );
       } catch (error) {
         ctx.error(

@@ -246,7 +246,7 @@ export class McpClient {
     // Subscribe to state changes for logging
     this.#actor.subscribe((snapshot) => {
       this.#ctx.debug(
-        "Client [{serverId}] state transition: {currentState} (desired: {desiredState})",
+        "Client {serverId} state transition: {currentState} (desired: {desiredState})",
         {
           currentState: snapshot.value,
           desiredState: snapshot.context.desiredState,
@@ -270,7 +270,7 @@ export class McpClient {
         { signal },
       );
 
-      this.#ctx.info("Client [{serverId}] connected");
+      this.#ctx.info("Client {serverId} connected");
       this.#actor.send({ type: "connectionSuccess" });
     } catch (error) {
       if (isAbortError(error)) {
@@ -287,7 +287,7 @@ export class McpClient {
 
     // Once connected, discover tools
     try {
-      this.#ctx.info("Client [{serverId}] discovering tools");
+      this.#ctx.info("Client {serverId} discovering tools");
       await this.#discoverTools(signal);
       this.#actor.send({ type: "toolDiscovered", tools: this.#tools });
     } catch (error) {
@@ -322,11 +322,11 @@ export class McpClient {
 
     try {
       await this.#client.close();
-      this.#ctx.info("Client [{serverId}] closed");
+      this.#ctx.info("Client {serverId} closed");
     } catch (error) {
       // Ignore errors during close - we're cleaning up anyway
       this.#ctx.error(
-        "Error during client [{serverId}] close, ignoring: {errorMessage}",
+        "Error during client {serverId} close, ignoring: {errorMessage}",
         {
           errorMessage: formatError(error),
           error,
@@ -493,7 +493,7 @@ export class McpClient {
       signal,
     });
     this.#ctx.info(
-      "Client [{serverId}] discovered {toolCount} tools from server",
+      "Client {serverId} discovered {toolCount} tools from server",
       {
         toolCount: toolResult.tools.length,
       },

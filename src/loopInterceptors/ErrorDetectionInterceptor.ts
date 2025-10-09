@@ -138,6 +138,11 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       }
     }
 
+    logger.info("Found {detectorCount} applicable detectors: {detectors}", {
+      detectorCount: applicableDetectors.length,
+      detectors: applicableDetectors.map((d) => d.name),
+    });
+
     if (applicableDetectors.length === 0) {
       return null;
     }
