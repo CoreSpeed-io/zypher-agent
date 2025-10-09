@@ -6,9 +6,7 @@ import {
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
-import { getLogger } from "@logtape/logtape";
-
-const logger = getLogger(["zypher", "interceptors", "error-detection"]);
+import type { Logger } from "@logtape/logtape";
 
 /**
  * Loop interceptor that manages error detection with customizable error detectors.
@@ -39,9 +37,6 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
     }
 
     this.#errorDetectors.push(detector);
-    logger.info("Registered error detector {detectorName}", {
-      detectorName: detector.name,
-    });
   }
 
   /**
@@ -56,9 +51,6 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
     }
 
     this.#errorDetectors.splice(index, 1);
-    logger.info("Unregistered error detector {detectorName}", {
-      detectorName: name,
-    });
   }
 
   /**
@@ -81,7 +73,9 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       return { decision: LoopDecision.COMPLETE };
     }
 
-    const errors = await this.detectErrors({ signal: context.signal });
+    const errors = await this.detectErrors(context.logger, {
+      signal: context.signal,
+    });
 
     if (errors) {
       // Add error message to context
@@ -112,6 +106,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
    * @returns Promise<string | null> Combined error messages if errors found, null otherwise
    */
   private async detectErrors(
+    logger: Logger,
     options: { signal?: AbortSignal },
   ): Promise<string | null> {
     const applicableDetectors = [];

@@ -3,6 +3,7 @@ import type { Tool } from "../tools/mod.ts";
 import type { FinalMessage } from "../llm/mod.ts";
 import type { Subject } from "rxjs";
 import type { TaskEvent } from "../TaskEvents.ts";
+import type { Logger } from "@logtape/logtape";
 
 /**
  * Decision made by a loop interceptor
@@ -18,6 +19,8 @@ export enum LoopDecision {
  * Context provided to loop interceptors
  */
 export interface InterceptorContext {
+  /** Logger instance with agentId context attached. All components use this for logging. */
+  logger: Logger;
   /** Current conversation messages including the latest agent response */
   messages: Message[];
   /** The agent's latest response text */

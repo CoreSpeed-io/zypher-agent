@@ -15,9 +15,7 @@ import type { ToolExecutionContext } from "../tools/mod.ts";
 import { formatError } from "../error.ts";
 import type { Subject } from "rxjs";
 import type { TaskEvent } from "../TaskEvents.ts";
-import { getLogger } from "@logtape/logtape";
-
-const logger = getLogger(["zypher", "interceptors", "tool-execution"]);
+import type { Logger } from "@logtape/logtape";
 
 export type ToolApprovalHandler = (
   name: string,
@@ -47,6 +45,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
    * Execute a tool call with approval handling
    */
   async #executeToolCall(
+    logger: Logger,
     name: string,
     toolUseId: string,
     parameters: Record<string, unknown>,
@@ -179,6 +178,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       toolBlocks.map(async (block) => {
         const params = (block.input ?? {}) as Record<string, unknown>;
         return await this.#executeToolCall(
+          context.logger,
           block.name,
           block.toolUseId,
           params,

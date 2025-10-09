@@ -28,7 +28,7 @@ import {
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
-import { getLogger } from "@logtape/logtape";
+import type { Logger } from "@logtape/logtape";
 
 /**
  * Function that loads the system prompt for the agent.
@@ -38,13 +38,21 @@ import { getLogger } from "@logtape/logtape";
 export type SystemPromptLoader = () => Promise<string>;
 
 /**
- * ZypherContext represents the workspace and filesystem environment where the agent operates.
+ * ZypherContext provides the operational environment and shared services for the agent
+ * and all its components.
  *
  * This is fundamentally different from {@link ZypherAgentConfig}:
- * - {@link ZypherContext} defines WHERE the agent operates (workspace/filesystem management)
+ * - {@link ZypherContext} defines the agent's identity, workspace, and shared services
  * - {@link ZypherAgentConfig} defines HOW the agent behaves (behavioral configuration)
  */
 export interface ZypherContext {
+  // Identity
+  /** Unique identifier for this agent instance */
+  agentId: string;
+  /** Unique identifier for tracking user-specific usage history */
+  userId?: string;
+
+  // Environment
   /** Working directory where the agent performs file operations and executes tasks */
   workingDirectory: string;
   /** Base zypher directory for all agent data storage (Defaults to ~/.zypher) */
@@ -52,10 +60,12 @@ export interface ZypherContext {
   /** Workspace-specific data directory for isolated storage (Defaults to ~/.zypher/encoded_working_directory_path)
    * Used for message history, checkpoints, and other workspace-specific data */
   workspaceDataDir: string;
-  /** Unique identifier for tracking user-specific usage history */
-  userId?: string;
   /** Directory to cache file attachments (Defaults to ~/.zypher/cache/files) */
   fileAttachmentCacheDir: string;
+
+  // Shared Services
+  /** Logger instance with agentId context attached. All components use this for logging. */
+  logger: Logger;
 }
 
 export interface ZypherAgentConfig {
@@ -88,9 +98,8 @@ const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MAX_ITERATIONS = 25;
 const DEFAULT_TASK_TIMEOUT_MS = 900000;
 
-const logger = getLogger(["zypher", "agent"]);
-
 export class ZypherAgent {
+  readonly #logger: Logger;
   readonly #modelProvider: ModelProvider;
   readonly #mcpServerManager: McpServerManager;
   readonly #loopInterceptorManager: LoopInterceptorManager;
@@ -117,10 +126,11 @@ export class ZypherAgent {
     modelProvider: ModelProvider,
     options: ZypherAgentOptions = {},
   ) {
+    this.#logger = context.logger.getChild("agent");
     this.#modelProvider = modelProvider;
     this.#context = context;
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
-      (() => getSystemPrompt(context.workingDirectory));
+      (() => getSystemPrompt(context));
     this.#config = {
       maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -130,18 +140,21 @@ export class ZypherAgent {
 
     // Services and interceptors
     this.#mcpServerManager = options.overrides?.mcpServerManager ??
-      new McpServerManager();
+      new McpServerManager(context);
     this.#loopInterceptorManager = options.overrides?.loopInterceptorManager ??
-      new LoopInterceptorManager([
-        new ToolExecutionInterceptor(this.#mcpServerManager),
-        new MaxTokensInterceptor(),
-      ]);
+      new LoopInterceptorManager(
+        context,
+        [
+          new ToolExecutionInterceptor(this.#mcpServerManager),
+          new MaxTokensInterceptor(),
+        ],
+      );
 
     this.#storageService = options.storageService;
     if (this.#storageService) {
       this.#fileAttachmentManager = new FileAttachmentManager(
         this.#storageService,
-        context.fileAttachmentCacheDir,
+        context,
       );
     }
 
@@ -294,7 +307,7 @@ export class ZypherAgent {
     if (this.#config.taskTimeoutMs > 0) {
       timeoutId = setTimeout(
         () => {
-          logger.warn("🕒 Task timed out after {timeoutMs}ms", {
+          this.#logger.warn("🕒 Task timed out after {timeoutMs}ms", {
             timeoutMs: this.#config.taskTimeoutMs,
           });
           timeoutController.abort();
@@ -342,7 +355,7 @@ export class ZypherAgent {
       this.#messages.push(userMessage);
       taskEventSubject.next({ type: "message", message: userMessage });
 
-      const toolCalls = Array.from(
+      const tools = Array.from(
         this.#mcpServerManager.getAllTools().values(),
       );
 
@@ -353,14 +366,14 @@ export class ZypherAgent {
           .cacheMessageFileAttachments(
             this.#messages,
           );
-        logger.debug("Cached {numFiles} file attachments", {
+        this.#logger.debug("Cached {numFiles} file attachments", {
           numFiles: Object.keys(cacheMap ?? {}).length,
         });
       }
 
       const maxIterations = options?.maxIterations ??
         this.#config.maxIterations;
-      logger.info(
+      this.#logger.info(
         "Starting task loop with maximum {maxIterations} iterations",
         {
           maxIterations,
@@ -372,7 +385,7 @@ export class ZypherAgent {
           throw new AbortError("Task aborted");
         }
 
-        logger.info("Running task loop iteration {iterations}", {
+        this.#logger.info("Running task loop iteration {iterations}", {
           iterations: iterations + 1,
         });
 
@@ -382,7 +395,7 @@ export class ZypherAgent {
             maxTokens: this.#config.maxTokens,
             system: systemPrompt,
             messages: this.#messages,
-            tools: toolCalls,
+            tools,
             userId: this.#context.userId,
           },
           cacheMap,
@@ -399,7 +412,7 @@ export class ZypherAgent {
 
         const finalMessage = await stream.finalMessage();
 
-        logger.debug("Received final message from model", {
+        this.#logger.debug("Received final message from model", {
           finalMessage,
         });
 
@@ -432,7 +445,7 @@ export class ZypherAgent {
         const interceptorContext = {
           messages: emittingMessages,
           lastResponse: responseText,
-          tools: toolCalls,
+          tools,
           workingDirectory: this.#context.workingDirectory,
           stopReason: finalMessage.stop_reason,
           signal: mergedSignal,
@@ -452,11 +465,11 @@ export class ZypherAgent {
       }
 
       // Task completed successfully
-      logger.info("Task loop completed successfully");
+      this.#logger.info("Task loop completed successfully");
     } catch (error) {
       if (isAbortError(error)) {
         const abortedReason = options?.signal?.aborted ? "user" : "timeout";
-        logger.info("🛑 Task aborted (reason: {reason})", {
+        this.#logger.info("🛑 Task aborted (reason: {reason})", {
           reason: abortedReason,
         });
 
@@ -465,7 +478,7 @@ export class ZypherAgent {
           reason: abortedReason,
         });
       } else {
-        logger.error("❌ Task error: {errorMessage}", {
+        this.#logger.error("❌ Task error: {errorMessage}", {
           errorMessage: formatError(error),
           error,
         });

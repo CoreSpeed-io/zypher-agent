@@ -24,6 +24,7 @@ import {
   type McpRemoteConfig,
   type OAuthCallbackHandler,
 } from "@zypher/mcp/mod.ts";
+import { createZypherContext } from "@zypher/utils/mod.ts";
 
 function printUsage() {
   console.log(
@@ -72,6 +73,8 @@ async function main() {
 
   let client: Client | null = null;
 
+  const context = await createZypherContext(Deno.cwd());
+
   try {
     // Create OAuth provider with console-based redirect handling
     const oauthProvider = new InMemoryOAuthProvider({
@@ -107,7 +110,7 @@ async function main() {
     };
 
     // Start the connection process (this will trigger OAuth flow)
-    await connectToRemoteServer(client, remoteConfig, {
+    await connectToRemoteServer(context, client, remoteConfig, {
       oauth: {
         authProvider: oauthProvider,
         callbackHandler: callbackHandler,

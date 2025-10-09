@@ -13,9 +13,7 @@ import type {
   McpRemoteConfig,
   McpServerEndpoint,
 } from "./mod.ts";
-import { getLogger } from "@logtape/logtape";
-
-const logger = getLogger(["zypher", "mcp", "connect"]);
+import type { ZypherContext } from "../ZypherAgent.ts";
 
 /**
  * Interface for handling OAuth authorization callback
@@ -41,12 +39,14 @@ export interface OAuthOptions {
 
 /**
  * Connects to an MCP server using the appropriate transport based on endpoint configuration
+ * @param context The Zypher context
  * @param client The MCP client instance
  * @param serverEndpoint The server endpoint configuration (either CLI or remote)
  * @param signal Optional abort signal for cancellation
  * @returns Promise that resolves to the transport when connected
  */
 export async function connectToServer(
+  context: ZypherContext,
   client: Client,
   serverEndpoint: McpServerEndpoint,
   options?: {
@@ -56,12 +56,14 @@ export async function connectToServer(
   // Connect using appropriate transport
   if (serverEndpoint.type === "command") {
     return await connectToCliServer(
+      context,
       client,
       serverEndpoint.command,
       { signal: options?.signal },
     );
   } else {
     return await connectToRemoteServer(
+      context,
       client,
       serverEndpoint.remote,
       { signal: options?.signal },
@@ -71,22 +73,27 @@ export async function connectToServer(
 
 /**
  * Connects to a CLI-based MCP server using stdio transport
+ * @param context The Zypher context
  * @param client The MCP client instance
  * @param endpoint The server endpoint configuration
  * @param signal Optional abort signal for cancellation
  * @returns Promise that resolves when connected
  */
 export async function connectToCliServer(
+  context: ZypherContext,
   client: Client,
   commandConfig: McpCommandConfig,
   options?: {
     signal?: AbortSignal;
   },
 ): Promise<Transport> {
+  const logger = context.logger.getChild(["mcp", "connect"]);
+
   const transport = new StdioClientTransport({
     command: commandConfig.command,
     args: commandConfig.args,
     env: commandConfig.env,
+    cwd: context.workingDirectory,
   });
 
   await client.connect(transport, { signal: options?.signal });
@@ -108,6 +115,7 @@ export async function connectToCliServer(
  * Both transports support OAuth authentication when oauth options are provided.
  * If a 401 Unauthorized error occurs, the OAuth flow will be initiated automatically.
  *
+ * @param context The Zypher context
  * @param client The MCP client instance
  * @param remoteConfig The remote server endpoint configuration
  * @param options Optional configuration including abort signal and OAuth settings
@@ -115,6 +123,7 @@ export async function connectToCliServer(
  * @throws Error if connection fails on all transport attempts or OAuth is required but not provided
  */
 export async function connectToRemoteServer(
+  context: ZypherContext,
   client: Client,
   remoteConfig: McpRemoteConfig,
   options?: {
@@ -122,6 +131,7 @@ export async function connectToRemoteServer(
     oauth?: OAuthOptions;
   },
 ): Promise<Transport> {
+  const logger = context.logger.getChild(["mcp", "connect"]);
   const mcpServerUrl = new URL(remoteConfig.url);
 
   logger.info("Connecting to remote MCP server at {url}", {

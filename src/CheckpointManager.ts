@@ -2,9 +2,7 @@ import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
 import { runCommand } from "./utils/mod.ts";
 import type { ZypherContext } from "./ZypherAgent.ts";
-import { getLogger } from "@logtape/logtape";
-
-const logger = getLogger(["zypher", "checkpoint"]);
+import type { Logger } from "@logtape/logtape";
 
 /**
  * Checkpoint information
@@ -37,10 +35,12 @@ export interface Checkpoint {
  * @returns Promise resolving to the path to the checkpoints directory
  */
 export class CheckpointManager {
+  readonly #logger: Logger;
   readonly #gitEnv: Record<string, string>;
   readonly #checkpointsDir: string;
 
   constructor(readonly context: ZypherContext) {
+    this.#logger = context.logger.getChild("checkpoint");
     this.#checkpointsDir = path.join(
       this.context.workspaceDataDir,
       "checkpoints",
@@ -138,10 +138,13 @@ export class CheckpointManager {
         throw new Error("Git returned an empty commit hash");
       }
 
-      logger.info("Created checkpoint {checkpointId} ({checkpointName})", {
-        checkpointId,
-        checkpointName: name,
-      });
+      this.#logger.info(
+        "Created checkpoint {checkpointId} ({checkpointName})",
+        {
+          checkpointId,
+          checkpointName: name,
+        },
+      );
 
       return checkpointId;
     } catch (error) {
@@ -268,7 +271,7 @@ export class CheckpointManager {
 
         // Skip if we don't have valid id or timestamp
         if (!id || !timestamp) {
-          logger.warn("Invalid commit entry, missing id or timestamp");
+          this.#logger.warn("Invalid commit entry, missing id or timestamp");
           continue;
         }
 
@@ -332,7 +335,7 @@ export class CheckpointManager {
 
       // If this is an advice-only checkpoint (no files), warn that there are no changes to apply
       if (!checkpoint.files || checkpoint.files.length === 0) {
-        logger.warn(
+        this.#logger.warn(
           "Checkpoint {checkpointId} ({checkpointName}) contains no file changes",
           {
             checkpointId,
@@ -355,10 +358,13 @@ export class CheckpointManager {
         env: this.#gitEnv,
       });
 
-      logger.info("Applied checkpoint {checkpointId} ({checkpointName})", {
-        checkpointId,
-        checkpointName: checkpoint.name,
-      });
+      this.#logger.info(
+        "Applied checkpoint {checkpointId} ({checkpointName})",
+        {
+          checkpointId,
+          checkpointName: checkpoint.name,
+        },
+      );
     } catch (error) {
       throw new Error("Failed to apply checkpoint.", { cause: error });
     }

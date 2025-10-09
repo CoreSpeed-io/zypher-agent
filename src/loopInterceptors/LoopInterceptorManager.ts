@@ -5,21 +5,23 @@ import {
   type LoopInterceptor,
 } from "./interface.ts";
 import { AbortError, formatError } from "../error.ts";
-import { getLogger } from "@logtape/logtape";
-
-const logger = getLogger(["zypher", "interceptors", "manager"]);
+import type { ZypherContext } from "../ZypherAgent.ts";
+import type { Logger } from "@logtape/logtape";
 
 /**
  * Manages and executes loop interceptors
  */
 export class LoopInterceptorManager {
+  readonly #logger: Logger;
   #interceptors: LoopInterceptor[];
 
   /**
    * Creates a new LoopInterceptorManager
+   * @param context The Zypher context
    * @param initialInterceptors Optional array of interceptors to register immediately
    */
-  constructor(initialInterceptors: LoopInterceptor[] = []) {
+  constructor(context: ZypherContext, initialInterceptors: LoopInterceptor[]) {
+    this.#logger = context.logger.getChild("interceptors");
     this.#interceptors = [...initialInterceptors];
   }
 
@@ -36,7 +38,7 @@ export class LoopInterceptorManager {
     }
 
     this.#interceptors.push(interceptor);
-    logger.info("Registered loop interceptor {interceptorName}", {
+    this.#logger.info("Registered loop interceptor {interceptorName}", {
       interceptorName: interceptor.name,
     });
   }
@@ -53,7 +55,7 @@ export class LoopInterceptorManager {
     }
 
     this.#interceptors.splice(index, 1);
-    logger.info("Unregistered loop interceptor {interceptorName}", {
+    this.#logger.info("Unregistered loop interceptor {interceptorName}", {
       interceptorName: name,
     });
   }
@@ -72,7 +74,7 @@ export class LoopInterceptorManager {
    * @returns Promise<InterceptorResult> Result from the chain
    */
   async execute(
-    context: InterceptorContext,
+    context: Omit<InterceptorContext, "logger">,
   ): Promise<InterceptorResult> {
     // Execute interceptors sequentially until one decides to CONTINUE
     for (const interceptor of this.#interceptors) {
@@ -81,7 +83,7 @@ export class LoopInterceptorManager {
         throw new AbortError("Aborted while running loop interceptors");
       }
 
-      const ctx = logger.with({
+      const ctx = this.#logger.with({
         interceptorName: interceptor.name,
       });
 
@@ -89,7 +91,10 @@ export class LoopInterceptorManager {
         ctx.debug("Loop interceptor {interceptorName} executing");
 
         // Execute the interceptor
-        const result = await interceptor.intercept(context);
+        const result = await interceptor.intercept({
+          ...context,
+          logger: this.#logger.getChild(interceptor.name),
+        });
 
         ctx.info(
           "Loop interceptor {interceptorName} executed, decision: {decision}",

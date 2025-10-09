@@ -1,8 +1,7 @@
 import { fileExists } from "./data.ts";
-import { getLogger } from "@logtape/logtape";
 import { formatError } from "../error.ts";
-
-const logger = getLogger(["zypher", "utils"]);
+import type { ZypherContext } from "../ZypherAgent.ts";
+import * as path from "@std/path";
 
 /**
  * Information about the user's system environment.
@@ -42,6 +41,7 @@ const SUPPORTED_AGENT_RULE_TYPES = [
  * Searches for rule files in the following order and returns the first one found:
  * .zypherrules, .cursorrules, .windsurfrules, CLAUDE.md, AGENTS.md
  *
+ * @param context The Zypher context
  * @returns Contents of the first matching rules file, or null if none found
  *
  * @example
@@ -50,11 +50,16 @@ const SUPPORTED_AGENT_RULE_TYPES = [
  *   console.log('Found custom rules:', rules);
  * }
  */
-export async function getCustomRules(): Promise<string | null> {
+export async function getCustomRules(
+  context: ZypherContext,
+): Promise<string | null> {
+  const logger = context.logger.getChild(["utils", "prompt"]);
+
   try {
     for (const rule of SUPPORTED_AGENT_RULE_TYPES) {
       if (await fileExists(rule)) {
-        const rules = await Deno.readTextFile(rule);
+        const resolvedPath = path.resolve(context.workingDirectory, rule);
+        const rules = await Deno.readTextFile(resolvedPath);
         return rules;
       }
     }
@@ -72,22 +77,23 @@ export async function getCustomRules(): Promise<string | null> {
 /**
  * Generates the system prompt for the Zypher agent.
  *
- * @param workingDirectory The working directory where the agent operates
+ * @param context The Zypher context
  * @param options Optional configuration
  * @param options.userInfo User environment information (OS version, workspace path, shell) to include in the prompt.
  *  If not provided, defaults to {@link getCurrentUserInfo}(workingDirectory).
  * @param options.customInstructions Additional instructions to append to the system prompt.
- *  If not provided, defaults to {@link getCustomRules}(workingDirectory) which loads from supported rule files in the working directory.
+ *  If not provided, defaults to {@link getCustomRules}(context) which loads from supported rule files in the working directory.
  * @returns The complete system prompt string including custom rules if found
  */
 export async function getSystemPrompt(
-  workingDirectory: string,
+  context: ZypherContext,
   options?: {
     userInfo?: UserInfo;
     customInstructions?: string;
   },
 ): Promise<string> {
-  const userInfo = options?.userInfo ?? getCurrentUserInfo(workingDirectory);
+  const userInfo = options?.userInfo ??
+    getCurrentUserInfo(context.workingDirectory);
 
   const systemPrompt =
     `You are Zypher, a powerful agentic AI coding assistant by CoreSpeed Inc.
@@ -162,7 +168,8 @@ The user's OS version is ${userInfo.osVersion}. The absolute path of the user's 
 Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
 `;
 
-  const customRules = options?.customInstructions ?? await getCustomRules();
+  const customRules = options?.customInstructions ??
+    await getCustomRules(context);
   const customRulesBlock = customRules
     ? `
 <custom_instructions>

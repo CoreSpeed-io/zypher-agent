@@ -3,9 +3,6 @@ import type { Message } from "../message.ts";
 import { isMessage } from "../message.ts";
 import { formatError } from "../error.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
-import { getLogger } from "@logtape/logtape";
-
-const logger = getLogger(["zypher", "utils"]);
 
 /**
  * Checks if a file exists and is readable.
@@ -31,6 +28,8 @@ export async function fileExists(path: string): Promise<boolean> {
 export async function loadMessageHistory(
   context: ZypherContext,
 ): Promise<Message[]> {
+  const logger = context.logger.getChild(["utils", "data"]);
+
   try {
     const historyPath = path.join(context.workspaceDataDir, "history.json");
 

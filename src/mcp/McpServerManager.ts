@@ -1,9 +1,8 @@
 import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
-import { getLogger } from "@logtape/logtape";
-
-const logger = getLogger(["zypher", "mcp", "manager"]);
+import type { ZypherContext } from "../ZypherAgent.ts";
+import type { Logger } from "@logtape/logtape";
 
 /**
  * Represents the state of an MCP server including its configuration,
@@ -25,10 +24,18 @@ interface McpServerState {
  * Authentication is handled by the McpClient layer.
  */
 export class McpServerManager {
+  readonly #context: ZypherContext;
+  readonly #logger: Logger;
+
   // Unified state map containing server config, client, and enabled status
   #serverStateMap = new Map<string, McpServerState>();
   // toolbox for directly registered tools (non-MCP tools)
   #toolbox: Map<string, Tool> = new Map();
+
+  constructor(context: ZypherContext) {
+    this.#context = context;
+    this.#logger = context.logger.getChild("mcp");
+  }
 
   /**
    * Registers a new MCP server and its tools
@@ -48,7 +55,7 @@ export class McpServerManager {
     }
 
     // Create MCP client
-    const client = new McpClient(server);
+    const client = new McpClient(this.#context, server);
 
     // Create server state
     const state: McpServerState = {
@@ -61,7 +68,7 @@ export class McpServerManager {
     // Set enabled state
     state.client.desiredEnabled = enabled;
 
-    logger.info("Registered MCP server {serverId}", {
+    this.#logger.info("Registered MCP server {serverId}", {
       serverId: server.id,
     });
 
@@ -92,7 +99,7 @@ export class McpServerManager {
     // Remove server state
     this.#serverStateMap.delete(id);
 
-    logger.info("Unregistered MCP server {serverId}", {
+    this.#logger.info("Unregistered MCP server {serverId}", {
       serverId: id,
     });
   }
@@ -122,9 +129,12 @@ export class McpServerManager {
 
     // If config changed, re-register the server
     if (hasConfigChange) {
-      logger.info("Re-registering MCP server {serverId} due to config change", {
-        serverId,
-      });
+      this.#logger.info(
+        "Re-registering MCP server {serverId} due to config change",
+        {
+          serverId,
+        },
+      );
       this.deregisterServer(serverId);
       this.registerServer(updates.server!, newEnabled);
       return;
@@ -159,7 +169,7 @@ export class McpServerManager {
 
     this.#toolbox.set(tool.name, tool);
 
-    logger.info("Registered tool {toolName}", {
+    this.#logger.info("Registered tool {toolName}", {
       toolName: tool.name,
     });
   }
@@ -223,46 +233,48 @@ export class McpServerManager {
   }
 
   debugLogState(): void {
-    logger.debug("=== MCP SERVER MANAGER STATE ===");
-    logger.debug("Number of servers: {count}", {
+    this.#logger.debug("=== MCP SERVER MANAGER STATE ===");
+    this.#logger.debug("Number of servers: {count}", {
       count: this.#serverStateMap.size,
     });
-    logger.debug("Number of directly registered tools: {count}", {
+    this.#logger.debug("Number of directly registered tools: {count}", {
       count: this.#toolbox.size,
     });
 
     const allTools = this.getAllTools();
-    logger.debug("Total number of tools: {count}", { count: allTools.size });
+    this.#logger.debug("Total number of tools: {count}", {
+      count: allTools.size,
+    });
 
     if (this.#toolbox.size > 0) {
-      logger.debug("Directly registered tools: {tools}", {
+      this.#logger.debug("Directly registered tools: {tools}", {
         tools: Array.from(this.#toolbox.keys()).join(", "),
       });
     }
 
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      logger.debug("Server: {name}", {
+      this.#logger.debug("Server: {name}", {
         name: state.server.displayName || state.server.id,
       });
-      logger.debug("  - ID: {serverId}", { serverId });
-      logger.debug("  - Enabled: {enabled}", { enabled: state.enabled });
-      logger.debug("  - Connected: {connected}", {
+      this.#logger.debug("  - ID: {serverId}", { serverId });
+      this.#logger.debug("  - Enabled: {enabled}", { enabled: state.enabled });
+      this.#logger.debug("  - Connected: {connected}", {
         connected: state.client.connected ?? false,
       });
-      logger.debug("  - Tools count: {count}", {
+      this.#logger.debug("  - Tools count: {count}", {
         count: state.client.toolCount ?? 0,
       });
 
       if (state.client.toolCount > 0) {
-        logger.debug("  - Tool names: {tools}", {
+        this.#logger.debug("  - Tool names: {tools}", {
           tools: state.client.tools.map((t) => t.name).join(", "),
         });
       }
     }
 
-    logger.debug("All available tools: {tools}", {
+    this.#logger.debug("All available tools: {tools}", {
       tools: Array.from(allTools.keys()).join(", "),
     });
-    logger.debug("=== END STATE ===");
+    this.#logger.debug("=== END STATE ===");
   }
 }

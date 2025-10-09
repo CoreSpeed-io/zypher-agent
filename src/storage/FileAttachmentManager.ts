@@ -6,10 +6,9 @@ import {
 } from "../message.ts";
 import type { StorageService } from "./StorageService.ts";
 import { fileExists } from "../utils/mod.ts";
-import { getLogger } from "@logtape/logtape";
+import type { Logger } from "@logtape/logtape";
 import { formatError } from "../error.ts";
-
-const logger = getLogger(["zypher", "storage"]);
+import type { ZypherContext } from "../ZypherAgent.ts";
 
 /**
  * A map of file attachment IDs to their cached file paths and signed URLs
@@ -31,10 +30,16 @@ export interface FileAttachmentCache {
 }
 
 export class FileAttachmentManager {
+  readonly #logger: Logger;
+  readonly cacheDir: string;
+
   constructor(
     private readonly storageService: StorageService,
-    readonly cacheDir: string,
-  ) {}
+    context: ZypherContext,
+  ) {
+    this.#logger = context.logger.getChild("storage");
+    this.cacheDir = context.fileAttachmentCacheDir;
+  }
 
   /**
    * Retrieves a file attachment from storage service
@@ -43,7 +48,7 @@ export class FileAttachmentManager {
    */
   async getFileAttachment(fileId: string): Promise<FileAttachment | null> {
     if (!this.storageService) {
-      logger.warn(
+      this.#logger.warn(
         "Unable to get file attachment {fileId} because storage service is not initialized",
         {
           fileId,
@@ -55,7 +60,7 @@ export class FileAttachmentManager {
     // Get metadata and check if the file exists
     const metadata = await this.storageService.getFileMetadata(fileId);
     if (!metadata) {
-      logger.error("Metadata for file {fileId} could not be retrieved", {
+      this.#logger.error("Metadata for file {fileId} could not be retrieved", {
         fileId,
       });
       return null;
@@ -87,7 +92,7 @@ export class FileAttachmentManager {
     messages: Message[],
   ): Promise<FileAttachmentCacheMap> {
     if (!this.storageService) {
-      logger.warn(
+      this.#logger.warn(
         "Unable to cache file attachments because storage service is not initialized",
       );
       return {};
@@ -120,7 +125,7 @@ export class FileAttachmentManager {
     fileId: string,
   ): Promise<FileAttachmentCache | null> {
     if (!this.storageService) {
-      logger.warn(
+      this.#logger.warn(
         "Unable to cache file attachment {fileId} because storage service is not initialized",
         {
           fileId,
@@ -134,12 +139,12 @@ export class FileAttachmentManager {
       // Download the file attachment from storage service to cache path
       try {
         await this.storageService.downloadFile(fileId, cachePath);
-        logger.debug("Cached file attachment {fileId} at {cachePath}", {
+        this.#logger.debug("Cached file attachment {fileId} at {cachePath}", {
           fileId,
           cachePath,
         });
       } catch (error) {
-        logger.error(
+        this.#logger.error(
           "Failed to cache file attachment {fileId}: {errorMessage}",
           {
             fileId,

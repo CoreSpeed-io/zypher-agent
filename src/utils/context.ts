@@ -2,6 +2,7 @@ import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
 import { encodeBase64 } from "@std/encoding/base64";
 import type { ZypherContext } from "../ZypherAgent.ts";
+import { getLogger } from "@logtape/logtape";
 
 /**
  * Creates a ZypherContext for the given working directory.
@@ -14,7 +15,7 @@ import type { ZypherContext } from "../ZypherAgent.ts";
  */
 export async function createZypherContext(
   workingDirectory: string,
-  options?: Partial<Omit<ZypherContext, "workingDirectory">>,
+  options?: Partial<Omit<ZypherContext, "workingDirectory" | "logger">>,
 ): Promise<ZypherContext> {
   // Create the base zypher directory
   const zypherDir = options?.zypherDir ?? getDefaultZypherDir();
@@ -32,12 +33,20 @@ export async function createZypherContext(
     path.join(zypherDir, "cache", "files");
   await ensureDir(fileAttachmentCacheDir);
 
+  // Generate or use provided agentId
+  const agentId = options?.agentId ?? crypto.randomUUID();
+
+  // Create logger with agentId context
+  const logger = getLogger("zypher").with({ agentId });
+
   return {
+    agentId,
     workingDirectory,
     zypherDir,
     workspaceDataDir,
     fileAttachmentCacheDir,
     userId: options?.userId,
+    logger,
   };
 }
 

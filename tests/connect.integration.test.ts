@@ -17,17 +17,24 @@
  * - Includes error handling and abort signal tests
  */
 
-import { afterEach, describe, test } from "@std/testing/bdd";
+import { afterEach, beforeAll, describe, test } from "@std/testing/bdd";
 import { expect } from "@std/expect";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
   connectToCliServer,
   connectToRemoteServer,
 } from "../src/mcp/connect.ts";
-import type { McpCommandConfig, McpRemoteConfig } from "../src/mcp/mod.ts";
+import type { McpCommandConfig, McpRemoteConfig } from "@zypher/mcp/mod.ts";
+import type { ZypherContext } from "@zypher/ZypherAgent.ts";
+import { createZypherContext } from "@zypher/utils/mod.ts";
 
 describe("Transport Integration Tests", () => {
   let client: Client;
+  let context: ZypherContext;
+
+  beforeAll(async () => {
+    context = await createZypherContext(Deno.cwd());
+  });
 
   afterEach(async () => {
     // Clean up client
@@ -47,6 +54,7 @@ describe("Transport Integration Tests", () => {
       };
 
       await connectToCliServer(
+        context,
         client,
         commandConfig,
       );
@@ -67,7 +75,7 @@ describe("Transport Integration Tests", () => {
       };
 
       await expect(
-        connectToCliServer(client, commandConfig),
+        connectToCliServer(context, client, commandConfig),
       ).rejects.toThrow();
     });
 
@@ -88,7 +96,7 @@ describe("Transport Integration Tests", () => {
       setTimeout(() => abortController.abort(), 100);
 
       await expect(
-        connectToCliServer(client, commandConfig, {
+        connectToCliServer(context, client, commandConfig, {
           signal: abortController.signal,
         }),
       ).rejects.toThrow("abort");
@@ -110,7 +118,7 @@ describe("Transport Integration Tests", () => {
         url: testServerUrl,
       };
 
-      await connectToRemoteServer(client, remoteConfig);
+      await connectToRemoteServer(context, client, remoteConfig);
 
       // Verify we can list tools from the connected server
       const toolResult = await client.listTools();
@@ -128,7 +136,7 @@ describe("Transport Integration Tests", () => {
       };
 
       await expect(
-        connectToRemoteServer(client, remoteConfig),
+        connectToRemoteServer(context, client, remoteConfig),
         //match any error message that contains both "error" and "connection" words, regardless of order or case
       ).rejects.toThrow(/(?=.*error)(?=.*connection)/i);
     });
@@ -149,7 +157,7 @@ describe("Transport Integration Tests", () => {
       abortController.abort();
 
       await expect(
-        connectToRemoteServer(client, remoteConfig, {
+        connectToRemoteServer(context, client, remoteConfig, {
           signal: abortController.signal,
         }),
       ).rejects.toThrow("abort");
