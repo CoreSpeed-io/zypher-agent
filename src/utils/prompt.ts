@@ -1,5 +1,6 @@
 import { fileExists } from "./data.ts";
 import { getLogger } from "@logtape/logtape";
+import { formatError } from "../error.ts";
 
 const logger = getLogger(["zypher", "utils"]);
 
@@ -60,7 +61,10 @@ export async function getCustomRules(): Promise<string | null> {
 
     return null;
   } catch (error) {
-    logger.warn("Failed to read custom rules: {error}", { error });
+    logger.error("Failed to read custom rules: {errorMessage}", {
+      errorMessage: formatError(error),
+      error,
+    });
     return null;
   }
 }

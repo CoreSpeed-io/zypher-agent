@@ -44,7 +44,9 @@ export async function loadMessageHistory(
 
     // Validate that parsedData is an array
     if (!Array.isArray(parsedData)) {
-      logger.warn("Message history is not an array, returning empty array");
+      logger.warn(
+        "Message history is not an valid JSON array, returning empty array",
+      );
       return [];
     }
 
@@ -64,10 +66,12 @@ export async function loadMessageHistory(
 
     return messages;
   } catch (error) {
-    logger.warn(
-      `Failed to load message history: ${
-        formatError(error)
-      }, falling back to empty history`,
+    logger.error(
+      "Failed to load message history: {errorMessage}",
+      {
+        errorMessage: formatError(error),
+        error,
+      },
     );
     return [];
   }

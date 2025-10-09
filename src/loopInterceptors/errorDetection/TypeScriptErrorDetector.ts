@@ -3,7 +3,12 @@ import { extractErrorOutput } from "./utils.ts";
 import { fileExists } from "../../utils/mod.ts";
 import { getLogger } from "@logtape/logtape";
 
-const logger = getLogger(["zypher", "interceptors", "error-detection"]);
+const logger = getLogger([
+  "zypher",
+  "interceptors",
+  "error-detection",
+  "typescript",
+]);
 
 // Workaround for Deno.Command not throwing an error when the command returns a non-zero exit code
 import { exec } from "node:child_process";

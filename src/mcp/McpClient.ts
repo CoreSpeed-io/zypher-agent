@@ -29,7 +29,7 @@ import type { McpServerEndpoint } from "./mod.ts";
 import { formatError, isAbortError } from "../error.ts";
 import { assert } from "@std/assert";
 import { connectToServer } from "./connect.ts";
-import { getLogger } from "@logtape/logtape";
+import { getLogger, type Logger } from "@logtape/logtape";
 
 const logger = getLogger(["zypher", "mcp", "client"]);
 
@@ -73,6 +73,7 @@ interface McpClientContext {
  * MCPClient handles communication with MCP servers and tool execution
  */
 export class McpClient {
+  readonly #ctx: Logger;
   readonly #client: Client;
   readonly #serverEndpoint: McpServerEndpoint;
   readonly #machine;
@@ -91,6 +92,9 @@ export class McpClient {
     serverEndpoint: McpServerEndpoint,
     clientOptions?: McpClientOptions,
   ) {
+    this.#ctx = logger.with({
+      serverId: serverEndpoint.id,
+    });
     this.#client = new Client({
       name: clientOptions?.name ?? "zypher-agent",
       version: clientOptions?.version ?? "1.0.0",
@@ -241,10 +245,9 @@ export class McpClient {
 
     // Subscribe to state changes for logging
     this.#actor.subscribe((snapshot) => {
-      logger.debug(
-        "McpClient [{serverId}] state transition: {currentState} (desired: {desiredState})",
+      this.#ctx.debug(
+        "Client [{serverId}] state transition: {currentState} (desired: {desiredState})",
         {
-          serverId: this.#serverEndpoint.id,
           currentState: snapshot.value,
           desiredState: snapshot.context.desiredState,
         },
@@ -267,9 +270,7 @@ export class McpClient {
         { signal },
       );
 
-      logger.info("McpClient [{serverId}] connected", {
-        serverId: this.#serverEndpoint.id,
-      });
+      this.#ctx.info("Client [{serverId}] connected");
       this.#actor.send({ type: "connectionSuccess" });
     } catch (error) {
       if (isAbortError(error)) {
@@ -286,9 +287,7 @@ export class McpClient {
 
     // Once connected, discover tools
     try {
-      logger.info("McpClient [{serverId}] discovering tools", {
-        serverId: this.#serverEndpoint.id,
-      });
+      this.#ctx.info("Client [{serverId}] discovering tools");
       await this.#discoverTools(signal);
       this.#actor.send({ type: "toolDiscovered", tools: this.#tools });
     } catch (error) {
@@ -323,12 +322,16 @@ export class McpClient {
 
     try {
       await this.#client.close();
-      logger.info("McpClient [{serverId}] closed", {
-        serverId: this.#serverEndpoint.id,
-      });
+      this.#ctx.info("Client [{serverId}] closed");
     } catch (error) {
       // Ignore errors during close - we're cleaning up anyway
-      logger.warn("Error during client close, ignoring: {error}", { error });
+      this.#ctx.error(
+        "Error during client [{serverId}] close, ignoring: {errorMessage}",
+        {
+          errorMessage: formatError(error),
+          error,
+        },
+      );
     }
     this.#transport = null;
     this.#tools = [];
@@ -489,10 +492,9 @@ export class McpClient {
     const toolResult = await this.#client.listTools({
       signal,
     });
-    logger.info(
-      "McpClient [{serverId}] discovered {toolCount} tools from server",
+    this.#ctx.info(
+      "Client [{serverId}] discovered {toolCount} tools from server",
       {
-        serverId: this.#serverEndpoint.id,
         toolCount: toolResult.tools.length,
       },
     );

@@ -1,5 +1,5 @@
 import type { ErrorDetector } from "./errorDetection/mod.ts";
-import { AbortError } from "../error.ts";
+import { AbortError, formatError } from "../error.ts";
 import {
   type InterceptorContext,
   type InterceptorResult,
@@ -39,20 +39,26 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
     }
 
     this.#errorDetectors.push(detector);
+    logger.info("Registered error detector {detectorName}", {
+      detectorName: detector.name,
+    });
   }
 
   /**
    * Unregister an error detector by name
    * @param name The name of the detector to remove
-   * @returns boolean True if detector was found and removed
+   * @throws Error if detector is not found
    */
-  unregisterDetector(name: string): boolean {
+  unregisterDetector(name: string): void {
     const index = this.#errorDetectors.findIndex((d) => d.name === name);
     if (index >= 0) {
       this.#errorDetectors.splice(index, 1);
-      return true;
+      logger.info("Unregistered error detector {detectorName}", {
+        detectorName: name,
+      });
+    } else {
+      throw new Error(`Error detector with name '${name}' not found`);
     }
-    return false;
   }
 
   /**
@@ -121,10 +127,11 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
           applicableDetectors.push(detector);
         }
       } catch (error) {
-        logger.warn(
-          "Error checking if detector {detectorName} is applicable: {error}",
+        logger.error(
+          "Error checking if detector {detectorName} is applicable: {errorMessage}",
           {
             detectorName: detector.name,
+            errorMessage: formatError(error),
             error,
           },
         );
@@ -147,10 +154,19 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
         const result = await detector.detect();
         if (result) {
           errorMessages.push(result);
+          logger.info("Code errors detected by error detector {detectorName}", {
+            detectorName: detector.name,
+            errorMessages,
+          });
+        } else {
+          logger.info("Error detector {detectorName} found no errors in code", {
+            detectorName: detector.name,
+          });
         }
       } catch (error) {
-        logger.warn("Error running detector {detectorName}: {error}", {
+        logger.error("Error running detector {detectorName}: {errorMessage}", {
           detectorName: detector.name,
+          errorMessage: formatError(error),
           error,
         });
       }

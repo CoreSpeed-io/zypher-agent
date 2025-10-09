@@ -196,34 +196,25 @@ export class ZypherAgent {
    * This will discard messages beyond the checkpoint
    *
    * @param checkpointId The ID of the checkpoint to apply
-   * @returns True if the checkpoint was applied successfully, false otherwise
+   * @throws {Error} If the checkpoint manager is not provided
+   * @throws {Error} If the checkpoint could not be applied
    */
-  async applyCheckpoint(checkpointId: string): Promise<boolean> {
+  async applyCheckpoint(checkpointId: string): Promise<void> {
     if (!this.#checkpointManager) {
       throw new Error("Checkpoint manager not provided");
     }
 
-    try {
-      // Apply the checkpoint to the filesystem
-      await this.#checkpointManager.applyCheckpoint(checkpointId);
+    // Apply the checkpoint to the filesystem
+    await this.#checkpointManager.applyCheckpoint(checkpointId);
 
-      // Update message history to discard messages beyond the checkpoint
-      const checkpointIndex = this.#messages.findIndex(
-        (msg) => msg.checkpointId === checkpointId,
-      );
+    // Update message history to discard messages beyond the checkpoint
+    const checkpointIndex = this.#messages.findIndex(
+      (msg) => msg.checkpointId === checkpointId,
+    );
 
-      if (checkpointIndex !== -1) {
-        // Keep messages up to but excluding the checkpoint message
-        this.#messages = this.#messages.slice(0, checkpointIndex);
-      }
-
-      return true;
-    } catch (error) {
-      logger.error("Error applying checkpoint {checkpointId}: {error}", {
-        checkpointId,
-        error: formatError(error),
-      });
-      return false;
+    if (checkpointIndex !== -1) {
+      // Keep messages up to but excluding the checkpoint message
+      this.#messages = this.#messages.slice(0, checkpointIndex);
     }
   }
 
@@ -303,7 +294,7 @@ export class ZypherAgent {
     if (this.#config.taskTimeoutMs > 0) {
       timeoutId = setTimeout(
         () => {
-          logger.warn("Task timed out after {timeoutMs}ms", {
+          logger.warn("🕒 Task timed out after {timeoutMs}ms", {
             timeoutMs: this.#config.taskTimeoutMs,
           });
           timeoutController.abort();
@@ -362,6 +353,9 @@ export class ZypherAgent {
           .cacheMessageFileAttachments(
             this.#messages,
           );
+        logger.debug("Cached {numFiles} file attachments", {
+          numFiles: Object.keys(cacheMap ?? {}).length,
+        });
       }
 
       const maxIterations = options?.maxIterations ??
@@ -446,17 +440,20 @@ export class ZypherAgent {
       // Task completed successfully
     } catch (error) {
       if (isAbortError(error)) {
-        logger.info("Task aborted ({reason}): {error}", {
-          reason: options?.signal?.aborted ? "user" : "timeout",
-          error: formatError(error),
+        const abortedReason = options?.signal?.aborted ? "user" : "timeout";
+        logger.info("🛑 Task aborted (reason: {reason})", {
+          reason: abortedReason,
         });
 
         taskEventSubject.next({
           type: "cancelled",
-          reason: options?.signal?.aborted ? "user" : "timeout",
+          reason: abortedReason,
         });
       } else {
-        logger.error("Task error: {error}", { error: formatError(error) });
+        logger.error("❌ Task error: {errorMessage}", {
+          errorMessage: formatError(error),
+          error,
+        });
       }
 
       taskEventSubject.error(error);

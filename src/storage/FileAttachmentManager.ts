@@ -7,6 +7,7 @@ import {
 import type { StorageService } from "./StorageService.ts";
 import { fileExists } from "../utils/mod.ts";
 import { getLogger } from "@logtape/logtape";
+import { formatError } from "../error.ts";
 
 const logger = getLogger(["zypher", "storage"]);
 
@@ -42,7 +43,12 @@ export class FileAttachmentManager {
    */
   async getFileAttachment(fileId: string): Promise<FileAttachment | null> {
     if (!this.storageService) {
-      logger.error("Storage service not initialized");
+      logger.warn(
+        "Unable to get file attachment {fileId} because storage service is not initialized",
+        {
+          fileId,
+        },
+      );
       return null;
     }
 
@@ -80,6 +86,13 @@ export class FileAttachmentManager {
   async cacheMessageFileAttachments(
     messages: Message[],
   ): Promise<FileAttachmentCacheMap> {
+    if (!this.storageService) {
+      logger.warn(
+        "Unable to cache file attachments because storage service is not initialized",
+      );
+      return {};
+    }
+
     const cacheDict: FileAttachmentCacheMap = {};
     for (const message of messages) {
       for (const block of message.content) {
@@ -107,7 +120,12 @@ export class FileAttachmentManager {
     fileId: string,
   ): Promise<FileAttachmentCache | null> {
     if (!this.storageService) {
-      logger.error("Storage service not initialized");
+      logger.warn(
+        "Unable to cache file attachment {fileId} because storage service is not initialized",
+        {
+          fileId,
+        },
+      );
       return null;
     }
 
@@ -121,10 +139,14 @@ export class FileAttachmentManager {
           cachePath,
         });
       } catch (error) {
-        logger.warn("Failed to cache file attachment {fileId}: {error}", {
-          fileId,
-          error,
-        });
+        logger.error(
+          "Failed to cache file attachment {fileId}: {errorMessage}",
+          {
+            fileId,
+            errorMessage: formatError(error),
+            error,
+          },
+        );
         return null;
       }
     }

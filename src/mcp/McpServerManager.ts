@@ -61,6 +61,10 @@ export class McpServerManager {
     // Set enabled state
     state.client.desiredEnabled = enabled;
 
+    logger.info("Registered MCP server {serverId}", {
+      serverId: server.id,
+    });
+
     // Wait for connection to be ready if enabled
     if (enabled) {
       await state.client.waitForConnection();
@@ -87,6 +91,10 @@ export class McpServerManager {
 
     // Remove server state
     this.#serverStateMap.delete(id);
+
+    logger.info("Unregistered MCP server {serverId}", {
+      serverId: id,
+    });
   }
 
   /**
@@ -114,6 +122,9 @@ export class McpServerManager {
 
     // If config changed, re-register the server
     if (hasConfigChange) {
+      logger.info("Re-registering MCP server {serverId} due to config change", {
+        serverId,
+      });
       this.deregisterServer(serverId);
       this.registerServer(updates.server!, newEnabled);
       return;
@@ -147,6 +158,10 @@ export class McpServerManager {
     }
 
     this.#toolbox.set(tool.name, tool);
+
+    logger.info("Registered tool {toolName}", {
+      toolName: tool.name,
+    });
   }
 
   /**

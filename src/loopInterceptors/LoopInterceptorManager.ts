@@ -7,7 +7,7 @@ import {
 import { AbortError, formatError } from "../error.ts";
 import { getLogger } from "@logtape/logtape";
 
-const logger = getLogger(["zypher", "interceptors"]);
+const logger = getLogger(["zypher", "interceptors", "manager"]);
 
 /**
  * Manages and executes loop interceptors
@@ -36,20 +36,26 @@ export class LoopInterceptorManager {
     }
 
     this.#interceptors.push(interceptor);
+    logger.info("Registered loop interceptor {interceptorName}", {
+      interceptorName: interceptor.name,
+    });
   }
 
   /**
    * Unregister an interceptor by name
    * @param name The name of the interceptor to remove
-   * @returns boolean True if interceptor was found and removed
+   * @throws Error if interceptor is not found
    */
-  unregister(name: string): boolean {
+  unregister(name: string): void {
     const index = this.#interceptors.findIndex((i) => i.name === name);
     if (index >= 0) {
       this.#interceptors.splice(index, 1);
-      return true;
+      logger.info("Unregistered loop interceptor {interceptorName}", {
+        interceptorName: name,
+      });
+    } else {
+      throw new Error(`Loop interceptor with name '${name}' not found`);
     }
-    return false;
   }
 
   /**
@@ -75,27 +81,33 @@ export class LoopInterceptorManager {
         throw new AbortError("Aborted while running loop interceptors");
       }
 
+      const ctx = logger.with({
+        interceptorName: interceptor.name,
+      });
+
       try {
         // Execute the interceptor
         const result = await interceptor.intercept(context);
+        ctx.info("Loop interceptor executed");
 
         // If this interceptor wants to continue, it takes control of the chain
         if (result.decision === LoopDecision.CONTINUE) {
-          // Log which interceptor handled the request
-          logger.debug("Loop interceptor {interceptorName} executed", {
-            interceptorName: interceptor.name,
-          });
+          ctx.info("Loop interceptor {interceptorName} decided to continue");
           return result;
+        } else {
+          ctx.info(
+            "Loop interceptor {interceptorName} decided to complete the loop",
+          );
         }
 
         // If interceptor decides to COMPLETE, continue to next interceptor
         // (unless it's the last one)
       } catch (error) {
-        logger.warn(
-          "Error running loop interceptor {interceptorName}: {error}",
+        ctx.error(
+          "Error running loop interceptor {interceptorName}: {errorMessage}",
           {
-            interceptorName: interceptor.name,
-            error: formatError(error),
+            errorMessage: formatError(error),
+            error,
           },
         );
         // Continue with next interceptor even if one fails

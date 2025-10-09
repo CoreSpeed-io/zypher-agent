@@ -83,8 +83,6 @@ export async function connectToCliServer(
     signal?: AbortSignal;
   },
 ): Promise<Transport> {
-  logger.debug("CLI transport config: {command}", { command: commandConfig });
-
   const transport = new StdioClientTransport({
     command: commandConfig.command,
     args: commandConfig.args,
@@ -134,8 +132,11 @@ export async function connectToRemoteServer(
   // - Attempts to use StreamableHTTPClientTransport first
   // - If that fails with 4xx status, falls back to SSEClientTransport
 
+  let transport: Transport;
+  let transportName: string;
+
   try {
-    return await attemptToConnect(
+    transport = await attemptToConnect(
       client,
       () =>
         new StreamableHTTPClientTransport(
@@ -149,15 +150,15 @@ export async function connectToRemoteServer(
         ),
       options,
     );
+    transportName = "StreamableHTTPClientTransport";
   } catch (error) {
     if (is4xxError(error)) {
       logger.warn(
-        "Got 4xx error while trying to connect to remote MCP server with StreamableHTTPClientTransport: {error}",
+        "Got 4xx error while trying to connect to remote MCP server with StreamableHTTPClientTransport, falling back to SSE transport",
         { error },
       );
-      logger.warn("Falling back to SSE transport");
       // Fall back to SSE transport
-      return await attemptToConnect(
+      transport = await attemptToConnect(
         client,
         () =>
           new SSEClientTransport(
@@ -171,10 +172,18 @@ export async function connectToRemoteServer(
           ),
         options,
       );
+      transportName = "SSEClientTransport";
     } else {
       throw error;
     }
   }
+
+  logger.info("Connected to remote MCP server {url} with {transportName}", {
+    url: mcpServerUrl.toString(),
+    transportName,
+  });
+
+  return transport;
 }
 
 /** Attempts to connect to the MCP server with the given transport and options */
