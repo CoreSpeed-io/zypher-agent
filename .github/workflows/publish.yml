@@ -43,6 +43,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for changelog generation
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2
@@ -63,6 +65,8 @@ jobs:
       - name: Generate changelog
         id: changelog
         continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: mikepenz/release-changelog-builder-action@v5
 
       - name: Create GitHub Release
