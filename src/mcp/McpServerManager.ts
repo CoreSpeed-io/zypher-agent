@@ -1,6 +1,7 @@
 import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
+import type { ZypherContext } from "../ZypherAgent.ts";
 
 /**
  * Represents the state of an MCP server including its configuration,
@@ -27,6 +28,8 @@ export class McpServerManager {
   // toolbox for directly registered tools (non-MCP tools)
   #toolbox: Map<string, Tool> = new Map();
 
+  constructor(readonly context: ZypherContext) {}
+
   /**
    * Registers a new MCP server and its tools
    * @param server Server configuration (server.id is used as the key)
@@ -45,7 +48,7 @@ export class McpServerManager {
     }
 
     // Create MCP client
-    const client = new McpClient(server);
+    const client = new McpClient(this.context, server);
 
     // Create server state
     const state: McpServerState = {

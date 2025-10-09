@@ -17,17 +17,24 @@
  * - Includes error handling and abort signal tests
  */
 
-import { afterEach, describe, test } from "@std/testing/bdd";
+import { afterEach, beforeAll, describe, test } from "@std/testing/bdd";
 import { expect } from "@std/expect";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
   connectToCliServer,
   connectToRemoteServer,
-} from "../src/mcp/connect.ts";
-import type { McpCommandConfig, McpRemoteConfig } from "../src/mcp/mod.ts";
+} from "@zypher/mcp/connect.ts";
+import type { McpCommandConfig, McpRemoteConfig } from "@zypher/mcp/mod.ts";
+import { createZypherContext } from "@zypher/utils/mod.ts";
+import type { ZypherContext } from "@zypher/ZypherAgent.ts";
 
 describe("Transport Integration Tests", () => {
   let client: Client;
+  let context: ZypherContext;
+
+  beforeAll(async () => {
+    context = await createZypherContext(Deno.cwd());
+  });
 
   afterEach(async () => {
     // Clean up client
@@ -47,6 +54,7 @@ describe("Transport Integration Tests", () => {
       };
 
       await connectToCliServer(
+        context.workingDirectory,
         client,
         commandConfig,
       );
@@ -67,7 +75,7 @@ describe("Transport Integration Tests", () => {
       };
 
       await expect(
-        connectToCliServer(client, commandConfig),
+        connectToCliServer(context.workingDirectory, client, commandConfig),
       ).rejects.toThrow();
     });
 
@@ -88,7 +96,7 @@ describe("Transport Integration Tests", () => {
       setTimeout(() => abortController.abort(), 100);
 
       await expect(
-        connectToCliServer(client, commandConfig, {
+        connectToCliServer(context.workingDirectory, client, commandConfig, {
           signal: abortController.signal,
         }),
       ).rejects.toThrow("abort");
