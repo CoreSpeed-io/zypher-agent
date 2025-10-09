@@ -51,14 +51,14 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
    */
   unregisterDetector(name: string): void {
     const index = this.#errorDetectors.findIndex((d) => d.name === name);
-    if (index >= 0) {
-      this.#errorDetectors.splice(index, 1);
-      logger.info("Unregistered error detector {detectorName}", {
-        detectorName: name,
-      });
-    } else {
+    if (index < 0) {
       throw new Error(`Error detector with name '${name}' not found`);
     }
+
+    this.#errorDetectors.splice(index, 1);
+    logger.info("Unregistered error detector {detectorName}", {
+      detectorName: name,
+    });
   }
 
   /**

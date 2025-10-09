@@ -48,14 +48,14 @@ export class LoopInterceptorManager {
    */
   unregister(name: string): void {
     const index = this.#interceptors.findIndex((i) => i.name === name);
-    if (index >= 0) {
-      this.#interceptors.splice(index, 1);
-      logger.info("Unregistered loop interceptor {interceptorName}", {
-        interceptorName: name,
-      });
-    } else {
+    if (index < 0) {
       throw new Error(`Loop interceptor with name '${name}' not found`);
     }
+
+    this.#interceptors.splice(index, 1);
+    logger.info("Unregistered loop interceptor {interceptorName}", {
+      interceptorName: name,
+    });
   }
 
   /**
@@ -94,14 +94,13 @@ export class LoopInterceptorManager {
         if (result.decision === LoopDecision.CONTINUE) {
           ctx.info("Loop interceptor {interceptorName} decided to continue");
           return result;
-        } else {
-          ctx.info(
-            "Loop interceptor {interceptorName} decided to complete the loop",
-          );
         }
 
         // If interceptor decides to COMPLETE, continue to next interceptor
         // (unless it's the last one)
+        ctx.info(
+          "Loop interceptor {interceptorName} decided to complete the loop",
+        );
       } catch (error) {
         ctx.error(
           "Error running loop interceptor {interceptorName}: {errorMessage}",
