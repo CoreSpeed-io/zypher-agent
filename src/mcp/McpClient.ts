@@ -1153,7 +1153,10 @@ export class McpClient {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     // Map common errors to JRPC codes
-    if (errorMessage.includes("Method not found") || errorMessage.includes("-32601")) {
+    if (
+      errorMessage.includes("Method not found") ||
+      errorMessage.includes("-32601")
+    ) {
       return new McpResourceError(
         `Method not supported: ${method}`,
         -32601,
