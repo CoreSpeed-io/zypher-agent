@@ -62,6 +62,13 @@ jobs:
           deno check .
           deno test --ignore=**/*.integration.test.ts
 
+      - name: Create Git Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a v${{ needs.check-version-change.outputs.new-version }} -m "Release v${{ needs.check-version-change.outputs.new-version }}"
+          git push origin "refs/tags/v${{ needs.check-version-change.outputs.new-version }}"
+
       - name: Generate changelog
         id: changelog
         continue-on-error: true
