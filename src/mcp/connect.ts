@@ -38,12 +38,14 @@ export interface OAuthOptions {
 
 /**
  * Connects to an MCP server using the appropriate transport based on endpoint configuration
+ * @param workingDirectory The working directory to use for the MCP server (e.g. for CLI servers)
  * @param client The MCP client instance
  * @param serverEndpoint The server endpoint configuration (either CLI or remote)
  * @param signal Optional abort signal for cancellation
  * @returns Promise that resolves to the transport when connected
  */
 export async function connectToServer(
+  workingDirectory: string,
   client: Client,
   serverEndpoint: McpServerEndpoint,
   options?: {
@@ -53,6 +55,7 @@ export async function connectToServer(
   // Connect using appropriate transport
   if (serverEndpoint.type === "command") {
     return await connectToCliServer(
+      workingDirectory,
       client,
       serverEndpoint.command,
       { signal: options?.signal },
@@ -68,12 +71,14 @@ export async function connectToServer(
 
 /**
  * Connects to a CLI-based MCP server using stdio transport
+ * @param workingDirectory The working directory to use for the MCP server
  * @param client The MCP client instance
  * @param endpoint The server endpoint configuration
  * @param signal Optional abort signal for cancellation
  * @returns Promise that resolves when connected
  */
 export async function connectToCliServer(
+  workingDirectory: string,
   client: Client,
   commandConfig: McpCommandConfig,
   options?: {
@@ -86,6 +91,7 @@ export async function connectToCliServer(
     command: commandConfig.command,
     args: commandConfig.args,
     env: commandConfig.env,
+    cwd: workingDirectory,
   });
 
   await client.connect(transport, { signal: options?.signal });

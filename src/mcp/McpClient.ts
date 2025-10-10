@@ -29,6 +29,7 @@ import type { McpServerEndpoint } from "./mod.ts";
 import { formatError, isAbortError } from "../error.ts";
 import { assert } from "@std/assert";
 import { connectToServer } from "./connect.ts";
+import type { ZypherContext } from "../ZypherAgent.ts";
 
 /** Client-specific configuration options */
 export interface McpClientOptions {
@@ -70,6 +71,7 @@ interface McpClientContext {
  * MCPClient handles communication with MCP servers and tool execution
  */
 export class McpClient {
+  readonly #context: ZypherContext;
   readonly #client: Client;
   readonly #serverEndpoint: McpServerEndpoint;
   readonly #machine;
@@ -81,13 +83,16 @@ export class McpClient {
 
   /**
    * Creates a new MCPClient instance with separated server and client configuration
+   * @param context ZypherAgent execution context
    * @param serverEndpoint Server endpoint information for connection
    * @param clientOptions Client configuration options
    */
   constructor(
+    context: ZypherContext,
     serverEndpoint: McpServerEndpoint,
     clientOptions?: McpClientOptions,
   ) {
+    this.#context = context;
     this.#client = new Client({
       name: clientOptions?.name ?? "zypher-agent",
       version: clientOptions?.version ?? "1.0.0",
@@ -255,6 +260,7 @@ export class McpClient {
     try {
       // Connect using appropriate transport
       this.#transport = await connectToServer(
+        this.#context.workingDirectory,
         this.#client,
         this.#serverEndpoint,
         { signal },

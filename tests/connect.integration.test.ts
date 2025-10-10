@@ -23,8 +23,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
   connectToCliServer,
   connectToRemoteServer,
-} from "../src/mcp/connect.ts";
-import type { McpCommandConfig, McpRemoteConfig } from "../src/mcp/mod.ts";
+} from "@zypher/mcp/connect.ts";
+import type { McpCommandConfig, McpRemoteConfig } from "@zypher/mcp/mod.ts";
 
 describe("Transport Integration Tests", () => {
   let client: Client;
@@ -47,6 +47,7 @@ describe("Transport Integration Tests", () => {
       };
 
       await connectToCliServer(
+        Deno.cwd(),
         client,
         commandConfig,
       );
@@ -67,7 +68,7 @@ describe("Transport Integration Tests", () => {
       };
 
       await expect(
-        connectToCliServer(client, commandConfig),
+        connectToCliServer(Deno.cwd(), client, commandConfig),
       ).rejects.toThrow();
     });
 
@@ -88,7 +89,7 @@ describe("Transport Integration Tests", () => {
       setTimeout(() => abortController.abort(), 100);
 
       await expect(
-        connectToCliServer(client, commandConfig, {
+        connectToCliServer(Deno.cwd(), client, commandConfig, {
           signal: abortController.signal,
         }),
       ).rejects.toThrow("abort");
