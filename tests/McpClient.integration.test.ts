@@ -1,10 +1,17 @@
-import { afterEach, describe, test } from "@std/testing/bdd";
+import { afterEach, beforeAll, describe, test } from "@std/testing/bdd";
 import { expect } from "@std/expect";
 import { McpClient } from "../src/mcp/McpClient.ts";
 import type { McpServerEndpoint } from "../src/mcp/mod.ts";
+import { createZypherContext } from "@zypher/utils/mod.ts";
+import type { ZypherContext } from "@zypher/ZypherAgent.ts";
 
 describe("McpClient Integration Tests", () => {
   let client: McpClient;
+  let context: ZypherContext;
+
+  beforeAll(async () => {
+    context = await createZypherContext(Deno.cwd());
+  });
 
   afterEach(async () => {
     // Clean up client after each test
@@ -22,7 +29,7 @@ describe("McpClient Integration Tests", () => {
       },
     };
 
-    client = new McpClient(endpoint);
+    client = new McpClient(context, endpoint);
 
     expect(client.status).toBe("disconnected");
     expect(client.desiredEnabled).toBe(false);
@@ -42,7 +49,7 @@ describe("McpClient Integration Tests", () => {
       },
     };
 
-    client = new McpClient(endpoint);
+    client = new McpClient(context, endpoint);
 
     // Initially disconnected
     expect(client.status).toBe("disconnected");
@@ -75,7 +82,7 @@ describe("McpClient Integration Tests", () => {
       },
     };
 
-    client = new McpClient(endpoint);
+    client = new McpClient(context, endpoint);
 
     // Enable the client
     client.desiredEnabled = true;
@@ -103,7 +110,7 @@ describe("McpClient Integration Tests", () => {
       },
     };
 
-    client = new McpClient(endpoint);
+    client = new McpClient(context, endpoint);
 
     // This should not throw immediately
     client.desiredEnabled = true;
@@ -127,7 +134,7 @@ describe("McpClient Integration Tests", () => {
       },
     };
 
-    client = new McpClient(endpoint);
+    client = new McpClient(context, endpoint);
 
     // Enable first
     client.desiredEnabled = true;
@@ -163,7 +170,7 @@ describe("McpClient Integration Tests", () => {
       },
     };
 
-    client = new McpClient(endpoint);
+    client = new McpClient(context, endpoint);
 
     // Initially false
     expect(client.desiredEnabled).toBe(false);

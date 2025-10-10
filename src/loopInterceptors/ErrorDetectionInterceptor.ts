@@ -72,7 +72,10 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       return { decision: LoopDecision.COMPLETE };
     }
 
-    const errors = await this.detectErrors({ signal: context.signal });
+    const errors = await this.detectErrors(
+      context.workingDirectory,
+      { signal: context.signal },
+    );
 
     if (errors) {
       // Add error message to context
@@ -99,10 +102,12 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
 
   /**
    * Run error detection using registered detectors
+   * @param workingDirectory The directory to run detection in
    * @param options Options including abort signal
    * @returns Promise<string | null> Combined error messages if errors found, null otherwise
    */
   private async detectErrors(
+    workingDirectory: string,
     options: { signal?: AbortSignal },
   ): Promise<string | null> {
     const applicableDetectors = [];
@@ -114,7 +119,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       }
 
       try {
-        if (await detector.isApplicable()) {
+        if (await detector.isApplicable(workingDirectory)) {
           applicableDetectors.push(detector);
         }
       } catch (error) {
@@ -138,7 +143,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       }
 
       try {
-        const result = await detector.detect();
+        const result = await detector.detect(workingDirectory);
         if (result) {
           errorMessages.push(result);
         }

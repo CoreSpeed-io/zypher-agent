@@ -127,7 +127,7 @@ export class ZypherAgent {
 
     // Services and interceptors
     this.#mcpServerManager = options.overrides?.mcpServerManager ??
-      new McpServerManager();
+      new McpServerManager(context);
     this.#loopInterceptorManager = options.overrides?.loopInterceptorManager ??
       new LoopInterceptorManager([
         new ToolExecutionInterceptor(this.#mcpServerManager),

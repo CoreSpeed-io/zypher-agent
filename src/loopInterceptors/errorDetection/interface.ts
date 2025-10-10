@@ -11,13 +11,15 @@ export interface ErrorDetector {
 
   /**
    * Check if this detector is applicable for the current project
+   * @param workingDirectory The directory to check in
    * @returns Promise<boolean> True if this detector should be run
    */
-  isApplicable(): Promise<boolean>;
+  isApplicable(workingDirectory: string): Promise<boolean>;
 
   /**
    * Run the error detection
+   * @param workingDirectory The directory to run detection in
    * @returns Promise<string | null> Error message if errors found, null otherwise
    */
-  detect(): Promise<string | null>;
+  detect(workingDirectory: string): Promise<string | null>;
 }
