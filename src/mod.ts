@@ -6,6 +6,7 @@ export * from "./CheckpointManager.ts";
 export * from "./cli.ts";
 export * from "./error.ts";
 export * from "./message.ts";
+export * from "./TaskEvents.ts";
 
 // Modules
 export * from "./llm/mod.ts";
