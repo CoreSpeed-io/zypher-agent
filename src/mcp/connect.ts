@@ -85,18 +85,13 @@ export async function connectToCliServer(
     signal?: AbortSignal;
   },
 ): Promise<Transport> {
-  console.log("CLI transport config", commandConfig);
-
   const transport = new StdioClientTransport({
     command: commandConfig.command,
     args: commandConfig.args,
     env: commandConfig.env,
     cwd: workingDirectory,
   });
-
   await client.connect(transport, { signal: options?.signal });
-  console.log(`Connected using CLI transport: ${commandConfig.command}`);
-
   return transport;
 }
 
@@ -125,13 +120,10 @@ export async function connectToRemoteServer(
     oauth?: OAuthOptions;
   },
 ): Promise<Transport> {
-  const mcpServerUrl = new URL(remoteConfig.url);
-
-  console.log(`Connecting to remote MCP server: ${mcpServerUrl}`);
-
   // Following the MCP specification for backwards compatibility:
   // - Attempts to use StreamableHTTPClientTransport first
   // - If that fails with 4xx status, falls back to SSEClientTransport
+  const mcpServerUrl = new URL(remoteConfig.url);
 
   try {
     return await attemptToConnect(
