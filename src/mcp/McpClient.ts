@@ -240,14 +240,6 @@ export class McpClient {
 
     this.#actor = createActor(this.#machine);
     this.#actor.start();
-
-    // Subscribe to state changes for logging
-    this.#actor.subscribe((snapshot) => {
-      console.log(`McpClient [${this.#serverEndpoint.id}] state transition:`, {
-        currentState: snapshot.value,
-        desiredState: snapshot.context.desiredState,
-      });
-    });
   }
 
   /**
@@ -266,7 +258,6 @@ export class McpClient {
         { signal },
       );
 
-      console.log(`McpClient [${this.#serverEndpoint.id}] connected`);
       this.#actor.send({ type: "connectionSuccess" });
     } catch (error) {
       if (isAbortError(error)) {
@@ -283,9 +274,6 @@ export class McpClient {
 
     // Once connected, discover tools
     try {
-      console.log(
-        `McpClient [${this.#serverEndpoint.id}] Discovering tools...`,
-      );
       await this.#discoverTools(signal);
       this.#actor.send({ type: "toolDiscovered", tools: this.#tools });
     } catch (error) {
@@ -320,10 +308,8 @@ export class McpClient {
 
     try {
       await this.#client.close();
-      console.log(`McpClient [${this.#serverEndpoint.id}] closed`);
-    } catch (error) {
+    } catch (_) {
       // Ignore errors during close - we're cleaning up anyway
-      console.warn("Error during client close, ignoring:", error);
     }
     this.#transport = null;
     this.#tools = [];
@@ -484,9 +470,6 @@ export class McpClient {
     const toolResult = await this.#client.listTools({
       signal,
     });
-    console.log(
-      `McpClient [${this.#serverEndpoint.id}] Discovered ${toolResult.tools.length} tools from server`,
-    );
 
     // Convert MCP tools to our internal tool format
     this.#tools = toolResult.tools.map((tool) => {

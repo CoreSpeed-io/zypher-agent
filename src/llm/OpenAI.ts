@@ -88,8 +88,6 @@ export class OpenAIModelProvider implements ModelProvider {
       (m) => formatInputMessage(m, fileAttachmentCacheMap),
     );
 
-    // console.log(formattedMessages);
-
     const stream = this.#client.chat.completions.stream({
       model: params.model,
       messages: [
@@ -123,7 +121,6 @@ export class OpenAIModelProvider implements ModelProvider {
       events: observable,
       finalMessage: async (): Promise<FinalMessage> => {
         const message = await stream.finalMessage();
-        // console.log(message);
         return {
           role: message.role,
           content: [

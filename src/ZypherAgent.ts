@@ -296,12 +296,7 @@ export class ZypherAgent {
     let timeoutId: number | null = null;
     if (this.#config.taskTimeoutMs > 0) {
       timeoutId = setTimeout(
-        () => {
-          console.log(
-            `🕒 Task timed out after ${this.#config.taskTimeoutMs}ms`,
-          );
-          timeoutController.abort();
-        },
+        () => timeoutController.abort(),
         this.#config.taskTimeoutMs,
       );
     }
@@ -440,16 +435,12 @@ export class ZypherAgent {
       // Task completed successfully
     } catch (error) {
       if (isAbortError(error)) {
-        console.log(formatError(error));
-        console.log("🛑 Task aborted.");
-
         taskEventSubject.next({
           type: "cancelled",
           reason: options?.signal?.aborted ? "user" : "timeout",
         });
       }
 
-      console.error(formatError(error));
       taskEventSubject.error(error);
     } finally {
       // Clear task timeout if it exists
