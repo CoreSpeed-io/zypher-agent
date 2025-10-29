@@ -391,7 +391,6 @@ export class ZypherAgent {
           timestamp: new Date(),
         };
         this.#messages.push(assistantMessage);
-        taskEventSubject.next({ type: "message", message: assistantMessage });
 
         // Check for cancellation
         if (mergedSignal.aborted) {
