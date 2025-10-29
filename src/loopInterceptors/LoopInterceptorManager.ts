@@ -78,8 +78,6 @@ export class LoopInterceptorManager {
 
         // If this interceptor wants to continue, it takes control of the chain
         if (result.decision === LoopDecision.CONTINUE) {
-          // Log which interceptor handled the request
-          console.log(`🔄 Loop interceptor executed: ${interceptor.name}`);
           return result;
         }
 
