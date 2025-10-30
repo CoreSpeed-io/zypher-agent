@@ -391,7 +391,6 @@ export class ZypherAgent {
           timestamp: new Date(),
         };
         this.#messages.push(assistantMessage);
-        taskEventSubject.next({ type: "message", message: assistantMessage });
 
         // Check for cancellation
         if (mergedSignal.aborted) {
@@ -435,12 +434,17 @@ export class ZypherAgent {
       // Task completed successfully
     } catch (error) {
       if (isAbortError(error)) {
+        // Abort/cancellation is an expected control flow, not an error.
+        // Emit the cancellation event and let the finally block complete the subject normally.
+        // This prevents consumers from treating intentional cancellation as a failure.
         taskEventSubject.next({
           type: "cancelled",
           reason: options?.signal?.aborted ? "user" : "timeout",
         });
+        return;
       }
 
+      // Only propagate unexpected errors to the subject
       taskEventSubject.error(error);
     } finally {
       // Clear task timeout if it exists
