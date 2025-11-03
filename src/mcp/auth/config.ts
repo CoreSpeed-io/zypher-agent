@@ -2,7 +2,7 @@ import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
 import { crypto } from "@std/crypto";
 import { getWorkspaceDataDir } from "../../utils/data.ts";
-import { z } from "zod";
+import type { z } from "zod";
 const ZYPHER_VERSION = "0.1.0";
 /**
  * Gets the configuration directory path
