@@ -1,175 +1,148 @@
-import {
-  fileExists,
-  getCurrentUserInfo,
-  getZypherDir,
-  loadMessageHistory,
-  saveMessageHistory,
-} from "./utils/mod.ts";
-import { detectErrors } from "./errorDetection/mod.ts";
-import { getSystemPrompt } from "./prompt.ts";
-import {
-  applyCheckpoint,
-  createCheckpoint,
-  getCheckpointDetails,
-} from "./checkpoints.ts";
-import {
-  type ContentBlock,
-  type FileAttachment,
-  isFileAttachment,
-  isFileTypeSupported,
-  type Message,
-  SUPPORTED_FILE_TYPES,
-  type SupportedFileTypes,
-} from "./message.ts";
-import type { McpServerManager } from "./mcp/McpServerManager.ts";
-import { Anthropic } from "@anthropic-ai/sdk";
+import type { Checkpoint } from "./CheckpointManager.ts";
+import type { CheckpointManager } from "./CheckpointManager.ts";
+import type { ContentBlock, FileAttachment, Message } from "./message.ts";
+import { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
-import { Completer } from "./utils/mod.ts";
-import { AbortError, formatError, isAbortError } from "./error.ts";
-import * as path from "@std/path";
+import {
+  Completer,
+  createEmittingMessageArray,
+  getSystemPrompt,
+} from "./utils/mod.ts";
+import {
+  AbortError,
+  formatError,
+  isAbortError,
+  TaskConcurrencyError,
+} from "./error.ts";
+import type { ModelProvider } from "./llm/mod.ts";
+import { type Observable, Subject } from "rxjs";
+import { eachValueFrom } from "rxjs-for-await";
+import {
+  type FileAttachmentCacheMap,
+  FileAttachmentManager,
+} from "./storage/mod.ts";
+import {
+  LoopDecision,
+  LoopInterceptorManager,
+  MaxTokensInterceptor,
+  ToolExecutionInterceptor,
+} from "./loopInterceptors/mod.ts";
+import type { TaskEvent } from "./TaskEvents.ts";
 
 /**
- * Custom error class for task concurrency issues
- * Thrown when attempting to run a new task while another task is already running
+ * Function that loads the system prompt for the agent.
+ * This allows developers to implement custom prompt loading logic,
+ * such as reading from files, fetching from APIs, or computing dynamically.
  */
-export class TaskConcurrencyError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "TaskConcurrencyError";
-  }
-}
-
-const DEFAULT_MODEL = "claude-3-5-sonnet-20241022";
-const DEFAULT_MAX_TOKENS = 8192;
-const DEFAULT_MAX_ITERATIONS = 25;
+export type SystemPromptLoader = () => Promise<string>;
 
 /**
- * Handler for streaming content and events
+ * ZypherContext represents the workspace and filesystem environment where the agent operates.
+ *
+ * This is fundamentally different from {@link ZypherAgentConfig}:
+ * - {@link ZypherContext} defines WHERE the agent operates (workspace/filesystem management)
+ * - {@link ZypherAgentConfig} defines HOW the agent behaves (behavioral configuration)
  */
-export interface StreamHandler {
-  /**
-   * Called when new content is streamed
-   * @param content The text content being streamed
-   * @param isFirstChunk Whether this is the first chunk of content
-   */
-  onContent?: (content: string, isFirstChunk: boolean) => void;
-
-  /**
-   * Called when a complete message is available
-   * @param message The complete message that was just processed
-   */
-  onMessage?: (message: Message) => void;
-
-  /**
-   * Called when tool use updates are available
-   * @param name Tool name being used
-   * @param partialInput Partial input data (JSON string fragment)
-   */
-  onToolUse?: (name: string, partialInput: string) => void;
-
-  /**
-   * Called when a task is cancelled
-   * @param reason The reason for cancellation
-   */
-  onCancelled?: (reason: "user" | "timeout") => void;
-}
-
-export type ToolApprovalHandler = (
-  name: string,
-  args: Record<string, unknown>,
-  options: { signal?: AbortSignal },
-) => Promise<boolean>;
-
-export interface ZypherAgentConfig {
-  anthropicApiKey?: string;
-  /** Base URL for the Anthropic API. Defaults to Anthropic's production API. */
-  baseUrl?: string;
-  maxTokens?: number;
-  /** Whether to load and save message history. Defaults to true. */
-  persistHistory?: boolean;
-  /** Whether to automatically check for code errors. Defaults to true. */
-  autoErrorCheck?: boolean;
-  /** Whether to enable prompt caching. Defaults to true. */
-  enablePromptCaching?: boolean;
+export interface ZypherContext {
+  /** Working directory where the agent performs file operations and executes tasks */
+  workingDirectory: string;
+  /** Base zypher directory for all agent data storage (Defaults to ~/.zypher) */
+  zypherDir: string;
+  /** Workspace-specific data directory for isolated storage (Defaults to ~/.zypher/encoded_working_directory_path)
+   * Used for message history, checkpoints, and other workspace-specific data */
+  workspaceDataDir: string;
   /** Unique identifier for tracking user-specific usage history */
   userId?: string;
-  /** Maximum allowed time for a task in milliseconds before it's automatically cancelled. Default is 1 minute (60000ms). Set to 0 to disable. */
-  taskTimeoutMs?: number;
-  /** Directory to cache file attachments */
-  fileAttachmentCacheDir?: string;
+  /** Directory to cache file attachments (Defaults to ~/.zypher/cache/files) */
+  fileAttachmentCacheDir: string;
 }
 
+export interface ZypherAgentConfig {
+  /** Maximum number of agent loop iterations. Defaults to 25. */
+  maxIterations: number;
+  /** Maximum tokens per response. Defaults to 8192. */
+  maxTokens: number;
+  /** Maximum allowed time for a task in milliseconds before it's automatically cancelled. Default is 15 minutes (900000ms). Set to 0 to disable. */
+  taskTimeoutMs: number;
+}
+
+export interface ZypherAgentOptions {
+  /** Storage service for file attachments */
+  storageService?: StorageService;
+  /** Checkpoint manager for creating and managing git-based checkpoints */
+  checkpointManager?: CheckpointManager;
+  /** Override default implementations of core components */
+  overrides?: {
+    /** Function that loads the system prompt for the agent. Defaults to {@link getSystemPrompt}. */
+    systemPromptLoader?: SystemPromptLoader;
+    /** Custom MCP server manager. If not provided, a default instance will be created. */
+    mcpServerManager?: McpServerManager;
+    /** Custom loop interceptor manager. If not provided, a default instance will be created. */
+    loopInterceptorManager?: LoopInterceptorManager;
+  };
+  config?: Partial<ZypherAgentConfig>;
+}
+
+const DEFAULT_MAX_TOKENS = 8192;
+const DEFAULT_MAX_ITERATIONS = 25;
+const DEFAULT_TASK_TIMEOUT_MS = 900000;
+
 export class ZypherAgent {
-  readonly #client: Anthropic;
-  readonly #maxTokens: number;
-  readonly #persistHistory: boolean;
-  readonly #autoErrorCheck: boolean;
-  readonly #enablePromptCaching: boolean;
-  readonly #userId?: string;
+  readonly #modelProvider: ModelProvider;
   readonly #mcpServerManager: McpServerManager;
-  readonly #taskTimeoutMs: number;
+  readonly #loopInterceptorManager: LoopInterceptorManager;
+  readonly #checkpointManager?: CheckpointManager;
+  readonly #systemPromptLoader: SystemPromptLoader;
   readonly #storageService?: StorageService;
-  readonly #fileAttachmentCacheDir?: string;
+  readonly #fileAttachmentManager?: FileAttachmentManager;
+
+  readonly #context: ZypherContext;
+  readonly #config: ZypherAgentConfig;
 
   #messages: Message[];
-  #system: Anthropic.TextBlockParam[];
-
-  // Task execution state
-  #isTaskRunning: boolean = false;
   #taskCompleter: Completer<void> | null = null;
 
+  /**
+   * Creates a new ZypherAgent instance
+   *
+   * @param modelProvider The AI model provider to use for chat completions
+   * @param context Workspace and filesystem environment configuration
+   * @param options Configuration options for the agent
+   */
   constructor(
-    config: ZypherAgentConfig = {},
-    mcpServerManager: McpServerManager,
-    storageService?: StorageService,
+    context: ZypherContext,
+    modelProvider: ModelProvider,
+    options: ZypherAgentOptions = {},
   ) {
-    const apiKey = config.anthropicApiKey ?? Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) {
-      throw new Error(
-        "API key is required. Provide it in config or set ANTHROPIC_API_KEY environment variable.",
+    this.#modelProvider = modelProvider;
+    this.#context = context;
+    this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
+      (() => getSystemPrompt(context.workingDirectory));
+    this.#config = {
+      maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
+      maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
+      taskTimeoutMs: options.config?.taskTimeoutMs ?? DEFAULT_TASK_TIMEOUT_MS, // Default is 15 minutes
+    };
+    this.#messages = [];
+
+    // Services and interceptors
+    this.#mcpServerManager = options.overrides?.mcpServerManager ??
+      new McpServerManager(context);
+    this.#loopInterceptorManager = options.overrides?.loopInterceptorManager ??
+      new LoopInterceptorManager([
+        new ToolExecutionInterceptor(this.#mcpServerManager),
+        new MaxTokensInterceptor(),
+      ]);
+
+    this.#storageService = options.storageService;
+    if (this.#storageService) {
+      this.#fileAttachmentManager = new FileAttachmentManager(
+        this.#storageService,
+        context.fileAttachmentCacheDir,
       );
     }
 
-    const baseUrl = config.baseUrl ?? Deno.env.get("ANTHROPIC_BASE_URL");
-    const userId = config.userId ?? Deno.env.get("ZYPHER_USER_ID");
-
-    this.#client = new Anthropic({
-      apiKey,
-      ...(baseUrl && { baseURL: baseUrl }),
-    });
-    this.#messages = [];
-    this.#system = []; // Will be initialized in init()
-    this.#maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
-    this.#persistHistory = config.persistHistory ?? true;
-    this.#autoErrorCheck = config.autoErrorCheck ?? true;
-    this.#enablePromptCaching = config.enablePromptCaching ?? true;
-    this.#userId = userId;
-    this.#mcpServerManager = mcpServerManager;
-    this.#storageService = storageService;
-    // Default timeout is 5 minutes, 0 = disabled
-    this.#taskTimeoutMs = config.taskTimeoutMs ?? 300000;
-    this.#fileAttachmentCacheDir = config.fileAttachmentCacheDir;
-  }
-
-  async init(): Promise<void> {
-    const userInfo = getCurrentUserInfo();
-    const systemPromptText = await getSystemPrompt(userInfo);
-    // Convert system prompt to content blocks
-    // cache the main system prompt as it's large and reusable
-    this.#system = [
-      {
-        type: "text",
-        text: systemPromptText,
-        ...(this.#enablePromptCaching && {
-          cache_control: { type: "ephemeral" },
-        }),
-      },
-    ];
-
-    // Load message history if enabled
-    if (this.#persistHistory) {
-      this.#messages = await loadMessageHistory();
-    }
+    this.#checkpointManager = options.checkpointManager;
   }
 
   /**
@@ -181,17 +154,31 @@ export class ZypherAgent {
   }
 
   /**
-   * Get the configured task timeout in milliseconds
+   * Get the configured agent configuration
    */
-  get taskTimeoutMs(): number {
-    return this.#taskTimeoutMs;
+  get config(): ZypherAgentConfig {
+    return this.#config;
   }
 
   /**
    * Check if a task is currently running
    */
   get isTaskRunning(): boolean {
-    return this.#isTaskRunning;
+    return this.#taskCompleter !== null;
+  }
+
+  /**
+   * Get the MCP server manager for configuration
+   */
+  get mcp(): McpServerManager {
+    return this.#mcpServerManager;
+  }
+
+  /**
+   * Get the loop interceptor manager for configuration
+   */
+  get loopInterceptor(): LoopInterceptorManager {
+    return this.#loopInterceptorManager;
   }
 
   /**
@@ -199,90 +186,6 @@ export class ZypherAgent {
    */
   clearMessages(): void {
     this.#messages = [];
-
-    // Save updated message history if enabled
-    if (this.#persistHistory) {
-      void saveMessageHistory(this.#messages);
-    }
-  }
-
-  /**
-   * Retrieves a file attachment from storage service
-   * @param fileId ID of the file to retrieve
-   * @returns Promise resolving to a FileAttachment object or null if file doesn't exist or isn't supported
-   */
-  async getFileAttachment(fileId: string): Promise<FileAttachment | null> {
-    if (!this.#storageService) {
-      console.error("Storage service not initialized");
-      return null;
-    }
-
-    // Get metadata and check if the file exists
-    const metadata = await this.#storageService.getFileMetadata(fileId);
-    if (!metadata) {
-      console.error(`Metadata for file ${fileId} could not be retrieved`);
-      return null;
-    }
-
-    // Verify file type is supported
-    if (!isFileTypeSupported(metadata.contentType)) {
-      return null;
-    }
-
-    // Return formatted file attachment
-    return {
-      type: "file_attachment",
-      fileId,
-      mimeType: metadata.contentType satisfies SupportedFileTypes,
-    };
-  }
-
-  /**
-   * Get the directory where file attachments are cached
-   * @returns Promise resolving to the cache directory path
-   */
-  async #getFileAttachmentCacheDir(): Promise<string> {
-    return this.#fileAttachmentCacheDir ??
-      path.join(await getZypherDir(), "cache", "files");
-  }
-
-  /**
-   * Get the local cache file path for a file attachment
-   * @param fileId ID of the file attachment
-   * @returns Promise resolving to the cache file path
-   */
-  async #getFileAttachmentCachePath(fileId: string): Promise<string> {
-    return path.join(await this.#getFileAttachmentCacheDir(), fileId);
-  }
-
-  /**
-   * Caches a file attachment if it's not already cached if possible
-   * @param fileId ID of the file attachment
-   * @returns Promise resolving to the cache file path,
-   * or null if:
-   * - the file ID does not exist on storage service
-   * - fails to cache the file attachment
-   * - the storage service is not initialized
-   */
-  async #cacheFileAttachment(fileId: string): Promise<string | null> {
-    if (!this.#storageService) {
-      console.error("Storage service not initialized");
-      return null;
-    }
-
-    const cachePath = await this.#getFileAttachmentCachePath(fileId);
-    if (!await fileExists(cachePath)) {
-      // Download the file attachment from storage service to cache path
-      try {
-        await this.#storageService.downloadFile(fileId, cachePath);
-        console.log("Cached file attachment", fileId, cachePath);
-      } catch (error) {
-        console.log("Failed to cache file attachment", fileId, error);
-        return null;
-      }
-    }
-
-    return cachePath;
   }
 
   /**
@@ -293,9 +196,13 @@ export class ZypherAgent {
    * @returns True if the checkpoint was applied successfully, false otherwise
    */
   async applyCheckpoint(checkpointId: string): Promise<boolean> {
+    if (!this.#checkpointManager) {
+      throw new Error("Checkpoint manager not provided");
+    }
+
     try {
       // Apply the checkpoint to the filesystem
-      await applyCheckpoint(checkpointId);
+      await this.#checkpointManager.applyCheckpoint(checkpointId);
 
       // Update message history to discard messages beyond the checkpoint
       const checkpointIndex = this.#messages.findIndex(
@@ -305,11 +212,6 @@ export class ZypherAgent {
       if (checkpointIndex !== -1) {
         // Keep messages up to but excluding the checkpoint message
         this.#messages = this.#messages.slice(0, checkpointIndex);
-
-        // Save updated message history if enabled
-        if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages);
-        }
       }
 
       return true;
@@ -317,191 +219,6 @@ export class ZypherAgent {
       console.error(`Error applying checkpoint: ${formatError(error)}`);
       return false;
     }
-  }
-
-  async #executeToolCall(
-    name: string,
-    parameters: Record<string, unknown>,
-    options?: {
-      signal?: AbortSignal;
-      handleToolApproval?: ToolApprovalHandler;
-    },
-  ): Promise<string> {
-    const tool = this.#mcpServerManager.getTool(name);
-    if (!tool) {
-      return `Error: Tool '${name}' not found`;
-    }
-
-    const approved = options?.handleToolApproval
-      ? await options.handleToolApproval(name, parameters, options)
-      : true;
-    console.log(`Tool call approved: ${approved}`);
-    if (!approved) {
-      return "Tool call rejected by user";
-    }
-
-    try {
-      // TODO: support abort signal in tool execution
-      return await tool.execute(parameters);
-    } catch (error) {
-      return `Error executing tool '${name}': ${formatError(error)}`;
-    }
-  }
-
-  async #cacheMessageFileAttachments(messages: Message[]): Promise<void> {
-    for (const message of messages) {
-      for (const block of message.content) {
-        if (isFileAttachment(block)) {
-          await this.#cacheFileAttachment(block.fileId);
-        }
-      }
-    }
-  }
-
-  /**
-   * Formats a message for the Anthropic API, converting content to blocks and adding cache control
-   * for incremental caching of conversation history.
-   *
-   * @param message - The extended message parameter
-   * @param isLastMessage - Whether this is the last message in the turn
-   * @returns A clean message parameter for the Anthropic API
-   */
-  async #formatMessageForApi(
-    message: Message,
-    isLastMessage: boolean,
-  ): Promise<Anthropic.MessageParam> {
-    const { role, content } = message;
-
-    // Track file attachment count separately from content index
-    let fileAttachmentCount = 0;
-
-    // For string content, convert to array format
-    let contentArray = typeof content === "string"
-      ? [
-        {
-          type: "text" as const,
-          text: content,
-        } satisfies Anthropic.TextBlockParam,
-      ]
-      : (
-        await Promise.all(
-          content.map(async (block) => {
-            if (isFileAttachment(block)) {
-              // Increment the file attachment counter for each file attachment
-              fileAttachmentCount++;
-
-              if (!this.#storageService) {
-                // skip attachment if storage service is not configured
-                console.warn(
-                  "Skipping file attachment as storage service is not configured.",
-                );
-                return null;
-              }
-
-              // we don't need to check if the file still exists here
-              // it is okay to return a signed URL that points to a non-existent or expired file
-              // so that the agent can tell the user to upload the file again
-
-              const signedUrl = await this.#storageService.getSignedUrl(
-                block.fileId,
-              );
-
-              if (!isFileTypeSupported(block.mimeType)) {
-                console.warn(
-                  `Skipping file attachment as file is not an image. File type must be one of ${
-                    SUPPORTED_FILE_TYPES.join(", ")
-                  }. File ID: ${block.fileId}`,
-                );
-                return null;
-              }
-
-              const attachmentCachePath = await this
-                .#getFileAttachmentCachePath(block.fileId);
-              const attachmentCached = await fileExists(attachmentCachePath);
-              const attachmentIndex = fileAttachmentCount;
-
-              // Text block is always included for both image and PDF files
-              const textBlock: Anthropic.TextBlockParam = {
-                type: "text" as const,
-                text: attachmentCached
-                  ? `Attachment ${attachmentIndex}:
-                  MIME type: ${block.mimeType}
-                  Cached at: ${attachmentCachePath}`
-                  : `Attachment ${attachmentIndex}:`,
-              };
-
-              // Handle different file types with appropriate block types
-              if (block.mimeType.startsWith("image/")) {
-                return [
-                  textBlock,
-                  {
-                    type: "image" as const,
-                    source: {
-                      type: "url" as const,
-                      url: signedUrl,
-                    },
-                  } satisfies Anthropic.ImageBlockParam,
-                ];
-              } else if (block.mimeType === "application/pdf") {
-                return [
-                  textBlock,
-                  {
-                    type: "document" as const,
-                    source: {
-                      type: "url" as const,
-                      url: signedUrl,
-                    },
-                  } satisfies Anthropic.DocumentBlockParam,
-                ];
-              }
-
-              // Fall back to just the text block for unsupported types
-              return [textBlock];
-            }
-            return block;
-          }),
-        )
-      )
-        .filter((block): block is Anthropic.ContentBlockParam => block !== null)
-        .flat();
-
-    // Add cache control to the last block of the last message
-    if (isLastMessage && this.#enablePromptCaching && contentArray.length > 0) {
-      // Only create new array for the last message to avoid mutating the original array
-      contentArray = [
-        ...contentArray.slice(0, -1), // Keep all but the last block
-        // inject cache control to the last block
-        // refer to https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#continuing-a-multi-turn-conversation
-        {
-          ...contentArray[contentArray.length - 1],
-          cache_control: { type: "ephemeral" },
-        } as Anthropic.ContentBlockParam,
-      ];
-    }
-
-    return { role, content: contentArray };
-  }
-
-  /**
-   * Atomically checks if a task is running and sets the flag if it's not
-   * This is a critical section that must be executed synchronously (not async)
-   * to ensure atomic "check-and-set" semantics
-   *
-   * This method should only be called by runTaskWithStreaming
-   *
-   * @returns true if the flag was successfully set (no task was running),
-   *          false if a task is already running
-   */
-  #checkAndSetTaskRunning(): boolean {
-    // This critical section is atomic because JavaScript is single-threaded
-    // and this method contains no async operations
-    if (this.#isTaskRunning) {
-      return false;
-    }
-
-    // Set the flag
-    this.#isTaskRunning = true;
-    return true;
   }
 
   /**
@@ -526,28 +243,50 @@ export class ZypherAgent {
    * @returns Array of messages after task completion, or return as is if cancelled
    * @throws {TaskConcurrencyError} If a task is already running
    */
-  async runTaskWithStreaming(
+  runTask(
     taskDescription: string,
-    model: string = DEFAULT_MODEL,
-    streamHandler?: StreamHandler,
+    model: string,
     fileAttachments?: FileAttachment[],
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
-      handleToolApproval?: ToolApprovalHandler;
     },
-  ): Promise<Message[]> {
-    // Use default maxIterations if not provided
-    const maxIterations = options?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
-    if (!this.#checkAndSetTaskRunning()) {
+  ): Observable<TaskEvent> {
+    // Create a single Subject for all task events
+    const taskEventSubject = new Subject<TaskEvent>();
+
+    // Start the internal task execution (fire-and-forget)
+    this.#runTaskInternal(
+      taskEventSubject,
+      taskDescription,
+      model,
+      fileAttachments,
+      options,
+    );
+
+    return taskEventSubject.asObservable();
+  }
+
+  async #runTaskInternal(
+    taskEventSubject: Subject<TaskEvent>,
+    taskDescription: string,
+    model: string,
+    fileAttachments?: FileAttachment[],
+    options?: {
+      maxIterations?: number;
+      signal?: AbortSignal;
+    },
+  ): Promise<void> {
+    // Check if a task is already running and set the completer atomically
+    // This is safe because JavaScript is single-threaded
+    if (this.#taskCompleter !== null) {
       throw new TaskConcurrencyError(
         "Cannot run multiple tasks concurrently. A task is already running.",
       );
     }
-
     this.#taskCompleter = new Completer<void>();
-    const timeoutController = new AbortController();
 
+    const timeoutController = new AbortController();
     // Create a composite signal that aborts if either the caller's signal or our timeout signal aborts
     const mergedSignal = options?.signal
       ? AbortSignal.any([options.signal, timeoutController.signal])
@@ -555,37 +294,39 @@ export class ZypherAgent {
 
     // Set up task timeout if enabled
     let timeoutId: number | null = null;
-    if (this.#taskTimeoutMs > 0) {
+    if (this.#config.taskTimeoutMs > 0) {
       timeoutId = setTimeout(
-        () => {
-          console.log(`🕒 Task timed out after ${this.#taskTimeoutMs}ms`);
-          timeoutController.abort();
-        },
-        this.#taskTimeoutMs,
+        () => timeoutController.abort(),
+        this.#config.taskTimeoutMs,
       );
     }
 
     try {
-      // Ensure system prompt is initialized
-      if (!this.#system.length) {
-        await this.init();
-      }
+      // Reload system prompt to get current custom rules from working directory
+      const systemPrompt = await this.#systemPromptLoader();
 
       let iterations = 0;
 
-      // Always create a checkpoint before executing the task
-      const checkpointName = `Before task: ${taskDescription.substring(0, 50)}${
-        taskDescription.length > 50 ? "..." : ""
-      }`;
-      const checkpointId = await createCheckpoint(checkpointName);
-      const checkpoint = await getCheckpointDetails(checkpointId);
+      let checkpointId: string | undefined;
+      let checkpoint: Checkpoint | undefined;
+      if (this.#checkpointManager) {
+        const checkpointName = `Before task: ${
+          taskDescription.substring(0, 50)
+        }${taskDescription.length > 50 ? "..." : ""}`;
+        checkpointId = await this.#checkpointManager.createCheckpoint(
+          checkpointName,
+        );
+        checkpoint = await this.#checkpointManager.getCheckpointDetails(
+          checkpointId,
+        );
+      }
 
       const messageContent: ContentBlock[] = [
         ...(fileAttachments ?? []),
         {
-          type: "text",
-          text: `<user_query>\n${taskDescription}\n</user_query>`,
-        } satisfies Anthropic.TextBlockParam,
+          type: "text" as const,
+          text: taskDescription,
+        } satisfies ContentBlock,
       ];
 
       // Add user message with checkpoint reference
@@ -597,78 +338,50 @@ export class ZypherAgent {
         timestamp: new Date(), // current timestamp
       };
       this.#messages.push(userMessage);
-      streamHandler?.onMessage?.(userMessage);
+      taskEventSubject.next({ type: "message", message: userMessage });
 
       const toolCalls = Array.from(
         this.#mcpServerManager.getAllTools().values(),
-      ).map(
-        (tool, index, tools): Anthropic.ToolUnion => ({
-          name: tool.name,
-          description: tool.description,
-          input_schema: tool.parameters,
-          // Only add cache control to the last tool as it acts as a breakpoint
-          ...(this.#enablePromptCaching &&
-            index === tools.length - 1 && {
-            cache_control: { type: "ephemeral" },
-          }),
-        }),
       );
 
-      await this.#cacheMessageFileAttachments(this.#messages);
+      // Cache file attachments if enabled
+      let cacheMap: FileAttachmentCacheMap | undefined;
+      if (this.#fileAttachmentManager) {
+        cacheMap = await this.#fileAttachmentManager
+          .cacheMessageFileAttachments(
+            this.#messages,
+          );
+      }
 
+      const maxIterations = options?.maxIterations ??
+        this.#config.maxIterations;
       while (iterations < maxIterations) {
         // Check for abort signal early
         if (mergedSignal.aborted) {
           throw new AbortError("Task aborted");
         }
-        let isFirstChunk = true;
-        let currentToolName: string | null = null;
 
-        // Create a stream with event handlers and pass the composite abort signal for cancellation
-        const stream = this.#client.messages
-          .stream({
-            model: model,
-            max_tokens: this.#maxTokens,
-            system: this.#system,
-            messages: await Promise.all(
-              this.#messages.map((msg: Message, index: number) =>
-                this.#formatMessageForApi(
-                  msg,
-                  index === this.#messages.length - 1,
-                )
-              ),
-            ),
+        const stream = this.#modelProvider.streamChat(
+          {
+            model,
+            maxTokens: this.#config.maxTokens,
+            system: systemPrompt,
+            messages: this.#messages,
             tools: toolCalls,
-            ...(this.#userId && { metadata: { user_id: this.#userId } }),
-          }, { signal: mergedSignal })
-          .on("text", (textDelta) => {
-            // Call stream handler for content
-            if (streamHandler?.onContent && textDelta) {
-              streamHandler.onContent(textDelta, isFirstChunk);
-              isFirstChunk = false;
-            }
-          })
-          .on("streamEvent", (event: Anthropic.MessageStreamEvent) => {
-            // Detect tool use at the start of a content block
-            if (
-              event.type === "content_block_start" &&
-              event.content_block?.type === "tool_use" &&
-              streamHandler?.onToolUse
-            ) {
-              // Store the tool name for subsequent inputJson events
-              currentToolName = event.content_block.name;
-              // Send the initial tool use notification with the tool name
-              streamHandler.onToolUse(currentToolName, "");
-            }
-          })
-          .on("inputJson", (partialJson) => {
-            // Send updates whenever we have new partial JSON for a tool
-            if (partialJson && streamHandler?.onToolUse && currentToolName) {
-              streamHandler.onToolUse(currentToolName, partialJson);
-            }
-          });
+            userId: this.#context.userId,
+          },
+          cacheMap,
+        );
 
-        // Wait for the final message
+        const modelEvents = stream.events;
+        for await (const event of eachValueFrom(modelEvents)) {
+          if (event.type === "text") {
+            taskEventSubject.next({ type: "text", content: event.text });
+          } else if (event.type === "message") {
+            taskEventSubject.next({ type: "message", message: event.message });
+          }
+        }
+
         const finalMessage = await stream.finalMessage();
 
         // Create the assistant message using the complete content from finalMessage
@@ -678,119 +391,75 @@ export class ZypherAgent {
           timestamp: new Date(),
         };
         this.#messages.push(assistantMessage);
-        streamHandler?.onMessage?.(assistantMessage);
 
         // Check for cancellation
         if (mergedSignal.aborted) {
           throw new AbortError("Task aborted");
         }
 
-        // Process tool calls if any
-        if (finalMessage.stop_reason === "tool_use") {
-          // Execute tool calls
-          for (const block of finalMessage.content) {
-            if (block.type === "tool_use") {
-              const result = await this.#executeToolCall(
-                block.name,
-                block.input as Record<string, unknown>,
-                {
-                  signal: mergedSignal,
-                  handleToolApproval: options?.handleToolApproval,
-                },
-              );
+        // Execute loop interceptors to determine if we should continue
+        const responseText = finalMessage.content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text)
+          .join("");
 
-              // Add tool response
-              const toolMessage: Message = {
-                role: "user",
-                content: [
-                  {
-                    type: "tool_result" as const,
-                    tool_use_id: block.id,
-                    content: result,
-                  } satisfies Anthropic.ToolResultBlockParam,
-                ],
-                timestamp: new Date(),
-              };
-              this.#messages.push(toolMessage);
-              streamHandler?.onMessage?.(toolMessage);
-            }
-          }
-        } else if (finalMessage.stop_reason === "max_tokens") {
-          // auto continue
-          const continueMessage: Message = {
-            role: "user",
-            content: "Continue",
-            timestamp: new Date(),
-          };
-          this.#messages.push(continueMessage);
-          streamHandler?.onMessage?.(continueMessage);
-        } else {
-          // Check for code errors if enabled and this is the end of the conversation
-          if (this.#autoErrorCheck) {
-            const errors = await detectErrors({ signal: mergedSignal });
-            if (errors) {
-              console.log(
-                "\n🔍 Detected code errors. Asking the agent to fix them...",
-              );
+        // Create a proxied message array that automatically emits events when modified
+        const emittingMessages = createEmittingMessageArray(
+          this.#messages,
+          taskEventSubject,
+        );
 
-              // Add errors as a user message
-              const errorMessage: Message = {
-                role: "user",
-                content:
-                  `I noticed some errors in the code. Please fix these issues:\n\n${errors}\n\nPlease explain what was wrong and how you fixed it.`,
-                timestamp: new Date(),
-              };
-              this.#messages.push(errorMessage);
-              streamHandler?.onMessage?.(errorMessage);
+        const interceptorContext = {
+          messages: emittingMessages,
+          lastResponse: responseText,
+          tools: toolCalls,
+          workingDirectory: this.#context.workingDirectory,
+          stopReason: finalMessage.stop_reason,
+          signal: mergedSignal,
+          eventSubject: taskEventSubject,
+        };
 
-              // Continue the loop to let the agent fix the errors
-              iterations++;
-              continue;
-            }
-          }
+        const interceptorResult = await this.#loopInterceptorManager.execute(
+          interceptorContext,
+        );
 
-          // No errors or error check disabled, exit the loop
+        if (interceptorResult.decision === LoopDecision.COMPLETE) {
+          // All interceptors decided to complete, exit the loop
           break;
         }
 
         iterations++;
       }
 
-      // Save updated message history if enabled
-      if (this.#persistHistory) {
-        await saveMessageHistory(this.#messages);
-      }
-
-      return this.messages;
+      // Task completed successfully
     } catch (error) {
       if (isAbortError(error)) {
-        console.log(formatError(error));
-        console.log("🛑 Task aborted.");
-
-        streamHandler?.onCancelled?.(
-          options?.signal?.aborted ? "user" : "timeout",
-        );
-
-        if (this.#persistHistory) {
-          await saveMessageHistory(this.#messages);
-        }
-
-        return this.messages;
+        // Abort/cancellation is an expected control flow, not an error.
+        // Emit the cancellation event and let the finally block complete the subject normally.
+        // This prevents consumers from treating intentional cancellation as a failure.
+        taskEventSubject.next({
+          type: "cancelled",
+          reason: options?.signal?.aborted ? "user" : "timeout",
+        });
+        return;
       }
 
-      console.error(formatError(error));
-
-      throw error;
+      // Only propagate unexpected errors to the subject
+      taskEventSubject.error(error);
     } finally {
-      // Clean up resources
-      this.#isTaskRunning = false;
-
       // Clear task timeout if it exists
       if (timeoutId !== null) {
         clearTimeout(timeoutId);
       }
 
+      // Complete the task event subject if it hasn't errored
+      if (!taskEventSubject.closed) {
+        taskEventSubject.complete();
+      }
+
+      // Resolve and clear the task completer
       this.#taskCompleter.resolve();
+      this.#taskCompleter = null;
     }
   }
 

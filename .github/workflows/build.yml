@@ -20,7 +20,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.3.1
+          deno-version: v2.5.1
 
       - name: Install dependencies
         run: deno install --frozen=true
@@ -37,5 +37,8 @@ jobs:
       - name: Run unit tests
         run: deno test --ignore=**/*.integration.test.ts
 
-      - name: Run bundler
-        run: deno task bundle:api
+      - name: JSR publish dry run
+        run: deno publish --dry-run --allow-slow-types
+
+      - name: Build npm package
+        run: deno task build:npm

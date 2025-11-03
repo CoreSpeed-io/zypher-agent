@@ -1,12 +1,15 @@
-import { Anthropic } from "@anthropic-ai/sdk";
-
-export type ContentBlock = Anthropic.ContentBlockParam | FileAttachment;
+export type ContentBlock =
+  | TextBlock
+  | ImageBlock
+  | ToolUseBlock
+  | ToolResultBlock
+  | FileAttachment;
 
 /**
  * Extended message parameter type that includes checkpoint information
  */
 export interface Message {
-  content: string | Array<ContentBlock>;
+  content: Array<ContentBlock>;
 
   role: "user" | "assistant";
 
@@ -30,29 +33,66 @@ export interface Message {
   };
 }
 
-export const SUPPORTED_FILE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "application/pdf",
-] as const;
-
-export type SupportedFileTypes = typeof SUPPORTED_FILE_TYPES[number];
-
-export function isFileTypeSupported(type: string): type is SupportedFileTypes {
-  return SUPPORTED_FILE_TYPES.includes(type as SupportedFileTypes);
+/**
+ * Regular text content
+ */
+export interface TextBlock {
+  type: "text";
+  text: string;
 }
 
 /**
- * Represents an image attachment in the message history
+ * Image content
+ */
+export interface ImageBlock {
+  type: "image";
+  source: Base64ImageSource | UrlImageSource;
+}
+
+/**
+ * Base64 image source
+ */
+export interface Base64ImageSource {
+  type: "base64";
+  /** The base64 encoded image data */
+  data: string;
+  /** The MIME type of the image */
+  mediaType: string;
+}
+
+/**
+ * URL image source
+ */
+export interface UrlImageSource {
+  type: "url";
+  /** The URL of the image */
+  url: string;
+  /** The MIME type of the image */
+  mediaType: string;
+}
+
+export interface ToolUseBlock {
+  type: "tool_use";
+  toolUseId: string;
+  name: string;
+  input: unknown;
+}
+
+export interface ToolResultBlock {
+  type: "tool_result";
+  toolUseId: string;
+  content: (TextBlock | ImageBlock)[];
+}
+
+/**
+ * File attachment content
  */
 export interface FileAttachment {
   type: "file_attachment";
   /** The ID of the file in storage */
   fileId: string;
   /** The MIME type of the file */
-  mimeType: SupportedFileTypes;
+  mimeType: string;
 }
 
 /**

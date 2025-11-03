@@ -1,210 +1,158 @@
-// The jsr specifier here is a workaround for deno rolldown plugin
-import "jsr:@std/dotenv/load";
-import { type StreamHandler, ZypherAgent } from "../../src/ZypherAgent.ts";
+import "@std/dotenv/load";
+import {
+  AnthropicModelProvider,
+  createZypherContext,
+  formatError,
+  OpenAIModelProvider,
+  runAgentInTerminal,
+  ZypherAgent,
+} from "@zypher/mod.ts";
 import {
   CopyFileTool,
-  defineImageTools,
+  createEditFileTools,
+  createImageTools,
   DeleteFileTool,
-  EditFileTool,
   FileSearchTool,
   GrepSearchTool,
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
-} from "../../src/tools/mod.ts";
-import { parseArgs } from "@std/cli";
-import readline from "node:readline";
-import { stdin as input, stdout as output } from "node:process";
-import { formatError } from "../../src/error.ts";
+} from "@zypher/tools/mod.ts";
+import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
-import { McpServerManager } from "../../src/mcp/McpServerManager.ts";
-import { printMessage } from "../../src/message.ts";
 
-interface CliOptions {
-  workspace?: string;
-  userId?: string;
-  baseUrl?: string;
-  apiKey?: string;
-  model?: string;
-}
+const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
+const DEFAULT_BACKUP_DIR = "./.backup";
 
-// Parse command line arguments using std/cli
-const cliFlags = parseArgs(Deno.args, {
-  string: ["workspace", "user-id", "base-url", "api-key", "model"],
-  alias: {
-    w: "workspace",
-    u: "user-id",
-    b: "base-url",
-    k: "api-key",
-  },
-});
+const providerType = new EnumType(["anthropic", "openai"]);
 
-// Convert kebab-case args to camelCase for consistency
-const options: CliOptions = {
-  workspace: cliFlags.workspace,
-  userId: cliFlags["user-id"],
-  baseUrl: cliFlags["base-url"],
-  apiKey: cliFlags["api-key"],
-  model: cliFlags.model,
-};
+// Parse command line arguments using Cliffy
+const { options: cli } = await new Command()
+  .name("zypher")
+  .description("Zypher Agent CLI")
+  .type("provider", providerType)
+  .option("-k, --api-key <apiKey:string>", "Model provider API key", {
+    required: true,
+  })
+  .option("-m, --model <model:string>", "Model name")
+  .option(
+    "-p, --provider <provider:provider>",
+    "Model provider",
+  )
+  .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
+  .option(
+    "-w, --workDir <workingDirectory:string>",
+    "Working directory for agent operations",
+  )
+  .option("-u, --user-id <userId:string>", "Custom user ID")
+  .option(
+    "--openai-api-key <openaiApiKey:string>",
+    "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
+  )
+  .option("--backup-dir <backupDir:string>", "Directory to store backups")
+  .parse(Deno.args);
 
-const rl = readline.createInterface({ input, output });
-const textEncoder = new TextEncoder();
-
-const mcpServerManager = new McpServerManager();
-
-function prompt(question: string): Promise<string> {
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      resolve(answer);
-    });
-  });
+function inferProvider(
+  provider?: string,
+  model?: string,
+): "anthropic" | "openai" {
+  const p = provider?.toLowerCase();
+  if (p === "openai" || p === "anthropic") return p;
+  if (!model) return "anthropic";
+  const m = model.toLowerCase();
+  if (
+    m.includes("claude") || m.startsWith("sonnet") || m.startsWith("haiku") ||
+    m.startsWith("opus")
+  ) {
+    return "anthropic";
+  }
+  return "openai"; // fallback to OpenAI-compatible models
 }
 
 async function main(): Promise<void> {
-  await mcpServerManager.init();
-
   try {
-    // Handle workspace option
-    if (options.workspace) {
-      try {
-        Deno.chdir(options.workspace);
-        console.log(`🚀 Changed working directory to: ${Deno.cwd()}`);
-      } catch (error) {
-        throw new Error(
-          `Failed to change to workspace directory: ${formatError(error)}`,
-        );
-      }
-    }
-
     // Log CLI configuration
-    if (options.userId) {
-      console.log(`👤 Using custom user ID: ${options.userId}`);
+    if (cli.userId) {
+      console.log(`👤 Using user ID: ${cli.userId}`);
     }
 
-    if (options.baseUrl) {
-      console.log(`🌐 Using custom API base URL: ${options.baseUrl}`);
+    if (cli.baseUrl) {
+      console.log(`🌐 Using API base URL: ${cli.baseUrl}`);
     }
 
-    if (options.apiKey) {
-      console.log(`🔑 Using custom API key: ${chalk.gray("***")}`);
+    if (cli.workDir) {
+      console.log(`💻 Using working directory: ${cli.workDir}`);
     }
 
-    if (options.model) {
-      console.log(`🧠 Using custom model: ${chalk.cyan(options.model)}`);
-    }
+    const selectedProvider = inferProvider(cli.provider, cli.model);
+    console.log(`🤖 Using provider: ${chalk.magenta(selectedProvider)}`);
+
+    const modelToUse = cli.model ??
+      (selectedProvider === "openai"
+        ? DEFAULT_OPENAI_MODEL
+        : DEFAULT_ANTHROPIC_MODEL);
+    console.log(`🧠 Using model: ${chalk.cyan(modelToUse)}`);
 
     // Initialize the agent with provided options
-    const agent = new ZypherAgent(
+    const providerInstance = selectedProvider === "openai"
+      ? new OpenAIModelProvider({
+        apiKey: cli.apiKey,
+        baseUrl: cli.baseUrl,
+      })
+      : new AnthropicModelProvider({
+        apiKey: cli.apiKey,
+        baseUrl: cli.baseUrl,
+      });
+
+    const workingDirectory = cli.workDir ?? Deno.cwd();
+    const context = await createZypherContext(
+      workingDirectory,
       {
-        userId: options.userId,
-        baseUrl: options.baseUrl,
-        anthropicApiKey: options.apiKey,
+        userId: cli.userId,
       },
-      mcpServerManager,
     );
+
+    const agent = new ZypherAgent(
+      context,
+      providerInstance,
+    );
+
+    const mcpServerManager = agent.mcp;
 
     // Register all available tools
     mcpServerManager.registerTool(ReadFileTool);
     mcpServerManager.registerTool(ListDirTool);
-    mcpServerManager.registerTool(EditFileTool);
     mcpServerManager.registerTool(RunTerminalCmdTool);
     mcpServerManager.registerTool(GrepSearchTool);
     mcpServerManager.registerTool(FileSearchTool);
     mcpServerManager.registerTool(CopyFileTool);
     mcpServerManager.registerTool(DeleteFileTool);
 
-    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    // Image tools are powered by OpenAI only
+    const openaiApiKey = cli.provider === "openai"
+      ? cli.apiKey
+      : cli.openaiApiKey;
+
     if (openaiApiKey) {
-      const { ImageGenTool, ImageEditTool } = defineImageTools(openaiApiKey);
+      const { ImageGenTool, ImageEditTool } = createImageTools(openaiApiKey);
       mcpServerManager.registerTool(ImageGenTool);
       mcpServerManager.registerTool(ImageEditTool);
     }
+
+    const backupDir = cli.backupDir ?? DEFAULT_BACKUP_DIR;
+    const { EditFileTool } = createEditFileTools(backupDir);
+    mcpServerManager.registerTool(EditFileTool);
 
     console.log(
       "🔧 Registered tools:",
       Array.from(mcpServerManager.getAllTools().keys()).join(", "),
     );
 
-    // Initialize the agent
-    await agent.init();
-
-    console.log("\n🤖 Welcome to Zypher Agent CLI!\n");
-    if (options.model) {
-      console.log(
-        `🧠 Using user-specified model: ${chalk.cyan(options.model)}`,
-      );
-    }
-    console.log(
-      'Type your task or command below. Use "exit" or Ctrl+C to quit.\n',
-    );
-
-    while (true) {
-      const task = await prompt("🔧 Enter your task: ");
-
-      if (task.toLowerCase() === "exit") {
-        console.log("\nGoodbye! 👋\n");
-        break;
-      }
-
-      let isFirstToolUseChunk = true;
-
-      if (task.trim()) {
-        console.log("\n🚀 Starting task execution...\n");
-        try {
-          // Setup streaming handlers
-          const streamHandler: StreamHandler = {
-            onContent: (content, isFirstChunk) => {
-              // For the first content chunk, add a bot indicator
-              if (isFirstChunk) {
-                Deno.stdout.write(
-                  textEncoder.encode(chalk.blue("🤖 ")),
-                );
-              }
-
-              // Write the text without newline to allow continuous streaming
-              Deno.stdout.write(textEncoder.encode(content));
-            },
-            onToolUse: (name, partialInput) => {
-              if (isFirstToolUseChunk) {
-                Deno.stdout.write(
-                  textEncoder.encode(`\n\n🔧 Using tool: ${name}\n`),
-                );
-              }
-              isFirstToolUseChunk = false;
-
-              Deno.stdout.write(
-                textEncoder.encode(partialInput),
-              );
-            },
-            onMessage: (message) => {
-              // Add a line between messages for better readability
-              Deno.stdout.write(textEncoder.encode("\n"));
-
-              if (message.role === "user") {
-                printMessage(message);
-                Deno.stdout.write(textEncoder.encode("\n"));
-              }
-            },
-          };
-
-          await agent.runTaskWithStreaming(task, options.model, streamHandler);
-
-          // Add extra newlines for readability after completion
-          Deno.stdout.write(textEncoder.encode("\n\n"));
-
-          console.log("\n✅ Task completed.\n");
-        } catch (error) {
-          console.error(chalk.red("\n❌ Error:"), formatError(error));
-          console.log("\nReady for next task.\n");
-        }
-      }
-    }
+    await runAgentInTerminal(agent, modelToUse);
   } catch (error) {
     console.error("Fatal Error:", formatError(error));
     Deno.exit(1);
-  } finally {
-    rl.close();
   }
 }
 
