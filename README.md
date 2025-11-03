@@ -73,6 +73,9 @@ for await (const event of taskEvents) {
 }
 ```
 
+See our [documentation](https://zypher.corespeed.io/docs) for full usage
+examples and API reference.
+
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE.md](LICENSE.md) for
@@ -80,6 +83,8 @@ details.
 
 ## Resources
 
+- [Documentation](https://zypher.corespeed.io/docs) and
+  [API Reference](https://jsr.io/@corespeed/zypher/doc)
 - [Issue Tracker](https://github.com/CoreSpeed-io/zypher-agent/issues)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 
