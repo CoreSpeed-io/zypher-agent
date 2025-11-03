@@ -51,9 +51,11 @@ function getDefaultZypherDir(): string {
     return zypherHome;
   }
 
-  const homeDir = Deno.env.get("HOME");
+  const homeDir = Deno.env.get("HOME") || Deno.env.get("USERPROFILE");
   if (!homeDir) {
-    throw new Error("Could not determine home directory");
+    throw new Error(
+      "Could not determine home directory. Please set ZYPHER_HOME environment variable.",
+    );
   }
   return path.join(homeDir, ".zypher");
 }
