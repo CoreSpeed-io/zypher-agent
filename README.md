@@ -2,24 +2,32 @@
 
 **Production-ready AI agents that live in your applications**
 
-[![Build](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml/badge.svg)](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml) [![JSR](https://jsr.io/badges/@corespeed/zypher)](https://jsr.io/badges/@corespeed/zypher)
+[![Build](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml/badge.svg)](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml)
+[![JSR](https://jsr.io/badges/@corespeed/zypher)](https://jsr.io/badges/@corespeed/zypher)
 
 ## Features
 
-- **Agent, Not Workflow**: Reactive loop where the agent dynamically decides next steps based on LLM reasoning.
-- **Git-Based Checkpoints**: Track, review, and revert agent changes with built-in checkpoint management
-- **Extensible Tool System**: Built-in tools for file operations, search, and terminal commands with support for custom tools
-- **Model Context Protocol (MCP)**: Native support for MCP servers with OAuth authentication
-- **Multi-Provider Support**: Works with Anthropic Claude and OpenAI GPT models through a unified interface
-- **Loop Interceptor System**: Customize agent behavior with extensible post-inference interceptors
-- **Production-Ready**: Configurable timeouts, concurrency protection, and comprehensive error handling
+- **Agent, Not Workflow**: Reactive loop where the agent dynamically decides
+  next steps based on LLM reasoning.
+- **Git-Based Checkpoints**: Track, review, and revert agent changes with
+  built-in checkpoint management
+- **Extensible Tool System**: Built-in tools for file operations, search, and
+  terminal commands with support for custom tools
+- **Model Context Protocol (MCP)**: Native support for MCP servers with OAuth
+  authentication
+- **Multi-Provider Support**: Works with Anthropic Claude and OpenAI GPT models
+  through a unified interface
+- **Loop Interceptor System**: Customize agent behavior with extensible
+  post-inference interceptors
+- **Production-Ready**: Configurable timeouts, concurrency protection, and
+  comprehensive error handling
 
 ## Quick Start
 
 ### Installation
 
 > [!NOTE]
-> Support for npm coming soon. 
+> Support for npm coming soon.
 
 #### Using JSR
 
@@ -32,11 +40,11 @@ import { ZypherAgent } from "jsr:@corespeed/zypher@^0.4.2";
 
 ```typescript
 import {
-  ZypherAgent,
-  createZypherContext,
   AnthropicModelProvider,
-  ReadFileTool,
+  createZypherContext,
   EditFileTool,
+  ReadFileTool,
+  ZypherAgent,
 } from "@corespeed/zypher";
 
 // Initialize context and provider
@@ -55,7 +63,7 @@ agent.mcp.registerTool(EditFileTool);
 // Run task with streaming
 const taskEvents = agent.runTask(
   "Implement authentication middleware",
-  "claude-sonnet-4-20250514"
+  "claude-sonnet-4-20250514",
 );
 
 for await (const event of taskEvents) {
@@ -67,7 +75,8 @@ for await (const event of taskEvents) {
 
 ## License
 
-Licensed under the Apache License, Version 2.0. See [LICENSE.md](LICENSE.md) for details.
+Licensed under the Apache License, Version 2.0. See [LICENSE.md](LICENSE.md) for
+details.
 
 ## Resources
 
