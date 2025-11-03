@@ -1,63 +1,79 @@
 # Zypher Agent
 
-An open-source framework for building production-ready agentic AI agents
+**Production-ready AI agents that live in your applications**
+
+[![Build](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml/badge.svg)](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml) [![JSR](https://jsr.io/badges/@corespeed/zypher)](https://jsr.io/badges/@corespeed/zypher)
 
 ## Features
 
-- 🤖 Interactive CLI interface for fast prototyping
-- 🛠️ Tool Calling & Model Context Protocol (MCP) support
-- 📝 Git-based checkpoint system for tracking and reverting changes
+- **Agent, Not Workflow**: Reactive loop where the agent dynamically decides next steps based on LLM reasoning.
+- **Git-Based Checkpoints**: Track, review, and revert agent changes with built-in checkpoint management
+- **Extensible Tool System**: Built-in tools for file operations, search, and terminal commands with support for custom tools
+- **Model Context Protocol (MCP)**: Native support for MCP servers with OAuth authentication
+- **Multi-Provider Support**: Works with Anthropic Claude and OpenAI GPT models through a unified interface
+- **Loop Interceptor System**: Customize agent behavior with extensible post-inference interceptors
+- **Production-Ready**: Configurable timeouts, concurrency protection, and comprehensive error handling
+
+## Quick Start
+
+### SDK Usage
+
+```typescript
+import {
+  ZypherAgent,
+  createZypherContext,
+  AnthropicModelProvider,
+  ReadFileTool,
+  EditFileTool,
+} from "@corespeed/zypher";
+
+// Initialize context and provider
+const context = await createZypherContext("/path/to/workspace");
+const provider = new AnthropicModelProvider({
+  apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
+});
+
+// Create agent
+const agent = new ZypherAgent(context, provider);
+
+// Register tools
+agent.mcp.registerTool(ReadFileTool);
+agent.mcp.registerTool(EditFileTool);
+
+// Run task with streaming
+const taskEvents = agent.runTask(
+  "Implement authentication middleware",
+  "claude-sonnet-4-20250514"
+);
+
+for await (const event of taskEvents) {
+  if (event.type === "text") {
+    console.log(event.content);
+  }
+}
+```
 
 ## Installation
 
-```bash
-# Clone the repository
-git clone https://github.com/CoreSpeed-io/zypher-agent.git
-cd zypher-agent
+> [!NOTE]
+> Support for npm coming soon. 
 
-# Install dependencies
-deno install
-```
-
-## Getting Started
+### Using JSR
 
 ```bash
-# Start the CLI
-deno task start
-
-# Run tests
-deno task test
-
-# Type checking
-deno check .
-
-# Linting
-deno lint
-
-# Format code
-deno fmt
+# In your Deno project: 
+import { ZypherAgent } from "jsr:@corespeed/zypher@^0.4.2";
 ```
 
-## Project Structure
+## License
 
-```
-src/
-├── tools/          # Builtin tool implementations
-│   ├── EditFileTool.ts
-│   ├── SearchTool.ts
-│   └── ...
-├── ZypherAgent.ts  # Main agent implementation
-├── prompt.ts       # System prompts and instructions
-└── utils.ts        # Utility functions
+Licensed under the Apache License, Version 2.0. See [LICENSE.md](LICENSE.md) for details.
 
-bin/
-└── cli.ts         # CLI entry point and command handling
-```
+## Resources
 
-## Contributing
+- [Issue Tracker](https://github.com/CoreSpeed-io/zypher-agent/issues)
+- [Model Context Protocol](https://modelcontextprotocol.io/)
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+---
+
+Built with ♥️ by [CoreSpeed](https://corespeed.io)
