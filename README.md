@@ -16,6 +16,18 @@
 
 ## Quick Start
 
+### Installation
+
+> [!NOTE]
+> Support for npm coming soon. 
+
+#### Using JSR
+
+```bash
+# In your Deno project: 
+import { ZypherAgent } from "jsr:@corespeed/zypher@^0.4.2";
+```
+
 ### SDK Usage
 
 ```typescript
@@ -51,18 +63,6 @@ for await (const event of taskEvents) {
     console.log(event.content);
   }
 }
-```
-
-## Installation
-
-> [!NOTE]
-> Support for npm coming soon. 
-
-### Using JSR
-
-```bash
-# In your Deno project: 
-import { ZypherAgent } from "jsr:@corespeed/zypher@^0.4.2";
 ```
 
 ## License
