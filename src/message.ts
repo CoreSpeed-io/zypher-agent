@@ -73,14 +73,25 @@ export interface UrlImageSource {
 
 export interface ToolUseBlock {
   type: "tool_use";
+  /** The ID of the tool use */
   toolUseId: string;
+  /** The name of the tool the agent requested to use */
   name: string;
+  /** The input parameters for the tool */
   input: unknown;
 }
 
 export interface ToolResultBlock {
   type: "tool_result";
+  /** The ID of the tool use */
   toolUseId: string;
+  /** The name of the tool that was used */
+  name: string;
+  /** The input parameters for the tool */
+  input: unknown;
+  /** Whether the tool execution was successful */
+  success: boolean;
+  /** The content of the tool result */
   content: (TextBlock | ImageBlock)[];
 }
 
