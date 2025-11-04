@@ -1,6 +1,5 @@
 import { z } from "zod";
-import type { ZypherMcpServer } from "./local.ts";
-import { ArgumentType } from "./store.ts";
+import type { McpServerEndpoint } from "../mod.ts";
 
 export const BaseCursorConfigSchema = z.object({
   env: z
@@ -46,51 +45,40 @@ export const CursorConfigSchema = z.object({
 export type CursorServerConfig = z.infer<typeof CursorServerConfigSchema>;
 export type CursorConfig = z.infer<typeof CursorConfigSchema>;
 
-export async function parseLocalServers(
+/**
+ * Convert Cursor MCP server config to McpServerEndpoint
+ * This is what McpServerManager actually needs
+ */
+export function parseLocalServers(
   cursorConfig: CursorConfig,
-  id?: string,
-): Promise<ZypherMcpServer[]> {
-  return await Promise.all(
-    Object.entries(cursorConfig.mcpServers).map(([name, config]) => {
-      // Determine if this is CLI or SSE config
-      const isCliConfig = "command" in config;
+): McpServerEndpoint[] {
+  return Object.entries(cursorConfig.mcpServers).map(([name, config]) => {
+    // Determine if this is CLI or remote config
+    const isCliConfig = "command" in config;
 
-      const localServer: ZypherMcpServer = {
-        _id: id ?? crypto.randomUUID(),
-        name,
-        description: `user-defined MCP server`,
-        packages: isCliConfig
-          ? [
-            {
-              registryName: config.command,
-              name: name,
-              version: "local-server",
-              environmentVariables: config.env
-                ? Object.entries(config.env).map(([key, value]) => ({
-                  name: key,
-                  value: value,
-                }))
-                : [],
-              packageArguments: isCliConfig
-                ? config.args.map((arg) => ({
-                  type: ArgumentType.POSITIONAL,
-                  name: arg,
-                  value: arg,
-                }))
-                : [],
-            },
-          ]
-          : undefined,
-        remotes: isCliConfig ? undefined : [
-          {
-            url: config.url,
-            transportType: "unknown",
-          },
-        ],
-        isEnabled: true,
-        isFromMcpStore: false,
-      };
-      return localServer;
-    }),
-  );
+    if (isCliConfig) {
+      // CLI/command-based server
+      return {
+        id: name,
+        displayName: name,
+        type: "command",
+        command: {
+          command: config.command,
+          args: config.args,
+          env: config.env,
+        },
+      } satisfies McpServerEndpoint;
+    } else {
+      // Remote server (SSE/HTTP)
+      return {
+        id: name,
+        displayName: name,
+        type: "remote",
+        remote: {
+          url: config.url,
+          headers: config.headers,
+        },
+      } satisfies McpServerEndpoint;
+    }
+  });
 }

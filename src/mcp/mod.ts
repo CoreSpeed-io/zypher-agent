@@ -6,6 +6,9 @@ export * from "./connect.ts";
 
 export * from "./InMemoryOAuthProvider.ts";
 
+// Registry module for discovering MCP servers
+export * from "./registry/mod.ts";
+
 /** Command configuration for local MCP server execution */
 export interface McpCommandConfig {
   /** Command to execute the MCP server */
@@ -27,9 +30,9 @@ export interface McpRemoteConfig {
 /** Server endpoint information for connecting to an MCP server */
 export type McpServerEndpoint =
   & {
-    /** Kebab-case identifier used as key (e.g., "github-copilot") */
+    /** Unique identifier for this server */
     id: string;
-    /** Human-readable display name (e.g., "GitHub Copilot") */
+    /** Human-readable display name */
     displayName?: string;
   }
   & (

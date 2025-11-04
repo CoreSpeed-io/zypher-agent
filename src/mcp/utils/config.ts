@@ -1,42 +1,35 @@
 import { McpError } from "../types/error.ts";
 import type { CursorServerConfig } from "../types/cursor.ts";
-import type { ZypherMcpServer } from "../types/local.ts";
+import type { McpServerEndpoint } from "../mod.ts";
 
-export function extractConfigFromZypherMcpServer(
-  localServer: ZypherMcpServer,
+/**
+ * Convert McpServerEndpoint back to CursorServerConfig
+ * Useful for serializing server config to Cursor format
+ */
+export function extractConfigFromEndpoint(
+  endpoint: McpServerEndpoint,
 ): CursorServerConfig {
-  // Check if this is a CLI server (has packages) or Remote server (has remotes)
-  if (localServer.packages?.length) {
-    // CLI configuration
-    const firstPackage = localServer.packages[0];
-
-    // Convert environment variables from array to object
-    const env = firstPackage.environmentVariables?.reduce((acc, envVar) => {
-      if (envVar.value !== undefined) {
-        acc[envVar.name] = envVar.value;
-      }
-      return acc;
-    }, {} as Record<string, string>);
-
+  if (endpoint.type === "command") {
     return {
-      command: firstPackage.registryName,
-      args: firstPackage.packageArguments?.map((arg) =>
-        arg.value || arg.name || ""
-      ) || [],
-      ...(env && Object.keys(env).length > 0 && { env }),
+      command: endpoint.command.command,
+      args: endpoint.command.args ?? [],
+      ...(endpoint.command.env &&
+        Object.keys(endpoint.command.env).length > 0 && {
+        env: endpoint.command.env,
+      }),
     };
-  } else if (localServer.remotes?.length) {
-    // Remote configuration
-    const firstRemote = localServer.remotes[0];
-
+  } else if (endpoint.type === "remote") {
     return {
-      url: firstRemote.url,
-      // Note: headers and env are not preserved in Remote ZypherMcpServer conversion for now
+      url: endpoint.remote.url,
+      ...(endpoint.remote.headers &&
+        Object.keys(endpoint.remote.headers).length > 0 && {
+        headers: endpoint.remote.headers,
+      }),
     };
   } else {
     throw new McpError(
       "server_error",
-      "LocalServer must have either packages or remotes",
+      "Endpoint must be either command or remote type",
     );
   }
 }
