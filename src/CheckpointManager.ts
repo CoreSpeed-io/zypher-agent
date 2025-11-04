@@ -313,30 +313,38 @@ export class CheckpointManager {
    */
 
   async applyCheckpoint(checkpointId: string): Promise<void> {
-    await runCommand("git", {
-      args: ["cat-file", "-e", checkpointId],
-      env: this.#gitEnv,
-    });
+    try {
+      await runCommand("git", {
+        args: ["cat-file", "-e", checkpointId],
+        env: this.#gitEnv,
+      });
 
-    // Get checkpoint details
-    const checkpoint = await this.getCheckpointDetails(checkpointId);
+      // Get checkpoint details
+      const checkpoint = await this.getCheckpointDetails(checkpointId);
 
-    // If this is an advice-only checkpoint (no files), warn that there are no changes to apply
-    if (!checkpoint.files || checkpoint.files.length === 0) {
-      console.warn(`Checkpoint "${checkpoint.name}" contains no file changes.`);
-      return;
+      // If this is an advice-only checkpoint (no files), warn that there are no changes to apply
+      if (!checkpoint.files || checkpoint.files.length === 0) {
+        console.warn(
+          `Checkpoint "${checkpoint.name}" contains no file changes.`,
+        );
+        return;
+      }
+
+      // Create a backup of the current state (optional)
+      const backupName = `backup-before-applying-${
+        checkpointId.substring(0, 8)
+      }`;
+      await this.createCheckpoint(backupName);
+
+      // Reset the working directory to the checkpoint state
+      // Use checkout to avoid changing the HEAD
+      await runCommand("git", {
+        args: ["checkout", checkpointId, "--", "."],
+        env: this.#gitEnv,
+      });
+    } catch (error) {
+      throw new Error("Failed to apply checkpoint.", { cause: error });
     }
-
-    // Create a backup of the current state (optional)
-    const backupName = `backup-before-applying-${checkpointId.substring(0, 8)}`;
-    await this.createCheckpoint(backupName);
-
-    // Reset the working directory to the checkpoint state
-    // Use checkout to avoid changing the HEAD
-    await runCommand("git", {
-      args: ["checkout", checkpointId, "--", "."],
-      env: this.#gitEnv,
-    });
   }
   catch(error: Error) {
     throw new Error("Failed to apply checkpoint.", { cause: error });
