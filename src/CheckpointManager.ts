@@ -346,7 +346,4 @@ export class CheckpointManager {
       throw new Error("Failed to apply checkpoint.", { cause: error });
     }
   }
-  catch(error: Error) {
-    throw new Error("Failed to apply checkpoint.", { cause: error });
-  }
 }
