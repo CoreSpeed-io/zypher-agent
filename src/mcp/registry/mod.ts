@@ -1,11 +1,11 @@
 /**
  * MCP Registry module
- * Provides interface for discovering MCP servers from registries
+ * Provides registry for discovering MCP servers
  *
- * Registry providers return McpServerEndpoint directly
+ * RegistryProvider is the default CoreSpeed MCP Store registry
  */
 
-export type {
-  RegistryListResult,
+export {
+  type RegistryListResult,
   RegistryProvider,
 } from "./RegistryProvider.ts";

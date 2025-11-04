@@ -2,6 +2,7 @@ import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
+import { RegistryProvider } from "./registry/RegistryProvider.ts";
 
 /**
  * Represents the state of an MCP server including its configuration,
@@ -27,8 +28,16 @@ export class McpServerManager {
   #serverStateMap = new Map<string, McpServerState>();
   // toolbox for directly registered tools (non-MCP tools)
   #toolbox: Map<string, Tool> = new Map();
+  // registry provider for discovering servers (defaults to CoreSpeed)
+  #registry: RegistryProvider;
 
-  constructor(readonly context: ZypherContext) {}
+  constructor(
+    readonly context: ZypherContext,
+    registry?: RegistryProvider,
+  ) {
+    // Default to CoreSpeed registry if none provided
+    this.#registry = registry ?? new RegistryProvider();
+  }
 
   /**
    * Registers a new MCP server and its tools
@@ -65,6 +74,25 @@ export class McpServerManager {
     if (enabled) {
       await state.client.waitForConnection();
     }
+  }
+
+  /**
+   * Registers a server from the configured registry by server ID
+   * @param serverId The ID of the server to fetch from the registry
+   * @param enabled Whether the server is enabled (defaults to true)
+   * @returns Promise that resolves when the server is fully connected and ready (if enabled)
+   * @throws Error if server not found in registry or registration fails
+   * @example
+   */
+  async registerServerFromRegistry(
+    serverId: string,
+    enabled: boolean = true,
+  ): Promise<void> {
+    // Fetch server from registry
+    const server = await this.#registry.get(serverId);
+
+    // Register the server
+    await this.registerServer(server, enabled);
   }
 
   /**

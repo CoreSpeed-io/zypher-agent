@@ -5,9 +5,10 @@
     "jsr:@cliffy/flags@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/internal@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/table@1.0.0-rc.8": "1.0.0-rc.8",
-    "jsr:@corespeed/mcp-store-client@^1.1.0": "1.1.0",
+    "jsr:@corespeed/mcp-store-client@^1.1.2": "1.1.2",
     "jsr:@david/code-block-writer@^13.0.3": "13.0.3",
     "jsr:@deno/dnt@~0.42.3": "0.42.3",
+    "jsr:@std/assert@*": "1.0.14",
     "jsr:@std/assert@^1.0.13": "1.0.14",
     "jsr:@std/assert@^1.0.14": "1.0.14",
     "jsr:@std/async@^1.0.13": "1.0.14",
@@ -26,6 +27,7 @@
     "jsr:@std/path@1": "1.1.2",
     "jsr:@std/path@^1.1.1": "1.1.2",
     "jsr:@std/path@^1.1.2": "1.1.2",
+    "jsr:@std/testing@*": "1.0.15",
     "jsr:@std/testing@^1.0.15": "1.0.15",
     "jsr:@std/text@~1.0.7": "1.0.16",
     "jsr:@ts-morph/bootstrap@0.27": "0.27.0",
@@ -70,8 +72,8 @@
         "jsr:@std/fmt@~1.0.2"
       ]
     },
-    "@corespeed/mcp-store-client@1.1.0": {
-      "integrity": "4ddc7ff34d02dcf02ced34493bddfd84929fcca6365688d980814235b5099071"
+    "@corespeed/mcp-store-client@1.1.2": {
+      "integrity": "dc42fbfd4a213a39e657a540a9b47169a9c6ae13f7da9f70ca748a69aec8834a"
     },
     "@david/code-block-writer@13.0.3": {
       "integrity": "f98c77d320f5957899a61bfb7a9bead7c6d83ad1515daee92dbacc861e13bb7f"
@@ -1726,7 +1728,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@cliffy/command@^1.0.0-rc.8",
-      "jsr:@corespeed/mcp-store-client@^1.1.0",
+      "jsr:@corespeed/mcp-store-client@^1.1.2",
       "jsr:@deno/dnt@~0.42.3",
       "jsr:@std/assert@^1.0.14",
       "jsr:@std/crypto@^1.0.5",
