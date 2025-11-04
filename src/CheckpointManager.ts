@@ -338,7 +338,4 @@ export class CheckpointManager {
       env: this.#gitEnv,
     });
   }
-  catch(error: Error) {
-    throw new Error("Failed to apply checkpoint.", { cause: error });
-  }
 }
