@@ -8,7 +8,15 @@ import {
   ZypherAgent,
 } from "@zypher/mod.ts";
 import {
+  BrowserEvalTool,
   CopyFileTool,
+  createBrowserCookiesTools,
+  createBrowserInteractionTools,
+  createBrowserLocalStorageTools,
+  createBrowserNavigationTools,
+  createBrowserScreenshotTools,
+  createBrowserSessionTools,
+  createBrowserWaitTools,
   createEditFileTools,
   createImageTools,
   DeleteFileTool,
@@ -17,6 +25,7 @@ import {
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
+  WebSearchTool,
 } from "@zypher/tools/mod.ts";
 import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
@@ -24,6 +33,9 @@ import chalk from "chalk";
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
 const DEFAULT_BACKUP_DIR = "./.backup";
+const DEFAULT_BROWSER_STORAGE_EXPORT_DIR = "./.local_storage_states";
+const DEFAULT_BROWSER_SCREENSHOTS_DIR = "./.screenshots";
+const DEFAULT_DOWNLOAD_DIR = "./.downloads";
 
 const providerType = new EnumType(["anthropic", "openai"]);
 
@@ -51,6 +63,18 @@ const { options: cli } = await new Command()
     "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
   )
   .option("--backup-dir <backupDir:string>", "Directory to store backups")
+  .option(
+    "--browser-storage-export-dir <storageDir:string>",
+    "Directory to store exported browser local storage states",
+  )
+  .option(
+    "--browser-screenshots-dir <screenshotsDir:string>",
+    "Directory to store browser screenshots",
+  )
+  .option(
+    "--download-dir <downloadDir:string>",
+    "Directory to store browser downloads",
+  )
   .parse(Deno.args);
 
 function inferProvider(
@@ -143,6 +167,85 @@ async function main(): Promise<void> {
     const backupDir = cli.backupDir ?? DEFAULT_BACKUP_DIR;
     const { EditFileTool } = createEditFileTools(backupDir);
     mcpServerManager.registerTool(EditFileTool);
+
+    // Register browser tools
+    const {
+      BrowserGetCookiesTool,
+      BrowserSetCookiesTool,
+      BrowserClearCookiesTool,
+    } = createBrowserCookiesTools();
+    mcpServerManager.registerTool(BrowserGetCookiesTool);
+    mcpServerManager.registerTool(BrowserSetCookiesTool);
+    mcpServerManager.registerTool(BrowserClearCookiesTool);
+
+    mcpServerManager.registerTool(BrowserEvalTool);
+
+    const {
+      BrowserHoverTool,
+      BrowserScrollTool,
+      BrowserClickTool,
+      BrowserFileUploadTool,
+      BrowserDownloadTool,
+      BrowserInputTool,
+    } = createBrowserInteractionTools(cli.downloadDir ?? DEFAULT_DOWNLOAD_DIR);
+    mcpServerManager.registerTool(BrowserHoverTool);
+    mcpServerManager.registerTool(BrowserScrollTool);
+    mcpServerManager.registerTool(BrowserClickTool);
+    mcpServerManager.registerTool(BrowserFileUploadTool);
+    mcpServerManager.registerTool(BrowserDownloadTool);
+    mcpServerManager.registerTool(BrowserInputTool);
+
+    const {
+      BrowserExportStorageStateTool,
+      BrowserImportStorageStateTool,
+      BrowserGetLocalStorageTool,
+      BrowserSetLocalStorageTool,
+      BrowserClearLocalStorageTool,
+    } = createBrowserLocalStorageTools(
+      cli.browserStorageExportDir ?? DEFAULT_BROWSER_STORAGE_EXPORT_DIR,
+    );
+    mcpServerManager.registerTool(BrowserExportStorageStateTool);
+    mcpServerManager.registerTool(BrowserImportStorageStateTool);
+    mcpServerManager.registerTool(BrowserGetLocalStorageTool);
+    mcpServerManager.registerTool(BrowserSetLocalStorageTool);
+    mcpServerManager.registerTool(BrowserClearLocalStorageTool);
+
+    const {
+      BrowserNavigateToTool,
+      BrowserForwardTool,
+      BrowserBackTool,
+    } = createBrowserNavigationTools();
+    mcpServerManager.registerTool(BrowserNavigateToTool);
+    mcpServerManager.registerTool(BrowserForwardTool);
+    mcpServerManager.registerTool(BrowserBackTool);
+
+    const {
+      BrowserInteractivesScreenshotTool,
+      BrowserElementScreenshotTool,
+    } = createBrowserScreenshotTools(
+      cli.browserScreenshotsDir ?? DEFAULT_BROWSER_SCREENSHOTS_DIR,
+    );
+    mcpServerManager.registerTool(BrowserInteractivesScreenshotTool);
+    mcpServerManager.registerTool(BrowserElementScreenshotTool);
+
+    const {
+      BrowserOpenSessionTool,
+      BrowserCloseSessionTool,
+    } = createBrowserSessionTools();
+    mcpServerManager.registerTool(BrowserOpenSessionTool);
+    mcpServerManager.registerTool(BrowserCloseSessionTool);
+
+    const {
+      BrowserWaitTool,
+      BrowserWaitForRequestTool,
+      BrowserWaitForResponseTool,
+    } = createBrowserWaitTools();
+    mcpServerManager.registerTool(BrowserWaitTool);
+    mcpServerManager.registerTool(BrowserWaitForRequestTool);
+    mcpServerManager.registerTool(BrowserWaitForResponseTool);
+
+    // Register web search tool
+    mcpServerManager.registerTool(WebSearchTool);
 
     console.log(
       "🔧 Registered tools:",

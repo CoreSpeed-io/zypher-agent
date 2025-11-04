@@ -17,11 +17,18 @@
     "clean": "rm -rf dist/"
   },
   "compilerOptions": {
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "lib": [
+      "dom",
+      "deno.ns"
+    ]
   },
   "lint": {
     "rules": {
-      "tags": ["recommended", "jsr"]
+      "tags": [
+        "recommended",
+        "jsr"
+      ]
     }
   },
   "imports": {
@@ -43,6 +50,7 @@
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.18.1",
     "chalk": "npm:chalk@^5.6.2",
     "diff": "npm:diff@8.0.2",
+    "playwright": "npm:playwright@1.56.1",
     "rxjs": "npm:rxjs@^7.8.2",
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0",
     "xstate": "npm:xstate@^5.22.0",
@@ -50,5 +58,9 @@
     "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.6"
   },
   "nodeModulesDir": "auto",
-  "exclude": ["dist/", "node_modules/", "npm/"]
+  "exclude": [
+    "dist/",
+    "node_modules/",
+    "npm/"
+  ]
 }
