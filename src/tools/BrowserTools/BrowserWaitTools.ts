@@ -2,7 +2,8 @@ import { z } from "zod";
 import { createTool, type Tool, type ToolResult } from "../mod.ts";
 import { getPage } from "./BrowserSessionManager.ts";
 
-/** * Create browser wait tools to wait for elements, requests, or responses within a browser session.
+/**
+ * Create browser wait tools to wait for elements, requests, or responses within a browser session.
  *
  * @returns An object containing the configured browser wait tools
  */

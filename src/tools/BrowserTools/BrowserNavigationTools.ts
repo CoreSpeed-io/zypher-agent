@@ -3,7 +3,8 @@ import { createTool, type Tool, type ToolResult } from "../mod.ts";
 
 import { getPage } from "./BrowserSessionManager.ts";
 
-/** * Create browser navigation tools to navigate within a browser session.
+/**
+ * Create browser navigation tools to navigate within a browser session.
  *
  * @returns An object containing the configured browser navigation tools
  */

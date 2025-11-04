@@ -3,7 +3,8 @@ import type { Cookie } from "playwright";
 import { createTool, type Tool, type ToolResult } from "../mod.ts";
 import { getPage } from "./BrowserSessionManager.ts";
 
-/** * Create browser cookies tools to get, set, and clear cookies within a browser session.
+/**
+ * Create browser cookies tools to get, set, and clear cookies within a browser session.
  *
  * @returns An object containing the configured browser cookies tools
  */
