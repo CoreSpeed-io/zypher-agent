@@ -77,7 +77,6 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       }
 
       // auto approve if no approval handler is provided
-      console.log(`Tool call ${name} approved`);
       eventSubject.next({
         type: "tool_use_approved",
         toolName: name,
