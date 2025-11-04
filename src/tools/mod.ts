@@ -109,4 +109,3 @@ export { createBrowserLocalStorageTools } from "./BrowserTools/BrowserLocalStora
 export { createBrowserSessionTools } from "./BrowserTools/BrowserSessionTools.ts";
 export { createBrowserScreenshotTools } from "./BrowserTools/BrowserScreenshotTools.ts";
 export { createBrowserInteractionTools } from "./BrowserTools/BrowserInteractionTools.ts";
-export { WebSearchTool } from "./WebSearchTool.ts";

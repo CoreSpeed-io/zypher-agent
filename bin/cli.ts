@@ -25,7 +25,6 @@ import {
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
-  WebSearchTool,
 } from "@zypher/tools/mod.ts";
 import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
@@ -243,9 +242,6 @@ async function main(): Promise<void> {
     mcpServerManager.registerTool(BrowserWaitTool);
     mcpServerManager.registerTool(BrowserWaitForRequestTool);
     mcpServerManager.registerTool(BrowserWaitForResponseTool);
-
-    // Register web search tool
-    mcpServerManager.registerTool(WebSearchTool);
 
     console.log(
       "🔧 Registered tools:",
