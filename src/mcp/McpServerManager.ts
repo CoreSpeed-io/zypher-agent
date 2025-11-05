@@ -2,7 +2,8 @@ import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
-import { RegistryProvider } from "./registry/RegistryProvider.ts";
+import { McpStoreClient } from "@corespeed/mcp-store-client";
+import { convertServerDetailToEndpoint } from "./registry/utils.ts";
 
 /**
  * Represents the state of an MCP server including its configuration,
@@ -28,15 +29,18 @@ export class McpServerManager {
   #serverStateMap = new Map<string, McpServerState>();
   // toolbox for directly registered tools (non-MCP tools)
   #toolbox: Map<string, Tool> = new Map();
-  // registry provider for discovering servers (defaults to CoreSpeed)
-  #registry: RegistryProvider;
+  // MCP Store client for discovering servers (defaults to CoreSpeed MCP Store)
+  #registryClient: McpStoreClient;
 
   constructor(
     readonly context: ZypherContext,
-    registry?: RegistryProvider,
+    registryClient?: McpStoreClient,
   ) {
-    // Default to CoreSpeed registry if none provided
-    this.#registry = registry ?? new RegistryProvider();
+    // Default to CoreSpeed MCP Store if none provided
+    this.#registryClient = registryClient ?? new McpStoreClient({
+      baseURL: Deno.env.get("MCP_STORE_BASE_URL"),
+      apiKey: "", // Empty string for public read-only access
+    });
   }
 
   /**
@@ -89,7 +93,8 @@ export class McpServerManager {
     enabled: boolean = true,
   ): Promise<void> {
     // Fetch server from registry
-    const server = await this.#registry.get(serverId);
+    const response = await this.#registryClient.v1.servers.retrieve(serverId);
+    const server = convertServerDetailToEndpoint(response.server);
 
     // Register the server
     await this.registerServer(server, enabled);
