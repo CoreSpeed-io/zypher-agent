@@ -33,6 +33,7 @@ export type McpServerEndpoint =
     /** Kebab-case identifier used as key (e.g., "github-copilot") */
     id: string;
     /** Human-readable display name (e.g., "GitHub Copilot") */
+    displayName?: string;
   }
   & (
     | {
