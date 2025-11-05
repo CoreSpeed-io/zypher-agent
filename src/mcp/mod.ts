@@ -30,10 +30,9 @@ export interface McpRemoteConfig {
 /** Server endpoint information for connecting to an MCP server */
 export type McpServerEndpoint =
   & {
-    /** Unique identifier for this server */
+    /** Kebab-case identifier used as key (e.g., "github-copilot") */
     id: string;
-    /** Human-readable display name */
-    displayName?: string;
+    /** Human-readable display name (e.g., "GitHub Copilot") */
   }
   & (
     | {
