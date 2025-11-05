@@ -6,9 +6,6 @@ export * from "./connect.ts";
 
 export * from "./InMemoryOAuthProvider.ts";
 
-// Registry module for discovering MCP servers
-export * from "./registry/mod.ts";
-
 /** Command configuration for local MCP server execution */
 export interface McpCommandConfig {
   /** Command to execute the MCP server */

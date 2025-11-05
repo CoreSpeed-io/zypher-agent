@@ -6,7 +6,7 @@ import {
   buildCommand,
   buildEnv,
   convertServerDetailToEndpoint,
-} from "../src/mcp/registry/utils.ts";
+} from "../src/mcp/utils.ts";
 
 // Helper to create minimal ServerDetail
 const createServerDetail = (

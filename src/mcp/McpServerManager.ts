@@ -3,7 +3,7 @@ import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 import { McpStoreClient } from "@corespeed/mcp-store-client";
-import { convertServerDetailToEndpoint } from "./registry/utils.ts";
+import { convertServerDetailToEndpoint } from "./utils.ts";
 
 /**
  * Represents the state of an MCP server including its configuration,
