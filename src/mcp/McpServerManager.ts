@@ -40,6 +40,7 @@ export class McpServerManager {
     this.#registryClient = registryClient ?? new McpStoreClient({
       baseURL: Deno.env.get("MCP_STORE_BASE_URL"),
       apiKey: "", // Empty string for public read-only access
+      fetch: fetch,
     });
   }
 
