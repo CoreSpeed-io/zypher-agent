@@ -17,6 +17,10 @@ interface McpServerState {
   client: McpClient;
   /** Whether the server is enabled */
   enabled: boolean;
+  /** The ID of the server */
+  id: string;
+  /** The source of the server indicates whether the server is registered from the registry or directly */
+  source: "registry" | "direct";
 }
 
 /**
