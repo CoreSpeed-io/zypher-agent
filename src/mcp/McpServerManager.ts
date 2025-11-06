@@ -44,7 +44,8 @@ export class McpServerManager {
     // Default to CoreSpeed MCP Store if none provided
     this.#registryClient = registryClient ?? new McpStoreClient({
       baseURL: Deno.env.get("MCP_STORE_BASE_URL"),
-      apiKey: Deno.env.get("MCP_STORE_API_KEY"),
+      apiKey: Deno.env.get("MCP_STORE_API_KEY") ?? "",
+      fetch: fetch,
     });
   }
 
