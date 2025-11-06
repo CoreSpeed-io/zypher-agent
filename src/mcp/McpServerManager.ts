@@ -59,6 +59,8 @@ export class McpServerManager {
   async registerServer(
     server: McpServerEndpoint,
     enabled: boolean = true,
+    id?: string,
+    source: "registry" | "direct" = "direct",
   ): Promise<void> {
     if (this.#serverStateMap.has(server.id)) {
       throw new Error(
@@ -74,6 +76,8 @@ export class McpServerManager {
       server,
       client,
       enabled,
+      source,
+      id: id ?? server.id,
     };
     this.#serverStateMap.set(server.id, state);
 
@@ -120,7 +124,7 @@ export class McpServerManager {
     const server = convertServerDetailToEndpoint(response.server);
 
     // Register the server
-    await this.registerServer(server, enabled);
+    await this.registerServer(server, enabled, serverId, "registry");
   }
 
   /**
