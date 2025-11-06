@@ -375,11 +375,8 @@ export class ZypherAgent {
 
         const modelEvents = stream.events;
         for await (const event of eachValueFrom(modelEvents)) {
-          if (event.type === "text") {
-            taskEventSubject.next({ type: "text", content: event.text });
-          } else if (event.type === "message") {
-            taskEventSubject.next({ type: "message", message: event.message });
-          }
+          // ModelEvents are now directly compatible with TaskEvents, so we can forward them as-is
+          taskEventSubject.next(event);
         }
 
         const finalMessage = await stream.finalMessage();
