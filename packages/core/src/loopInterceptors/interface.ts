@@ -1,5 +1,5 @@
 import type { Message } from "../message.ts";
-import type { Tool } from "../tools/mod.ts";
+import type { Tool } from "../tools.ts";
 import type { FinalMessage } from "../llm/mod.ts";
 import type { Subject } from "rxjs";
 import type { TaskEvent } from "../TaskEvents.ts";

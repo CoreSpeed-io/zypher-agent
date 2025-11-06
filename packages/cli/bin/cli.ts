@@ -6,7 +6,7 @@ import {
   OpenAIModelProvider,
   runAgentInTerminal,
   ZypherAgent,
-} from "@zypher/mod.ts";
+} from "@corespeed/zypher";
 import {
   CopyFileTool,
   createEditFileTools,
@@ -17,7 +17,7 @@ import {
   ListDirTool,
   ReadFileTool,
   RunTerminalCmdTool,
-} from "@zypher/tools/mod.ts";
+} from "@corespeed/zypher-tools";
 import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
 

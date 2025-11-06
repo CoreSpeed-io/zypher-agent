@@ -11,7 +11,7 @@ import {
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
-import type { ToolExecutionContext } from "../tools/mod.ts";
+import type { ToolExecutionContext } from "../tools.ts";
 import { formatError } from "../error.ts";
 import type { Subject } from "rxjs";
 import type { TaskEvent } from "../TaskEvents.ts";

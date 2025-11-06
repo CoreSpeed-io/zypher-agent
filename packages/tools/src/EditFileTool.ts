@@ -6,7 +6,7 @@ import {
   type ToolResult,
 } from "./mod.ts";
 import { applyPatch } from "diff";
-import { fileExists } from "../utils/data.ts";
+import { fileExists } from "@corespeed/zypher/utils";
 import { basename, dirname, join, resolve } from "@std/path";
 import { ensureDir } from "@std/fs";
 

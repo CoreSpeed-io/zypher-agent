@@ -23,7 +23,7 @@ import type {
   CompatibilityCallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assign, createActor, setup, waitFor } from "xstate";
-import { createTool, type Tool } from "../tools/mod.ts";
+import { createTool, type Tool } from "../tools.ts";
 import { jsonToZod } from "./utils.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import { formatError, isAbortError } from "../error.ts";

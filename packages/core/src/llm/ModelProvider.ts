@@ -1,6 +1,6 @@
 import type { Observable } from "rxjs";
 import type { Message } from "../message.ts";
-import type { Tool } from "../tools/mod.ts";
+import type { Tool } from "../tools.ts";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 
 export interface ModelProviderOptions {
@@ -82,7 +82,7 @@ export interface FinalMessage extends Message {
   stop_reason: "end_turn" | "max_tokens" | "stop_sequence" | "tool_use";
 }
 
-export type ModelEvent = MessageEvent | TextEvent;
+export type ModelEvent = MessageEvent | TextEvent | ToolUseEvent;
 
 export interface MessageEvent {
   type: "message";

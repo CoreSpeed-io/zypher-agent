@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import * as path from "@std/path";
-import { fileExists } from "../utils/mod.ts";
+import { fileExists } from "@corespeed/zypher/utils";
 import { ensureDir } from "@std/fs";
 
 export const DeleteFileTool: Tool<{

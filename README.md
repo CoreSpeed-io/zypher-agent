@@ -1,93 +1,166 @@
 # Zypher Agent
 
-**Production-ready AI agents that live in your applications**
+A production-ready AI agent framework built on Deno, featuring streaming task
+execution, checkpoint management, and extensible loop interceptors.
 
-[![Build](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml/badge.svg)](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml)
-[![JSR](https://jsr.io/badges/@corespeed/zypher)](https://jsr.io/badges/@corespeed/zypher)
+## Monorepo Structure
 
-## Features
+This project is organized as a monorepo with three packages:
 
-- **Agent, Not Workflow**: Reactive loop where the agent dynamically decides
-  next steps based on LLM reasoning.
-- **Git-Based Checkpoints**: Track, review, and revert agent changes with
-  built-in checkpoint management
-- **Extensible Tool System**: Built-in tools for file operations, search, and
-  terminal commands with support for custom tools
-- **Model Context Protocol (MCP)**: Native support for MCP servers with OAuth
-  authentication
-- **Multi-Provider Support**: Works with Anthropic Claude and OpenAI GPT models
-  through a unified interface
-- **Loop Interceptor System**: Customize agent behavior with extensible
-  post-inference interceptors
-- **Production-Ready**: Configurable timeouts, concurrency protection, and
-  comprehensive error handling
+- **[@corespeed/zypher](packages/core/)** - Core agent framework with streaming
+  execution, checkpoint system, and MCP integration
+- **[@corespeed/zypher-tools](packages/tools/)** - Official tool collection for
+  file operations, search, terminal, and image generation
+- **[@corespeed/zypher-cli](packages/cli/)** - Interactive command-line
+  interface
 
 ## Quick Start
 
 ### Installation
 
-> [!NOTE]
-> Support for npm coming soon.
-
-#### Using JSR
-
 ```bash
-# In your Deno project: 
-import { ZypherAgent } from "jsr:@corespeed/zypher@^0.4.2";
+# Install all packages
+deno add @corespeed/zypher @corespeed/zypher-tools
+
+# Or use the CLI directly
+deno install -A -n zypher jsr:@corespeed/zypher-cli
 ```
 
-### SDK Usage
+### Using the CLI
+
+```bash
+# Run with Anthropic Claude
+zypher --api-key=sk-ant-xxx
+
+# Run with OpenAI
+zypher --api-key=sk-xxx --provider=openai
+```
+
+### Using as a Library
 
 ```typescript
 import {
   AnthropicModelProvider,
   createZypherContext,
-  EditFileTool,
-  ReadFileTool,
   ZypherAgent,
 } from "@corespeed/zypher";
+import { ListDirTool, ReadFileTool } from "@corespeed/zypher-tools";
 
-// Initialize context and provider
-const context = await createZypherContext("/path/to/workspace");
-const provider = new AnthropicModelProvider({
-  apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
-});
-
-// Create agent
+// Create context and agent
+const context = await createZypherContext(Deno.cwd());
+const provider = new AnthropicModelProvider({ apiKey: "your-key" });
 const agent = new ZypherAgent(context, provider);
 
 // Register tools
 agent.mcp.registerTool(ReadFileTool);
-agent.mcp.registerTool(EditFileTool);
+agent.mcp.registerTool(ListDirTool);
 
-// Run task with streaming
-const taskEvents = agent.runTask(
-  "Implement authentication middleware",
+// Execute task
+const events$ = agent.executeTask(
+  "Analyze the codebase",
   "claude-sonnet-4-20250514",
 );
 
-for await (const event of taskEvents) {
-  if (event.type === "text") {
-    console.log(event.content);
-  }
+for await (const event of events$) {
+  console.log(event);
 }
 ```
 
-See our [documentation](https://zypher.corespeed.io/docs) for full usage
-examples and API reference.
+## Development
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/corespeed/zypher-agent
+cd zypher-agent
+
+# The monorepo is ready to use with Deno's workspace feature
+```
+
+### Common Commands
+
+```bash
+# Run tests for all packages
+deno task test
+
+# Type check all packages
+deno task checkall
+
+# Build CLI binary
+cd packages/cli && deno task compile
+
+# Start CLI in development
+cd packages/cli && deno task start -- --api-key=your-key
+```
+
+### Package-Specific Development
+
+Each package has its own development commands:
+
+```bash
+# Core package
+cd packages/core
+deno task test         # Run tests
+deno task checkall     # Lint, format, and type check
+
+# Tools package
+cd packages/tools
+deno task test         # Run tests
+deno task checkall     # Lint, format, and type check
+
+# CLI package
+cd packages/cli
+deno task start        # Run CLI
+deno task compile      # Build binary
+```
+
+## Architecture
+
+### Core Components
+
+- **ZypherAgent**: Main agent with streaming task execution
+- **CheckpointManager**: Git-based state management
+- **ModelProvider**: Abstraction for Anthropic and OpenAI
+- **Loop Interceptors**: Extensible post-inference processing
+- **MCP Integration**: Model Context Protocol support
+- **Storage Services**: File attachment management with S3
+
+### Loop Interceptor System
+
+The framework provides an extensible interceptor system for customizing agent
+behavior:
+
+- **ToolExecutionInterceptor**: Executes LLM-requested tool calls
+- **ErrorDetectionInterceptor**: Detects and handles code errors
+- **MaxTokensInterceptor**: Auto-continues on token limit
+
+Custom interceptors can be added to extend functionality.
+
+## Publishing
+
+Each package can be published independently:
+
+```bash
+# Publish to JSR
+deno task publish:jsr
+
+# Or publish individual packages
+cd packages/core && deno publish
+cd packages/tools && deno publish
+cd packages/cli && deno publish
+```
+
+## Documentation
+
+- [Core Package Documentation](packages/core/README.md)
+- [Tools Package Documentation](packages/tools/README.md)
+- [CLI Package Documentation](packages/cli/README.md)
 
 ## License
 
-Licensed under the Apache License, Version 2.0. See [LICENSE.md](LICENSE.md) for
-details.
+Apache-2.0
 
-## Resources
+## Contributing
 
-- [Documentation](https://zypher.corespeed.io/docs) and
-  [API Reference](https://jsr.io/@corespeed/zypher/doc)
-- [Issue Tracker](https://github.com/CoreSpeed-io/zypher-agent/issues)
-- [Model Context Protocol](https://modelcontextprotocol.io/)
-
----
-
-Built with ♥️ by [CoreSpeed](https://corespeed.io)
+Contributions are welcome! Please feel free to submit a Pull Request.

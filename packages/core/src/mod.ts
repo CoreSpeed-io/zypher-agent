@@ -7,6 +7,7 @@ export * from "./cli.ts";
 export * from "./error.ts";
 export * from "./message.ts";
 export * from "./TaskEvents.ts";
+export * from "./tools.ts";
 
 // Modules
 export * from "./llm/mod.ts";

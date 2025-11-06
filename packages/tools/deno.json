@@ -1,0 +1,32 @@
+{
+  "name": "@corespeed/zypher-tools",
+  "version": "0.5.0",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "tasks": {
+    "test": "deno test -A --trace-leaks",
+    "test:watch": "deno test -A --watch",
+    "checkall": "deno fmt && deno lint && deno check .",
+    "build:npm": "deno run -A ../../scripts/build_npm.ts tools",
+    "publish:jsr": "deno publish --allow-dirty"
+  },
+  "compilerOptions": {
+    "verbatimModuleSyntax": true
+  },
+  "imports": {
+    "@corespeed/zypher": "jsr:@corespeed/zypher@^0.5.0",
+    "@std/encoding": "jsr:@std/encoding@^1.0.10",
+    "@std/fs": "jsr:@std/fs@^1.0.19",
+    "@std/path": "jsr:@std/path@^1.1.2",
+    "@openai/openai": "npm:openai@5.12.0",
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.18.1",
+    "zod": "npm:zod@^3.25.76",
+    "zod-to-json-schema": "npm:zod-to-json-schema@^3.24.6",
+    "diff": "npm:diff@8.0.2"
+  },
+  "publish": {
+    "exclude": ["tests/", "**/*.test.ts"]
+  }
+}

@@ -3,7 +3,7 @@ import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import OpenAI, { toFile } from "@openai/openai";
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
-import { fileExists } from "../utils/mod.ts";
+import { fileExists } from "@corespeed/zypher/utils";
 
 // Common parameter schemas
 const sizeSchema = z

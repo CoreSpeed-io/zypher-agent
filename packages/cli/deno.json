@@ -1,0 +1,25 @@
+{
+  "name": "@corespeed/zypher-cli",
+  "version": "0.5.0",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./bin/cli.ts"
+  },
+  "tasks": {
+    "start": "deno run -A bin/cli.ts",
+    "compile": "deno compile --allow-all --frozen=true --output ../../dist/zypher bin/cli.ts",
+    "test": "deno test -A",
+    "checkall": "deno fmt && deno lint && deno check .",
+    "publish:jsr": "deno publish --allow-dirty"
+  },
+  "compilerOptions": {
+    "verbatimModuleSyntax": true
+  },
+  "imports": {
+    "@corespeed/zypher": "jsr:@corespeed/zypher@^0.5.0",
+    "@corespeed/zypher-tools": "jsr:@corespeed/zypher-tools@^0.5.0",
+    "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
+    "chalk": "npm:chalk@^5.6.2"
+  }
+}

@@ -1,5 +1,5 @@
 import { McpClient } from "./McpClient.ts";
-import type { Tool } from "../tools/mod.ts";
+import type { Tool } from "../tools.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 
