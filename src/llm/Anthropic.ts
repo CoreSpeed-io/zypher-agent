@@ -294,6 +294,9 @@ class AnthropicModelStream implements ModelStream {
         .on("text", (text) => {
           subscriber.next({ type: "text", content: text });
         })
+        .on("thinking", (thinking) => {
+          subscriber.next({ type: "thinking", content: thinking });
+        })
         .on("inputJson", (inputJson) => {
           // Send updates whenever we have new partial JSON for a tool
           if (inputJson && currentToolName) {

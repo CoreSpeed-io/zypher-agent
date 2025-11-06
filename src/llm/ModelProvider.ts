@@ -4,6 +4,7 @@ import type { Tool } from "../tools/mod.ts";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 import type {
   TaskTextEvent,
+  TaskThinkingEvent,
   TaskToolUseEvent,
   TaskToolUseInputEvent,
 } from "../TaskEvents.ts";
@@ -98,5 +99,6 @@ export interface ModelMessageEvent {
 export type ModelEvent =
   | ModelMessageEvent
   | TaskTextEvent
+  | TaskThinkingEvent
   | TaskToolUseEvent
   | TaskToolUseInputEvent;

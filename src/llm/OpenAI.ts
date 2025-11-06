@@ -112,6 +112,18 @@ export class OpenAIModelProvider implements ModelProvider {
         subscriber.next({ type: "text", content: event.delta });
       });
 
+      // Handle reasoning content for reasoning models (o1, DeepSeek-R1, etc.)
+      // Note: This uses the chunk event to access reasoning_content which may not be
+      // in the current SDK types but is supported by OpenAI API and vLLM
+      stream.on("chunk", (chunk) => {
+        const delta = chunk.choices[0]?.delta;
+        // @ts-ignore - reasoning_content may not be in SDK types yet
+        const reasoningContent = delta?.reasoning_content;
+        if (reasoningContent) {
+          subscriber.next({ type: "thinking", content: reasoningContent });
+        }
+      });
+
       // Listen for tool call deltas
       stream.on("tool_calls.function.arguments.delta", (event) => {
         const toolName = event.name;

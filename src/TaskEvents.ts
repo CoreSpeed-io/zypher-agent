@@ -3,6 +3,7 @@ import type { Message } from "./message.ts";
 
 export type TaskEvent =
   | TaskTextEvent
+  | TaskThinkingEvent
   | TaskMessageEvent
   | TaskHistoryChangedEvent
   | TaskToolUseEvent
@@ -17,6 +18,14 @@ export type TaskEvent =
  */
 export interface TaskTextEvent {
   type: "text";
+  content: string;
+}
+
+/**
+ * Event for streaming thinking/reasoning process from the model
+ */
+export interface TaskThinkingEvent {
+  type: "thinking";
   content: string;
 }
 
