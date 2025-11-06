@@ -4,6 +4,7 @@ import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 import { McpStoreClient } from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
+import type { ServerDetail } from "@corespeed/mcp-store-client/types";
 
 /**
  * Represents the state of an MCP server including its configuration,
@@ -79,6 +80,23 @@ export class McpServerManager {
     if (enabled) {
       await state.client.waitForConnection();
     }
+  }
+
+  /**
+   * Lists servers from the configured registry with pagination
+   * @param options Pagination options (offset and limit)
+   * @returns Promise that resolves to an array of server details from the registry
+   */
+  async listRegistryServers(options: {
+    offset?: number;
+    limit?: number;
+  }): Promise<ServerDetail[]> {
+    const response = await this.#registryClient.v1.servers.list({
+      offset: options.offset ?? 0,
+      limit: options.limit ?? 20,
+    });
+
+    return response.data;
   }
 
   /**
