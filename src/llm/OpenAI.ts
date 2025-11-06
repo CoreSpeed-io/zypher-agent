@@ -105,38 +105,60 @@ export class OpenAIModelProvider implements ModelProvider {
     });
 
     const observable = new Observable<ModelEvent>((subscriber) => {
+      // Track which tool calls we've already emitted events for
+      const emittedToolCalls = new Set<string>();
+
       stream.on("content.delta", (event) => {
-        subscriber.next({ type: "text", text: event.delta });
+        subscriber.next({ type: "text", content: event.delta });
+      });
+
+      // Listen for tool call deltas
+      stream.on("tool_calls.function.arguments.delta", (event) => {
+        const toolName = event.name;
+        const toolIndex = event.index;
+
+        // Use index as the unique identifier for this tool call
+        const toolKey = `${toolIndex}`;
+
+        // Emit initial tool_use event when we first see this tool call
+        if (!emittedToolCalls.has(toolKey)) {
+          emittedToolCalls.add(toolKey);
+          subscriber.next({
+            type: "tool_use",
+            toolName: toolName,
+          });
+        }
+
+        // Emit tool_use_input event with delta partial input
+        subscriber.next({
+          type: "tool_use_input",
+          toolName: toolName,
+          partialInput: event.arguments_delta,
+        });
       });
 
       stream.on("error", (error) => {
         subscriber.error(error);
       });
 
+      stream.on("finalChatCompletion", (completion) => {
+        const message = completion.choices[0].message;
+        subscriber.next({
+          type: "message",
+          message: mapOaiMessageToMessage(message),
+        });
+      });
+
       stream.on("end", () => {
         subscriber.complete();
       });
     });
+
     return {
       events: observable,
       finalMessage: async (): Promise<FinalMessage> => {
         const message = await stream.finalMessage();
-        return {
-          role: message.role,
-          content: [
-            { type: "text", text: message.content ?? "" },
-            ...(
-              message.tool_calls?.map((c) => ({
-                type: "tool_use" as const,
-                toolUseId: c.id,
-                name: c.function.name,
-                input: JSON.parse(c.function.arguments),
-              })) ?? []
-            ),
-          ],
-          stop_reason: message.tool_calls?.length ? "tool_use" : "end_turn",
-          timestamp: new Date(),
-        };
+        return mapOaiMessageToMessage(message);
       },
     };
   }
@@ -298,6 +320,29 @@ Cached at: ${cache.cachePath}`,
   }
 }
 
+/** Map OpenAI ChatCompletionMessage to our internal FinalMessage */
+function mapOaiMessageToMessage(
+  message: OpenAI.Chat.Completions.ChatCompletionMessage,
+): FinalMessage {
+  return {
+    role: message.role,
+    content: [
+      { type: "text", text: message.content ?? "" },
+      ...(
+        message.tool_calls?.map((c) => ({
+          type: "tool_use" as const,
+          toolUseId: c.id,
+          name: c.function.name,
+          input: JSON.parse(c.function.arguments),
+        })) ?? []
+      ),
+    ],
+    stop_reason: message.tool_calls?.length ? "tool_use" : "end_turn",
+    timestamp: new Date(),
+  };
+}
+
+/** Map our internal image block to OpenAI image block */
 function mapImageBlockToOpenAI(block: ImageBlock):
   | OpenAI.Chat.ChatCompletionContentPartImage
   | OpenAI.Chat.ChatCompletionContentPartText {
