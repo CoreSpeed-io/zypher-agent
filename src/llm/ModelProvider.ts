@@ -2,6 +2,11 @@ import type { Observable } from "rxjs";
 import type { Message } from "../message.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
+import type {
+  TaskTextEvent,
+  TaskToolUseEvent,
+  TaskToolUseInputEvent,
+} from "../TaskEvents.ts";
 
 export interface ModelProviderOptions {
   apiKey: string;
@@ -82,19 +87,16 @@ export interface FinalMessage extends Message {
   stop_reason: "end_turn" | "max_tokens" | "stop_sequence" | "tool_use";
 }
 
-export type ModelEvent = MessageEvent | TextEvent;
-
-export interface MessageEvent {
+/**
+ * Event emitted when a complete message is received from the model
+ */
+export interface ModelMessageEvent {
   type: "message";
   message: FinalMessage;
 }
 
-export interface TextEvent {
-  type: "text";
-  text: string;
-}
-
-export interface ToolUseEvent {
-  type: "tool_use";
-  partialInput: string;
-}
+export type ModelEvent =
+  | ModelMessageEvent
+  | TaskTextEvent
+  | TaskToolUseEvent
+  | TaskToolUseInputEvent;

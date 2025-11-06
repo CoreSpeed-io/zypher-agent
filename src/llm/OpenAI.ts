@@ -105,8 +105,36 @@ export class OpenAIModelProvider implements ModelProvider {
     });
 
     const observable = new Observable<ModelEvent>((subscriber) => {
+      // Track which tool calls we've already emitted events for
+      const emittedToolCalls = new Set<string>();
+
       stream.on("content.delta", (event) => {
-        subscriber.next({ type: "text", text: event.delta });
+        subscriber.next({ type: "text", content: event.delta });
+      });
+
+      // Listen for tool call deltas
+      stream.on("tool_calls.function.arguments.delta", (event) => {
+        const toolName = event.name;
+        const toolIndex = event.index;
+
+        // Use index as the unique identifier for this tool call
+        const toolKey = `${toolIndex}`;
+
+        // Emit initial tool_use event when we first see this tool call
+        if (!emittedToolCalls.has(toolKey)) {
+          emittedToolCalls.add(toolKey);
+          subscriber.next({
+            type: "tool_use",
+            toolName: toolName,
+          });
+        }
+
+        // Emit tool_use_input event with delta partial input
+        subscriber.next({
+          type: "tool_use_input",
+          toolName: toolName,
+          partialInput: event.arguments_delta,
+        });
       });
 
       stream.on("error", (error) => {
