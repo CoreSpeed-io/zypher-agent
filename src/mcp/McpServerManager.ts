@@ -117,7 +117,6 @@ export class McpServerManager {
    * @param enabled Whether the server is enabled (defaults to true)
    * @returns Promise that resolves when the server is fully connected and ready (if enabled)
    * @throws Error if server not found in registry or registration fails
-   * @example
    */
   async registerServerFromRegistry(
     serverId: string,
