@@ -90,6 +90,10 @@ export class McpServerManager {
     }
   }
 
+  listServers(): McpServerState[] {
+    return Array.from(this.#serverStateMap.values());
+  }
+
   /**
    * Lists servers from the configured registry with pagination
    * @param options Pagination options (offset and limit)
