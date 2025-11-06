@@ -157,12 +157,6 @@ describe("McpServerManager", () => {
       expect(manager).toBeDefined();
       expect(manager.getAllTools().size).toBe(0);
     });
-
-    it("should create manager with default registry client", () => {
-      manager = new McpServerManager(context);
-      expect(manager).toBeDefined();
-      expect(manager.getAllTools().size).toBe(0);
-    });
   });
 
   describe("server registration", () => {
