@@ -1,13 +1,10 @@
 import type { ErrorDetector } from "./interface.ts";
 import { extractErrorOutput } from "./utils.ts";
 import { fileExists } from "../../utils/mod.ts";
-
-// Workaround for Deno.Command not throwing an error when the command returns a non-zero exit code
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import * as path from "@std/path";
 
-const execAsync = promisify(exec);
+// Reuse a single TextDecoder instance for efficiency
+const decoder = new TextDecoder();
 
 /**
  * Detector for ESLint errors in JavaScript/TypeScript projects
@@ -40,17 +37,19 @@ export class ESLintErrorDetector implements ErrorDetector {
       const commandConfig = await this.determineCommand(workingDirectory);
 
       // Execute the command
-      try {
-        // If we get here, the command succeeded (no errors)
-        await new Deno.Command(commandConfig.cmd, {
-          args: commandConfig.args || [],
-          cwd: workingDirectory,
-        }).output();
-        return null;
-      } catch (error) {
+      const result = await new Deno.Command(commandConfig.cmd, {
+        args: commandConfig.args,
+        cwd: workingDirectory,
+      }).output();
+
+      // Check if the command failed (non-zero exit code)
+      if (!result.success) {
         // Command failed, which likely means it found errors
         const errorOutput = extractErrorOutput(
-          error,
+          {
+            stdout: decoder.decode(result.stdout),
+            stderr: decoder.decode(result.stderr),
+          },
           (output) => this.filterNonErrors(output),
         );
 
@@ -169,17 +168,19 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       const commandConfig = await this.determineCommand(workingDirectory);
 
       // Execute the command
-      try {
-        // If we get here, the command succeeded (no errors)
-        await execAsync(
-          `${commandConfig.cmd} ${commandConfig.args?.join(" ")}`,
-          { cwd: workingDirectory },
-        );
-        return null;
-      } catch (error) {
+      const result = await new Deno.Command(commandConfig.cmd, {
+        args: commandConfig.args,
+        cwd: workingDirectory,
+      }).output();
+
+      // Check if the command failed (non-zero exit code)
+      if (!result.success) {
         // Command failed, which likely means it found errors
         const errorOutput = extractErrorOutput(
-          error,
+          {
+            stdout: decoder.decode(result.stdout),
+            stderr: decoder.decode(result.stderr),
+          },
           (output) => this.filterNonErrors(output),
         );
 
