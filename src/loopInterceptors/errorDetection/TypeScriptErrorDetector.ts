@@ -38,7 +38,7 @@ export class ESLintErrorDetector implements ErrorDetector {
 
       // Execute the command
       const result = await new Deno.Command(commandConfig.cmd, {
-        args: commandConfig.args ?? [],
+        args: commandConfig.args,
         cwd: workingDirectory,
       }).output();
 
@@ -169,7 +169,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
 
       // Execute the command
       const result = await new Deno.Command(commandConfig.cmd, {
-        args: commandConfig.args ?? [],
+        args: commandConfig.args,
         cwd: workingDirectory,
       }).output();
 
