@@ -18,7 +18,7 @@ interface McpServerState {
   /** Whether the server is enabled */
   enabled: boolean;
   /** The ID of the server e.g. "7568cad5-17ed-47b1-93f8-f73c2854c7b6" or "user-custom-server" */
-  id: string;
+  registryId: string;
   /** The source of the server indicates whether the server is registered from the registry or directly */
   source: "registry" | "direct";
 }
@@ -44,8 +44,7 @@ export class McpServerManager {
     // Default to CoreSpeed MCP Store if none provided
     this.#registryClient = registryClient ?? new McpStoreSDK({
       baseURL: Deno.env.get("MCP_STORE_BASE_URL") || "http://localhost:8000",
-      apiKey: Deno.env.get("MCP_STORE_API_KEY") ?? "",
-      fetch: fetch,
+      apiKey: Deno.env.get("MCP_STORE_API_KEY") || "",
     });
   }
 
@@ -77,7 +76,7 @@ export class McpServerManager {
       client,
       enabled,
       source,
-      id: id ?? server.id,
+      registryId: id ?? server.id,
     };
     this.#serverStateMap.set(server.id, state);
 
