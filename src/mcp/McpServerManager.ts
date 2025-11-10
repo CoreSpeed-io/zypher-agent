@@ -89,6 +89,10 @@ export class McpServerManager {
     }
   }
 
+  /**
+   * Lists all currently registered MCP servers.
+   * @returns An array of McpServerState objects representing each registered server.
+   */
   listServers(): McpServerState[] {
     return Array.from(this.#serverStateMap.values());
   }
