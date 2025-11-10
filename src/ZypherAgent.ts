@@ -8,11 +8,7 @@ import {
   createEmittingMessageArray,
   getSystemPrompt,
 } from "./utils/mod.ts";
-import {
-  AbortError,
-  isAbortError,
-  TaskConcurrencyError,
-} from "./error.ts";
+import { AbortError, isAbortError, TaskConcurrencyError } from "./error.ts";
 import type { ModelProvider } from "./llm/mod.ts";
 import { type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
