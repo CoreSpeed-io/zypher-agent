@@ -2,7 +2,7 @@ import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
-import McpStoreClient from "@corespeed/mcp-store-client";
+import McpStoreSDK from "@corespeed/mcp-store-client";
 import type { Server, ServerDetail } from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
 
@@ -35,14 +35,14 @@ export class McpServerManager {
   // toolbox for directly registered tools (non-MCP tools)
   #toolbox: Map<string, Tool> = new Map();
   // MCP Store client for discovering servers (defaults to CoreSpeed MCP Store)
-  #registryClient: McpStoreClient;
+  #registryClient: McpStoreSDK;
 
   constructor(
     readonly context: ZypherContext,
-    registryClient?: McpStoreClient,
+    registryClient?: McpStoreSDK,
   ) {
     // Default to CoreSpeed MCP Store if none provided
-    this.#registryClient = registryClient ?? new McpStoreClient({
+    this.#registryClient = registryClient ?? new McpStoreSDK({
       baseURL: Deno.env.get("MCP_STORE_BASE_URL") || "http://localhost:8000",
       apiKey: Deno.env.get("MCP_STORE_API_KEY") ?? "",
       fetch: fetch,
