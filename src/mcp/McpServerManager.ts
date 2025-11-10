@@ -43,8 +43,10 @@ export class McpServerManager {
   ) {
     // Default to CoreSpeed MCP Store if none provided
     this.#registryClient = registryClient ?? new McpStoreSDK({
-      baseURL: Deno.env.get("MCP_STORE_BASE_URL") || "http://localhost:8000",
-      apiKey: Deno.env.get("MCP_STORE_API_KEY") || "",
+      baseURL: Deno.env.get("MCP_STORE_BASE_URL") ||
+        "https://api1.mcp.corespeed.io",
+      // The api key is only for admin endpoints. It's not needed for the public endpoints.
+      apiKey: "",
     });
   }
 
