@@ -44,7 +44,7 @@ describe("RegistryProvider - Data Conversion", () => {
       const result = convertServerDetailToEndpoint(serverDetail);
 
       assertEquals(result, {
-        id: "remote-server",
+        id: "test-scope/test-package",
         displayName: "Remote MCP Server",
         type: "remote",
         remote: {
@@ -72,7 +72,7 @@ describe("RegistryProvider - Data Conversion", () => {
       const result = convertServerDetailToEndpoint(serverDetail);
 
       assertEquals(result, {
-        id: "remote-server",
+        id: "test-scope/test-package",
         displayName: "Remote MCP Server",
         type: "remote",
         remote: {
@@ -108,7 +108,7 @@ describe("RegistryProvider - Data Conversion", () => {
       const result = convertServerDetailToEndpoint(serverDetail);
 
       assertEquals(result, {
-        id: "npm-server",
+        id: "test-scope/test-package",
         displayName: "NPM MCP Server",
         type: "command",
         command: {
@@ -165,7 +165,7 @@ describe("RegistryProvider - Data Conversion", () => {
       const result = convertServerDetailToEndpoint(serverDetail);
 
       assertEquals(result, {
-        id: "pypi-server",
+        id: "test-scope/test-package",
         displayName: "Python MCP Server",
         type: "command",
         command: {
@@ -192,7 +192,7 @@ describe("RegistryProvider - Data Conversion", () => {
       const result = convertServerDetailToEndpoint(serverDetail);
 
       assertEquals(result, {
-        id: "uv-server",
+        id: "test-scope/test-package",
         displayName: "UV MCP Server",
         type: "command",
         command: {
@@ -219,7 +219,7 @@ describe("RegistryProvider - Data Conversion", () => {
       const result = convertServerDetailToEndpoint(serverDetail);
 
       assertEquals(result, {
-        id: "docker-server",
+        id: "test-scope/test-package",
         displayName: "Docker MCP Server",
         type: "command",
         command: {

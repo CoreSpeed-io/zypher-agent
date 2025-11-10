@@ -3,7 +3,7 @@ import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 import McpStoreClient from "@corespeed/mcp-store-client";
-import type { Server } from "@corespeed/mcp-store-client";
+import type { Server, ServerDetail } from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
 
 /**
@@ -130,10 +130,12 @@ export class McpServerManager {
     const isUUID = uuidRegex.test(serverId);
 
     let server: McpServerEndpoint;
+    let registryServer: ServerDetail;
 
     if (isUUID) {
       // Fetch server by UUID
       const response = await this.#registryClient.servers.retrieve(serverId);
+      registryServer = response.server;
       server = convertServerDetailToEndpoint(response.server);
     } else {
       // Parse package identifier format: @scope/package-name
@@ -153,11 +155,12 @@ export class McpServerManager {
         { scope },
       );
 
+      registryServer = response.server;
       server = convertServerDetailToEndpoint(response.server);
     }
 
     // Register the server
-    await this.registerServer(server, enabled, server.id, "registry");
+    await this.registerServer(server, enabled, registryServer.id, "registry");
   }
 
   /**
