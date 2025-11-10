@@ -8,12 +8,7 @@ import {
   createEmittingMessageArray,
   getSystemPrompt,
 } from "./utils/mod.ts";
-import {
-  AbortError,
-  formatError,
-  isAbortError,
-  TaskConcurrencyError,
-} from "./error.ts";
+import { AbortError, isAbortError, TaskConcurrencyError } from "./error.ts";
 import type { ModelProvider } from "./llm/mod.ts";
 import { type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
@@ -193,9 +188,8 @@ export class ZypherAgent {
    * This will discard messages beyond the checkpoint
    *
    * @param checkpointId The ID of the checkpoint to apply
-   * @returns True if the checkpoint was applied successfully, false otherwise
    */
-  async applyCheckpoint(checkpointId: string): Promise<boolean> {
+  async applyCheckpoint(checkpointId: string): Promise<void> {
     if (!this.#checkpointManager) {
       throw new Error("Checkpoint manager not provided");
     }
@@ -213,11 +207,10 @@ export class ZypherAgent {
         // Keep messages up to but excluding the checkpoint message
         this.#messages = this.#messages.slice(0, checkpointIndex);
       }
-
-      return true;
     } catch (error) {
-      console.error(`Error applying checkpoint: ${formatError(error)}`);
-      return false;
+      throw new Error(`Failed to apply checkpoint ${checkpointId}.`, {
+        cause: error,
+      });
     }
   }
 
