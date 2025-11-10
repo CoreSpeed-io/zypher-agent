@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Package, ServerDetail } from "@corespeed/mcp-store-client/types";
+import type { Package, ServerDetail } from "@corespeed/mcp-store-client";
 import type { McpServerEndpoint } from "./mod.ts";
 
 // =============================================================================
@@ -100,8 +100,8 @@ export function convertServerDetailToEndpoint(
       : undefined;
 
     return {
-      id: serverDetail.id,
-      displayName: serverDetail.name,
+      id: serverDetail.scope + "/" + serverDetail.packageName,
+      displayName: serverDetail.displayName,
       type: "remote",
       remote: {
         url: remote.url,
@@ -145,8 +145,8 @@ export function convertServerDetailToEndpoint(
       : undefined;
 
     return {
-      id: serverDetail.id,
-      displayName: serverDetail.name,
+      id: serverDetail.scope + "/" + serverDetail.packageName,
+      displayName: serverDetail.displayName,
       type: "command",
       command: {
         command: config.command,

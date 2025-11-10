@@ -2,9 +2,9 @@ import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
-import { McpStoreClient } from "@corespeed/mcp-store-client";
+import McpStoreClient from "@corespeed/mcp-store-client";
+import type { Server } from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
-import type { ServerDetail } from "@corespeed/mcp-store-client/types";
 
 /**
  * Represents the state of an MCP server including its configuration,
@@ -43,7 +43,7 @@ export class McpServerManager {
   ) {
     // Default to CoreSpeed MCP Store if none provided
     this.#registryClient = registryClient ?? new McpStoreClient({
-      baseURL: Deno.env.get("MCP_STORE_BASE_URL"),
+      baseURL: Deno.env.get("MCP_STORE_BASE_URL") || "http://localhost:8000",
       apiKey: Deno.env.get("MCP_STORE_API_KEY") ?? "",
       fetch: fetch,
     });
@@ -95,25 +95,26 @@ export class McpServerManager {
   }
 
   /**
-   * Lists servers from the configured registry with pagination
-   * @param options Pagination options (offset and limit)
-   * @returns Promise that resolves to an array of server details from the registry
+   * Lists servers from the configured registry with cursor-based pagination
+   * @param options Pagination options (cursor and limit)
+   * @returns Promise that resolves to a cursor page containing server details and next cursor
    */
-  async listRegistryServers(options: {
-    offset?: number;
+  async listRegistryServers(options?: {
+    cursor?: string;
     limit?: number;
-  }): Promise<ServerDetail[]> {
-    const response = await this.#registryClient.v1.servers.list({
-      offset: options.offset ?? 0,
-      limit: options.limit ?? 20,
+  }): Promise<Server[]> {
+    const response = await this.#registryClient.servers.list({
+      cursor: options?.cursor,
+      limit: options?.limit ?? 20,
     });
 
-    return response.data;
+    return response.servers;
   }
 
   /**
-   * Registers a server from the configured registry by server ID
-   * @param serverId The ID of the server to fetch from the registry
+   * Registers a server from the configured registry by server ID or package identifier
+   * @param serverId The ID of the server - either a UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+   *                 or a package identifier (e.g., "@scope/package-name")
    * @param enabled Whether the server is enabled (defaults to true)
    * @returns Promise that resolves when the server is fully connected and ready (if enabled)
    * @throws Error if server not found in registry or registration fails
@@ -122,12 +123,41 @@ export class McpServerManager {
     serverId: string,
     enabled: boolean = true,
   ): Promise<void> {
-    // Fetch server from registry
-    const response = await this.#registryClient.v1.servers.retrieve(serverId);
-    const server = convertServerDetailToEndpoint(response.server);
+    // Check if serverId is a UUID using crypto.randomUUID() format validation
+    // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx where y is 8, 9, a, or b
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUUID = uuidRegex.test(serverId);
+
+    let server: McpServerEndpoint;
+
+    if (isUUID) {
+      // Fetch server by UUID
+      const response = await this.#registryClient.servers.retrieve(serverId);
+      server = convertServerDetailToEndpoint(response.server);
+    } else {
+      // Parse package identifier format: @scope/package-name
+      const packageMatch = serverId.match(/^@([^/]+)\/(.+)$/);
+      if (!packageMatch) {
+        throw new Error(
+          `Invalid server identifier: ${serverId}. Expected UUID or @scope/package-name format.`,
+        );
+      }
+
+      const scope = packageMatch[1];
+      const packageName = packageMatch[2];
+
+      // Fetch server by scope and package name
+      const response = await this.#registryClient.servers.retrieveByPackage(
+        packageName,
+        { scope },
+      );
+
+      server = convertServerDetailToEndpoint(response.server);
+    }
 
     // Register the server
-    await this.registerServer(server, enabled, serverId, "registry");
+    await this.registerServer(server, enabled, server.id, "registry");
   }
 
   /**

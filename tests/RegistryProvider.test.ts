@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import type { ServerDetail } from "@corespeed/mcp-store-client/types";
+import type { ServerDetail } from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "../src/mcp/utils.ts";
 
 // Helper to create minimal ServerDetail
@@ -8,18 +8,18 @@ const createServerDetail = (
   overrides: Partial<ServerDetail>,
 ): ServerDetail => ({
   id: "test-server",
-  name: "Test Server",
+  scope: "test-scope",
+  packageName: "test-package",
+  displayName: "Test Server",
   description: "Test description",
   repository: {
-    id: "test-repo",
     url: "https://github.com/test/server",
     source: "github",
   },
-  versionDetail: {
-    version: "1.0.0",
-    isLatest: true,
-    releaseDate: "2024-01-01",
-  },
+  version: "1.0.0",
+  updatedAt: "2024-01-01T00:00:00Z",
+  remotes: [],
+  packages: [],
   ...overrides,
 });
 
@@ -28,7 +28,7 @@ describe("RegistryProvider - Data Conversion", () => {
     it("should convert remote server configuration", () => {
       const serverDetail = createServerDetail({
         id: "remote-server",
-        name: "Remote MCP Server",
+        displayName: "Remote MCP Server",
         remotes: [
           {
             url: "https://api.example.com/mcp",
@@ -60,7 +60,7 @@ describe("RegistryProvider - Data Conversion", () => {
     it("should convert remote server without headers", () => {
       const serverDetail = createServerDetail({
         id: "remote-server",
-        name: "Remote MCP Server",
+        displayName: "Remote MCP Server",
         remotes: [
           {
             url: "https://api.example.com/mcp",
@@ -85,7 +85,7 @@ describe("RegistryProvider - Data Conversion", () => {
     it("should convert NPM package server", () => {
       const serverDetail = createServerDetail({
         id: "npm-server",
-        name: "NPM MCP Server",
+        displayName: "NPM MCP Server",
         packages: [
           {
             registryName: "npm",
@@ -130,7 +130,7 @@ describe("RegistryProvider - Data Conversion", () => {
     it("should convert NPM package server without version", () => {
       const serverDetail = createServerDetail({
         id: "npm-server",
-        name: "NPM MCP Server",
+        displayName: "NPM MCP Server",
         packages: [
           {
             registryName: "npm",
@@ -152,7 +152,7 @@ describe("RegistryProvider - Data Conversion", () => {
     it("should convert PyPI package server", () => {
       const serverDetail = createServerDetail({
         id: "pypi-server",
-        name: "Python MCP Server",
+        displayName: "Python MCP Server",
         packages: [
           {
             registryName: "pypi",
@@ -179,7 +179,7 @@ describe("RegistryProvider - Data Conversion", () => {
     it("should convert uv package server", () => {
       const serverDetail = createServerDetail({
         id: "uv-server",
-        name: "UV MCP Server",
+        displayName: "UV MCP Server",
         packages: [
           {
             registryName: "uv",
@@ -206,7 +206,7 @@ describe("RegistryProvider - Data Conversion", () => {
     it("should convert docker package server", () => {
       const serverDetail = createServerDetail({
         id: "docker-server",
-        name: "Docker MCP Server",
+        displayName: "Docker MCP Server",
         packages: [
           {
             registryName: "docker",
@@ -233,7 +233,7 @@ describe("RegistryProvider - Data Conversion", () => {
     it("should prefer remote over package configuration", () => {
       const serverDetail = createServerDetail({
         id: "hybrid-server",
-        name: "Hybrid Server",
+        displayName: "Hybrid Server",
         remotes: [
           {
             url: "https://api.example.com/mcp",
@@ -257,7 +257,7 @@ describe("RegistryProvider - Data Conversion", () => {
     it("should throw error when no valid configuration exists", () => {
       const serverDetail = createServerDetail({
         id: "invalid-server",
-        name: "Invalid Server",
+        displayName: "Invalid Server",
       });
 
       assertThrows(
