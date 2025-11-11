@@ -92,10 +92,10 @@ describe("convertServerDetailToEndpoint", () => {
           version: "1.0.0",
           runtimeHint: "npx",
           packageArguments: [
-            { type: "positional", value: "--arg1" },
+            { type: "positional", value: "owner/repo" },
           ],
           runtimeArguments: [
-            { type: "positional", value: "--runtime-arg" },
+            { type: "positional", value: "-y" },
           ],
           environmentVariables: [
             { name: "GITHUB_TOKEN", value: "token123" },
@@ -114,9 +114,9 @@ describe("convertServerDetailToEndpoint", () => {
       command: {
         command: "npx",
         args: [
-          "--runtime-arg",
+          "-y",
           "@modelcontextprotocol/server-github@1.0.0",
-          "--arg1",
+          "owner/repo",
         ],
         env: {
           "GITHUB_TOKEN": "token123",
@@ -164,14 +164,14 @@ describe("convertServerDetailToEndpoint", () => {
           runtimeHint: "npx",
           packageArguments: [
             { type: "named", name: "config", value: "/path/to/config.json" },
-            { type: "positional", value: "--verbose" },
+            { type: "positional", value: "owner/repo" },
             { type: "named", name: "port", value: "8080" },
           ],
           runtimeArguments: [
             {
               type: "named",
-              name: "node-options",
-              value: "--max-old-space-size=4096",
+              name: "max-old-space-size",
+              value: "4096",
             },
             { type: "positional", value: "-y" },
           ],
@@ -188,11 +188,11 @@ describe("convertServerDetailToEndpoint", () => {
       command: {
         command: "npx",
         args: [
-          "--node-options=--max-old-space-size=4096",
+          "--max-old-space-size=4096",
           "-y",
           "@modelcontextprotocol/server-github@1.0.0",
           "--config=/path/to/config.json",
-          "--verbose",
+          "owner/repo",
           "--port=8080",
         ],
         env: undefined,
@@ -211,10 +211,10 @@ describe("convertServerDetailToEndpoint", () => {
           version: "1.0.0",
           runtimeHint: "npx",
           packageArguments: [
-            { type: "positional", value: "--arg1" },
+            { type: "positional", value: "data.json" },
             { type: "positional", value: undefined },
             { type: "named", name: "config", value: undefined },
-            { type: "positional", value: "--arg2" },
+            { type: "positional", value: "output.txt" },
           ],
         },
       ],
@@ -226,8 +226,8 @@ describe("convertServerDetailToEndpoint", () => {
     if (result.type === "command") {
       assertEquals(result.command.args, [
         "@modelcontextprotocol/server-test@1.0.0",
-        "--arg1",
-        "--arg2",
+        "data.json",
+        "output.txt",
       ]);
     }
   });
