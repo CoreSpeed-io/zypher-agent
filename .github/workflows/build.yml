@@ -40,5 +40,6 @@ jobs:
       - name: JSR publish dry run
         run: deno publish --dry-run --allow-slow-types
 
-      - name: Build npm package
-        run: deno task build:npm
+      # comment out for now until we resolve the node_fetch issue
+      # - name: Build npm package
+      #   run: deno task build:npm

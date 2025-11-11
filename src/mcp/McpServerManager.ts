@@ -2,6 +2,20 @@ import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
+import McpStoreSDK from "@corespeed/mcp-store-client";
+import type { Server } from "@corespeed/mcp-store-client";
+import { convertServerDetailToEndpoint } from "./utils.ts";
+
+/**
+ * Metadata about where an MCP server came from
+ *
+ * - `registry`: Server was registered from the MCP Store registry.
+ *   Contains the package identifier (e.g., "@modelcontextprotocol/server-filesystem")
+ * - `direct`: Server was registered directly by the user with explicit configuration
+ */
+type McpServerSource =
+  | { type: "registry"; packageIdentifier: string }
+  | { type: "direct" };
 
 /**
  * Represents the state of an MCP server including its configuration,
@@ -14,6 +28,8 @@ interface McpServerState {
   client: McpClient;
   /** Whether the server is enabled */
   enabled: boolean;
+  /** Metadata about the source of this server */
+  source: McpServerSource;
 }
 
 /**
@@ -27,19 +43,34 @@ export class McpServerManager {
   #serverStateMap = new Map<string, McpServerState>();
   // toolbox for directly registered tools (non-MCP tools)
   #toolbox: Map<string, Tool> = new Map();
+  // MCP Store client for discovering servers (defaults to CoreSpeed MCP Store)
+  #registryClient: McpStoreSDK;
 
-  constructor(readonly context: ZypherContext) {}
+  constructor(
+    readonly context: ZypherContext,
+    registryClient?: McpStoreSDK,
+  ) {
+    // Default to CoreSpeed MCP Store if none provided
+    this.#registryClient = registryClient ?? new McpStoreSDK({
+      baseURL: Deno.env.get("MCP_STORE_BASE_URL") ??
+        "https://api1.mcp.corespeed.io",
+      // The api key is only for admin endpoints. It's not needed for the public endpoints.
+      apiKey: "",
+    });
+  }
 
   /**
    * Registers a new MCP server and its tools
    * @param server Server configuration (server.id is used as the key)
    * @param enabled Whether the server is enabled
+   * @param source Metadata about the source of this server
    * @returns Promise that resolves when the server is fully connected and ready (if enabled)
    * @throws McpError if server registration fails or server already exists
    */
   async registerServer(
     server: McpServerEndpoint,
     enabled: boolean = true,
+    source: McpServerSource = { type: "direct" },
   ): Promise<void> {
     if (this.#serverStateMap.has(server.id)) {
       throw new Error(
@@ -55,6 +86,7 @@ export class McpServerManager {
       server,
       client,
       enabled,
+      source,
     };
     this.#serverStateMap.set(server.id, state);
 
@@ -65,6 +97,68 @@ export class McpServerManager {
     if (enabled) {
       await state.client.waitForConnection();
     }
+  }
+
+  /**
+   * Lists all currently registered MCP servers.
+   * @returns An array of McpServerState objects representing each registered server.
+   */
+  listServers(): McpServerState[] {
+    return Array.from(this.#serverStateMap.values());
+  }
+
+  /**
+   * Lists servers from the configured registry with cursor-based pagination
+   * @param options Pagination options (cursor and limit)
+   * @returns Promise that resolves to a cursor page containing server details and next cursor
+   */
+  async listRegistryServers(options?: {
+    cursor?: string;
+    limit?: number;
+  }): Promise<Server[]> {
+    const response = await this.#registryClient.servers.list({
+      cursor: options?.cursor,
+      limit: options?.limit ?? 20,
+    });
+
+    return response.servers;
+  }
+
+  /**
+   * Registers a server from the configured registry by package identifier
+   * @param packageIdentifier The package identifier in the format "@scope/package-name" (e.g., "@modelcontextprotocol/server-filesystem")
+   * @param enabled Whether the server is enabled (defaults to true)
+   * @returns Promise that resolves when the server is fully connected and ready (if enabled)
+   * @throws Error if server not found in registry or registration fails
+   */
+  async registerServerFromRegistry(
+    packageIdentifier: string,
+    enabled: boolean = true,
+  ): Promise<void> {
+    // Parse package identifier format: @scope/package-name
+    const packageMatch = packageIdentifier.match(/^@([^/]+)\/(.+)$/);
+    if (!packageMatch) {
+      throw new Error(
+        `Invalid package identifier: ${packageIdentifier}. Expected @scope/package-name format.`,
+      );
+    }
+
+    const scope = packageMatch[1];
+    const packageName = packageMatch[2];
+
+    // Fetch server by scope and package name
+    const response = await this.#registryClient.servers.retrieveByPackage(
+      packageName,
+      { scope },
+    );
+
+    const server = convertServerDetailToEndpoint(response.server);
+
+    // Register the server
+    await this.registerServer(server, enabled, {
+      type: "registry",
+      packageIdentifier,
+    });
   }
 
   /**
@@ -224,7 +318,7 @@ export class McpServerManager {
     }
 
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      console.log(`\nServer: ${state.server.displayName || state.server.id}`);
+      console.log(`\nServer: ${state.server.displayName ?? state.server.id}`);
       console.log(`  - ID: ${serverId}`);
       console.log(`  - Enabled: ${state.enabled}`);
       console.log(`  - Connected: ${state.client.connected ?? false}`);
