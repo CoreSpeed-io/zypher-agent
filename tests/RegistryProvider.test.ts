@@ -114,10 +114,9 @@ describe("RegistryProvider - Data Conversion", () => {
         command: {
           command: "npx",
           args: [
-            "-y",
+            "--runtime-arg",
             "@modelcontextprotocol/server-github@1.0.0",
             "--arg1",
-            "--runtime-arg",
           ],
           env: {
             "GITHUB_TOKEN": "token123",
@@ -145,7 +144,10 @@ describe("RegistryProvider - Data Conversion", () => {
       assertEquals(result.type, "command");
       if (result.type === "command") {
         assertEquals(result.command.command, "npx");
-        assertEquals(result.command.args?.[0], "-y");
+        assertEquals(
+          result.command.args?.[0],
+          "@modelcontextprotocol/server-github@latest",
+        );
       }
     });
 
@@ -170,7 +172,7 @@ describe("RegistryProvider - Data Conversion", () => {
         type: "command",
         command: {
           command: "python",
-          args: ["-m", "mcp-server-python"],
+          args: ["mcp-server-python"],
           env: undefined,
         },
       });
