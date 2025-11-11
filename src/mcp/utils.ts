@@ -68,31 +68,41 @@ function convertToRecord(
 
 const REGISTRY_CONFIG: Record<string, {
   command: string;
-  buildArgs: (pkg: Package) => string[];
+  buildArgs: (
+    pkg: Package,
+    runtimeArgs: string[],
+    packageArgs: string[],
+  ) => string[];
 }> = {
   npm: {
     command: "npx",
-    buildArgs: (pkg) => {
+    buildArgs: (pkg, runtimeArgs, packageArgs) => {
       const pkgName = pkg.version ? `${pkg.name}@${pkg.version}` : pkg.name;
-      return ["-y", pkgName];
+      // npx [runtime args (including -y)] [package] [package args]
+      return [...runtimeArgs, pkgName, ...packageArgs];
     },
   },
   pypi: {
     command: "python",
-    buildArgs: (pkg) => ["-m", pkg.name],
+    buildArgs: (pkg, runtimeArgs, packageArgs) => {
+      // python [runtime args (including -m)] [package] [package args]
+      return [...runtimeArgs, pkg.name, ...packageArgs];
+    },
   },
   uv: {
     command: "uvx",
-    buildArgs: (pkg) => {
+    buildArgs: (pkg, runtimeArgs, packageArgs) => {
       const pkgName = pkg.version ? `${pkg.name}@${pkg.version}` : pkg.name;
-      return [pkgName];
+      // uvx [runtime args] [package] [package args]
+      return [...runtimeArgs, pkgName, ...packageArgs];
     },
   },
   docker: {
     command: "docker",
-    buildArgs: (pkg) => {
+    buildArgs: (pkg, runtimeArgs, packageArgs) => {
       const image = pkg.version ? `${pkg.name}:${pkg.version}` : pkg.name;
-      return ["run", image];
+      // docker run [runtime args] [image] [package args]
+      return ["run", ...runtimeArgs, image, ...packageArgs];
     },
   },
 };
@@ -133,15 +143,17 @@ export function convertServerDetailToEndpoint(
       );
     }
 
-    const args = [
-      ...config.buildArgs(pkg),
-      ...(pkg.packageArguments?.map((a) => a.value).filter((v): v is string =>
-        v !== undefined
-      ) ?? []),
-      ...(pkg.runtimeArguments?.map((a) => a.value).filter((v): v is string =>
-        v !== undefined
-      ) ?? []),
-    ];
+    const runtimeArgs = pkg.runtimeArguments?.map((a) =>
+      a.value
+    ).filter((v): v is string => v !== undefined) ?? [];
+
+    const packageArgs = pkg.packageArguments?.map((a) =>
+      a.value
+    ).filter((v): v is string =>
+      v !== undefined
+    ) ?? [];
+
+    const args = config.buildArgs(pkg, runtimeArgs, packageArgs);
 
     const env = convertToRecord(pkg.environmentVariables);
 
