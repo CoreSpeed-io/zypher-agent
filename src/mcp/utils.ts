@@ -66,6 +66,17 @@ function convertToRecord(
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
+/**
+ * Extract string values from an array of {value} objects, filtering out undefined values
+ */
+function extractArguments(
+  args?: Array<{ value?: string }>,
+): string[] {
+  return args?.map((a) => a.value).filter((v): v is string =>
+    v !== undefined
+  ) ?? [];
+}
+
 const REGISTRY_CONFIG: Record<string, {
   command: string;
   buildArgs: (
@@ -143,15 +154,8 @@ export function convertServerDetailToEndpoint(
       );
     }
 
-    const runtimeArgs = pkg.runtimeArguments?.map((a) =>
-      a.value
-    ).filter((v): v is string => v !== undefined) ?? [];
-
-    const packageArgs = pkg.packageArguments?.map((a) =>
-      a.value
-    ).filter((v): v is string =>
-      v !== undefined
-    ) ?? [];
+    const runtimeArgs = extractArguments(pkg.runtimeArguments);
+    const packageArgs = extractArguments(pkg.packageArguments);
 
     const args = config.buildArgs(pkg, runtimeArgs, packageArgs);
 
