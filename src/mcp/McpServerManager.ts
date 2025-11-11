@@ -52,7 +52,7 @@ export class McpServerManager {
   ) {
     // Default to CoreSpeed MCP Store if none provided
     this.#registryClient = registryClient ?? new McpStoreSDK({
-      baseURL: Deno.env.get("MCP_STORE_BASE_URL") ||
+      baseURL: Deno.env.get("MCP_STORE_BASE_URL") ??
         "https://api1.mcp.corespeed.io",
       // The api key is only for admin endpoints. It's not needed for the public endpoints.
       apiKey: "",
@@ -318,7 +318,7 @@ export class McpServerManager {
     }
 
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      console.log(`\nServer: ${state.server.displayName || state.server.id}`);
+      console.log(`\nServer: ${state.server.displayName ?? state.server.id}`);
       console.log(`  - ID: ${serverId}`);
       console.log(`  - Enabled: ${state.enabled}`);
       console.log(`  - Connected: ${state.client.connected ?? false}`);
