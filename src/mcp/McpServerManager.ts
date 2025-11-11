@@ -7,6 +7,17 @@ import type { Server } from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
 
 /**
+ * Metadata about where an MCP server came from
+ *
+ * - `registry`: Server was registered from the MCP Store registry.
+ *   Contains the package identifier (e.g., "@modelcontextprotocol/server-filesystem")
+ * - `direct`: Server was registered directly by the user with explicit configuration
+ */
+type McpServerSource =
+  | { type: "registry"; packageIdentifier: string }
+  | { type: "direct" };
+
+/**
  * Represents the state of an MCP server including its configuration,
  * client connection, enabled status, and associated tools
  */
@@ -17,10 +28,8 @@ interface McpServerState {
   client: McpClient;
   /** Whether the server is enabled */
   enabled: boolean;
-  /** The ID of the server e.g. "7568cad5-17ed-47b1-93f8-f73c2854c7b6" or "user-custom-server" */
-  registryId: string;
-  /** The source of the server indicates whether the server is registered from the registry or directly */
-  source: "registry" | "direct";
+  /** Metadata about the source of this server */
+  source: McpServerSource;
 }
 
 /**
@@ -54,14 +63,14 @@ export class McpServerManager {
    * Registers a new MCP server and its tools
    * @param server Server configuration (server.id is used as the key)
    * @param enabled Whether the server is enabled
+   * @param source Metadata about the source of this server
    * @returns Promise that resolves when the server is fully connected and ready (if enabled)
    * @throws McpError if server registration fails or server already exists
    */
   async registerServer(
     server: McpServerEndpoint,
     enabled: boolean = true,
-    id?: string,
-    source: "registry" | "direct" = "direct",
+    source: McpServerSource = { type: "direct" },
   ): Promise<void> {
     if (this.#serverStateMap.has(server.id)) {
       throw new Error(
@@ -78,7 +87,6 @@ export class McpServerManager {
       client,
       enabled,
       source,
-      registryId: id ?? server.id,
     };
     this.#serverStateMap.set(server.id, state);
 
@@ -144,11 +152,13 @@ export class McpServerManager {
       { scope },
     );
 
-    const registryServer = response.server;
     const server = convertServerDetailToEndpoint(response.server);
 
     // Register the server
-    await this.registerServer(server, enabled, registryServer.id, "registry");
+    await this.registerServer(server, enabled, {
+      type: "registry",
+      packageIdentifier,
+    });
   }
 
   /**
