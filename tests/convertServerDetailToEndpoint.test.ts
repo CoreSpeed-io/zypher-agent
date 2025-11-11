@@ -90,6 +90,7 @@ describe("convertServerDetailToEndpoint", () => {
           registryName: "npm",
           name: "@modelcontextprotocol/server-github",
           version: "1.0.0",
+          runtimeHint: "npx",
           packageArguments: [
             { type: "positional", value: "--arg1" },
           ],
@@ -134,6 +135,7 @@ describe("convertServerDetailToEndpoint", () => {
           registryName: "npm",
           name: "@modelcontextprotocol/server-github",
           version: "latest",
+          runtimeHint: "npx",
         },
       ],
     });
@@ -150,6 +152,86 @@ describe("convertServerDetailToEndpoint", () => {
     }
   });
 
+  it("should handle named arguments correctly", () => {
+    const serverDetail = createServerDetail({
+      id: "npm-server",
+      displayName: "NPM MCP Server with Named Args",
+      packages: [
+        {
+          registryName: "npm",
+          name: "@modelcontextprotocol/server-github",
+          version: "1.0.0",
+          runtimeHint: "npx",
+          packageArguments: [
+            { type: "named", name: "config", value: "/path/to/config.json" },
+            { type: "positional", value: "--verbose" },
+            { type: "named", name: "port", value: "8080" },
+          ],
+          runtimeArguments: [
+            {
+              type: "named",
+              name: "node-options",
+              value: "--max-old-space-size=4096",
+            },
+            { type: "positional", value: "-y" },
+          ],
+        },
+      ],
+    });
+
+    const result = convertServerDetailToEndpoint(serverDetail);
+
+    assertEquals(result, {
+      id: "test-scope/test-package",
+      displayName: "NPM MCP Server with Named Args",
+      type: "command",
+      command: {
+        command: "npx",
+        args: [
+          "--node-options=--max-old-space-size=4096",
+          "-y",
+          "@modelcontextprotocol/server-github@1.0.0",
+          "--config=/path/to/config.json",
+          "--verbose",
+          "--port=8080",
+        ],
+        env: undefined,
+      },
+    });
+  });
+
+  it("should skip arguments with undefined values", () => {
+    const serverDetail = createServerDetail({
+      id: "npm-server",
+      displayName: "NPM MCP Server with Undefined Args",
+      packages: [
+        {
+          registryName: "npm",
+          name: "@modelcontextprotocol/server-test",
+          version: "1.0.0",
+          runtimeHint: "npx",
+          packageArguments: [
+            { type: "positional", value: "--arg1" },
+            { type: "positional", value: undefined },
+            { type: "named", name: "config", value: undefined },
+            { type: "positional", value: "--arg2" },
+          ],
+        },
+      ],
+    });
+
+    const result = convertServerDetailToEndpoint(serverDetail);
+
+    assertEquals(result.type, "command");
+    if (result.type === "command") {
+      assertEquals(result.command.args, [
+        "@modelcontextprotocol/server-test@1.0.0",
+        "--arg1",
+        "--arg2",
+      ]);
+    }
+  });
+
   it("should convert PyPI package server", () => {
     const serverDetail = createServerDetail({
       id: "pypi-server",
@@ -159,6 +241,7 @@ describe("convertServerDetailToEndpoint", () => {
           registryName: "pypi",
           name: "mcp-server-python",
           version: "1.0.0",
+          runtimeHint: "python",
         },
       ],
     });
@@ -186,6 +269,7 @@ describe("convertServerDetailToEndpoint", () => {
           registryName: "uv",
           name: "mcp-server-uv",
           version: "1.0.0",
+          runtimeHint: "uvx",
         },
       ],
     });
@@ -213,6 +297,7 @@ describe("convertServerDetailToEndpoint", () => {
           registryName: "docker",
           name: "mcp-server-image",
           version: "latest",
+          runtimeHint: "docker",
         },
       ],
     });
@@ -246,6 +331,7 @@ describe("convertServerDetailToEndpoint", () => {
           registryName: "npm",
           name: "some-package",
           version: "1.0.0",
+          runtimeHint: "npx",
         },
       ],
     });
@@ -265,6 +351,26 @@ describe("convertServerDetailToEndpoint", () => {
       () => convertServerDetailToEndpoint(serverDetail),
       Error,
       "has no valid remote or package configuration",
+    );
+  });
+
+  it("should throw error when runtimeHint is missing", () => {
+    const serverDetail = createServerDetail({
+      id: "no-runtime-hint-server",
+      displayName: "Server without runtime hint",
+      packages: [
+        {
+          registryName: "npm",
+          name: "some-package",
+          version: "1.0.0",
+        },
+      ],
+    });
+
+    assertThrows(
+      () => convertServerDetailToEndpoint(serverDetail),
+      Error,
+      "missing runtimeHint",
     );
   });
 });

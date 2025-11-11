@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { Package, ServerDetail } from "@corespeed/mcp-store-client";
+import type {
+  Argument,
+  Package,
+  ServerDetail,
+} from "@corespeed/mcp-store-client";
 import type { McpServerEndpoint } from "./mod.ts";
 
 // =============================================================================
@@ -70,53 +74,55 @@ function convertToRecord(
  * Extract string values from an array of {value} objects, filtering out undefined values
  */
 function extractArguments(
-  args?: Array<{ value?: string }>,
+  args?: Array<Argument>,
 ): string[] {
-  return args?.map((a) => a.value).filter((v): v is string =>
-    v !== undefined
-  ) ?? [];
+  if (!args) return [];
+
+  const result: string[] = [];
+
+  for (const arg of args) {
+    // Skip arguments without a value
+    if (arg.value === undefined) continue;
+
+    // Handle named arguments: include the name with the value
+    if (arg.type === "named" && arg.name) {
+      // Use --name=value format for named arguments
+      result.push(`--${arg.name}=${arg.value}`);
+    } else {
+      // Handle positional arguments: just the value
+      result.push(arg.value);
+    }
+  }
+
+  return result;
 }
 
-const REGISTRY_CONFIG: Record<string, {
-  command: string;
-  buildArgs: (
-    pkg: Package,
-    runtimeArgs: string[],
-    packageArgs: string[],
-  ) => string[];
-}> = {
-  npm: {
-    command: "npx",
-    buildArgs: (pkg, runtimeArgs, packageArgs) => {
-      const pkgName = pkg.version ? `${pkg.name}@${pkg.version}` : pkg.name;
-      // npx [runtime args (including -y)] [package] [package args]
-      return [...runtimeArgs, pkgName, ...packageArgs];
-    },
-  },
-  pypi: {
-    command: "python",
-    buildArgs: (pkg, runtimeArgs, packageArgs) => {
-      // python [runtime args (including -m)] [package] [package args]
-      return [...runtimeArgs, pkg.name, ...packageArgs];
-    },
-  },
-  uv: {
-    command: "uvx",
-    buildArgs: (pkg, runtimeArgs, packageArgs) => {
-      const pkgName = pkg.version ? `${pkg.name}@${pkg.version}` : pkg.name;
-      // uvx [runtime args] [package] [package args]
-      return [...runtimeArgs, pkgName, ...packageArgs];
-    },
-  },
-  docker: {
-    command: "docker",
-    buildArgs: (pkg, runtimeArgs, packageArgs) => {
-      const image = pkg.version ? `${pkg.name}:${pkg.version}` : pkg.name;
-      // docker run [runtime args] [image] [package args]
-      return ["run", ...runtimeArgs, image, ...packageArgs];
-    },
-  },
-};
+/**
+ * Build command arguments based on the package runtime hint
+ */
+function buildCommandArgs(
+  pkg: Package,
+  runtimeArgs: string[],
+  packageArgs: string[],
+): string[] {
+  const runtimeHint = pkg.runtimeHint?.toLowerCase();
+
+  // Handle docker runtime specially - needs "run" subcommand
+  if (runtimeHint === "docker") {
+    const image = pkg.version ? `${pkg.name}:${pkg.version}` : pkg.name;
+    return ["run", ...runtimeArgs, image, ...packageArgs];
+  }
+
+  // Handle python runtime specially - doesn't use @version syntax
+  if (runtimeHint === "python") {
+    return [...runtimeArgs, pkg.name, ...packageArgs];
+  }
+
+  // For npm/npx, uvx, and other runtimes that support @version syntax:
+  // [runtime args] [package@version] [package args]
+  const pkgName = pkg.version ? `${pkg.name}@${pkg.version}` : pkg.name;
+  return [...runtimeArgs, pkgName, ...packageArgs];
+}
 
 /**
  * Convert CoreSpeed ServerDetail to McpServerEndpoint
@@ -143,21 +149,17 @@ export function convertServerDetailToEndpoint(
   // Fall back to package/command configuration
   if (serverDetail.packages?.[0]) {
     const pkg = serverDetail.packages[0];
-    const registry = pkg.registryName?.toLowerCase();
-    const config = registry ? REGISTRY_CONFIG[registry] : undefined;
 
-    if (!config) {
+    if (!pkg.runtimeHint) {
       throw new Error(
-        `Unsupported registry: ${pkg.registryName}. Supported registries: ${
-          Object.keys(REGISTRY_CONFIG).join(", ")
-        }.`,
+        `Package for server ${serverDetail.id} is missing runtimeHint`,
       );
     }
 
     const runtimeArgs = extractArguments(pkg.runtimeArguments);
     const packageArgs = extractArguments(pkg.packageArguments);
 
-    const args = config.buildArgs(pkg, runtimeArgs, packageArgs);
+    const args = buildCommandArgs(pkg, runtimeArgs, packageArgs);
 
     const env = convertToRecord(pkg.environmentVariables);
 
@@ -166,7 +168,7 @@ export function convertServerDetailToEndpoint(
       displayName: serverDetail.displayName,
       type: "command",
       command: {
-        command: config.command,
+        command: pkg.runtimeHint,
         args,
         env,
       },
