@@ -49,6 +49,23 @@ export function createZodType(property: {
 // MCP Store registry utilities
 // =============================================================================
 
+/**
+ * Convert array of {name, value} objects to a Record, filtering out invalid entries
+ */
+function convertToRecord(
+  items?: Array<{ name?: string; value?: string }>,
+): Record<string, string> | undefined {
+  if (!items?.length) return undefined;
+
+  const entries = items
+    .filter((item): item is { name: string; value: string } =>
+      !!item.name && !!item.value
+    )
+    .map((item) => [item.name, item.value] as [string, string]);
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
 const REGISTRY_CONFIG: Record<string, {
   command: string;
   buildArgs: (pkg: Package) => string[];
@@ -89,15 +106,7 @@ export function convertServerDetailToEndpoint(
   // Prefer remote configuration if available
   if (serverDetail.remotes?.[0]) {
     const remote = serverDetail.remotes[0];
-    const headers = remote.headers?.length
-      ? Object.fromEntries(
-        remote.headers
-          .filter((h): h is { name: string; value: string } =>
-            !!h.name && !!h.value
-          )
-          .map((h) => [h.name, h.value]),
-      )
-      : undefined;
+    const headers = convertToRecord(remote.headers);
 
     return {
       id: serverDetail.scope + "/" + serverDetail.packageName,
@@ -134,15 +143,7 @@ export function convertServerDetailToEndpoint(
       ) ?? []),
     ];
 
-    const env = pkg.environmentVariables?.length
-      ? Object.fromEntries(
-        pkg.environmentVariables
-          .filter((e): e is { name: string; value: string } =>
-            !!e.name && !!e.value
-          )
-          .map((e) => [e.name, e.value]),
-      )
-      : undefined;
+    const env = convertToRecord(pkg.environmentVariables);
 
     return {
       id: serverDetail.scope + "/" + serverDetail.packageName,
