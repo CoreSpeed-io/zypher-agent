@@ -3,7 +3,7 @@ import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 import McpStoreSDK from "@corespeed/mcp-store-client";
-import type { Server, ServerDetail } from "@corespeed/mcp-store-client";
+import type { Server } from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
 
 /**
@@ -117,52 +117,35 @@ export class McpServerManager {
   }
 
   /**
-   * Registers a server from the configured registry by server ID or package identifier
-   * @param serverId The ID of the server - either a UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
-   *                 or a package identifier (e.g., "@scope/package-name")
+   * Registers a server from the configured registry by package identifier
+   * @param packageIdentifier The package identifier in the format "@scope/package-name" (e.g., "@modelcontextprotocol/server-filesystem")
    * @param enabled Whether the server is enabled (defaults to true)
    * @returns Promise that resolves when the server is fully connected and ready (if enabled)
    * @throws Error if server not found in registry or registration fails
    */
   async registerServerFromRegistry(
-    serverId: string,
+    packageIdentifier: string,
     enabled: boolean = true,
   ): Promise<void> {
-    // Check if serverId is a UUID using crypto.randomUUID() format validation
-    // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx where y is 8, 9, a, or b
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isUUID = uuidRegex.test(serverId);
-
-    let server: McpServerEndpoint;
-    let registryServer: ServerDetail;
-
-    if (isUUID) {
-      // Fetch server by UUID
-      const response = await this.#registryClient.servers.retrieve(serverId);
-      registryServer = response.server;
-      server = convertServerDetailToEndpoint(response.server);
-    } else {
-      // Parse package identifier format: @scope/package-name
-      const packageMatch = serverId.match(/^@([^/]+)\/(.+)$/);
-      if (!packageMatch) {
-        throw new Error(
-          `Invalid server identifier: ${serverId}. Expected UUID or @scope/package-name format.`,
-        );
-      }
-
-      const scope = packageMatch[1];
-      const packageName = packageMatch[2];
-
-      // Fetch server by scope and package name
-      const response = await this.#registryClient.servers.retrieveByPackage(
-        packageName,
-        { scope },
+    // Parse package identifier format: @scope/package-name
+    const packageMatch = packageIdentifier.match(/^@([^/]+)\/(.+)$/);
+    if (!packageMatch) {
+      throw new Error(
+        `Invalid package identifier: ${packageIdentifier}. Expected @scope/package-name format.`,
       );
-
-      registryServer = response.server;
-      server = convertServerDetailToEndpoint(response.server);
     }
+
+    const scope = packageMatch[1];
+    const packageName = packageMatch[2];
+
+    // Fetch server by scope and package name
+    const response = await this.#registryClient.servers.retrieveByPackage(
+      packageName,
+      { scope },
+    );
+
+    const registryServer = response.server;
+    const server = convertServerDetailToEndpoint(response.server);
 
     // Register the server
     await this.registerServer(server, enabled, registryServer.id, "registry");
