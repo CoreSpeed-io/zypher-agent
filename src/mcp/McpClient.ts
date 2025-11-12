@@ -429,15 +429,9 @@ export class McpClient {
   }
 
   /**
-   * Observable stream of client state changes
-   * Emits the current McpClientStatus whenever the connection state changes
-   *
-   * Implementation: Converts the XState actor to an RxJS Observable using from(),
-   * then maps each actor snapshot to the current status using map().
-   * This creates a read-only stream that consumers can subscribe to without
-   * being able to send events or modify the actor.
-   *
-   * @returns Observable that emits state changes (read-only for consumers)
+   * Observable stream of client status changes
+   * Emits the current McpClientStatus whenever the status changes
+   * @returns Observable that emits status changes (read-only for consumers)
    */
   get status$(): Observable<McpClientStatus> {
     return from(this.#actor).pipe(map(() => this.status));
