@@ -30,6 +30,7 @@ import { formatError, isAbortError } from "../error.ts";
 import { assert } from "@std/assert";
 import { connectToServer } from "./connect.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
+import { from, map, type Observable } from "rxjs";
 
 /** Client-specific configuration options */
 export interface McpClientOptions {
@@ -425,6 +426,21 @@ export class McpClient {
 
     // This should never happen if our state machine is properly defined
     throw new Error(`Unknown state: ${JSON.stringify(snapshot.value)}`);
+  }
+
+  /**
+   * Observable stream of client state changes
+   * Emits the current McpClientStatus whenever the connection state changes
+   *
+   * Implementation: Converts the XState actor to an RxJS Observable using from(),
+   * then maps each actor snapshot to the current status using map().
+   * This creates a read-only stream that consumers can subscribe to without
+   * being able to send events or modify the actor.
+   *
+   * @returns Observable that emits state changes (read-only for consumers)
+   */
+  get status$(): Observable<McpClientStatus> {
+    return from(this.#actor).pipe(map(() => this.status));
   }
 
   /**
