@@ -30,6 +30,7 @@ import { formatError, isAbortError } from "../error.ts";
 import { assert } from "@std/assert";
 import { connectToServer } from "./connect.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
+import { from, map, type Observable } from "rxjs";
 
 /** Client-specific configuration options */
 export interface McpClientOptions {
@@ -425,6 +426,15 @@ export class McpClient {
 
     // This should never happen if our state machine is properly defined
     throw new Error(`Unknown state: ${JSON.stringify(snapshot.value)}`);
+  }
+
+  /**
+   * Observable stream of client status changes
+   * Emits the current McpClientStatus whenever the status changes
+   * @returns Observable that emits status changes (read-only for consumers)
+   */
+  get status$(): Observable<McpClientStatus> {
+    return from(this.#actor).pipe(map(() => this.status));
   }
 
   /**
