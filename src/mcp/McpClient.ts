@@ -677,26 +677,14 @@ export class McpClient {
         }
       }
 
-      const result = await this.#client.request(
-        {
-          method: "resources/list",
-          params: { cursor: options?.cursor },
-        },
-        z.object({
-          resources: z.array(z.object({
-            uri: z.string(),
-            name: z.string(),
-            title: z.string().optional(),
-            description: z.string().optional(),
-            mimeType: z.string().optional(),
-            size: z.number().optional(),
-            annotations: z.record(z.unknown()).optional(),
-          })),
-          nextCursor: z.string().optional(),
-        }),
-      );
+      const result = await this.#client.listResources({
+        cursor: options?.cursor,
+        signal: options?.signal,
+        filter: options?.filter,
+        useCache: options?.useCache,
+      });
 
-      console.log("SDK request result:", result);
+      console.log("SDK listResources result:", result);
 
       const resources =
         (result as { resources: McpResource[]; nextCursor?: string }).resources;
@@ -821,7 +809,7 @@ export class McpClient {
         const result = await this.readResource({
           uri: params.uri,
           signal: params.signal,
-          streaming: false,
+          streaming: params.streaming,
           maxSize: params.maxSize,
         });
 

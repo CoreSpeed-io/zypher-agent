@@ -406,7 +406,7 @@ export class McpServerManager {
           const res = await Promise.race([
             state.client.readResource({
               uri: params.uri,
-              signal: params.signal ? params.signal : controller.signal,
+              signal: params.signal ?? controller.signal,
               useCache: params.useCache,
               streaming: params.streaming,
               maxSize: params.maxSize,
