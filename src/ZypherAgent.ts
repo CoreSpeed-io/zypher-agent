@@ -92,7 +92,7 @@ const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MAX_ITERATIONS = 25;
 const DEFAULT_TASK_TIMEOUT_MS = 900000;
 
-const DEFAULT_SKILLS_DIR = "./.skills/";
+const DEFAULT_SKILLS_DIR = "./.skills";
 
 export class ZypherAgent {
   readonly #modelProvider: ModelProvider;

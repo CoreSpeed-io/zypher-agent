@@ -9,20 +9,6 @@ export interface SkillMetadata {
 }
 
 /**
- * Represents a resource file in a Skill directory
- */
-export interface SkillResource {
-  /** Relative path from Skill directory */
-  relativePath: string;
-  /** Full absolute path to the resource */
-  absolutePath: string;
-  /** Whether this resource has been loaded */
-  loaded: boolean;
-  /** Cached content of the resource */
-  content?: string;
-}
-
-/**
  * Skill with its metadata and content
  */
 export interface Skill {
@@ -36,10 +22,6 @@ export interface Skill {
   instructions?: string;
   /** Whether the instructions have been loaded */
   instructionsLoaded: boolean;
-  /** Discovered resources in the Skill directory (Level 3) */
-  resources: Map<string, SkillResource>;
-  /** Whether resources have been discovered */
-  resourcesDiscovered: boolean;
 }
 
 /**

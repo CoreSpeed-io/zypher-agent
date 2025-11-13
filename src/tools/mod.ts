@@ -102,4 +102,3 @@ export { FileSearchTool } from "./FileSearchTool.ts";
 export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
 export { createImageTools } from "./ImageTools.ts";
 export { createLoadSkillTool } from "./LoadSkillTool.ts";
-export { createLoadSkillResourceTool } from "./LoadSkillResourceTool.ts";

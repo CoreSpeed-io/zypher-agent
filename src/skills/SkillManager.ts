@@ -1,6 +1,6 @@
 import { join, resolve } from "@std/path";
 import { exists } from "@std/fs";
-import type { Skill, SkillMetadata, SkillResource } from "./Skill.ts";
+import type { Skill, SkillMetadata } from "./Skill.ts";
 import { validateSkillMetadata } from "./Skill.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 
@@ -110,8 +110,6 @@ export class SkillManager {
       skillPath,
       skillMdPath,
       instructionsLoaded: false,
-      resources: new Map(),
-      resourcesDiscovered: false,
     };
   }
 
@@ -160,137 +158,7 @@ export class SkillManager {
   }
 
   /**
-   * Discovers resources in a Skill directory (Level 3)
-   */
-  async discoverSkillResources(skillName: string): Promise<void> {
-    const skill = this.#skills.get(skillName);
-    if (!skill || skill.resourcesDiscovered) {
-      return;
-    }
-
-    try {
-      await this.#discoverResourcesRecursive(skill, skill.skillPath, "");
-      skill.resourcesDiscovered = true;
-    } catch (error) {
-      console.warn(
-        `Failed to discover resources for Skill ${skillName}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
-
-  /**
-   * Recursively discovers resources in a directory
-   */
-  async #discoverResourcesRecursive(
-    skill: Skill,
-    dirPath: string,
-    relativePrefix: string,
-  ): Promise<void> {
-    try {
-      for await (const entry of Deno.readDir(dirPath)) {
-        const fullPath = join(dirPath, entry.name);
-        // Skill directory relative path
-        const relativePath = relativePrefix
-          ? join(relativePrefix, entry.name).replace(/\\/g, "/")
-          : entry.name;
-
-        // Skip SKILL.md
-        if (entry.name === "SKILL.md") {
-          continue;
-        }
-
-        if (entry.isDirectory) {
-          // Recursively discover subdirectories
-          await this.#discoverResourcesRecursive(
-            skill,
-            fullPath,
-            relativePath,
-          );
-        } else {
-          const resource: SkillResource = {
-            relativePath,
-            absolutePath: fullPath,
-            loaded: false,
-          };
-
-          skill.resources.set(relativePath, resource);
-        }
-      }
-    } catch {
-      // Ignore errors in reading directories
-    }
-  }
-
-  /**
-   * Gets all discovered resources for a Skill
-   */
-  getSkillResources(skillName: string): SkillResource[] {
-    const skill = this.#skills.get(skillName);
-    if (!skill) {
-      return [];
-    }
-    return Array.from(skill.resources.values());
-  }
-
-  /**
-   * Loads a specific resource from a Skill (Level 3)
-   * @param skillName Name of the Skill
-   * @param resourcePath Relative path to the resource
-   * @returns The resource content, or null if not found
-   */
-  async loadSkillResource(
-    skillName: string,
-    resourcePath: string,
-  ): Promise<string | null> {
-    const skill = this.#skills.get(skillName);
-    if (!skill) {
-      return null;
-    }
-
-    if (!skill.resourcesDiscovered) {
-      await this.discoverSkillResources(skillName);
-    }
-
-    // Normalize resource path
-    const normalizedPath = resourcePath.replace(/^\.\//, "");
-
-    const resource = skill.resources.get(normalizedPath);
-    if (!resource) {
-      return null;
-    }
-
-    return await this.#loadResourceContent(resource);
-  }
-
-  /**
-   * Loads the content of a resource file
-   */
-  async #loadResourceContent(resource: SkillResource): Promise<string | null> {
-    // Return cached content if already loaded
-    if (resource.loaded && resource.content) {
-      return resource.content;
-    }
-
-    try {
-      const content = await Deno.readTextFile(resource.absolutePath);
-      resource.content = content;
-      resource.loaded = true;
-      return content;
-    } catch (error) {
-      console.warn(
-        `Failed to load resource ${resource.relativePath}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      return null;
-    }
-  }
-
-  /**
    * Loads the instructions (Level 2) for a Skill
-   * Also discovers resources (Level 3) when instructions are first loaded
    */
   async loadSkillInstructions(skillName: string): Promise<string | null> {
     const skill = this.#skills.get(skillName);
@@ -312,11 +180,6 @@ export class SkillManager {
 
       skill.instructions = instructions;
       skill.instructionsLoaded = true;
-
-      // Discover resources (Level 3)
-      if (!skill.resourcesDiscovered) {
-        await this.discoverSkillResources(skillName);
-      }
 
       return instructions;
     } catch (error) {

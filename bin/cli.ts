@@ -11,7 +11,6 @@ import {
   CopyFileTool,
   createEditFileTools,
   createImageTools,
-  createLoadSkillResourceTool,
   createLoadSkillTool,
   DeleteFileTool,
   FileSearchTool,
@@ -55,7 +54,7 @@ const { options: cli } = await new Command()
   .option("--backup-dir <backupDir:string>", "Directory to store backups")
   .option(
     "--skills-dir <skillsDir:string>",
-    "Directory containing Agent Skills (defaults to ./.skills/ in working directory)",
+    "Directory containing Agent Skills (defaults to ./.skills in working directory)",
   )
   .parse(Deno.args);
 
@@ -159,9 +158,6 @@ async function main(): Promise<void> {
     await agent.skills.discoverSkills();
     const LoadSkillTool = createLoadSkillTool(agent.skills);
     mcpServerManager.registerTool(LoadSkillTool);
-
-    const LoadSkillResourceTool = createLoadSkillResourceTool(agent.skills);
-    mcpServerManager.registerTool(LoadSkillResourceTool);
 
     console.log(
       "🔧 Registered tools:",

@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  createTool,
-  type Tool,
-  type ToolExecutionContext,
-  type ToolResult,
-} from "./mod.ts";
+import { createTool, type Tool, type ToolResult } from "./mod.ts";
 import type { SkillManager } from "../skills/mod.ts";
 
 /**
@@ -42,7 +37,6 @@ Only load Skills that are actually relevant to the current task to keep context 
     }),
     execute: async (
       { skillName },
-      _ctx: ToolExecutionContext,
     ): Promise<ToolResult> => {
       // Check if Skill exists
       const skill = skillManager.getSkill(skillName);
@@ -69,22 +63,12 @@ Only load Skills that are actually relevant to the current task to keep context 
         };
       }
 
-      // Get available resources
-      const resources = skillManager.getSkillResources(skillName);
-      const resourcesList = resources.length > 0
-        ? `\n\n**Available Resources:**\n${
-          resources.map((r) => {
-            return `- \`${r.relativePath}\``;
-          }).join("\n")
-        }\n\nTo load a specific resource, use the load_skill_resource tool.`
-        : "";
-
-      // Return the instructions in a structured format
+      // Return the instructions
       return {
         content: [{
           type: "text",
           text:
-            `Loaded instructions for Skill: ${skillName}\n\n${instructions}${resourcesList}`,
+            `Loaded instructions for Skill: ${skillName}\n\n${instructions}`,
         }],
       };
     },
