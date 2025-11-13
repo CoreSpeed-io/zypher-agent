@@ -234,6 +234,12 @@ Cached at: ${cache.cachePath}`,
                 },
               ),
             } satisfies Anthropic.ToolResultBlockParam;
+          } else if (block.type === "thinking") {
+            return {
+              type: "thinking" as const,
+              signature: block.signature,
+              thinking: block.thinking,
+            } satisfies Anthropic.ThinkingBlockParam;
           } else {
             return {
               type: "text" as const,
@@ -354,6 +360,12 @@ function mapA7cContentBlockToContentBlock(
         toolUseId: block.id,
         name: block.name,
         input: block.input,
+      };
+    case "thinking":
+      return {
+        type: "thinking",
+        signature: block.signature,
+        thinking: block.thinking,
       };
     default:
       console.warn(
