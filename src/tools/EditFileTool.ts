@@ -46,7 +46,7 @@ export function createEditFileTools(backupDir: string = "./backup"): {
   const EditFileTool = createTool({
     name: "edit_file",
     description:
-      "Edit a text file using various actions like overwrite, insert, replace, or patch.",
+      "Edit a text file using various actions. Available actions: 'overwrite' (replace entire file OR create a new file), 'insert' (insert content at a 1-based line number), 'replace_str' (replace exact string, optional replaceAll), 'replace_regex' (replace using a RegExp), and 'patch' (apply a unified diff).",
     schema: z.object({
       targetFile: z.string().describe("The target file to edit"),
       explanation: z.string().describe(
@@ -60,8 +60,8 @@ export function createEditFileTools(backupDir: string = "./backup"): {
         z.object({
           type: z.literal("insert").describe("Insert content at specific line"),
           content: z.string().describe("The content to insert"),
-          line: z.number().min(1).describe(
-            "1-based line number to insert content BEFORE",
+          line: z.number().int().min(1).describe(
+            "1-based line number to insert content BEFORE (must be >= 1)",
           ),
         }),
         z.object({
@@ -70,7 +70,7 @@ export function createEditFileTools(backupDir: string = "./backup"): {
             "The exact string to find and replace",
           ),
           newContent: z.string().describe("The replacement string"),
-          replaceAll: z.boolean().optional().default(false).describe(
+          replaceAll: z.boolean().default(false).describe(
             "Replace all occurrences instead of just the first",
           ),
         }),
@@ -82,7 +82,7 @@ export function createEditFileTools(backupDir: string = "./backup"): {
           replacement: z.string().describe(
             "The replacement string (can include capture groups)",
           ),
-          flags: z.string().optional().default("g").describe(
+          flags: z.string().default("g").describe(
             "RegExp flags (e.g. 'g', 'i')",
           ),
         }),
