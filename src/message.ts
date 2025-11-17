@@ -3,7 +3,8 @@ export type ContentBlock =
   | ImageBlock
   | ToolUseBlock
   | ToolResultBlock
-  | FileAttachment;
+  | FileAttachment
+  | ThinkingBlock;
 
 /**
  * Extended message parameter type that includes checkpoint information
@@ -104,6 +105,17 @@ export interface FileAttachment {
   fileId: string;
   /** The MIME type of the file */
   mimeType: string;
+}
+
+/**
+ * Thinking block content
+ */
+export interface ThinkingBlock {
+  type: "thinking";
+  /** An opaque field and should not be interpreted or parsed - it exists solely for verification purposes. */
+  signature: string;
+  /** The content of the thinking block */
+  thinking: string;
 }
 
 /**
