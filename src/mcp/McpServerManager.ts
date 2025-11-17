@@ -79,11 +79,11 @@ export class McpServerManager {
     // Create MCP client
     const client = new McpClient(this.context, server);
 
-    // Create server state
+    // Create server state with deep copies to prevent external mutation
     const state: McpServerState = {
-      server,
+      server: structuredClone(server),
+      source: structuredClone(source),
       client,
-      source,
     };
     this.#serverStateMap.set(server.id, state);
 
@@ -98,11 +98,17 @@ export class McpServerManager {
 
   /**
    * All currently registered MCP servers.
-   * @returns A readonly array of readonly McpServerState objects. Callers can access
-   *   the live `client` for subscriptions but cannot mutate the state objects.
+   *
+   * Returns readonly snapshots of server configuration and metadata.
+   * The `client` property provides access to the live MCP client for
+   * observing state changes and other client operations.
    */
-  get servers(): ReadonlyArray<Readonly<McpServerState>> {
-    return Array.from(this.#serverStateMap.values());
+  get servers(): Readonly<McpServerState>[] {
+    return Array.from(this.#serverStateMap.values()).map((state) => ({
+      server: structuredClone(state.server),
+      source: structuredClone(state.source),
+      client: state.client,
+    }));
   }
 
   /**
@@ -202,12 +208,11 @@ export class McpServerManager {
     }
 
     const newEnabled = updates.enabled ?? state.client.desiredEnabled;
-    const hasConfigChange = updates.server !== undefined;
 
     // If config changed, re-register the server
-    if (hasConfigChange) {
+    if (updates.server) {
       this.deregisterServer(serverId);
-      this.registerServer(updates.server!, newEnabled);
+      this.registerServer(updates.server, newEnabled);
       return;
     }
 
