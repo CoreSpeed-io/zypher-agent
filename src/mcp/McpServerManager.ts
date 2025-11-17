@@ -105,6 +105,7 @@ export class McpServerManager {
    */
   get servers(): Readonly<McpServerState>[] {
     return Array.from(this.#serverStateMap.values()).map((state) => ({
+      // Return deep copies to prevent external mutation
       server: structuredClone(state.server),
       source: structuredClone(state.source),
       client: state.client,
