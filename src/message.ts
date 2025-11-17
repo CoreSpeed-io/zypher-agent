@@ -112,7 +112,9 @@ export interface FileAttachment {
  */
 export interface ThinkingBlock {
   type: "thinking";
+  /** An opaque field and should not be interpreted or parsed - it exists solely for verification purposes. */
   signature: string;
+  /** The content of the thinking block */
   thinking: string;
 }
 
