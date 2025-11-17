@@ -24,10 +24,10 @@ type McpServerSource =
 interface McpServerState {
   /** The server configuration */
   server: McpServerEndpoint;
-  /** The MCP client instance for this server */
-  client: McpClient;
   /** Metadata about the source of this server */
   source: McpServerSource;
+  /** The MCP client instance for this server */
+  client: McpClient;
 }
 
 /**
@@ -97,10 +97,11 @@ export class McpServerManager {
   }
 
   /**
-   * Lists all currently registered MCP servers.
-   * @returns An array of McpServerState objects representing each registered server.
+   * All currently registered MCP servers.
+   * @returns A readonly array of readonly McpServerState objects. Callers can access
+   *   the live `client` for subscriptions but cannot mutate the state objects.
    */
-  listServers(): McpServerState[] {
+  get servers(): ReadonlyArray<Readonly<McpServerState>> {
     return Array.from(this.#serverStateMap.values());
   }
 
@@ -243,10 +244,10 @@ export class McpServerManager {
   }
 
   /**
-   * Gets all registered tools from all enabled servers and directly registered tools
+   * All registered tools from all enabled servers and directly registered tools
    * @returns Map of tool names to tool instances
    */
-  getAllTools(): Map<string, Tool> {
+  get tools(): Map<string, Tool> {
     const allTools = new Map<string, Tool>();
 
     // Add tools from enabled MCP servers first
@@ -296,8 +297,7 @@ export class McpServerManager {
     console.log(`Number of servers: ${this.#serverStateMap.size}`);
     console.log(`Number of directly registered tools: ${this.#toolbox.size}`);
 
-    const allTools = this.getAllTools();
-    console.log(`Total number of tools: ${allTools.size}`);
+    console.log(`Total number of tools: ${this.tools.size}`);
 
     if (this.#toolbox.size > 0) {
       console.log(
@@ -322,7 +322,7 @@ export class McpServerManager {
     }
 
     console.log(
-      `\nAll available tools: ${Array.from(allTools.keys()).join(", ")}`,
+      `\nAll available tools: ${Array.from(this.tools.keys()).join(", ")}`,
     );
     console.log("=== END STATE ===\n");
   }
