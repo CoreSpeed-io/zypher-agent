@@ -19,15 +19,13 @@ type McpServerSource =
 
 /**
  * Represents the state of an MCP server including its configuration,
- * client connection, enabled status, and associated tools
+ * client connection, and source information.
  */
 interface McpServerState {
   /** The server configuration */
   server: McpServerEndpoint;
   /** The MCP client instance for this server */
   client: McpClient;
-  /** Whether the server is enabled */
-  enabled: boolean;
   /** Metadata about the source of this server */
   source: McpServerSource;
 }
@@ -85,7 +83,6 @@ export class McpServerManager {
     const state: McpServerState = {
       server,
       client,
-      enabled,
       source,
     };
     this.#serverStateMap.set(server.id, state);
@@ -203,7 +200,7 @@ export class McpServerManager {
       );
     }
 
-    const newEnabled = updates.enabled ?? state.enabled;
+    const newEnabled = updates.enabled ?? state.client.desiredEnabled;
     const hasConfigChange = updates.server !== undefined;
 
     // If config changed, re-register the server
@@ -214,8 +211,6 @@ export class McpServerManager {
     }
 
     // Otherwise, just update enabled status
-    state.enabled = newEnabled;
-
     // Use client's desiredEnabled = method to handle connection lifecycle
     state.client.desiredEnabled = newEnabled;
   }
@@ -229,15 +224,6 @@ export class McpServerManager {
       throw new Error(
         `Tool ${tool.name} already registered`,
       );
-    }
-
-    // Check if any MCP server already provides a tool with this name
-    for (const [_serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled && state.client.getTool(tool.name)) {
-        throw new Error(
-          `Tool ${tool.name} already exists in MCP server ${state.server.id}`,
-        );
-      }
     }
 
     this.#toolbox.set(tool.name, tool);
@@ -263,19 +249,18 @@ export class McpServerManager {
   getAllTools(): Map<string, Tool> {
     const allTools = new Map<string, Tool>();
 
-    // Add directly registered tools first
-    for (const [name, tool] of this.#toolbox) {
-      allTools.set(name, tool);
-    }
-
-    // Add tools from enabled MCP servers
+    // Add tools from enabled MCP servers first
     for (const [_serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled) {
+      if (state.client.desiredEnabled) {
         for (const tool of state.client.tools) {
-          // MCP tools take precedence over directly registered tools with same name
           allTools.set(tool.name, tool);
         }
       }
+    }
+
+    // Add directly registered (built-in) tools last - they take precedence in case of conflicts
+    for (const [name, tool] of this.#toolbox) {
+      allTools.set(name, tool);
     }
 
     return allTools;
@@ -287,9 +272,15 @@ export class McpServerManager {
    * @returns The tool if found, undefined otherwise
    */
   getTool(name: string): Tool | undefined {
-    // Check MCP servers first (they take precedence)
+    // Check directly registered (built-in) tools first - they take precedence
+    const builtInTool = this.#toolbox.get(name);
+    if (builtInTool) {
+      return builtInTool;
+    }
+
+    // Then check MCP servers
     for (const [_serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled) {
+      if (state.client.desiredEnabled) {
         const tool = state.client.getTool(name);
         if (tool) {
           return tool;
@@ -297,8 +288,7 @@ export class McpServerManager {
       }
     }
 
-    // Then check directly registered tools
-    return this.#toolbox.get(name);
+    return undefined;
   }
 
   debugLogState(): void {
@@ -320,7 +310,7 @@ export class McpServerManager {
     for (const [serverId, state] of this.#serverStateMap.entries()) {
       console.log(`\nServer: ${state.server.displayName ?? state.server.id}`);
       console.log(`  - ID: ${serverId}`);
-      console.log(`  - Enabled: ${state.enabled}`);
+      console.log(`  - Enabled: ${state.client.desiredEnabled}`);
       console.log(`  - Connected: ${state.client.connected ?? false}`);
       console.log(`  - Tools count: ${state.client.toolCount ?? 0}`);
 
