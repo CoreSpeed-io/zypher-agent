@@ -19,17 +19,15 @@ type McpServerSource =
 
 /**
  * Represents the state of an MCP server including its configuration,
- * client connection, enabled status, and associated tools
+ * client connection, and source information.
  */
 interface McpServerState {
   /** The server configuration */
   server: McpServerEndpoint;
-  /** The MCP client instance for this server */
-  client: McpClient;
-  /** Whether the server is enabled */
-  enabled: boolean;
   /** Metadata about the source of this server */
   source: McpServerSource;
+  /** The MCP client instance for this server */
+  client: McpClient;
 }
 
 /**
@@ -81,12 +79,11 @@ export class McpServerManager {
     // Create MCP client
     const client = new McpClient(this.context, server);
 
-    // Create server state
+    // Create server state with deep copies to prevent external mutation
     const state: McpServerState = {
-      server,
+      server: structuredClone(server),
+      source: structuredClone(source),
       client,
-      enabled,
-      source,
     };
     this.#serverStateMap.set(server.id, state);
 
@@ -100,11 +97,19 @@ export class McpServerManager {
   }
 
   /**
-   * Lists all currently registered MCP servers.
-   * @returns An array of McpServerState objects representing each registered server.
+   * All currently registered MCP servers.
+   *
+   * Returns readonly snapshots of server configuration and metadata.
+   * The `client` property provides access to the live MCP client for
+   * observing state changes and other client operations.
    */
-  listServers(): McpServerState[] {
-    return Array.from(this.#serverStateMap.values());
+  get servers(): Readonly<McpServerState>[] {
+    return Array.from(this.#serverStateMap.values()).map((state) => ({
+      // Return deep copies to prevent external mutation
+      server: structuredClone(state.server),
+      source: structuredClone(state.source),
+      client: state.client,
+    }));
   }
 
   /**
@@ -203,20 +208,16 @@ export class McpServerManager {
       );
     }
 
-    const newEnabled = updates.enabled ?? state.enabled;
-    const hasConfigChange = updates.server !== undefined;
+    const newEnabled = updates.enabled ?? state.client.desiredEnabled;
 
     // If config changed, re-register the server
-    if (hasConfigChange) {
+    if (updates.server) {
       this.deregisterServer(serverId);
-      this.registerServer(updates.server!, newEnabled);
+      this.registerServer(updates.server, newEnabled);
       return;
     }
 
-    // Otherwise, just update enabled status
-    state.enabled = newEnabled;
-
-    // Use client's desiredEnabled = method to handle connection lifecycle
+    // Otherwise, just update client's desired enabled state
     state.client.desiredEnabled = newEnabled;
   }
 
@@ -229,15 +230,6 @@ export class McpServerManager {
       throw new Error(
         `Tool ${tool.name} already registered`,
       );
-    }
-
-    // Check if any MCP server already provides a tool with this name
-    for (const [_serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled && state.client.getTool(tool.name)) {
-        throw new Error(
-          `Tool ${tool.name} already exists in MCP server ${state.server.id}`,
-        );
-      }
     }
 
     this.#toolbox.set(tool.name, tool);
@@ -257,25 +249,24 @@ export class McpServerManager {
   }
 
   /**
-   * Gets all registered tools from all enabled servers and directly registered tools
+   * All registered tools from all enabled servers and directly registered tools
    * @returns Map of tool names to tool instances
    */
-  getAllTools(): Map<string, Tool> {
+  get tools(): Map<string, Tool> {
     const allTools = new Map<string, Tool>();
 
-    // Add directly registered tools first
-    for (const [name, tool] of this.#toolbox) {
-      allTools.set(name, tool);
-    }
-
-    // Add tools from enabled MCP servers
+    // Add tools from enabled MCP servers first
     for (const [_serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled) {
+      if (state.client.desiredEnabled) {
         for (const tool of state.client.tools) {
-          // MCP tools take precedence over directly registered tools with same name
           allTools.set(tool.name, tool);
         }
       }
+    }
+
+    // Add directly registered (built-in) tools last - they take precedence in case of conflicts
+    for (const [name, tool] of this.#toolbox) {
+      allTools.set(name, tool);
     }
 
     return allTools;
@@ -287,9 +278,15 @@ export class McpServerManager {
    * @returns The tool if found, undefined otherwise
    */
   getTool(name: string): Tool | undefined {
-    // Check MCP servers first (they take precedence)
+    // Check directly registered (built-in) tools first - they take precedence
+    const builtInTool = this.#toolbox.get(name);
+    if (builtInTool) {
+      return builtInTool;
+    }
+
+    // Then check MCP servers
     for (const [_serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled) {
+      if (state.client.desiredEnabled) {
         const tool = state.client.getTool(name);
         if (tool) {
           return tool;
@@ -297,8 +294,7 @@ export class McpServerManager {
       }
     }
 
-    // Then check directly registered tools
-    return this.#toolbox.get(name);
+    return undefined;
   }
 
   debugLogState(): void {
@@ -306,8 +302,7 @@ export class McpServerManager {
     console.log(`Number of servers: ${this.#serverStateMap.size}`);
     console.log(`Number of directly registered tools: ${this.#toolbox.size}`);
 
-    const allTools = this.getAllTools();
-    console.log(`Total number of tools: ${allTools.size}`);
+    console.log(`Total number of tools: ${this.tools.size}`);
 
     if (this.#toolbox.size > 0) {
       console.log(
@@ -320,7 +315,7 @@ export class McpServerManager {
     for (const [serverId, state] of this.#serverStateMap.entries()) {
       console.log(`\nServer: ${state.server.displayName ?? state.server.id}`);
       console.log(`  - ID: ${serverId}`);
-      console.log(`  - Enabled: ${state.enabled}`);
+      console.log(`  - Enabled: ${state.client.desiredEnabled}`);
       console.log(`  - Connected: ${state.client.connected ?? false}`);
       console.log(`  - Tools count: ${state.client.toolCount ?? 0}`);
 
@@ -332,7 +327,7 @@ export class McpServerManager {
     }
 
     console.log(
-      `\nAll available tools: ${Array.from(allTools.keys()).join(", ")}`,
+      `\nAll available tools: ${Array.from(this.tools.keys()).join(", ")}`,
     );
     console.log("=== END STATE ===\n");
   }
