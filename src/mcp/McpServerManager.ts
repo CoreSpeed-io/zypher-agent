@@ -216,8 +216,7 @@ export class McpServerManager {
       return;
     }
 
-    // Otherwise, just update enabled status
-    // Use client's desiredEnabled = method to handle connection lifecycle
+    // Otherwise, just update client's desired enabled state
     state.client.desiredEnabled = newEnabled;
   }
 
