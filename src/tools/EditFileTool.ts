@@ -46,7 +46,14 @@ export function createEditFileTools(backupDir: string = "./backup"): {
   const EditFileTool = createTool({
     name: "edit_file",
     description:
-      "Edit a text file using various actions. Available actions: 'overwrite' (replace entire file OR create a new file), 'insert' (insert content at a 1-based line number), 'replace_str' (replace exact string, optional replaceAll), 'replace_regex' (replace using a RegExp), and 'patch' (apply a unified diff).",
+      `Edit a text file using one of five action types. The 'action' parameter is a discriminated union - a JSON object where the 'type' field determines which other fields are required.
+
+Available action types:
+1. 'overwrite' - Replace entire file content OR create a new file. Structure: {type: "overwrite", content: "..."}
+2. 'insert' - Insert content at a specific line number (1-based). Structure: {type: "insert", content: "...", line: 1}
+3. 'replace_str' - Replace exact string matches. Structure: {type: "replace_str", oldContent: "...", newContent: "...", replaceAll: false}
+4. 'replace_regex' - Replace using regular expressions. Structure: {type: "replace_regex", pattern: "...", replacement: "...", flags: "g"}
+5. 'patch' - Apply a unified diff patch. Structure: {type: "patch", diff: "..."}`,
     schema: z.object({
       targetFile: z.string().describe("The target file to edit"),
       explanation: z.string().describe(
@@ -54,41 +61,55 @@ export function createEditFileTools(backupDir: string = "./backup"): {
       ),
       action: z.discriminatedUnion("type", [
         z.object({
-          type: z.literal("overwrite").describe("Replace entire file content"),
-          content: z.string().describe("The complete new file content"),
-        }),
-        z.object({
-          type: z.literal("insert").describe("Insert content at specific line"),
-          content: z.string().describe("The content to insert"),
-          line: z.number().int().min(1).describe(
-            "1-based line number to insert content BEFORE (must be >= 1)",
+          type: z.literal("overwrite").describe(
+            "Action type for replacing entire file content or creating a new file",
+          ),
+          content: z.string().describe(
+            "The complete new file content to write",
           ),
         }),
         z.object({
-          type: z.literal("replace_str").describe("Replace string occurrences"),
+          type: z.literal("insert").describe(
+            "Action type for inserting content at a specific line",
+          ),
+          content: z.string().describe("The content to insert"),
+          line: z.number().int().min(1).describe(
+            "1-based line number where content will be inserted BEFORE this line (e.g., line=1 inserts at the beginning)",
+          ),
+        }),
+        z.object({
+          type: z.literal("replace_str").describe(
+            "Action type for replacing exact string matches",
+          ),
           oldContent: z.string().describe(
-            "The exact string to find and replace",
+            "The exact string to search for and replace (must match exactly)",
           ),
           newContent: z.string().describe("The replacement string"),
           replaceAll: z.boolean().default(false).describe(
-            "Replace all occurrences instead of just the first",
+            "If true, replace all occurrences; if false, replace only the first occurrence",
           ),
         }),
         z.object({
           type: z.literal("replace_regex").describe(
-            "Replace using regular expression",
+            "Action type for replacing using regular expression pattern matching",
           ),
-          pattern: z.string().describe("The regular expression pattern"),
+          pattern: z.string().describe(
+            "The regular expression pattern to match (without surrounding slashes)",
+          ),
           replacement: z.string().describe(
-            "The replacement string (can include capture groups)",
+            "The replacement string (can include capture groups like $1, $2)",
           ),
           flags: z.string().default("g").describe(
-            "RegExp flags (e.g. 'g', 'i')",
+            "RegExp flags (e.g., 'g' for global, 'i' for case-insensitive, 'gi' for both)",
           ),
         }),
         z.object({
-          type: z.literal("patch").describe("Apply unified diff patch"),
-          diff: z.string().describe("The unified diff string to apply"),
+          type: z.literal("patch").describe(
+            "Action type for applying a unified diff patch",
+          ),
+          diff: z.string().describe(
+            "The unified diff string to apply (standard patch format)",
+          ),
         }),
       ]),
     }),
