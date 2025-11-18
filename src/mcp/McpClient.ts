@@ -40,7 +40,7 @@ export interface McpClientOptions {
   version?: string;
 }
 
-type McpClientStatus =
+export type McpClientStatus =
   | "disconnected" // Not connected, not trying to connect
   | "connecting" // In process of connecting
   | "connected" // Successfully connected
