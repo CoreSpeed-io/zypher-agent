@@ -13,7 +13,7 @@ import { convertServerDetailToEndpoint } from "./utils.ts";
  *   Contains the package identifier (e.g., "@modelcontextprotocol/server-filesystem")
  * - `direct`: Server was registered directly by the user with explicit configuration
  */
-type McpServerSource =
+export type McpServerSource =
   | { type: "registry"; packageIdentifier: string }
   | { type: "direct" };
 
@@ -21,7 +21,7 @@ type McpServerSource =
  * Represents the state of an MCP server including its configuration,
  * client connection, and source information.
  */
-interface McpServerState {
+export interface McpServerState {
   /** The server configuration */
   server: McpServerEndpoint;
   /** Metadata about the source of this server */
