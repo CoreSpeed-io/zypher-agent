@@ -101,3 +101,4 @@ export { GrepSearchTool } from "./GrepSearchTool.ts";
 export { FileSearchTool } from "./FileSearchTool.ts";
 export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
 export { createImageTools } from "./ImageTools.ts";
+export { ArXivSearchTool } from "./ArXivSearchTool.ts";
