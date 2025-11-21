@@ -101,4 +101,18 @@ export { GrepSearchTool } from "./GrepSearchTool.ts";
 export { FileSearchTool } from "./FileSearchTool.ts";
 export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
 export { createImageTools } from "./ImageTools.ts";
+
+// Academic research tools
 export { ArXivSearchTool } from "./ArXivSearchTool.ts";
+export { PubMedSearchTool } from "./PubMedSearchTool.ts";
+export {
+  SemanticScholarSearchTool,
+  TrackAuthorTool,
+} from "./SemanticScholarTool.ts";
+export { createSendEmailTool, SendEmailTool } from "./SendEmailTool.ts";
+export { SubscriptionManager } from "./SubscriptionManager.ts";
+export type {
+  DataSource,
+  Subscription,
+  SubscriptionType,
+} from "./SubscriptionManager.ts";
