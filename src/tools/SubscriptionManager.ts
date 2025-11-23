@@ -13,7 +13,7 @@ export type SubscriptionType = "topic" | "author" | "keyword";
 /**
  * Data source for searching
  */
-export type DataSource = "arxiv" | "pubmed" | "semantic_scholar" | "all";
+export type DataSource = "arxiv" | "pubmed" | "semantic_scholar" | "crossref" | "openalex" | "all";
 
 /**
  * Subscription configuration

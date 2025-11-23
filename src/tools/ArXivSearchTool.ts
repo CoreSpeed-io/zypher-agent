@@ -17,64 +17,100 @@ interface ArXivPaper {
 }
 
 /**
- * Parse arXiv API XML response
+ * Extract text content from XML tag
+ */
+function extractTagContent(xml: string, tagName: string): string {
+  const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\/${tagName}>`, "i");
+  const match = xml.match(regex);
+  return match ? match[1].trim().replace(/\s+/g, " ") : "";
+}
+
+/**
+ * Extract all matching tags
+ */
+function extractAllTags(xml: string, tagName: string): string[] {
+  const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\/${tagName}>`, "gi");
+  const matches = xml.matchAll(regex);
+  return Array.from(matches).map((m) => m[1].trim());
+}
+
+/**
+ * Extract attribute from tag
+ */
+function extractAttribute(tag: string, attrName: string): string {
+  const regex = new RegExp(`${attrName}="([^"]*)"`, "i");
+  const match = tag.match(regex);
+  return match ? match[1] : "";
+}
+
+/**
+ * Parse arXiv API XML response using regex (Deno-compatible)
  */
 function parseArXivResponse(xmlText: string): ArXivPaper[] {
   const papers: ArXivPaper[] = [];
 
-  // Simple XML parsing using DOMParser
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlText, "text/xml");
+  // Extract all <entry> blocks
+  const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+  const entryMatches = xmlText.matchAll(entryRegex);
 
-  const entries = doc.querySelectorAll("entry");
+  for (const entryMatch of entryMatches) {
+    const entryXml = entryMatch[1];
 
-  entries.forEach((entry) => {
-    const id = entry.querySelector("id")?.textContent?.trim() || "";
-    const title = entry.querySelector("title")?.textContent?.trim().replace(/\s+/g, " ") || "";
-    const summary = entry.querySelector("summary")?.textContent?.trim().replace(/\s+/g, " ") || "";
-    const published = entry.querySelector("published")?.textContent?.trim() || "";
-    const updated = entry.querySelector("updated")?.textContent?.trim() || "";
+    // Extract basic fields
+    const id = extractTagContent(entryXml, "id");
+    const title = extractTagContent(entryXml, "title");
+    const summary = extractTagContent(entryXml, "summary");
+    const published = extractTagContent(entryXml, "published");
+    const updated = extractTagContent(entryXml, "updated");
 
     // Extract authors
-    const authorNodes = entry.querySelectorAll("author name");
-    const authors = Array.from(authorNodes).map((node) =>
-      node.textContent?.trim() || ""
-    );
+    const authorBlocks = entryXml.matchAll(/<author>([\s\S]*?)<\/author>/g);
+    const authors: string[] = [];
+    for (const authorBlock of authorBlocks) {
+      const name = extractTagContent(authorBlock[1], "name");
+      if (name) authors.push(name);
+    }
 
     // Extract categories
-    const categoryNodes = entry.querySelectorAll("category");
-    const categories = Array.from(categoryNodes).map((node) =>
-      node.getAttribute("term") || ""
-    );
+    const categoryMatches = entryXml.matchAll(/<category\s+([^>]*?)>/g);
+    const categories: string[] = [];
+    for (const catMatch of categoryMatches) {
+      const term = extractAttribute(catMatch[1], "term");
+      if (term) categories.push(term);
+    }
 
     // Extract links
-    const links = entry.querySelectorAll("link");
+    const linkMatches = entryXml.matchAll(/<link\s+([^>]*?)\/>/g);
     let pdfUrl = "";
     let arxivUrl = "";
 
-    links.forEach((link) => {
-      const title = link.getAttribute("title");
-      const href = link.getAttribute("href") || "";
+    for (const linkMatch of linkMatches) {
+      const linkAttrs = linkMatch[1];
+      const title = extractAttribute(linkAttrs, "title");
+      const href = extractAttribute(linkAttrs, "href");
 
       if (title === "pdf") {
         pdfUrl = href;
-      } else if (!title && href.includes("arxiv.org/abs/")) {
+      } else if (href.includes("arxiv.org/abs/")) {
         arxivUrl = href;
       }
-    });
+    }
 
-    papers.push({
-      id,
-      title,
-      authors,
-      summary,
-      published,
-      updated,
-      categories,
-      pdfUrl,
-      arxivUrl,
-    });
-  });
+    // Only add if we have at least a title
+    if (title) {
+      papers.push({
+        id,
+        title,
+        authors,
+        summary,
+        published,
+        updated,
+        categories,
+        pdfUrl,
+        arxivUrl,
+      });
+    }
+  }
 
   return papers;
 }

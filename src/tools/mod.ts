@@ -109,6 +109,8 @@ export {
   SemanticScholarSearchTool,
   TrackAuthorTool,
 } from "./SemanticScholarTool.ts";
+export { CrossRefSearchTool } from "./CrossRefSearchTool.ts";
+export { OpenAlexSearchTool } from "./OpenAlexSearchTool.ts";
 export { createSendEmailTool, SendEmailTool } from "./SendEmailTool.ts";
 export { SubscriptionManager } from "./SubscriptionManager.ts";
 export type {
