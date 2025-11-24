@@ -64,7 +64,7 @@ export interface ZypherAgentConfig {
 }
 
 /**
- * Configuration for a sub-agent that
+ * Configuration for a sub-agent that can be delegated tasks by a supervisor agent.
  */
 export interface SubAgentConfig {
   /** The agent instance to delegate tasks to */
@@ -178,13 +178,7 @@ export class ZypherAgent {
       }
 
       if (!delegateContext) {
-        let defaultModel: string;
-        // Determine default model based on the supervisor agent's model provider
-        if (this.#modelProvider.info.name === "anthropic") {
-          defaultModel = "claude-sonnet-4-20250514";
-        } else {
-          defaultModel = "gpt-4o-2024-11-20";
-        }
+        const defaultModel = this.#getDefaultModel();
         delegateContext = {
           getMessages: () => this.#messages,
           addMessages: (messages: Message[]) => {
@@ -193,7 +187,7 @@ export class ZypherAgent {
           supervisorAgent: this,
           subAgents: this.#subAgents,
           getEventSubject: () => this.#eventSubject ?? undefined,
-          model: defaultModel!,
+          model: defaultModel,
         };
       }
       this.#delegateContext = delegateContext;
@@ -271,13 +265,7 @@ export class ZypherAgent {
     // Register delegate_task tool
     if (!this.#mcpServerManager.tools.has("delegate_task")) {
       if (!delegateContext) {
-        let defaultModel: string;
-        // Determine default model based on the supervisor agent's model provider
-        if (this.#modelProvider.info.name === "anthropic") {
-          defaultModel = "claude-sonnet-4-20250514";
-        } else {
-          defaultModel = "gpt-4o-2024-11-20";
-        }
+        const defaultModel = this.#getDefaultModel();
         delegateContext = {
           getMessages: () => this.#messages,
           addMessages: (messages: Message[]) => {
@@ -286,7 +274,7 @@ export class ZypherAgent {
           supervisorAgent: this,
           subAgents: this.#subAgents,
           getEventSubject: () => this.#eventSubject ?? undefined,
-          model: defaultModel!,
+          model: defaultModel,
         };
       }
       this.#registerDelegateTaskTool();
@@ -300,6 +288,15 @@ export class ZypherAgent {
   #registerDelegateTaskTool(): void {
     const delegateTool = createDelegateTaskTool(this.#delegateContext!);
     this.#mcpServerManager.registerTool(delegateTool);
+  }
+
+  /** Get the default model based on the model provider
+   * @internal
+   */
+  #getDefaultModel(): string {
+    return this.#modelProvider.info.name === "anthropic"
+      ? "claude-sonnet-4-20250514"
+      : "gpt-4o-2024-11-20";
   }
 
   /**

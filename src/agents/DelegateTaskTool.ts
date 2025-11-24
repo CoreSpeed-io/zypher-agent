@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { createTool } from "../tools/mod.ts";
-import type { Tool } from "../tools/mod.ts";
+import type { Tool, ToolExecutionContext } from "../tools/mod.ts";
 import type { ZypherAgent } from "../ZypherAgent.ts";
 import { eachValueFrom } from "rxjs-for-await";
 import type { Subject } from "rxjs";
 import type { TaskEvent, TaskHandoffFailedEvent } from "../TaskEvents.ts";
-import type { Message } from "../message.ts";
+import type { Message, TextBlock } from "../message.ts";
+
+export const DELEGATE_TASK_MERGE_MARKER = "__DELEGATE_TASK_MERGE__|||";
 
 // Defines delegate_task tool parameters
 const DelegateTaskParamsSchema = z.object({
@@ -20,7 +22,33 @@ const DelegateTaskParamsSchema = z.object({
 type DelegateTaskParams = z.infer<typeof DelegateTaskParamsSchema>;
 
 // Pending message merges from delegate_task tool
-const pendingMessageMerges = new Map<string, Message[]>();
+const pendingMessageMerges = new Map<string, {
+  messages: Message[];
+  timeoutId?: ReturnType<typeof setTimeout>;
+  createdAt: number;
+}>();
+
+const DEFAULT_PENDING_MERGE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function setPendingMerge(
+  toolUseId: string,
+  messages: Message[],
+  ttlMs = DEFAULT_PENDING_MERGE_TTL_MS,
+) {
+  // clear existing if present
+  const existing = pendingMessageMerges.get(toolUseId);
+  if (existing?.timeoutId) clearTimeout(existing.timeoutId);
+
+  const timeoutId = setTimeout(() => {
+    pendingMessageMerges.delete(toolUseId);
+  }, ttlMs);
+
+  pendingMessageMerges.set(toolUseId, {
+    messages,
+    timeoutId,
+    createdAt: Date.now(),
+  });
+}
 
 /**
  * Context for delegate_task tool
@@ -36,14 +64,12 @@ export interface DelegateTaskContext {
   subAgents: Map<string, ZypherAgent>;
   /** The model to use for sub-agents */
   model: string;
-  /** Current handoff depth, for nested handoffs */
-  currentDepth?: number;
   /** Handoff chain for cycle detection */
   handoffChain?: string[];
   /** Function to get event subject for emitting handoff events */
   getEventSubject?: () => Subject<TaskEvent> | undefined;
-  /** Optional maximum handoff depth */
-  maxDepth?: number;
+  /** TTL for pending message merges in milliseconds */
+  pendingMergeTTLMs?: number;
 }
 
 /**
@@ -52,21 +78,21 @@ export interface DelegateTaskContext {
 export function getAndClearPendingMerge(
   toolUseId: string,
 ): Message[] | undefined {
-  const messages = pendingMessageMerges.get(toolUseId);
-  if (messages) {
-    pendingMessageMerges.delete(toolUseId);
-  }
-  return messages;
+  const entry = pendingMessageMerges.get(toolUseId);
+  if (!entry) return undefined;
+  if (entry.timeoutId) clearTimeout(entry.timeoutId);
+  pendingMessageMerges.delete(toolUseId);
+  return entry.messages;
 }
 
 /**
  * Creates a delegate_task tool that allows a supervisor agent to delegate tasks to sub-agents.
  *
- * @param context Context for delegate_task tool
+ * @param delegateContext Context for delegate_task tool
  * @returns A Tool instance for delegate_task
  */
 export function createDelegateTaskTool(
-  context: DelegateTaskContext,
+  delegateContext: DelegateTaskContext,
 ): Tool<DelegateTaskParams> {
   return createTool({
     name: "delegate_task",
@@ -75,34 +101,30 @@ export function createDelegateTaskTool(
     schema: DelegateTaskParamsSchema,
     execute: async (
       params: DelegateTaskParams,
+      _ctx: ToolExecutionContext,
     ): Promise<string> => {
       try {
         const { task, targetAgent } = params;
 
-        const subAgent = context.subAgents.get(targetAgent);
+        const subAgent = delegateContext.subAgents.get(targetAgent);
         if (!subAgent) {
-          const availableAgents = Array.from(context.subAgents.keys()).join(
-            ", ",
-          );
+          const availableAgents = Array.from(delegateContext.subAgents.keys())
+            .join(
+              ", ",
+            );
           return `Error: Sub-agent "${targetAgent}" not found. Available sub-agents: ${
             availableAgents || "none"
           }`;
         }
 
-        const currentDepth = context.currentDepth ?? 0;
-        const maxDepth = context.maxDepth ?? 3; // Default max depth
-        if (maxDepth > 0 && currentDepth >= maxDepth) {
-          return `Maximum handoff depth (${maxDepth}) reached. Cannot delegate to another agent.`;
-        }
+        const handoffChain = delegateContext.handoffChain ?? [];
 
-        const handoffChain = context.handoffChain ?? [];
-        const targetAgentId = targetAgent;
-        if (handoffChain.includes(targetAgentId)) {
+        if (handoffChain.includes(targetAgent)) {
           return "Circular handoff detected. Cannot delegate to an agent in the handoff chain.";
         }
 
-        const eventSubject = context.getEventSubject?.();
-        const taskEvents = subAgent.runTask(task, context.model);
+        const eventSubject = delegateContext.getEventSubject?.();
+        const taskEvents = subAgent.runTask(task, delegateContext.model);
 
         // Collect messages from the sub-agent
         const subAgentMessages: Message[] = [];
@@ -144,31 +166,31 @@ export function createDelegateTaskTool(
           return "Delegation completed but no messages were returned.";
         }
 
-        const newHistory = subAgentMessages;
-
         const resultText = subAgentMessages
           .map((msg) => {
             return msg.content
               .filter((block) => block.type === "text")
-              .map((block) => block.text)
+              .map((block: TextBlock) => block.text)
               .join("\n");
           })
           .filter((text) => text.length > 0)
           .join("\n\n");
 
-        const tempId = `temp_${Date.now()}_${Math.random()}`;
-        pendingMessageMerges.set(tempId, newHistory);
+        const tempId = crypto.randomUUID();
+        const ttl = delegateContext.pendingMergeTTLMs ??
+          DEFAULT_PENDING_MERGE_TTL_MS;
+        setPendingMerge(tempId, subAgentMessages, ttl);
 
         const actualResult =
-          `Delegation to ${params.targetAgent} completed. The sub-agent generated ${newHistory.length} messages which will be merged into your memory. Final Result: ${resultText}`;
+          `Delegation to ${params.targetAgent} completed. The sub-agent generated ${subAgentMessages.length} messages which will be merged into your memory. Final Result: ${resultText}`;
         // Mark the actual result with `__DELEGATE_TASK_MERGE__|||`
-        return `__DELEGATE_TASK_MERGE__|||${tempId}|||${actualResult}`;
+        return `${DELEGATE_TASK_MERGE_MARKER}${tempId}|||${actualResult}`;
       } catch (error) {
         const errorMessage = error instanceof Error
           ? error.message
           : String(error);
 
-        const eventSubject = context.getEventSubject?.();
+        const eventSubject = delegateContext.getEventSubject?.();
         if (eventSubject) {
           const failedEvent: TaskHandoffFailedEvent = {
             type: "handoff_failed",
