@@ -254,6 +254,14 @@ export class ZypherAgent {
    * @internal
    */
   #registerDelegateTaskTool(): void {
+    let defaultModel: string;
+    // Determine default model based on the supervisor agent's model provider
+    if (this.#modelProvider.info.name === "anthropic") {
+      defaultModel = "claude-sonnet-4-20250514";
+    } else {
+      defaultModel = "gpt-4o-2024-11-20";
+    }
+
     const delegateContext: DelegateTaskContext = {
       getMessages: () => this.#messages,
       addMessages: (messages: Message[]) => {
@@ -262,6 +270,7 @@ export class ZypherAgent {
       supervisorAgent: this,
       subAgents: this.#subAgents,
       getEventSubject: () => this.#eventSubject ?? undefined,
+      model: defaultModel!,
     };
 
     const delegateTool = createDelegateTaskTool(delegateContext);

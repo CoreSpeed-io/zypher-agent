@@ -34,14 +34,16 @@ export interface DelegateTaskContext {
   supervisorAgent: ZypherAgent;
   /** Map of agent names to agent instances */
   subAgents: Map<string, ZypherAgent>;
-  /** The model to use for sub-agents, use default if not provided */
-  model?: string;
+  /** The model to use for sub-agents */
+  model: string;
   /** Current handoff depth, for nested handoffs */
   currentDepth?: number;
   /** Handoff chain for cycle detection */
   handoffChain?: string[];
   /** Function to get event subject for emitting handoff events */
   getEventSubject?: () => Subject<TaskEvent> | undefined;
+  /** Optional maximum handoff depth */
+  maxDepth?: number;
 }
 
 /**
@@ -88,7 +90,7 @@ export function createDelegateTaskTool(
         }
 
         const currentDepth = context.currentDepth ?? 0;
-        const maxDepth = 3; // Default max depth
+        const maxDepth = context.maxDepth ?? 3; // Default max depth
         if (maxDepth > 0 && currentDepth >= maxDepth) {
           return `Maximum handoff depth (${maxDepth}) reached. Cannot delegate to another agent.`;
         }
@@ -100,9 +102,7 @@ export function createDelegateTaskTool(
         }
 
         const eventSubject = context.getEventSubject?.();
-        // TODO: Add default model handling
-        const model = context.model ?? "claude-sonnet-4-20250514";
-        const taskEvents = subAgent.runTask(task, model);
+        const taskEvents = subAgent.runTask(task, context.model);
 
         // Collect messages from the sub-agent
         const subAgentMessages: Message[] = [];
