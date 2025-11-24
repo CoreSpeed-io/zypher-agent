@@ -11,6 +11,7 @@ export type TaskEvent =
   | TaskToolUseRejectedEvent
   | TaskToolUseApprovedEvent
   | TaskCancelledEvent
+  | TaskHandoffCompletedEvent
   | TaskHandoffFailedEvent;
 
 /**
@@ -94,6 +95,16 @@ export interface TaskToolUseApprovedEvent {
 export interface TaskCancelledEvent {
   type: "cancelled";
   reason: "user" | "timeout";
+}
+
+/**
+ * Event emitted when a handoff to a sub-agent is completed successfully
+ */
+export interface TaskHandoffCompletedEvent {
+  type: "handoff_completed";
+  toolName: string;
+  targetAgent: string;
+  messageCount: number;
 }
 
 /**
