@@ -41,7 +41,7 @@ export interface OAuthOptions {
  * @param workingDirectory The working directory to use for the MCP server (e.g. for CLI servers)
  * @param client The MCP client instance
  * @param serverEndpoint The server endpoint configuration (either CLI or remote)
- * @param signal Optional abort signal for cancellation
+ * @param options Optional configuration including abort signal and OAuth settings
  * @returns Promise that resolves to the transport when connected
  */
 export async function connectToServer(
@@ -50,6 +50,7 @@ export async function connectToServer(
   serverEndpoint: McpServerEndpoint,
   options?: {
     signal?: AbortSignal;
+    oauth?: OAuthOptions;
   },
 ): Promise<Transport> {
   // Connect using appropriate transport
@@ -64,7 +65,7 @@ export async function connectToServer(
     return await connectToRemoteServer(
       client,
       serverEndpoint.remote,
-      { signal: options?.signal },
+      { signal: options?.signal, oauth: options?.oauth },
     );
   }
 }
