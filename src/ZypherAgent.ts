@@ -109,6 +109,7 @@ export class ZypherAgent {
 
   readonly #context: ZypherContext;
   readonly #config: ZypherAgentConfig;
+  readonly #delegateContext?: DelegateTaskContext;
 
   #messages: Message[];
   #taskCompleter: Completer<void> | null = null;
@@ -195,7 +196,8 @@ export class ZypherAgent {
           model: defaultModel!,
         };
       }
-      this.#registerDelegateTaskTool(delegateContext);
+      this.#delegateContext = delegateContext;
+      this.#registerDelegateTaskTool();
     }
   }
 
@@ -287,7 +289,7 @@ export class ZypherAgent {
           model: defaultModel!,
         };
       }
-      this.#registerDelegateTaskTool(delegateContext);
+      this.#registerDelegateTaskTool();
     }
   }
 
@@ -295,8 +297,8 @@ export class ZypherAgent {
    * Register the delegate_task tool
    * @internal
    */
-  #registerDelegateTaskTool(context: DelegateTaskContext): void {
-    const delegateTool = createDelegateTaskTool(context);
+  #registerDelegateTaskTool(): void {
+    const delegateTool = createDelegateTaskTool(this.#delegateContext!);
     this.#mcpServerManager.registerTool(delegateTool);
   }
 
