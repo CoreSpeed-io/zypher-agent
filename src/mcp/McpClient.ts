@@ -28,7 +28,7 @@ import { jsonToZod } from "./utils.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import { formatError, isAbortError } from "../error.ts";
 import { assert } from "@std/assert";
-import { connectToServer } from "./connect.ts";
+import { connectToServer, type OAuthOptions } from "./connect.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 import { from, map, type Observable } from "rxjs";
 
@@ -38,6 +38,8 @@ export interface McpClientOptions {
   name?: string;
   /** Optional version of the client */
   version?: string;
+  /** Optional OAuth configuration for authenticated connections */
+  oauth?: OAuthOptions;
 }
 
 export type McpClientStatus =
@@ -75,6 +77,7 @@ export class McpClient {
   readonly #context: ZypherContext;
   readonly #client: Client;
   readonly #serverEndpoint: McpServerEndpoint;
+  readonly #oauthOptions?: OAuthOptions;
   readonly #machine;
   readonly #actor;
 
@@ -99,6 +102,7 @@ export class McpClient {
       version: clientOptions?.version ?? "1.0.0",
     });
     this.#serverEndpoint = serverEndpoint;
+    this.#oauthOptions = clientOptions?.oauth;
 
     // Create and start the XState machine
     this.#machine = setup({
@@ -256,7 +260,7 @@ export class McpClient {
         this.#context.workingDirectory,
         this.#client,
         this.#serverEndpoint,
-        { signal },
+        { signal, oauth: this.#oauthOptions },
       );
 
       this.#actor.send({ type: "connectionSuccess" });
