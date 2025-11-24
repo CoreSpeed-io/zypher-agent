@@ -1,3 +1,4 @@
+import type { ZypherAgent } from "../ZypherAgent.ts";
 import { fileExists } from "./data.ts";
 
 /**
@@ -71,6 +72,8 @@ export async function getCustomRules(): Promise<string | null> {
  *  If not provided, defaults to {@link getCurrentUserInfo}(workingDirectory).
  * @param options.customInstructions Additional instructions to append to the system prompt.
  *  If not provided, defaults to {@link getCustomRules}(workingDirectory) which loads from supported rule files in the working directory.
+ * @param subAgents Optional map of registered sub-agents for delegation
+ * @param subAgentDescriptions Optional map of descriptions for each sub-agent
  * @returns The complete system prompt string including custom rules if found
  */
 export async function getSystemPrompt(
@@ -79,6 +82,8 @@ export async function getSystemPrompt(
     userInfo?: UserInfo;
     customInstructions?: string;
   },
+  subAgents?: Map<string, ZypherAgent>,
+  subAgentDescriptions?: Map<string, string>,
 ): Promise<string> {
   const userInfo = options?.userInfo ?? getCurrentUserInfo(workingDirectory);
 
@@ -164,6 +169,42 @@ ${customRules}
 `
     : "";
 
+  let subAgentInstructions = "";
+
+  if ((subAgents?.size ?? 0) > 0) {
+    const subAgentList = Array.from(subAgents!.keys()).map((name) => {
+      const description = subAgentDescriptions?.get(name) ??
+        "No description available";
+      return `- ${name}: ${description}`;
+    }).join("\n");
+
+    subAgentInstructions = `
+<sub_agents>
+You have access to specialized sub-agents that can help you complete tasks. When a task requires specialized expertise, you should delegate it to the appropriate sub-agent using the delegate_task tool.
+
+Available sub-agents:
+${subAgentList}
+
+To delegate a task to a sub-agent:
+1. Use the delegate_task tool with the following parameters:
+   - task: A clear description of what you want the sub-agent to do
+   - targetAgent: The name of the sub-agent (must match one of the available agents listed above)
+
+2. The sub-agent will complete the task and return the results to you.
+
+3. You can then synthesize the results and provide a final response to the user.
+
+Important:
+- Only delegate tasks that truly require the sub-agent's specialized expertise
+- Provide clear and specific task descriptions to the sub-agent
+- Always use the exact agent name as listed above
+- You can delegate multiple tasks in sequence if needed
+- After receiving results from a sub-agent, synthesize them into a coherent response
+</sub_agents>
+`;
+  }
+
   return `${systemPrompt}
+${subAgentInstructions}
 ${customRulesBlock}`;
 }

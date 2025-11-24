@@ -15,6 +15,7 @@ import type { ToolExecutionContext } from "../tools/mod.ts";
 import { formatError } from "../error.ts";
 import type { Subject } from "rxjs";
 import type { TaskEvent } from "../TaskEvents.ts";
+import { getAndClearPendingMerge } from "../agents/mod.ts";
 
 export type ToolApprovalHandler = (
   name: string,
@@ -187,9 +188,73 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       }),
     );
 
+    const processedResults: ToolResultBlock[] = [];
+
+    for (let i = 0; i < toolResults.length; i++) {
+      const result = toolResults[i];
+      const toolBlock = toolBlocks[i];
+
+      if (
+        result.name === "delegate_task" &&
+        result.content.length === 1 &&
+        result.content[0].type === "text"
+      ) {
+        const resultText = result.content[0].text;
+        const mergeMarker = "__DELEGATE_TASK_MERGE__|||";
+        if (resultText.startsWith(mergeMarker)) {
+          const parts = resultText.split("|||");
+          if (parts.length >= 3) {
+            const tempId = parts[1];
+            const actualResult = parts.slice(2).join("|||");
+
+            const pendingMessages = getAndClearPendingMerge(tempId);
+
+            // Avoid tool_result being added before tool_use in message history
+            if (pendingMessages && pendingMessages.length > 0) {
+              const subAgentTextContent = pendingMessages
+                .map((msg) => {
+                  return msg.content
+                    .filter((block) => block.type === "text")
+                    .map((block) => (block as TextBlock).text)
+                    .join("\n");
+                })
+                .filter((text) => text.length > 0)
+                .join("\n\n");
+
+              const targetAgent = (toolBlock.input as Record<string, unknown>)
+                ?.targetAgent as string ?? "unknown";
+              context.eventSubject.next({
+                type: "handoff_completed",
+                toolName: "delegate_task",
+                targetAgent,
+                messageCount: pendingMessages.length,
+              });
+
+              const enhancedResult = subAgentTextContent.length > 0
+                ? `${actualResult}\n\nSub-agent conversation:\n${subAgentTextContent}`
+                : actualResult;
+
+              processedResults.push({
+                type: "tool_result" as const,
+                toolUseId: result.toolUseId,
+                name: result.name,
+                input: result.input,
+                success: true,
+                content: [
+                  { type: "text", text: enhancedResult },
+                ],
+              });
+              continue;
+            }
+          }
+        }
+      }
+      processedResults.push(result);
+    }
+
     context.messages.push({
       role: "user",
-      content: toolResults,
+      content: processedResults,
       timestamp: new Date(),
     });
 

@@ -23,6 +23,8 @@ import {
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
+import { createDelegateTaskTool } from "./agents/mod.ts";
+import type { DelegateTaskContext } from "./agents/mod.ts";
 
 /**
  * Function that loads the system prompt for the agent.
@@ -61,6 +63,18 @@ export interface ZypherAgentConfig {
   taskTimeoutMs: number;
 }
 
+/**
+ * Configuration for a sub-agent that
+ */
+export interface SubAgentConfig {
+  /** The agent instance to delegate tasks to */
+  agent: ZypherAgent;
+  /** The name of the sub-agent */
+  name: string;
+  /** Description of what this sub-agent specializes in */
+  description: string;
+}
+
 export interface ZypherAgentOptions {
   /** Storage service for file attachments */
   storageService?: StorageService;
@@ -76,6 +90,8 @@ export interface ZypherAgentOptions {
     loopInterceptorManager?: LoopInterceptorManager;
   };
   config?: Partial<ZypherAgentConfig>;
+  /** Sub-agents of this agent */
+  subAgents?: SubAgentConfig[];
 }
 
 const DEFAULT_MAX_TOKENS = 8192;
@@ -96,6 +112,9 @@ export class ZypherAgent {
 
   #messages: Message[];
   #taskCompleter: Completer<void> | null = null;
+  #subAgents: Map<string, ZypherAgent> = new Map();
+  #subAgentDescriptions: Map<string, string> = new Map();
+  #eventSubject: Subject<TaskEvent> | null = null;
 
   /**
    * Creates a new ZypherAgent instance
@@ -112,7 +131,13 @@ export class ZypherAgent {
     this.#modelProvider = modelProvider;
     this.#context = context;
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
-      (() => getSystemPrompt(context.workingDirectory));
+      (() =>
+        getSystemPrompt(
+          context.workingDirectory,
+          {},
+          this.#subAgents,
+          this.#subAgentDescriptions,
+        ));
     this.#config = {
       maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -138,6 +163,19 @@ export class ZypherAgent {
     }
 
     this.#checkpointManager = options.checkpointManager;
+
+    // Register sub-agents
+    if (options.subAgents && options.subAgents.length > 0) {
+      for (const subAgentConfig of options.subAgents) {
+        this.#subAgents.set(subAgentConfig.name, subAgentConfig.agent);
+        this.#subAgentDescriptions.set(
+          subAgentConfig.name,
+          subAgentConfig.description,
+        );
+      }
+
+      this.#registerDelegateTaskTool();
+    }
   }
 
   /**
@@ -177,10 +215,57 @@ export class ZypherAgent {
   }
 
   /**
+   * Get the registered sub-agents
+   */
+  get subAgents(): Map<string, ZypherAgent> {
+    return new Map(this.#subAgents);
+  }
+
+  /**
    * Clear all messages from the agent's history
    */
   clearMessages(): void {
     this.#messages = [];
+  }
+
+  /**
+   * Register a new sub-agent
+   *
+   * @param name The name of the sub-agent
+   * @param agent The agent instance to delegate tasks to
+   * @param description Description of what this sub-agent specializes in
+   */
+  registerSubAgent(
+    name: string,
+    agent: ZypherAgent,
+    description: string,
+  ): void {
+    this.#subAgents.set(name, agent);
+    this.#subAgentDescriptions.set(name, description);
+
+    // Register delegate_task tool
+    if (!this.#mcpServerManager.tools.has("delegate_task")) {
+      this.#registerDelegateTaskTool();
+    }
+  }
+
+  /**
+   * Register the delegate_task tool
+   * @internal
+   */
+  #registerDelegateTaskTool(): void {
+    const delegateContext: DelegateTaskContext = {
+      getMessages: () => this.#messages,
+      addMessages: (messages: Message[]) => {
+        this.#messages.push(...messages);
+      },
+      supervisorAgent: this,
+      subAgents: this.#subAgents,
+      getEventSubject: () => this.#eventSubject ?? undefined,
+    };
+
+    const delegateTool = createDelegateTaskTool(delegateContext);
+    this.#mcpServerManager.registerTool(delegateTool);
   }
 
   /**
@@ -247,6 +332,7 @@ export class ZypherAgent {
   ): Observable<TaskEvent> {
     // Create a single Subject for all task events
     const taskEventSubject = new Subject<TaskEvent>();
+    this.#eventSubject = taskEventSubject;
 
     // Start the internal task execution (fire-and-forget)
     this.#runTaskInternal(
@@ -295,7 +381,6 @@ export class ZypherAgent {
     }
 
     try {
-      // Reload system prompt to get current custom rules from working directory
       const systemPrompt = await this.#systemPromptLoader();
 
       let iterations = 0;
@@ -450,6 +535,7 @@ export class ZypherAgent {
       // Resolve and clear the task completer
       this.#taskCompleter.resolve();
       this.#taskCompleter = null;
+      this.#eventSubject = null;
     }
   }
 
