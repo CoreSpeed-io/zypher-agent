@@ -122,11 +122,13 @@ export class ZypherAgent {
    * @param modelProvider The AI model provider to use for chat completions
    * @param context Workspace and filesystem environment configuration
    * @param options Configuration options for the agent
+   * @param delegateContext Context for delegate_task tool (if sub-agents are used)
    */
   constructor(
     context: ZypherContext,
     modelProvider: ModelProvider,
     options: ZypherAgentOptions = {},
+    delegateContext?: DelegateTaskContext,
   ) {
     this.#modelProvider = modelProvider;
     this.#context = context;
@@ -174,7 +176,26 @@ export class ZypherAgent {
         );
       }
 
-      this.#registerDelegateTaskTool();
+      if (!delegateContext) {
+        let defaultModel: string;
+        // Determine default model based on the supervisor agent's model provider
+        if (this.#modelProvider.info.name === "anthropic") {
+          defaultModel = "claude-sonnet-4-20250514";
+        } else {
+          defaultModel = "gpt-4o-2024-11-20";
+        }
+        delegateContext = {
+          getMessages: () => this.#messages,
+          addMessages: (messages: Message[]) => {
+            this.#messages.push(...messages);
+          },
+          supervisorAgent: this,
+          subAgents: this.#subAgents,
+          getEventSubject: () => this.#eventSubject ?? undefined,
+          model: defaultModel!,
+        };
+      }
+      this.#registerDelegateTaskTool(delegateContext);
     }
   }
 
@@ -234,18 +255,39 @@ export class ZypherAgent {
    * @param name The name of the sub-agent
    * @param agent The agent instance to delegate tasks to
    * @param description Description of what this sub-agent specializes in
+   * @param delegateContext Context for delegate_task tool
    */
   registerSubAgent(
     name: string,
     agent: ZypherAgent,
     description: string,
+    delegateContext?: DelegateTaskContext,
   ): void {
     this.#subAgents.set(name, agent);
     this.#subAgentDescriptions.set(name, description);
 
     // Register delegate_task tool
     if (!this.#mcpServerManager.tools.has("delegate_task")) {
-      this.#registerDelegateTaskTool();
+      if (!delegateContext) {
+        let defaultModel: string;
+        // Determine default model based on the supervisor agent's model provider
+        if (this.#modelProvider.info.name === "anthropic") {
+          defaultModel = "claude-sonnet-4-20250514";
+        } else {
+          defaultModel = "gpt-4o-2024-11-20";
+        }
+        delegateContext = {
+          getMessages: () => this.#messages,
+          addMessages: (messages: Message[]) => {
+            this.#messages.push(...messages);
+          },
+          supervisorAgent: this,
+          subAgents: this.#subAgents,
+          getEventSubject: () => this.#eventSubject ?? undefined,
+          model: defaultModel!,
+        };
+      }
+      this.#registerDelegateTaskTool(delegateContext);
     }
   }
 
@@ -253,27 +295,8 @@ export class ZypherAgent {
    * Register the delegate_task tool
    * @internal
    */
-  #registerDelegateTaskTool(): void {
-    let defaultModel: string;
-    // Determine default model based on the supervisor agent's model provider
-    if (this.#modelProvider.info.name === "anthropic") {
-      defaultModel = "claude-sonnet-4-20250514";
-    } else {
-      defaultModel = "gpt-4o-2024-11-20";
-    }
-
-    const delegateContext: DelegateTaskContext = {
-      getMessages: () => this.#messages,
-      addMessages: (messages: Message[]) => {
-        this.#messages.push(...messages);
-      },
-      supervisorAgent: this,
-      subAgents: this.#subAgents,
-      getEventSubject: () => this.#eventSubject ?? undefined,
-      model: defaultModel!,
-    };
-
-    const delegateTool = createDelegateTaskTool(delegateContext);
+  #registerDelegateTaskTool(context: DelegateTaskContext): void {
+    const delegateTool = createDelegateTaskTool(context);
     this.#mcpServerManager.registerTool(delegateTool);
   }
 
