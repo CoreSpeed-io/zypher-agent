@@ -2,6 +2,7 @@ import { McpClient } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
+import type { OAuthOptions } from "./connect.ts";
 import McpStoreSDK from "@corespeed/mcp-store-client";
 import type { Server } from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
@@ -62,6 +63,7 @@ export class McpServerManager {
    * @param server Server configuration (server.id is used as the key)
    * @param enabled Whether the server is enabled
    * @param source Metadata about the source of this server
+   * @param oauth Optional OAuth configuration for authenticated connections
    * @returns Promise that resolves when the server is fully connected and ready (if enabled)
    * @throws McpError if server registration fails or server already exists
    */
@@ -69,6 +71,7 @@ export class McpServerManager {
     server: McpServerEndpoint,
     enabled: boolean = true,
     source: McpServerSource = { type: "direct" },
+    oauth?: OAuthOptions,
   ): Promise<void> {
     if (this.#serverStateMap.has(server.id)) {
       throw new Error(
@@ -77,7 +80,7 @@ export class McpServerManager {
     }
 
     // Create MCP client
-    const client = new McpClient(this.context, server);
+    const client = new McpClient(this.context, server, { oauth });
 
     // Create server state with deep copies to prevent external mutation
     const state: McpServerState = {
@@ -133,12 +136,14 @@ export class McpServerManager {
    * Registers a server from the configured registry by package identifier
    * @param packageIdentifier The package identifier in the format "@scope/package-name" (e.g., "@modelcontextprotocol/server-filesystem")
    * @param enabled Whether the server is enabled (defaults to true)
+   * @param oauth Optional OAuth configuration for authenticated connections
    * @returns Promise that resolves when the server is fully connected and ready (if enabled)
    * @throws Error if server not found in registry or registration fails
    */
   async registerServerFromRegistry(
     packageIdentifier: string,
     enabled: boolean = true,
+    oauth?: OAuthOptions,
   ): Promise<void> {
     // Parse package identifier format: @scope/package-name
     const packageMatch = packageIdentifier.match(/^@([^/]+)\/(.+)$/);
@@ -160,10 +165,15 @@ export class McpServerManager {
     const server = convertServerDetailToEndpoint(response.server);
 
     // Register the server
-    await this.registerServer(server, enabled, {
-      type: "registry",
-      packageIdentifier,
-    });
+    await this.registerServer(
+      server,
+      enabled,
+      {
+        type: "registry",
+        packageIdentifier,
+      },
+      oauth,
+    );
   }
 
   /**
