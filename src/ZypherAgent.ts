@@ -23,6 +23,8 @@ import {
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
+import { createDelegateTaskTool } from "./agents/mod.ts";
+import type { DelegateTaskContext } from "./agents/mod.ts";
 
 /**
  * Function that loads the system prompt for the agent.
@@ -61,6 +63,18 @@ export interface ZypherAgentConfig {
   taskTimeoutMs: number;
 }
 
+/**
+ * Configuration for a sub-agent that can be delegated tasks by a supervisor agent.
+ */
+export interface SubAgentConfig {
+  /** The agent instance to delegate tasks to */
+  agent: ZypherAgent;
+  /** The name of the sub-agent */
+  name: string;
+  /** Description of what this sub-agent specializes in */
+  description: string;
+}
+
 export interface ZypherAgentOptions {
   /** Storage service for file attachments */
   storageService?: StorageService;
@@ -76,6 +90,8 @@ export interface ZypherAgentOptions {
     loopInterceptorManager?: LoopInterceptorManager;
   };
   config?: Partial<ZypherAgentConfig>;
+  /** Sub-agents of this agent */
+  subAgents?: SubAgentConfig[];
 }
 
 const DEFAULT_MAX_TOKENS = 8192;
@@ -93,9 +109,13 @@ export class ZypherAgent {
 
   readonly #context: ZypherContext;
   readonly #config: ZypherAgentConfig;
+  readonly #delegateContext?: DelegateTaskContext;
 
   #messages: Message[];
   #taskCompleter: Completer<void> | null = null;
+  #subAgents: Map<string, ZypherAgent> = new Map();
+  #subAgentDescriptions: Map<string, string> = new Map();
+  #eventSubject: Subject<TaskEvent> | null = null;
 
   /**
    * Creates a new ZypherAgent instance
@@ -103,16 +123,24 @@ export class ZypherAgent {
    * @param modelProvider The AI model provider to use for chat completions
    * @param context Workspace and filesystem environment configuration
    * @param options Configuration options for the agent
+   * @param delegateContext Context for delegate_task tool (if sub-agents are used)
    */
   constructor(
     context: ZypherContext,
     modelProvider: ModelProvider,
     options: ZypherAgentOptions = {},
+    delegateContext?: DelegateTaskContext,
   ) {
     this.#modelProvider = modelProvider;
     this.#context = context;
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
-      (() => getSystemPrompt(context.workingDirectory));
+      (() =>
+        getSystemPrompt(
+          context.workingDirectory,
+          {},
+          this.#subAgents,
+          this.#subAgentDescriptions,
+        ));
     this.#config = {
       maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -138,6 +166,33 @@ export class ZypherAgent {
     }
 
     this.#checkpointManager = options.checkpointManager;
+
+    // Register sub-agents
+    if (options.subAgents && options.subAgents.length > 0) {
+      for (const subAgentConfig of options.subAgents) {
+        this.#subAgents.set(subAgentConfig.name, subAgentConfig.agent);
+        this.#subAgentDescriptions.set(
+          subAgentConfig.name,
+          subAgentConfig.description,
+        );
+      }
+
+      if (!delegateContext) {
+        const defaultModel = this.#getDefaultModel();
+        delegateContext = {
+          getMessages: () => this.#messages,
+          addMessages: (messages: Message[]) => {
+            this.#messages.push(...messages);
+          },
+          supervisorAgent: this,
+          subAgents: this.#subAgents,
+          getEventSubject: () => this.#eventSubject ?? undefined,
+          model: defaultModel,
+        };
+      }
+      this.#delegateContext = delegateContext;
+      this.#registerDelegateTaskTool();
+    }
   }
 
   /**
@@ -177,10 +232,71 @@ export class ZypherAgent {
   }
 
   /**
+   * Get the registered sub-agents
+   */
+  get subAgents(): Map<string, ZypherAgent> {
+    return new Map(this.#subAgents);
+  }
+
+  /**
    * Clear all messages from the agent's history
    */
   clearMessages(): void {
     this.#messages = [];
+  }
+
+  /**
+   * Register a new sub-agent
+   *
+   * @param name The name of the sub-agent
+   * @param agent The agent instance to delegate tasks to
+   * @param description Description of what this sub-agent specializes in
+   * @param delegateContext Context for delegate_task tool
+   */
+  registerSubAgent(
+    name: string,
+    agent: ZypherAgent,
+    description: string,
+    delegateContext?: DelegateTaskContext,
+  ): void {
+    this.#subAgents.set(name, agent);
+    this.#subAgentDescriptions.set(name, description);
+
+    // Register delegate_task tool
+    if (!this.#mcpServerManager.tools.has("delegate_task")) {
+      if (!delegateContext) {
+        const defaultModel = this.#getDefaultModel();
+        delegateContext = {
+          getMessages: () => this.#messages,
+          addMessages: (messages: Message[]) => {
+            this.#messages.push(...messages);
+          },
+          supervisorAgent: this,
+          subAgents: this.#subAgents,
+          getEventSubject: () => this.#eventSubject ?? undefined,
+          model: defaultModel,
+        };
+      }
+      this.#registerDelegateTaskTool();
+    }
+  }
+
+  /**
+   * Register the delegate_task tool
+   * @internal
+   */
+  #registerDelegateTaskTool(): void {
+    const delegateTool = createDelegateTaskTool(this.#delegateContext!);
+    this.#mcpServerManager.registerTool(delegateTool);
+  }
+
+  /** Get the default model based on the model provider
+   * @internal
+   */
+  #getDefaultModel(): string {
+    return this.#modelProvider.info.name === "anthropic"
+      ? "claude-sonnet-4-20250514"
+      : "gpt-4o-2024-11-20";
   }
 
   /**
@@ -247,6 +363,7 @@ export class ZypherAgent {
   ): Observable<TaskEvent> {
     // Create a single Subject for all task events
     const taskEventSubject = new Subject<TaskEvent>();
+    this.#eventSubject = taskEventSubject;
 
     // Start the internal task execution (fire-and-forget)
     this.#runTaskInternal(
@@ -295,7 +412,6 @@ export class ZypherAgent {
     }
 
     try {
-      // Reload system prompt to get current custom rules from working directory
       const systemPrompt = await this.#systemPromptLoader();
 
       let iterations = 0;
@@ -450,6 +566,7 @@ export class ZypherAgent {
       // Resolve and clear the task completer
       this.#taskCompleter.resolve();
       this.#taskCompleter = null;
+      this.#eventSubject = null;
     }
   }
 

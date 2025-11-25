@@ -15,6 +15,10 @@ import type { ToolExecutionContext } from "../tools/mod.ts";
 import { formatError } from "../error.ts";
 import type { Subject } from "rxjs";
 import type { TaskEvent } from "../TaskEvents.ts";
+import {
+  DELEGATE_TASK_MERGE_MARKER,
+  getAndClearPendingMerge,
+} from "../agents/mod.ts";
 
 export type ToolApprovalHandler = (
   name: string,
@@ -187,9 +191,143 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       }),
     );
 
+    // Check if any tool result contains the delegate_task merge marker
+    const mightContainMerge = toolResults.some((r) =>
+      r.name === "delegate_task" &&
+      r.content.length === 1 &&
+      r.content[0].type === "text" &&
+      (r.content[0].text as string).startsWith(DELEGATE_TASK_MERGE_MARKER)
+    );
+
+    if (!mightContainMerge) {
+      context.messages.push({
+        role: "user",
+        content: toolResults,
+        timestamp: new Date(),
+      });
+
+      return {
+        decision: LoopDecision.CONTINUE,
+        reasoning: `Executed ${toolBlocks.length} tool call(s)`,
+      };
+    }
+
+    const processedResults: ToolResultBlock[] = [];
+
+    for (let i = 0; i < toolResults.length; i++) {
+      const result = toolResults[i];
+      const toolBlock = toolBlocks[i];
+
+      try {
+        if (
+          result.name === "delegate_task" &&
+          result.content.length === 1 &&
+          result.content[0].type === "text"
+        ) {
+          const resultText = result.content[0].text;
+          if (resultText.startsWith(DELEGATE_TASK_MERGE_MARKER)) {
+            const parts = resultText.split("|||");
+            if (parts.length >= 3) {
+              const tempId = parts[1];
+              const actualResult = parts.slice(2).join("|||");
+
+              let pendingMessages;
+              try {
+                pendingMessages = getAndClearPendingMerge(tempId);
+              } catch (_error) {
+                pendingMessages = undefined;
+              }
+
+              if (pendingMessages && pendingMessages.length > 0) {
+                const subAgentTextContent = pendingMessages
+                  .map((msg) => {
+                    return msg.content
+                      .filter((block) => block.type === "text")
+                      .map((block) => (block as TextBlock).text)
+                      .join("\n");
+                  })
+                  .filter((text) => text.length > 0)
+                  .join("\n\n");
+
+                const targetAgent = (toolBlock.input as Record<string, unknown>)
+                  ?.targetAgent as string ?? "unknown";
+                context.eventSubject.next({
+                  type: "handoff_completed",
+                  toolName: "delegate_task",
+                  targetAgent,
+                  messageCount: pendingMessages.length,
+                });
+
+                const enhancedResult = subAgentTextContent.length > 0
+                  ? `${actualResult}\n\nSub-agent conversation:\n${subAgentTextContent}`
+                  : actualResult;
+
+                processedResults.push({
+                  type: "tool_result" as const,
+                  toolUseId: result.toolUseId,
+                  name: result.name,
+                  input: result.input,
+                  success: true,
+                  content: [
+                    { type: "text", text: enhancedResult },
+                  ],
+                });
+                continue;
+              } else {
+                processedResults.push({
+                  ...result,
+                  content: [{ type: "text", text: actualResult }],
+                });
+                continue;
+              }
+            }
+          }
+        }
+
+        processedResults.push(result);
+      } catch (error) {
+        console.error("Error processing tool result:", error);
+        try {
+          if (
+            result.name === "delegate_task" &&
+            result.content[0]?.type === "text"
+          ) {
+            const text = result.content[0].text as string;
+            if (text.includes(DELEGATE_TASK_MERGE_MARKER)) {
+              const parts = text.split("|||");
+              if (parts.length >= 2) {
+                const tempId = parts[1];
+                try {
+                  getAndClearPendingMerge(tempId);
+                } catch (_error) {
+                  // Ignore
+                }
+              }
+            }
+          }
+        } catch (_error) {
+          // Ignore
+        }
+
+        processedResults.push({
+          type: "tool_result" as const,
+          toolUseId: result.toolUseId,
+          name: result.name,
+          input: result.input,
+          success: false,
+          content: [{
+            type: "text",
+            text: `Error processing tool result ${result.name}: ${
+              formatError(error)
+            }`,
+          }],
+        });
+      }
+    }
+
     context.messages.push({
       role: "user",
-      content: toolResults,
+      content: processedResults,
       timestamp: new Date(),
     });
 

@@ -10,7 +10,9 @@ export type TaskEvent =
   | TaskToolUsePendingApprovalEvent
   | TaskToolUseRejectedEvent
   | TaskToolUseApprovedEvent
-  | TaskCancelledEvent;
+  | TaskCancelledEvent
+  | TaskHandoffCompletedEvent
+  | TaskHandoffFailedEvent;
 
 /**
  * Event for streaming incremental content updates
@@ -93,4 +95,24 @@ export interface TaskToolUseApprovedEvent {
 export interface TaskCancelledEvent {
   type: "cancelled";
   reason: "user" | "timeout";
+}
+
+/**
+ * Event emitted when a handoff to a sub-agent is completed successfully
+ */
+export interface TaskHandoffCompletedEvent {
+  type: "handoff_completed";
+  toolName: string;
+  targetAgent: string;
+  messageCount: number;
+}
+
+/**
+ * Event emitted when a handoff to a sub-agent fails
+ */
+export interface TaskHandoffFailedEvent {
+  type: "handoff_failed";
+  toolName: string;
+  targetAgent: string;
+  error: string;
 }
