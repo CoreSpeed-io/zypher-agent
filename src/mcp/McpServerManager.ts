@@ -1,4 +1,4 @@
-import { McpClient } from "./McpClient.ts";
+import { McpClient, type McpClientStatus } from "./McpClient.ts";
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
@@ -6,6 +6,7 @@ import type { OAuthOptions } from "./connect.ts";
 import McpStoreSDK from "@corespeed/mcp-store-client";
 import type { Server } from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
+import { type Observable, Subject, type Subscription } from "rxjs";
 
 /**
  * Metadata about where an MCP server came from
@@ -32,6 +33,32 @@ export interface McpServerState {
 }
 
 /**
+ * Discriminated union of all MCP server manager events
+ */
+export type McpServerManagerEvent =
+  | {
+    type: "serverAdded";
+    serverId: string;
+    server: McpServerEndpoint;
+    source: McpServerSource;
+  }
+  | {
+    type: "serverUpdated";
+    serverId: string;
+    updates: { server?: McpServerEndpoint; enabled?: boolean };
+  }
+  | {
+    type: "serverRemoved";
+    serverId: string;
+  }
+  | {
+    type: "clientStatusChanged";
+    serverId: string;
+    status: McpClientStatus;
+    client: McpClient;
+  };
+
+/**
  * McpServerManager is a class that manages MCP (Model Context Protocol) servers and their tools.
  * It handles server registration, tool management, and configuration persistence.
  *
@@ -39,11 +66,18 @@ export interface McpServerState {
  */
 export class McpServerManager {
   // Unified state map containing server config, client, and enabled status
-  #serverStateMap = new Map<string, McpServerState>();
+  readonly #serverStateMap = new Map<string, McpServerState>();
   // toolbox for directly registered tools (non-MCP tools)
-  #toolbox: Map<string, Tool> = new Map();
+  readonly #toolbox: Map<string, Tool> = new Map();
   // MCP Store client for discovering servers (defaults to CoreSpeed MCP Store)
-  #registryClient: McpStoreSDK;
+  readonly #registryClient: McpStoreSDK;
+  // Event subject for observable event streaming
+  readonly #eventsSubject = new Subject<McpServerManagerEvent>();
+  // Subscriptions to client status changes
+  readonly #statusSubscriptions = new Map<string, Subscription>();
+
+  // Flag to track if the manager has been cleaned up
+  #isCleanedUp = false;
 
   constructor(
     readonly context: ZypherContext,
@@ -56,6 +90,80 @@ export class McpServerManager {
       // The api key is only for admin endpoints. It's not needed for the public endpoints.
       apiKey: "",
     });
+  }
+
+  /**
+   * Observable stream of all MCP server manager events.
+   *
+   * Emits events in real-time as:
+   * - Servers are added/updated/removed
+   * - Client statuses change
+   *
+   * The observable completes when cleanup() is called.
+   *
+   * @returns Observable that emits discriminated union events
+   */
+  get events$(): Observable<McpServerManagerEvent> {
+    return this.#eventsSubject.asObservable();
+  }
+
+  /**
+   * Subscribe to a server's client status changes and emit events.
+   * Safe to call multiple times - skips if already subscribed.
+   * @throws Error if manager has been cleaned up or server not found
+   */
+  #subscribeToClientStatus(serverId: string): void {
+    if (this.#isCleanedUp) {
+      throw new Error(
+        `Cannot subscribe: McpServerManager has been cleaned up (serverId: ${serverId})`,
+      );
+    }
+
+    // Check if already subscribed
+    const existing = this.#statusSubscriptions.get(serverId);
+    if (existing) {
+      if (existing.closed) {
+        this.#statusSubscriptions.delete(serverId);
+      } else {
+        throw new Error(
+          `Cannot subscribe: already subscribed to client status (serverId: ${serverId})`,
+        );
+      }
+    }
+
+    // Find the server state
+    const serverState = this.#serverStateMap.get(serverId);
+    if (!serverState) {
+      throw new Error(
+        `Cannot subscribe: server not found (serverId: ${serverId})`,
+      );
+    }
+
+    // Subscribe to status changes
+    const subscription = serverState.client.status$.subscribe(
+      (status) => {
+        this.#eventsSubject.next({
+          type: "clientStatusChanged",
+          serverId,
+          status,
+          client: serverState.client,
+        });
+      },
+    );
+
+    this.#statusSubscriptions.set(serverId, subscription);
+  }
+
+  /**
+   * Unsubscribe from a server's client status changes.
+   * Safe to call even if not subscribed - silently skips.
+   */
+  #unsubscribeFromClientStatus(serverId: string): void {
+    const subscription = this.#statusSubscriptions.get(serverId);
+    if (subscription) {
+      subscription.unsubscribe();
+      this.#statusSubscriptions.delete(serverId);
+    }
   }
 
   /**
@@ -92,6 +200,17 @@ export class McpServerManager {
 
     // Set enabled state
     state.client.desiredEnabled = enabled;
+
+    // Emit serverAdded event
+    this.#eventsSubject.next({
+      type: "serverAdded",
+      serverId: server.id,
+      server,
+      source,
+    });
+
+    // Subscribe to client status changes
+    this.#subscribeToClientStatus(server.id);
 
     // Wait for connection to be ready if enabled
     if (enabled) {
@@ -196,6 +315,14 @@ export class McpServerManager {
 
     // Remove server state
     this.#serverStateMap.delete(id);
+
+    // Emit serverRemoved event
+    this.#eventsSubject.next({
+      type: "serverRemoved",
+      serverId: id,
+    });
+
+    this.#unsubscribeFromClientStatus(id);
   }
 
   /**
@@ -229,6 +356,13 @@ export class McpServerManager {
 
     // Otherwise, just update client's desired enabled state
     state.client.desiredEnabled = newEnabled;
+
+    // Emit serverUpdated event
+    this.#eventsSubject.next({
+      type: "serverUpdated",
+      serverId,
+      updates,
+    });
   }
 
   /**
@@ -246,9 +380,25 @@ export class McpServerManager {
   }
 
   /**
-   * Cleans up all server connections and resets the manager state
+   * Cleans up all server connections and resets the manager state.
+   * Completes the events$ observable and unsubscribes from all client status observables.
+   * Safe to call multiple times - subsequent calls are no-ops.
    */
   cleanup(): void {
+    if (this.#isCleanedUp) {
+      return;
+    }
+    this.#isCleanedUp = true;
+
+    // Unsubscribe from all client status observables
+    for (const sub of this.#statusSubscriptions.values()) {
+      sub.unsubscribe();
+    }
+    this.#statusSubscriptions.clear();
+
+    // Complete the event stream
+    this.#eventsSubject.complete();
+
     // Cleanup all server clients
     for (const [_, state] of this.#serverStateMap.entries()) {
       state.client.desiredEnabled = false;
