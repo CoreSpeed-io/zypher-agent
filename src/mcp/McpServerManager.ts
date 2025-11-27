@@ -34,7 +34,10 @@ interface McpServerState {
   subscription: Subscription;
 }
 
-/** Public server info returned by the servers getter */
+/**
+ * Public server info containing the live McpClient instance
+ * and readonly snapshots of server configuration and source metadata.
+ */
 export type McpServerInfo = Omit<McpServerState, "subscription">;
 
 /**
@@ -175,17 +178,19 @@ export class McpServerManager {
   /**
    * All currently registered MCP servers.
    *
-   * Returns readonly snapshots of server configuration and metadata.
-   * The `client` property provides access to the live MCP client for
-   * observing state changes and other client operations.
+   * Returns the McpServerInfo map which contains the live McpClient instance
+   * and readonly snapshots of server configuration and source metadata.
    */
-  get servers(): Readonly<McpServerInfo>[] {
-    return Array.from(this.#serverStateMap.values()).map((state) => ({
-      // Return deep copies to prevent external mutation
-      server: structuredClone(state.server),
-      source: structuredClone(state.source),
-      client: state.client,
-    }));
+  get servers(): ReadonlyMap<string, McpServerInfo> {
+    const result = new Map<string, McpServerInfo>();
+    for (const [id, state] of this.#serverStateMap) {
+      result.set(id, {
+        server: structuredClone(state.server),
+        source: structuredClone(state.source),
+        client: state.client,
+      });
+    }
+    return result;
   }
 
   /**
