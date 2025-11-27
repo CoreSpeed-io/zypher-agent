@@ -104,7 +104,7 @@ export class McpServerManager {
    * - Servers are added/updated/removed
    * - Client statuses change
    *
-   * The observable completes when cleanup() is called.
+   * The observable completes when dispose() is called.
    *
    * @returns Observable that emits discriminated union events
    */
