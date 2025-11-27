@@ -20,17 +20,22 @@ export type McpServerSource =
   | { type: "direct" };
 
 /**
- * Represents the state of an MCP server including its configuration,
- * client connection, and source information.
+ * Represents the internal state of an MCP server including its configuration,
+ * client connection, source information, and status subscription.
  */
-export interface McpServerState {
+interface McpServerState {
   /** The server configuration */
   server: McpServerEndpoint;
   /** Metadata about the source of this server */
   source: McpServerSource;
   /** The MCP client instance for this server */
   client: McpClient;
+  /** Subscription to client status changes */
+  subscription: Subscription;
 }
+
+/** Public server info returned by the servers getter */
+export type McpServerInfo = Omit<McpServerState, "subscription">;
 
 /**
  * Discriminated union of all MCP server manager events
@@ -65,7 +70,7 @@ export type McpServerManagerEvent =
  * Authentication is handled by the McpClient layer.
  */
 export class McpServerManager {
-  // Unified state map containing server config, client, and enabled status
+  // Unified state map containing server config, client, and subscription
   readonly #serverStateMap = new Map<string, McpServerState>();
   // toolbox for directly registered tools (non-MCP tools)
   readonly #toolbox: Map<string, Tool> = new Map();
@@ -73,11 +78,8 @@ export class McpServerManager {
   readonly #registryClient: McpStoreSDK;
   // Event subject for observable event streaming
   readonly #eventsSubject = new Subject<McpServerManagerEvent>();
-  // Subscriptions to client status changes
-  readonly #statusSubscriptions = new Map<string, Subscription>();
-
-  // Flag to track if the manager has been cleaned up
-  #isCleanedUp = false;
+  // Flag to track if the manager has been disposed
+  #disposed = false;
 
   constructor(
     readonly context: ZypherContext,
@@ -108,65 +110,6 @@ export class McpServerManager {
   }
 
   /**
-   * Subscribe to a server's client status changes and emit events.
-   * Safe to call multiple times - skips if already subscribed.
-   * @throws Error if manager has been cleaned up or server not found
-   */
-  #subscribeToClientStatus(serverId: string): void {
-    if (this.#isCleanedUp) {
-      throw new Error(
-        `Cannot subscribe: McpServerManager has been cleaned up (serverId: ${serverId})`,
-      );
-    }
-
-    // Check if already subscribed
-    const existing = this.#statusSubscriptions.get(serverId);
-    if (existing) {
-      if (existing.closed) {
-        this.#statusSubscriptions.delete(serverId);
-      } else {
-        throw new Error(
-          `Cannot subscribe: already subscribed to client status (serverId: ${serverId})`,
-        );
-      }
-    }
-
-    // Find the server state
-    const serverState = this.#serverStateMap.get(serverId);
-    if (!serverState) {
-      throw new Error(
-        `Cannot subscribe: server not found (serverId: ${serverId})`,
-      );
-    }
-
-    // Subscribe to status changes
-    const subscription = serverState.client.status$.subscribe(
-      (status) => {
-        this.#eventsSubject.next({
-          type: "clientStatusChanged",
-          serverId,
-          status,
-          client: serverState.client,
-        });
-      },
-    );
-
-    this.#statusSubscriptions.set(serverId, subscription);
-  }
-
-  /**
-   * Unsubscribe from a server's client status changes.
-   * Safe to call even if not subscribed - silently skips.
-   */
-  #unsubscribeFromClientStatus(serverId: string): void {
-    const subscription = this.#statusSubscriptions.get(serverId);
-    if (subscription) {
-      subscription.unsubscribe();
-      this.#statusSubscriptions.delete(serverId);
-    }
-  }
-
-  /**
    * Registers a new MCP server and its tools
    * @param server Server configuration (server.id is used as the key)
    * @param enabled Whether the server is enabled
@@ -181,6 +124,9 @@ export class McpServerManager {
     source: McpServerSource = { type: "direct" },
     oauth?: OAuthOptions,
   ): Promise<void> {
+    if (this.#disposed) {
+      throw new Error("McpServerManager has been disposed");
+    }
     if (this.#serverStateMap.has(server.id)) {
       throw new Error(
         `Server ${server.id} already exists`,
@@ -190,16 +136,27 @@ export class McpServerManager {
     // Create MCP client
     const client = new McpClient(this.context, server, { oauth });
 
+    // Subscribe to client status changes
+    const subscription = client.status$.subscribe((status) => {
+      this.#eventsSubject.next({
+        type: "clientStatusChanged",
+        serverId: server.id,
+        status,
+        client,
+      });
+    });
+
     // Create server state with deep copies to prevent external mutation
     const state: McpServerState = {
       server: structuredClone(server),
       source: structuredClone(source),
       client,
+      subscription,
     };
     this.#serverStateMap.set(server.id, state);
 
     // Set enabled state
-    state.client.desiredEnabled = enabled;
+    client.desiredEnabled = enabled;
 
     // Emit serverAdded event
     this.#eventsSubject.next({
@@ -209,12 +166,9 @@ export class McpServerManager {
       source,
     });
 
-    // Subscribe to client status changes
-    this.#subscribeToClientStatus(server.id);
-
     // Wait for connection to be ready if enabled
     if (enabled) {
-      await state.client.waitForConnection();
+      await client.waitForConnection();
     }
   }
 
@@ -225,7 +179,7 @@ export class McpServerManager {
    * The `client` property provides access to the live MCP client for
    * observing state changes and other client operations.
    */
-  get servers(): Readonly<McpServerState>[] {
+  get servers(): Readonly<McpServerInfo>[] {
     return Array.from(this.#serverStateMap.values()).map((state) => ({
       // Return deep copies to prevent external mutation
       server: structuredClone(state.server),
@@ -300,7 +254,10 @@ export class McpServerManager {
    * @param id ID of the server to deregister
    * @throws Error if server is not found or deregistration fails
    */
-  deregisterServer(id: string): void {
+  async deregisterServer(id: string): Promise<void> {
+    if (this.#disposed) {
+      throw new Error("McpServerManager has been disposed");
+    }
     const state = this.#serverStateMap.get(id);
     if (!state) {
       throw new Error(
@@ -308,10 +265,11 @@ export class McpServerManager {
       );
     }
 
-    // First disable the client (disconnects and cleans up resources)
-    state.client.desiredEnabled = false;
+    // Dispose the client first (emits final status events)
+    await state.client.dispose();
 
-    // TODO: should we wait for the client to be disconnected?
+    // Unsubscribe from client status
+    state.subscription.unsubscribe();
 
     // Remove server state
     this.#serverStateMap.delete(id);
@@ -321,8 +279,6 @@ export class McpServerManager {
       type: "serverRemoved",
       serverId: id,
     });
-
-    this.#unsubscribeFromClientStatus(id);
   }
 
   /**
@@ -331,13 +287,16 @@ export class McpServerManager {
    * @param updates Object containing server config and/or enabled status to update
    * @throws Error if server is not found or update fails
    */
-  updateServer(
+  async updateServer(
     serverId: string,
     updates: {
       server?: McpServerEndpoint;
       enabled?: boolean;
     },
-  ): void {
+  ): Promise<void> {
+    if (this.#disposed) {
+      throw new Error("McpServerManager has been disposed");
+    }
     const state = this.#serverStateMap.get(serverId);
     if (!state) {
       throw new Error(
@@ -349,8 +308,8 @@ export class McpServerManager {
 
     // If config changed, re-register the server
     if (updates.server) {
-      this.deregisterServer(serverId);
-      this.registerServer(updates.server, newEnabled);
+      await this.deregisterServer(serverId);
+      await this.registerServer(updates.server, newEnabled);
       return;
     }
 
@@ -370,6 +329,9 @@ export class McpServerManager {
    * @param tool The tool to register
    */
   registerTool(tool: Tool): void {
+    if (this.#disposed) {
+      throw new Error("McpServerManager has been disposed");
+    }
     if (this.#toolbox.has(tool.name)) {
       throw new Error(
         `Tool ${tool.name} already registered`,
@@ -380,32 +342,31 @@ export class McpServerManager {
   }
 
   /**
-   * Cleans up all server connections and resets the manager state.
-   * Completes the events$ observable and unsubscribes from all client status observables.
-   * Safe to call multiple times - subsequent calls are no-ops.
+   * Disposes the manager by disconnecting all servers and completing the event stream.
+   * The manager cannot be reused after calling this method.
    */
-  cleanup(): void {
-    if (this.#isCleanedUp) {
+  async dispose(): Promise<void> {
+    if (this.#disposed) {
       return;
     }
-    this.#isCleanedUp = true;
+    this.#disposed = true;
+
+    // Dispose all server clients first (emits final status events)
+    await Promise.all(
+      Array.from(this.#serverStateMap.values()).map((state) =>
+        state.client.dispose()
+      ),
+    );
 
     // Unsubscribe from all client status observables
-    for (const sub of this.#statusSubscriptions.values()) {
-      sub.unsubscribe();
+    for (const state of this.#serverStateMap.values()) {
+      state.subscription.unsubscribe();
     }
-    this.#statusSubscriptions.clear();
+    this.#serverStateMap.clear();
+    this.#toolbox.clear();
 
     // Complete the event stream
     this.#eventsSubject.complete();
-
-    // Cleanup all server clients
-    for (const [_, state] of this.#serverStateMap.entries()) {
-      state.client.desiredEnabled = false;
-    }
-    // TODO: should we wait for the clients to be disconnected?
-    this.#serverStateMap.clear();
-    this.#toolbox.clear();
   }
 
   /**
