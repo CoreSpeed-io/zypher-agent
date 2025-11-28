@@ -496,20 +496,20 @@ export class McpClient {
   }
 
   /**
-   * Gets the OAuth authorization URL when status is "awaitingOAuth".
-   * Returns undefined when not awaiting OAuth authorization.
-   */
-  get pendingOAuthUrl(): string | undefined {
-    return this.#actor.getSnapshot().context.oauthUrl;
-  }
-
-  /**
    * Observable stream of client status changes
    * Emits the current McpClientStatus whenever the status changes
    * @returns Observable that emits status changes (read-only for consumers)
    */
   get status$(): Observable<McpClientStatus> {
     return from(this.#actor).pipe(map(() => this.status));
+  }
+
+  /**
+   * Gets the OAuth authorization URL when status is "awaitingOAuth".
+   * Returns undefined when not awaiting OAuth authorization.
+   */
+  get pendingOAuthUrl(): string | undefined {
+    return this.#actor.getSnapshot().context.oauthUrl;
   }
 
   /**
