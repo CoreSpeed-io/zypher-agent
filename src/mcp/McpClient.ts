@@ -91,17 +91,13 @@ function wrapAuthProvider(
     get clientMetadata() {
       return provider.clientMetadata;
     },
-    clientInformation: () => provider.clientInformation(),
-    saveClientInformation: provider.saveClientInformation
-      ? (info) => provider.saveClientInformation!(info)
-      : undefined,
-    tokens: () => provider.tokens(),
-    saveTokens: (tokens) => provider.saveTokens(tokens),
-    codeVerifier: () => provider.codeVerifier(),
-    saveCodeVerifier: (verifier) => provider.saveCodeVerifier(verifier),
-
-    // Intercept redirectToAuthorization to capture the URL
-    async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
+    clientInformation: provider.clientInformation.bind(provider),
+    saveClientInformation: provider.saveClientInformation?.bind(provider),
+    tokens: provider.tokens.bind(provider),
+    saveTokens: provider.saveTokens.bind(provider),
+    codeVerifier: provider.codeVerifier.bind(provider),
+    saveCodeVerifier: provider.saveCodeVerifier.bind(provider),
+    redirectToAuthorization: async (authorizationUrl: URL) => {
       onRedirect(authorizationUrl.toString());
       await provider.redirectToAuthorization(authorizationUrl);
     },
