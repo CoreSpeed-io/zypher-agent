@@ -405,6 +405,18 @@ export class McpClient {
   }
 
   /**
+   * Retries the connection after an error.
+   * Only valid when status is "error".
+   * @throws Error if not in error state
+   */
+  retry(): void {
+    if (this.#actor.getSnapshot().value !== "error") {
+      throw new Error("retry() can only be called when status is 'error'");
+    }
+    this.#actor.send({ type: "retry" });
+  }
+
+  /**
    * Waits for the client to complete the full connection sequence
    *
    * This method waits for the entire connection process to complete, including:
