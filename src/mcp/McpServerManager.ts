@@ -357,7 +357,7 @@ export class McpServerManager {
     this.#disposed = true;
 
     // Dispose all server clients first (emits final status events)
-    await Promise.all(
+    await Promise.allSettled(
       Array.from(this.#serverStateMap.values()).map((state) =>
         state.client.dispose()
       ),
