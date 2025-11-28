@@ -329,7 +329,8 @@ function mapOaiMessageToMessage(
     content: [
       { type: "text", text: message.content ?? "" },
       ...(
-        message.tool_calls?.map((c) => ({
+        // We currently only support `function` type tool calls; others are ignored.
+        message.tool_calls?.filter((c) => c.type === "function").map((c) => ({
           type: "tool_use" as const,
           toolUseId: c.id,
           name: c.function.name,
