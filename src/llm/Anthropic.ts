@@ -234,6 +234,12 @@ Cached at: ${cache.cachePath}`,
                 },
               ),
             } satisfies Anthropic.ToolResultBlockParam;
+          } else if (block.type === "thinking") {
+            return {
+              type: "thinking" as const,
+              signature: block.signature,
+              thinking: block.thinking,
+            } satisfies Anthropic.ThinkingBlockParam;
           } else {
             return {
               type: "text" as const,
@@ -272,24 +278,50 @@ class AnthropicModelStream implements ModelStream {
   constructor(stream: ReturnType<Anthropic["messages"]["stream"]>) {
     this.#stream = stream;
     this.#events = new Observable((subscriber) => {
-      stream.on("text", (text) => {
-        subscriber.next({ type: "text", text });
-      });
+      // Track the current tool name for subsequent inputJson events
+      let currentToolName: string | null = null;
 
-      stream.on("message", (message) => {
-        subscriber.next({
-          type: "message",
-          message: mapA7cMessageToMessage(message),
+      stream
+        .on("streamEvent", (event: Anthropic.MessageStreamEvent) => {
+          // Detect tool use at the start of a content block
+          if (
+            event.type === "content_block_start" &&
+            event.content_block?.type === "tool_use"
+          ) {
+            // Store the tool name for subsequent inputJson events
+            currentToolName = event.content_block.name;
+            // Send the initial tool use notification with the tool name
+            subscriber.next({
+              type: "tool_use",
+              toolName: currentToolName,
+            });
+          }
+        })
+        .on("text", (text) => {
+          subscriber.next({ type: "text", content: text });
+        })
+        .on("inputJson", (inputJson) => {
+          // Send updates whenever we have new partial JSON for a tool
+          if (inputJson && currentToolName) {
+            subscriber.next({
+              type: "tool_use_input",
+              toolName: currentToolName,
+              partialInput: inputJson,
+            });
+          }
+        })
+        .on("message", (message) => {
+          subscriber.next({
+            type: "message",
+            message: mapA7cMessageToMessage(message),
+          });
+        })
+        .on("error", (error) => {
+          subscriber.error(error);
+        })
+        .on("end", () => {
+          subscriber.complete();
         });
-      });
-
-      stream.on("error", (error) => {
-        subscriber.error(error);
-      });
-
-      stream.on("end", () => {
-        subscriber.complete();
-      });
     });
   }
 
@@ -328,6 +360,12 @@ function mapA7cContentBlockToContentBlock(
         toolUseId: block.id,
         name: block.name,
         input: block.input,
+      };
+    case "thinking":
+      return {
+        type: "thinking",
+        signature: block.signature,
+        thinking: block.thinking,
       };
     default:
       console.warn(

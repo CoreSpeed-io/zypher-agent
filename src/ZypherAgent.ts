@@ -8,12 +8,7 @@ import {
   createEmittingMessageArray,
   getSystemPrompt,
 } from "./utils/mod.ts";
-import {
-  AbortError,
-  formatError,
-  isAbortError,
-  TaskConcurrencyError,
-} from "./error.ts";
+import { AbortError, isAbortError, TaskConcurrencyError } from "./error.ts";
 import type { ModelProvider } from "./llm/mod.ts";
 import { type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
@@ -193,9 +188,8 @@ export class ZypherAgent {
    * This will discard messages beyond the checkpoint
    *
    * @param checkpointId The ID of the checkpoint to apply
-   * @returns True if the checkpoint was applied successfully, false otherwise
    */
-  async applyCheckpoint(checkpointId: string): Promise<boolean> {
+  async applyCheckpoint(checkpointId: string): Promise<void> {
     if (!this.#checkpointManager) {
       throw new Error("Checkpoint manager not provided");
     }
@@ -213,11 +207,10 @@ export class ZypherAgent {
         // Keep messages up to but excluding the checkpoint message
         this.#messages = this.#messages.slice(0, checkpointIndex);
       }
-
-      return true;
     } catch (error) {
-      console.error(`Error applying checkpoint: ${formatError(error)}`);
-      return false;
+      throw new Error(`Failed to apply checkpoint ${checkpointId}.`, {
+        cause: error,
+      });
     }
   }
 
@@ -296,12 +289,7 @@ export class ZypherAgent {
     let timeoutId: number | null = null;
     if (this.#config.taskTimeoutMs > 0) {
       timeoutId = setTimeout(
-        () => {
-          console.log(
-            `🕒 Task timed out after ${this.#config.taskTimeoutMs}ms`,
-          );
-          timeoutController.abort();
-        },
+        () => timeoutController.abort(),
         this.#config.taskTimeoutMs,
       );
     }
@@ -346,7 +334,7 @@ export class ZypherAgent {
       taskEventSubject.next({ type: "message", message: userMessage });
 
       const toolCalls = Array.from(
-        this.#mcpServerManager.getAllTools().values(),
+        this.#mcpServerManager.tools.values(),
       );
 
       // Cache file attachments if enabled
@@ -380,11 +368,8 @@ export class ZypherAgent {
 
         const modelEvents = stream.events;
         for await (const event of eachValueFrom(modelEvents)) {
-          if (event.type === "text") {
-            taskEventSubject.next({ type: "text", content: event.text });
-          } else if (event.type === "message") {
-            taskEventSubject.next({ type: "message", message: event.message });
-          }
+          // ModelEvents are now directly compatible with TaskEvents, so we can forward them as-is
+          taskEventSubject.next(event);
         }
 
         const finalMessage = await stream.finalMessage();
@@ -396,7 +381,6 @@ export class ZypherAgent {
           timestamp: new Date(),
         };
         this.#messages.push(assistantMessage);
-        taskEventSubject.next({ type: "message", message: assistantMessage });
 
         // Check for cancellation
         if (mergedSignal.aborted) {
@@ -440,16 +424,17 @@ export class ZypherAgent {
       // Task completed successfully
     } catch (error) {
       if (isAbortError(error)) {
-        console.log(formatError(error));
-        console.log("🛑 Task aborted.");
-
+        // Abort/cancellation is an expected control flow, not an error.
+        // Emit the cancellation event and let the finally block complete the subject normally.
+        // This prevents consumers from treating intentional cancellation as a failure.
         taskEventSubject.next({
           type: "cancelled",
           reason: options?.signal?.aborted ? "user" : "timeout",
         });
+        return;
       }
 
-      console.error(formatError(error));
+      // Only propagate unexpected errors to the subject
       taskEventSubject.error(error);
     } finally {
       // Clear task timeout if it exists

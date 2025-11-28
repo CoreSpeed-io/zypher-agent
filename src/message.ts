@@ -3,7 +3,8 @@ export type ContentBlock =
   | ImageBlock
   | ToolUseBlock
   | ToolResultBlock
-  | FileAttachment;
+  | FileAttachment
+  | ThinkingBlock;
 
 /**
  * Extended message parameter type that includes checkpoint information
@@ -73,14 +74,25 @@ export interface UrlImageSource {
 
 export interface ToolUseBlock {
   type: "tool_use";
+  /** The ID of the tool use */
   toolUseId: string;
+  /** The name of the tool the agent requested to use */
   name: string;
+  /** The input parameters for the tool */
   input: unknown;
 }
 
 export interface ToolResultBlock {
   type: "tool_result";
+  /** The ID of the tool use */
   toolUseId: string;
+  /** The name of the tool that was used */
+  name: string;
+  /** The input parameters for the tool */
+  input: unknown;
+  /** Whether the tool execution was successful */
+  success: boolean;
+  /** The content of the tool result */
   content: (TextBlock | ImageBlock)[];
 }
 
@@ -93,6 +105,17 @@ export interface FileAttachment {
   fileId: string;
   /** The MIME type of the file */
   mimeType: string;
+}
+
+/**
+ * Thinking block content
+ */
+export interface ThinkingBlock {
+  type: "thinking";
+  /** An opaque field and should not be interpreted or parsed - it exists solely for verification purposes. */
+  signature: string;
+  /** The content of the thinking block */
+  thinking: string;
 }
 
 /**

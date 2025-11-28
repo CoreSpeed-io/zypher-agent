@@ -1,6 +1,7 @@
 import {
   type McpBinaryResourceContent,
   McpClient,
+  type McpClientStatus,
   type McpResource,
   type McpResourceContent,
   McpResourceError,
@@ -10,19 +11,69 @@ import {
 import type { Tool } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
+import type { OAuthOptions } from "./connect.ts";
+import McpStoreSDK from "@corespeed/mcp-store-client";
+import type { Server } from "@corespeed/mcp-store-client";
+import { convertServerDetailToEndpoint } from "./utils.ts";
+import { type Observable, Subject, type Subscription } from "rxjs";
 
 /**
- * Represents the state of an MCP server including its configuration,
- * client connection, enabled status, and associated tools
+ * Metadata about where an MCP server came from
+ *
+ * - `registry`: Server was registered from the MCP Store registry.
+ *   Contains the package identifier (e.g., "@modelcontextprotocol/server-filesystem")
+ * - `direct`: Server was registered directly by the user with explicit configuration
+ */
+export type McpServerSource =
+  | { type: "registry"; packageIdentifier: string }
+  | { type: "direct" };
+
+/**
+ * Represents the internal state of an MCP server including its configuration,
+ * client connection, source information, and status subscription.
  */
 interface McpServerState {
   /** The server configuration */
   server: McpServerEndpoint;
+  /** Metadata about the source of this server */
+  source: McpServerSource;
   /** The MCP client instance for this server */
   client: McpClient;
-  /** Whether the server is enabled */
-  enabled: boolean;
+  /** Subscription to client status changes */
+  subscription: Subscription;
 }
+
+/**
+ * Public server info containing the live McpClient instance
+ * and readonly snapshots of server configuration and source metadata.
+ */
+export type McpServerInfo = Omit<McpServerState, "subscription">;
+
+/**
+ * Discriminated union of all MCP server manager events
+ */
+export type McpServerManagerEvent =
+  | {
+    type: "serverAdded";
+    serverId: string;
+    server: McpServerEndpoint;
+    source: McpServerSource;
+  }
+  | {
+    type: "serverUpdated";
+    serverId: string;
+    updates: { server?: McpServerEndpoint; enabled?: boolean };
+  }
+  | {
+    type: "serverRemoved";
+    serverId: string;
+  }
+  | {
+    type: "clientStatusChanged";
+    serverId: string;
+    status: McpClientStatus;
+    client: McpClient;
+  };
 
 /**
  * McpServerManager is a class that manages MCP (Model Context Protocol) servers and their tools.
@@ -31,24 +82,63 @@ interface McpServerState {
  * Authentication is handled by the McpClient layer.
  */
 export class McpServerManager {
-  // Unified state map containing server config, client, and enabled status
-  #serverStateMap = new Map<string, McpServerState>();
+  // Unified state map containing server config, client, and subscription
+  readonly #serverStateMap = new Map<string, McpServerState>();
   // toolbox for directly registered tools (non-MCP tools)
-  #toolbox: Map<string, Tool> = new Map();
+  readonly #toolbox: Map<string, Tool> = new Map();
+  // MCP Store client for discovering servers (defaults to CoreSpeed MCP Store)
+  readonly #registryClient: McpStoreSDK;
+  // Event subject for observable event streaming
+  readonly #eventsSubject = new Subject<McpServerManagerEvent>();
+  // Flag to track if the manager has been disposed
+  #disposed = false;
 
-  constructor(readonly context: ZypherContext) {}
+  constructor(
+    readonly context: ZypherContext,
+    registryClient?: McpStoreSDK,
+  ) {
+    // Default to CoreSpeed MCP Store if none provided
+    this.#registryClient = registryClient ?? new McpStoreSDK({
+      baseURL: Deno.env.get("MCP_STORE_BASE_URL") ??
+        "https://api1.mcp.corespeed.io",
+      // The api key is only for admin endpoints. It's not needed for the public endpoints.
+      apiKey: "",
+    });
+  }
+
+  /**
+   * Observable stream of all MCP server manager events.
+   *
+   * Emits events in real-time as:
+   * - Servers are added/updated/removed
+   * - Client statuses change
+   *
+   * The observable completes when dispose() is called.
+   *
+   * @returns Observable that emits discriminated union events
+   */
+  get events$(): Observable<McpServerManagerEvent> {
+    return this.#eventsSubject.asObservable();
+  }
 
   /**
    * Registers a new MCP server and its tools
    * @param server Server configuration (server.id is used as the key)
    * @param enabled Whether the server is enabled
+   * @param source Metadata about the source of this server
+   * @param oauth Optional OAuth configuration for authenticated connections
    * @returns Promise that resolves when the server is fully connected and ready (if enabled)
    * @throws McpError if server registration fails or server already exists
    */
   async registerServer(
     server: McpServerEndpoint,
     enabled: boolean = true,
+    source: McpServerSource = { type: "direct" },
+    oauth?: OAuthOptions,
   ): Promise<void> {
+    if (this.#disposed) {
+      throw new Error("McpServerManager has been disposed");
+    }
     if (this.#serverStateMap.has(server.id)) {
       throw new Error(
         `Server ${server.id} already exists`,
@@ -56,23 +146,121 @@ export class McpServerManager {
     }
 
     // Create MCP client
-    const client = new McpClient(this.context, server);
+    const client = new McpClient(this.context, server, { oauth });
 
-    // Create server state
+    // Subscribe to client status changes
+    const subscription = client.status$.subscribe((status) => {
+      this.#eventsSubject.next({
+        type: "clientStatusChanged",
+        serverId: server.id,
+        status,
+        client,
+      });
+    });
+
+    // Create server state with deep copies to prevent external mutation
     const state: McpServerState = {
-      server,
+      server: structuredClone(server),
+      source: structuredClone(source),
       client,
-      enabled,
+      subscription,
     };
     this.#serverStateMap.set(server.id, state);
 
     // Set enabled state
-    state.client.desiredEnabled = enabled;
+    client.desiredEnabled = enabled;
+
+    // Emit serverAdded event
+    this.#eventsSubject.next({
+      type: "serverAdded",
+      serverId: server.id,
+      server,
+      source,
+    });
 
     // Wait for connection to be ready if enabled
     if (enabled) {
-      await state.client.waitForConnection();
+      await client.waitForConnection();
     }
+  }
+
+  /**
+   * All currently registered MCP servers.
+   *
+   * Returns the McpServerInfo map which contains the live McpClient instance
+   * and readonly snapshots of server configuration and source metadata.
+   */
+  get servers(): ReadonlyMap<string, McpServerInfo> {
+    const result = new Map<string, McpServerInfo>();
+    for (const [id, state] of this.#serverStateMap) {
+      result.set(id, {
+        server: structuredClone(state.server),
+        source: structuredClone(state.source),
+        client: state.client,
+      });
+    }
+    return result;
+  }
+
+  /**
+   * Lists servers from the configured registry with cursor-based pagination
+   * @param options Pagination options (cursor and limit)
+   * @returns Promise that resolves to a cursor page containing server details and next cursor
+   */
+  async listRegistryServers(options?: {
+    cursor?: string;
+    limit?: number;
+  }): Promise<Server[]> {
+    const response = await this.#registryClient.servers.list({
+      cursor: options?.cursor,
+      limit: options?.limit ?? 20,
+    });
+
+    return response.servers;
+  }
+
+  /**
+   * Registers a server from the configured registry by package identifier
+   * @param packageIdentifier The package identifier in the format "@scope/package-name" (e.g., "@modelcontextprotocol/server-filesystem")
+   * @param enabled Whether the server is enabled (defaults to true)
+   * @param oauth Optional OAuth configuration for authenticated connections
+   * @returns Promise that resolves when the server is fully connected and ready (if enabled)
+   * @throws Error if server not found in registry or registration fails
+   */
+  async registerServerFromRegistry(
+    packageIdentifier: string,
+    enabled: boolean = true,
+    oauth?: OAuthOptions,
+  ): Promise<void> {
+    // Parse package identifier format: @scope/package-name
+    const packageMatch = packageIdentifier.match(/^@([^/]+)\/(.+)$/);
+    if (!packageMatch) {
+      throw new Error(
+        `Invalid package identifier: ${packageIdentifier}. Expected @scope/package-name format.`,
+      );
+    }
+
+    const scope = packageMatch[1];
+    const packageName = packageMatch[2];
+
+    // Fetch server by scope and package name
+    const response = await this.#registryClient.servers.retrieveByPackage(
+      packageName,
+      { scope },
+    );
+
+    const server = convertServerDetailToEndpoint(response.server);
+
+    // Register the server
+    await this.registerServer(
+      server,
+      enabled,
+      {
+        type: "registry",
+        packageIdentifier,
+      },
+      oauth,
+    );
   }
 
   /**
@@ -80,7 +268,10 @@ export class McpServerManager {
    * @param id ID of the server to deregister
    * @throws Error if server is not found or deregistration fails
    */
-  deregisterServer(id: string): void {
+  async deregisterServer(id: string): Promise<void> {
+    if (this.#disposed) {
+      throw new Error("McpServerManager has been disposed");
+    }
     const state = this.#serverStateMap.get(id);
     if (!state) {
       throw new Error(
@@ -88,13 +279,20 @@ export class McpServerManager {
       );
     }
 
-    // First disable the client (disconnects and cleans up resources)
-    state.client.desiredEnabled = false;
+    // Dispose the client first (emits final status events)
+    await state.client.dispose();
 
-    // TODO: should we wait for the client to be disconnected?
+    // Unsubscribe from client status
+    state.subscription.unsubscribe();
 
     // Remove server state
     this.#serverStateMap.delete(id);
+
+    // Emit serverRemoved event
+    this.#eventsSubject.next({
+      type: "serverRemoved",
+      serverId: id,
+    });
   }
 
   /**
@@ -103,13 +301,16 @@ export class McpServerManager {
    * @param updates Object containing server config and/or enabled status to update
    * @throws Error if server is not found or update fails
    */
-  updateServer(
+  async updateServer(
     serverId: string,
     updates: {
       server?: McpServerEndpoint;
       enabled?: boolean;
     },
-  ): void {
+  ): Promise<void> {
+    if (this.#disposed) {
+      throw new Error("McpServerManager has been disposed");
+    }
     const state = this.#serverStateMap.get(serverId);
     if (!state) {
       throw new Error(
@@ -117,21 +318,24 @@ export class McpServerManager {
       );
     }
 
-    const newEnabled = updates.enabled ?? state.enabled;
-    const hasConfigChange = updates.server !== undefined;
+    const newEnabled = updates.enabled ?? state.client.desiredEnabled;
 
     // If config changed, re-register the server
-    if (hasConfigChange) {
-      this.deregisterServer(serverId);
-      this.registerServer(updates.server!, newEnabled);
+    if (updates.server) {
+      await this.deregisterServer(serverId);
+      await this.registerServer(updates.server, newEnabled);
       return;
     }
 
-    // Otherwise, just update enabled status
-    state.enabled = newEnabled;
-
-    // Use client's desiredEnabled = method to handle connection lifecycle
+    // Otherwise, just update client's desired enabled state
     state.client.desiredEnabled = newEnabled;
+
+    // Emit serverUpdated event
+    this.#eventsSubject.next({
+      type: "serverUpdated",
+      serverId,
+      updates,
+    });
   }
 
   /**
@@ -139,57 +343,65 @@ export class McpServerManager {
    * @param tool The tool to register
    */
   registerTool(tool: Tool): void {
+    if (this.#disposed) {
+      throw new Error("McpServerManager has been disposed");
+    }
     if (this.#toolbox.has(tool.name)) {
       throw new Error(
         `Tool ${tool.name} already registered`,
       );
     }
 
-    // Check if any MCP server already provides a tool with this name
-    for (const [_serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled && state.client.getTool(tool.name)) {
-        throw new Error(
-          `Tool ${tool.name} already exists in MCP server ${state.server.id}`,
-        );
-      }
-    }
-
     this.#toolbox.set(tool.name, tool);
   }
 
   /**
-   * Cleans up all server connections and resets the manager state
+   * Disposes the manager by disconnecting all servers and completing the event stream.
+   * The manager cannot be reused after calling this method.
    */
-  cleanup(): void {
-    // Cleanup all server clients
-    for (const [_, state] of this.#serverStateMap.entries()) {
-      state.client.desiredEnabled = false;
+  async dispose(): Promise<void> {
+    if (this.#disposed) {
+      return;
     }
-    // TODO: should we wait for the clients to be disconnected?
+    this.#disposed = true;
+
+    // Dispose all server clients first (emits final status events)
+    await Promise.allSettled(
+      Array.from(this.#serverStateMap.values()).map((state) =>
+        state.client.dispose()
+      ),
+    );
+
+    // Unsubscribe from all client status observables
+    for (const state of this.#serverStateMap.values()) {
+      state.subscription.unsubscribe();
+    }
     this.#serverStateMap.clear();
     this.#toolbox.clear();
+
+    // Complete the event stream
+    this.#eventsSubject.complete();
   }
 
   /**
-   * Gets all registered tools from all enabled servers and directly registered tools
+   * All registered tools from all enabled servers and directly registered tools
    * @returns Map of tool names to tool instances
    */
-  getAllTools(): Map<string, Tool> {
+  get tools(): Map<string, Tool> {
     const allTools = new Map<string, Tool>();
 
-    // Add directly registered tools first
-    for (const [name, tool] of this.#toolbox) {
-      allTools.set(name, tool);
-    }
-
-    // Add tools from enabled MCP servers
+    // Add tools from enabled MCP servers first
     for (const [_serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled) {
+      if (state.client.desiredEnabled) {
         for (const tool of state.client.tools) {
-          // MCP tools take precedence over directly registered tools with same name
           allTools.set(tool.name, tool);
         }
       }
+    }
+
+    // Add directly registered (built-in) tools last - they take precedence in case of conflicts
+    for (const [name, tool] of this.#toolbox) {
+      allTools.set(name, tool);
     }
 
     return allTools;
@@ -201,9 +413,15 @@ export class McpServerManager {
    * @returns The tool if found, undefined otherwise
    */
   getTool(name: string): Tool | undefined {
-    // Check MCP servers first (they take precedence)
+    // Check directly registered (built-in) tools first - they take precedence
+    const builtInTool = this.#toolbox.get(name);
+    if (builtInTool) {
+      return builtInTool;
+    }
+
+    // Then check MCP servers
     for (const [_serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled) {
+      if (state.client.desiredEnabled) {
         const tool = state.client.getTool(name);
         if (tool) {
           return tool;
@@ -211,8 +429,7 @@ export class McpServerManager {
       }
     }
 
-    // Then check directly registered tools
-    return this.#toolbox.get(name);
+    return undefined;
   }
 
   debugLogState(): void {
@@ -220,8 +437,7 @@ export class McpServerManager {
     console.log(`Number of servers: ${this.#serverStateMap.size}`);
     console.log(`Number of directly registered tools: ${this.#toolbox.size}`);
 
-    const allTools = this.getAllTools();
-    console.log(`Total number of tools: ${allTools.size}`);
+    console.log(`Total number of tools: ${this.tools.size}`);
 
     if (this.#toolbox.size > 0) {
       console.log(
@@ -232,9 +448,9 @@ export class McpServerManager {
     }
 
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      console.log(`\nServer: ${state.server.displayName || state.server.id}`);
+      console.log(`\nServer: ${state.server.displayName ?? state.server.id}`);
       console.log(`  - ID: ${serverId}`);
-      console.log(`  - Enabled: ${state.enabled}`);
+      console.log(`  - Enabled: ${state.client.desiredEnabled}`);
       console.log(`  - Connected: ${state.client.connected ?? false}`);
       console.log(`  - Tools count: ${state.client.toolCount ?? 0}`);
 
@@ -246,7 +462,7 @@ export class McpServerManager {
     }
 
     console.log(
-      `\nAll available tools: ${Array.from(allTools.keys()).join(", ")}`,
+      `\nAll available tools: ${Array.from(this.tools.keys()).join(", ")}`,
     );
     console.log("=== END STATE ===\n");
   }
@@ -270,7 +486,7 @@ export class McpServerManager {
     const errors: Record<string, Error> = {};
 
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      if (!state.enabled) continue;
+      if (!state.client.desiredEnabled) continue;
 
       try {
         const cursor = options?.cursorsByServerId?.[serverId];
@@ -306,7 +522,7 @@ export class McpServerManager {
     useCache?: boolean;
   }): Promise<{ resources: McpResource[]; nextCursor?: string }> {
     const state = this.#serverStateMap.get(serverId);
-    if (!state || !state.enabled) {
+    if (!state || !state.client.desiredEnabled) {
       throw new McpResourceError(
         `Server ${serverId} not found or not enabled`,
         -32001,
@@ -351,7 +567,7 @@ export class McpServerManager {
 
     if (params.serverId) {
       const state = this.#serverStateMap.get(params.serverId);
-      if (!state || !state.enabled) {
+      if (!state || !state.client.desiredEnabled) {
         throw new McpResourceError(
           `Server ${params.serverId} not found or not enabled`,
           -32001,
@@ -389,7 +605,7 @@ export class McpServerManager {
     > = [];
 
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      if (!state.enabled) continue;
+      if (!state.client.desiredEnabled) continue;
 
       const controller = new AbortController();
       controllers[serverId] = controller;
@@ -454,7 +670,7 @@ export class McpServerManager {
     options?: { signal?: AbortSignal },
   ): Promise<{ resourceTemplates: McpResourceTemplate[] }> {
     const state = this.#serverStateMap.get(serverId);
-    if (!state || !state.enabled) {
+    if (!state || !state.client.desiredEnabled) {
       throw new McpResourceError(
         `Server ${serverId} not found or not enabled`,
         -32001,
@@ -490,7 +706,7 @@ export class McpServerManager {
   }): Promise<{ unsubscribe: () => Promise<void>; serverId: string }> {
     if (params.serverId) {
       const state = this.#serverStateMap.get(params.serverId);
-      if (!state || !state.enabled) {
+      if (!state || !state.client.desiredEnabled) {
         throw new McpResourceError(
           `Server ${params.serverId} not found or not enabled`,
           -32001,
@@ -532,7 +748,7 @@ export class McpServerManager {
     > = [];
 
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      if (!state.enabled) continue;
+      if (!state.client.desiredEnabled) continue;
 
       try {
         const _subscription = await state.client.subscribeToResource({
@@ -593,7 +809,7 @@ export class McpServerManager {
 
     // Subscribe to all servers
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled) {
+      if (state.client.desiredEnabled) {
         try {
           const unsubscribe = state.client.onResourcesListChanged(callback);
           unsubscribers.push(unsubscribe);
@@ -626,7 +842,7 @@ export class McpServerManager {
    */
   clearAllResourceCaches(): void {
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled) {
+      if (state.client.desiredEnabled) {
         try {
           state.client.clearResourceCache();
         } catch (error) {
@@ -649,7 +865,7 @@ export class McpServerManager {
     const stats: Record<string, { size: number; entries: string[] }> = {};
 
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      if (state.enabled) {
+      if (state.client.desiredEnabled) {
         try {
           stats[serverId] = state.client.getCacheStats();
         } catch (error) {
@@ -693,7 +909,7 @@ export class McpServerManager {
 
     if (params.serverId) {
       const state = this.#serverStateMap.get(params.serverId);
-      if (!state || !state.enabled) {
+      if (!state || !state.client.desiredEnabled) {
         throw new McpResourceError(
           `Server ${params.serverId} not found or not enabled`,
           -32001,
@@ -725,7 +941,7 @@ export class McpServerManager {
     const timeoutMs = 10000; // 10 second timeout for binary reads
 
     for (const [serverId, state] of this.#serverStateMap.entries()) {
-      if (!state.enabled) continue;
+      if (!state.client.desiredEnabled) continue;
 
       try {
         // Create a timeout promise

@@ -77,7 +77,6 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       }
 
       // auto approve if no approval handler is provided
-      console.log(`Tool call ${name} approved`);
       eventSubject.next({
         type: "tool_use_approved",
         toolName: name,
@@ -89,23 +88,20 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
         return {
           type: "tool_result" as const,
           toolUseId,
+          name,
+          input: parameters,
+          success: true,
           content: [
             { type: "text", text: result },
-          ],
-        };
-      } else if (result.isError) {
-        return {
-          type: "tool_result" as const,
-          toolUseId,
-          content: [
-            // pass `isError` and all other potential error details to the LLM
-            { type: "text", text: JSON.stringify(result) },
           ],
         };
       } else if (result.structuredContent) {
         return {
           type: "tool_result" as const,
           toolUseId,
+          name,
+          input: parameters,
+          success: !result.isError,
           content: [
             { type: "text", text: JSON.stringify(result.structuredContent) },
           ],
@@ -114,6 +110,9 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
         return {
           type: "tool_result" as const,
           toolUseId,
+          name,
+          input: parameters,
+          success: !result.isError,
           content: result.content.map((c): TextBlock | ImageBlock => {
             if (c.type === "text") {
               return {
@@ -143,6 +142,9 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       return {
         type: "tool_result" as const,
         toolUseId,
+        name,
+        input: parameters,
+        success: false,
         content: [{
           type: "text",
           text: `Error executing tool ${name}: ${formatError(error)}`,

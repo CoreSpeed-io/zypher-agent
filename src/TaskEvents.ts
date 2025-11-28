@@ -1,3 +1,4 @@
+import type { FinalMessage } from "./llm/ModelProvider.ts";
 import type { Message } from "./message.ts";
 
 export type TaskEvent =
@@ -26,7 +27,7 @@ export interface TaskTextEvent {
  */
 export interface TaskMessageEvent {
   type: "message";
-  message: Message;
+  message: Message | FinalMessage;
 }
 
 /**

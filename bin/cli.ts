@@ -146,7 +146,7 @@ async function main(): Promise<void> {
 
     console.log(
       "🔧 Registered tools:",
-      Array.from(mcpServerManager.getAllTools().keys()).join(", "),
+      Array.from(mcpServerManager.tools.keys()).join(", "),
     );
 
     await runAgentInTerminal(agent, modelToUse);

@@ -17,6 +17,7 @@
  * - SSEClientTransport with OAuth for HTTP server communication
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type {
   CallToolResult,
@@ -28,8 +29,9 @@ import { jsonToZod } from "./utils.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import { formatError, isAbortError } from "../error.ts";
 import { assert } from "@std/assert";
-import { connectToServer } from "./connect.ts";
+import { connectToServer, type OAuthOptions } from "./connect.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
+import { from, map, type Observable } from "rxjs";
 
 import { z } from "zod";
 
@@ -134,17 +136,20 @@ export interface McpClientOptions {
   name?: string;
   /** Optional version of the client */
   version?: string;
+  /** Optional OAuth configuration for authenticated connections */
+  oauth?: OAuthOptions;
 }
 
-type McpClientStatus =
-  | "disconnected" // Not connected, not trying to connect
-  | "connecting" // In process of connecting
-  | "connected" // Successfully connected
-  | "disconnecting" // In process of disconnecting
-  | "disconnectingDueToError" // Disconnecting due to an error
-  | "error" // Connection failed, can retry
-  | "aborting" // Aborting connection attempt
-  | "disposed"; // Being disposed (final state)
+/** Possible state values from the McpClient state machine */
+export type McpClientStatus =
+  | "disconnected"
+  | { connecting: "initializing" | "awaitingOAuth" }
+  | { connected: "initial" | "toolDiscovered" }
+  | "disconnecting"
+  | "disconnectingDueToError"
+  | "error"
+  | "aborting"
+  | "disposed";
 
 // XState machine events - simplified to only result events
 type McpClientEvent =
@@ -155,13 +160,45 @@ type McpClientEvent =
   | { type: "connectionSuccess" }
   | { type: "updateDesiredState"; desiredState: McpClientDesiredState }
   | { type: "toolDiscovered"; tools: Tool[] }
-  | { type: "error"; error: Error };
+  | { type: "error"; error: Error }
+  | { type: "oauthRequired"; authorizationUrl: string };
 
 type McpClientDesiredState = "connected" | "disconnected" | "disposed";
 
 interface McpClientContext {
   desiredState: McpClientDesiredState;
   lastError?: Error;
+  /** OAuth authorization URL when awaiting user authorization */
+  oauthUrl?: string;
+}
+
+/**
+ * Wraps an OAuthClientProvider to intercept redirectToAuthorization calls.
+ * This allows capturing the authorization URL and updating the state machine
+ * without coupling to any specific provider implementation.
+ */
+function wrapAuthProvider(
+  provider: OAuthClientProvider,
+  onRedirect: (url: string) => void,
+): OAuthClientProvider {
+  return {
+    get redirectUrl() {
+      return provider.redirectUrl;
+    },
+    get clientMetadata() {
+      return provider.clientMetadata;
+    },
+    clientInformation: provider.clientInformation.bind(provider),
+    saveClientInformation: provider.saveClientInformation?.bind(provider),
+    tokens: provider.tokens.bind(provider),
+    saveTokens: provider.saveTokens.bind(provider),
+    codeVerifier: provider.codeVerifier.bind(provider),
+    saveCodeVerifier: provider.saveCodeVerifier.bind(provider),
+    redirectToAuthorization: async (authorizationUrl: URL) => {
+      onRedirect(authorizationUrl.toString());
+      await provider.redirectToAuthorization(authorizationUrl);
+    },
+  };
 }
 
 /**
@@ -171,6 +208,7 @@ export class McpClient {
   readonly #context: ZypherContext;
   readonly #client: Client;
   readonly #serverEndpoint: McpServerEndpoint;
+  readonly #oauthOptions?: OAuthOptions;
   readonly #machine;
   readonly #actor;
 
@@ -200,6 +238,7 @@ export class McpClient {
       version: clientOptions?.version ?? "1.0.0",
     });
     this.#serverEndpoint = serverEndpoint;
+    this.#oauthOptions = clientOptions?.oauth;
 
     // Create and start the XState machine
     this.#machine = setup({
@@ -251,21 +290,37 @@ export class McpClient {
           ],
         },
         connecting: {
+          initial: "initializing",
           entry: { type: "connect" },
           on: {
             connectionSuccess: {
               target: "connected",
+              actions: assign({ oauthUrl: () => undefined }),
             },
             connectionFailed: {
               target: "error",
               actions: assign({
                 lastError: ({ event }) => event.error,
+                oauthUrl: () => undefined,
               }),
             },
           },
           always: {
             target: "aborting",
             guard: { type: "desiredNotConnected" },
+          },
+          states: {
+            initializing: {
+              on: {
+                oauthRequired: {
+                  target: "awaitingOAuth",
+                  actions: assign({
+                    oauthUrl: ({ event }) => event.authorizationUrl,
+                  }),
+                },
+              },
+            },
+            awaitingOAuth: {},
           },
         },
         connected: {
@@ -342,14 +397,6 @@ export class McpClient {
 
     this.#actor = createActor(this.#machine);
     this.#actor.start();
-
-    // Subscribe to state changes for logging
-    this.#actor.subscribe((snapshot) => {
-      console.log(`McpClient [${this.#serverEndpoint.id}] state transition:`, {
-        currentState: snapshot.value,
-        desiredState: snapshot.context.desiredState,
-      });
-    });
   }
 
   /**
@@ -359,16 +406,31 @@ export class McpClient {
   async #connect(): Promise<void> {
     const signal = this.#connectAbortController.signal;
 
+    // Wrap the auth provider to intercept redirectToAuthorization
+    let wrappedOAuthOptions: OAuthOptions | undefined;
+    if (this.#oauthOptions) {
+      const wrappedProvider = wrapAuthProvider(
+        this.#oauthOptions.authProvider,
+        (url) => {
+          this.#actor.send({ type: "oauthRequired", authorizationUrl: url });
+        },
+      );
+      wrappedOAuthOptions = {
+        ...this.#oauthOptions,
+        authProvider: wrappedProvider,
+      };
+    }
+
     try {
       // Connect using appropriate transport
       this.#transport = await connectToServer(
         this.#context.workingDirectory,
         this.#client,
         this.#serverEndpoint,
-        { signal },
+        { signal, oauth: wrappedOAuthOptions },
       );
 
-      console.log(`McpClient [${this.#serverEndpoint.id}] connected`);
+      // connectionSuccess clears oauthUrl automatically via state machine action
       this.#actor.send({ type: "connectionSuccess" });
     } catch (error) {
       if (isAbortError(error)) {
@@ -385,9 +447,6 @@ export class McpClient {
 
     // Once connected, discover tools
     try {
-      console.log(
-        `McpClient [${this.#serverEndpoint.id}] Discovering tools...`,
-      );
       await this.#discoverTools(signal);
       this.#actor.send({ type: "toolDiscovered", tools: this.#tools });
     } catch (error) {
@@ -438,10 +497,8 @@ export class McpClient {
       this.#resourceListChangeCallbacks.clear();
 
       await this.#client.close();
-      console.log(`McpClient [${this.#serverEndpoint.id}] closed`);
-    } catch (error) {
+    } catch (_) {
       // Ignore errors during close - we're cleaning up anyway
-      console.warn("Error during client close, ignoring:", error);
     }
     this.#transport = null;
     this.#tools = [];
@@ -463,6 +520,18 @@ export class McpClient {
         timeout: 30_000, // 30 seconds (30,000 milliseconds)
       },
     );
+  }
+
+  /**
+   * Retries the connection after an error.
+   * Only valid when status is "error".
+   * @throws Error if not in error state
+   */
+  retry(): void {
+    if (this.#actor.getSnapshot().value !== "error") {
+      throw new Error("retry() can only be called when status is 'error'");
+    }
+    this.#actor.send({ type: "retry" });
   }
 
   /**
@@ -500,7 +569,7 @@ export class McpClient {
 
     // At this point, the machine can be in connecting state or connected.initial state
     assert(
-      snapshot.value === "connecting" ||
+      snapshot.matches("connecting") ||
         snapshot.matches({ connected: "initial" }),
     );
 
@@ -541,22 +610,24 @@ export class McpClient {
   }
 
   get status(): McpClientStatus {
-    const snapshot = this.#actor.getSnapshot();
+    return this.#actor.getSnapshot().value;
+  }
 
-    // Use XState's matches method for type-safe state checking
-    if (snapshot.matches("disconnected")) return "disconnected";
-    if (snapshot.matches("connecting")) return "connecting";
-    if (snapshot.matches("connected")) return "connected";
-    if (snapshot.matches("disconnecting")) return "disconnecting";
-    if (snapshot.matches("disconnectingDueToError")) {
-      return "disconnectingDueToError";
-    }
-    if (snapshot.matches("error")) return "error";
-    if (snapshot.matches("aborting")) return "aborting";
-    if (snapshot.matches("disposed")) return "disposed";
+  /**
+   * Observable stream of client status changes
+   * Emits the current McpClientStatus whenever the status changes
+   * @returns Observable that emits status changes (read-only for consumers)
+   */
+  get status$(): Observable<McpClientStatus> {
+    return from(this.#actor).pipe(map(() => this.status));
+  }
 
-    // This should never happen if our state machine is properly defined
-    throw new Error(`Unknown state: ${JSON.stringify(snapshot.value)}`);
+  /**
+   * Gets the OAuth authorization URL when status is "awaitingOAuth".
+   * Returns undefined when not awaiting OAuth authorization.
+   */
+  get pendingOAuthUrl(): string | undefined {
+    return this.#actor.getSnapshot().context.oauthUrl;
   }
 
   /**
@@ -602,9 +673,6 @@ export class McpClient {
     const toolResult = await this.#client.listTools({
       signal,
     });
-    console.log(
-      `McpClient [${this.#serverEndpoint.id}] Discovered ${toolResult.tools.length} tools from server`,
-    );
 
     // Convert MCP tools to our internal tool format
     this.#tools = toolResult.tools.map((tool) => {

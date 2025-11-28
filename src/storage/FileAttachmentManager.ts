@@ -38,15 +38,9 @@ export class FileAttachmentManager {
    * @returns Promise resolving to a FileAttachment object or null if file doesn't exist or isn't supported
    */
   async getFileAttachment(fileId: string): Promise<FileAttachment | null> {
-    if (!this.storageService) {
-      console.error("Storage service not initialized");
-      return null;
-    }
-
     // Get metadata and check if the file exists
     const metadata = await this.storageService.getFileMetadata(fileId);
     if (!metadata) {
-      console.error(`Metadata for file ${fileId} could not be retrieved`);
       return null;
     }
 
@@ -95,27 +89,14 @@ export class FileAttachmentManager {
    * @returns Promise resolving to a FileAttachmentCache object,
    * or null if:
    * - the file ID does not exist on storage service
-   * - fails to cache the file attachment
-   * - the storage service is not initialized
    */
   async cacheFileAttachment(
     fileId: string,
   ): Promise<FileAttachmentCache | null> {
-    if (!this.storageService) {
-      console.error("Storage service not initialized");
-      return null;
-    }
-
     const cachePath = this.getFileAttachmentCachePath(fileId);
     if (!await fileExists(cachePath)) {
       // Download the file attachment from storage service to cache path
-      try {
-        await this.storageService.downloadFile(fileId, cachePath);
-        console.log("Cached file attachment", fileId, cachePath);
-      } catch (error) {
-        console.log("Failed to cache file attachment", fileId, error);
-        return null;
-      }
+      await this.storageService.downloadFile(fileId, cachePath);
     }
 
     return {

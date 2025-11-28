@@ -41,7 +41,7 @@ export interface OAuthOptions {
  * @param workingDirectory The working directory to use for the MCP server (e.g. for CLI servers)
  * @param client The MCP client instance
  * @param serverEndpoint The server endpoint configuration (either CLI or remote)
- * @param signal Optional abort signal for cancellation
+ * @param options Optional configuration including abort signal and OAuth settings
  * @returns Promise that resolves to the transport when connected
  */
 export async function connectToServer(
@@ -50,6 +50,7 @@ export async function connectToServer(
   serverEndpoint: McpServerEndpoint,
   options?: {
     signal?: AbortSignal;
+    oauth?: OAuthOptions;
   },
 ): Promise<Transport> {
   // Connect using appropriate transport
@@ -64,7 +65,7 @@ export async function connectToServer(
     return await connectToRemoteServer(
       client,
       serverEndpoint.remote,
-      { signal: options?.signal },
+      { signal: options?.signal, oauth: options?.oauth },
     );
   }
 }
@@ -85,18 +86,13 @@ export async function connectToCliServer(
     signal?: AbortSignal;
   },
 ): Promise<Transport> {
-  console.log("CLI transport config", commandConfig);
-
   const transport = new StdioClientTransport({
     command: commandConfig.command,
     args: commandConfig.args,
     env: commandConfig.env,
     cwd: workingDirectory,
   });
-
   await client.connect(transport, { signal: options?.signal });
-  console.log(`Connected using CLI transport: ${commandConfig.command}`);
-
   return transport;
 }
 
@@ -125,13 +121,10 @@ export async function connectToRemoteServer(
     oauth?: OAuthOptions;
   },
 ): Promise<Transport> {
-  const mcpServerUrl = new URL(remoteConfig.url);
-
-  console.log(`Connecting to remote MCP server: ${mcpServerUrl}`);
-
   // Following the MCP specification for backwards compatibility:
   // - Attempts to use StreamableHTTPClientTransport first
   // - If that fails with 4xx status, falls back to SSEClientTransport
+  const mcpServerUrl = new URL(remoteConfig.url);
 
   try {
     return await attemptToConnect(
@@ -188,6 +181,7 @@ async function attemptToConnect(
   const transport = buildTransport();
   try {
     await client.connect(transport, { signal: options?.signal });
+    // will throw InvalidGrantError if the authorization code is invalid after the callback handler returns
     return transport;
   } catch (error) {
     if (error instanceof UnauthorizedError) {
