@@ -1,5 +1,4 @@
-import type { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import * as z from "zod";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 /**
@@ -75,7 +74,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
   ) => Promise<ToolResult>;
 }): Tool<InferParams<T>> {
   // Convert Zod schema to JSON Schema
-  const jsonSchema = zodToJsonSchema(options.schema, { target: "jsonSchema7" });
+  const jsonSchema = z.toJSONSchema(options.schema);
 
   return {
     name: options.name,
