@@ -181,6 +181,7 @@ async function attemptToConnect(
   const transport = buildTransport();
   try {
     await client.connect(transport, { signal: options?.signal });
+    // will throw InvalidGrantError if the authorization code is invalid after the callback handler returns
     return transport;
   } catch (error) {
     if (error instanceof UnauthorizedError) {
