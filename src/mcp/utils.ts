@@ -40,7 +40,7 @@ export function createZodType(property: {
     number: () => z.number(),
     boolean: () => z.boolean(),
     array: () => z.array(z.any()),
-    object: () => z.record(z.any()),
+    object: () => z.record(z.string(), z.any()),
   };
 
   const zodType = typeMap[property.type]?.() ?? z.any();
