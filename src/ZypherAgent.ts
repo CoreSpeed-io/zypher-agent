@@ -4,10 +4,12 @@ import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
 import {
+  addTokenUsage,
   Completer,
   createEmittingMessageArray,
   getSystemPrompt,
 } from "./utils/mod.ts";
+import type { TokenUsage } from "./llm/mod.ts";
 import { AbortError, isAbortError, TaskConcurrencyError } from "./error.ts";
 import type { ModelProvider } from "./llm/mod.ts";
 import { type Observable, Subject } from "rxjs";
@@ -348,6 +350,10 @@ export class ZypherAgent {
 
       const maxIterations = options?.maxIterations ??
         this.#config.maxIterations;
+
+      // Cumulative token usage tracker (undefined until we receive usage data)
+      let cumulativeUsage: TokenUsage | undefined;
+
       while (iterations < maxIterations) {
         // Check for abort signal early
         if (mergedSignal.aborted) {
@@ -373,6 +379,16 @@ export class ZypherAgent {
         }
 
         const finalMessage = await stream.finalMessage();
+
+        // Emit usage event if provider returned usage data
+        if (finalMessage.usage) {
+          cumulativeUsage = addTokenUsage(cumulativeUsage, finalMessage.usage);
+          taskEventSubject.next({
+            type: "usage",
+            usage: finalMessage.usage,
+            cumulativeUsage,
+          });
+        }
 
         // Create the assistant message using the complete content from finalMessage
         const assistantMessage: Message = {
@@ -421,7 +437,11 @@ export class ZypherAgent {
         iterations++;
       }
 
-      // Task completed successfully
+      // Task completed successfully - emit completed event with final usage
+      taskEventSubject.next({
+        type: "completed",
+        totalUsage: cumulativeUsage,
+      });
     } catch (error) {
       if (isAbortError(error)) {
         // Abort/cancellation is an expected control flow, not an error.
