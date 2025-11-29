@@ -1,4 +1,4 @@
-import type { FinalMessage } from "./llm/ModelProvider.ts";
+import type { FinalMessage, TokenUsage } from "./llm/ModelProvider.ts";
 import type { Message } from "./message.ts";
 
 export type TaskEvent =
@@ -10,7 +10,9 @@ export type TaskEvent =
   | TaskToolUsePendingApprovalEvent
   | TaskToolUseRejectedEvent
   | TaskToolUseApprovedEvent
-  | TaskCancelledEvent;
+  | TaskCancelledEvent
+  | TaskUsageEvent
+  | TaskCompletedEvent;
 
 /**
  * Event for streaming incremental content updates
@@ -93,4 +95,24 @@ export interface TaskToolUseApprovedEvent {
 export interface TaskCancelledEvent {
   type: "cancelled";
   reason: "user" | "timeout";
+}
+
+/**
+ * Event emitted after each LLM response with token usage information
+ */
+export interface TaskUsageEvent {
+  type: "usage";
+  /** Token usage for the current LLM call */
+  usage: TokenUsage;
+  /** Cumulative token usage across all LLM calls in this task */
+  cumulativeUsage: TokenUsage;
+}
+
+/**
+ * Event emitted when a task completes successfully
+ */
+export interface TaskCompletedEvent {
+  type: "completed";
+  /** Total token usage for the entire task (undefined if provider didn't return usage data) */
+  totalUsage?: TokenUsage;
 }

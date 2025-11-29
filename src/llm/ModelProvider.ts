@@ -76,6 +76,30 @@ export interface ModelStream {
   finalMessage(): Promise<FinalMessage>;
 }
 
+/**
+ * Token usage information from an LLM response.
+ */
+export interface TokenUsage {
+  /** Input/prompt token usage */
+  input: {
+    /** Total input tokens */
+    total: number;
+    /** Tokens used to create new cache entries (Anthropic only) */
+    cacheCreation?: number;
+    /** Tokens read from cache */
+    cacheRead?: number;
+  };
+  /** Output/completion token usage */
+  output: {
+    /** Total output tokens */
+    total: number;
+    /** Tokens used for reasoning/thinking (OpenAI reasoning models) */
+    thinking?: number;
+  };
+  /** Total tokens (input.total + output.total) */
+  total: number;
+}
+
 export interface FinalMessage extends Message {
   /**
    * The reason the model stopped generating.
@@ -85,6 +109,8 @@ export interface FinalMessage extends Message {
    *  "tool_use" - the model invoked one or more tools
    */
   stop_reason: "end_turn" | "max_tokens" | "stop_sequence" | "tool_use";
+  /** Token usage for this response (undefined if provider doesn't return usage data) */
+  usage?: TokenUsage;
 }
 
 /**

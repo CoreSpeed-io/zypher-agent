@@ -6,6 +6,7 @@ import type {
   ModelStream,
   ProviderInfo,
   StreamChatParams,
+  TokenUsage,
 } from "./ModelProvider.ts";
 import { Anthropic, type ClientOptions } from "@anthropic-ai/sdk";
 import type { ContentBlock, ImageBlock, Message } from "../message.ts";
@@ -344,6 +345,22 @@ function mapA7cMessageToMessage(message: Anthropic.Message): FinalMessage {
     ): block is ContentBlock => block !== null),
     timestamp: new Date(),
     stop_reason: mapA7cStopReason(message.stop_reason),
+    usage: mapA7cUsage(message.usage),
+  };
+}
+
+/** Map Anthropic usage to our internal TokenUsage */
+function mapA7cUsage(usage: Anthropic.Usage): TokenUsage {
+  return {
+    input: {
+      total: usage.input_tokens,
+      cacheCreation: usage.cache_creation_input_tokens ?? undefined,
+      cacheRead: usage.cache_read_input_tokens ?? undefined,
+    },
+    output: {
+      total: usage.output_tokens,
+    },
+    total: usage.input_tokens + usage.output_tokens,
   };
 }
 

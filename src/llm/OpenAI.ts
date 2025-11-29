@@ -8,6 +8,7 @@ import type {
   ModelStream,
   ProviderInfo,
   StreamChatParams,
+  TokenUsage,
 } from "./ModelProvider.ts";
 import { type ClientOptions, OpenAI } from "@openai/openai";
 import { type ImageBlock, isFileAttachment, type Message } from "../message.ts";
@@ -145,7 +146,7 @@ export class OpenAIModelProvider implements ModelProvider {
         const message = completion.choices[0].message;
         subscriber.next({
           type: "message",
-          message: mapOaiMessageToMessage(message),
+          message: mapOaiMessageToMessage(message, completion.usage),
         });
       });
 
@@ -157,8 +158,11 @@ export class OpenAIModelProvider implements ModelProvider {
     return {
       events: observable,
       finalMessage: async (): Promise<FinalMessage> => {
-        const message = await stream.finalMessage();
-        return mapOaiMessageToMessage(message);
+        const completion = await stream.finalChatCompletion();
+        return mapOaiMessageToMessage(
+          completion.choices[0].message,
+          completion.usage,
+        );
       },
     };
   }
@@ -323,6 +327,7 @@ Cached at: ${cache.cachePath}`,
 /** Map OpenAI ChatCompletionMessage to our internal FinalMessage */
 function mapOaiMessageToMessage(
   message: OpenAI.Chat.Completions.ChatCompletionMessage,
+  usage?: OpenAI.Completions.CompletionUsage,
 ): FinalMessage {
   return {
     role: message.role,
@@ -340,6 +345,22 @@ function mapOaiMessageToMessage(
     ],
     stop_reason: message.tool_calls?.length ? "tool_use" : "end_turn",
     timestamp: new Date(),
+    usage: usage ? mapOaiUsage(usage) : undefined,
+  };
+}
+
+/** Map OpenAI usage to our internal TokenUsage */
+function mapOaiUsage(usage: OpenAI.Completions.CompletionUsage): TokenUsage {
+  return {
+    input: {
+      total: usage.prompt_tokens,
+      cacheRead: usage.prompt_tokens_details?.cached_tokens ?? undefined,
+    },
+    output: {
+      total: usage.completion_tokens,
+      thinking: usage.completion_tokens_details?.reasoning_tokens ?? undefined,
+    },
+    total: usage.total_tokens,
   };
 }
 

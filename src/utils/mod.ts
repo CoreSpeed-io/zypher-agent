@@ -3,6 +3,7 @@ export * from "./prompt.ts";
 export * from "./completer.ts";
 export * from "./context.ts";
 export * from "./EmittingMessageArray.ts";
+export * from "./tokenUsage.ts";
 
 /**
  * Safely runs a command and guarantees it returns its output,
