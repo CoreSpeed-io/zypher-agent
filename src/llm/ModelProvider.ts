@@ -86,7 +86,7 @@ export interface TokenUsage {
     total: number;
     /** Tokens used to create new cache entries (Anthropic only) */
     cacheCreation?: number;
-    /** Tokens read from cache */
+    /** Tokens read from cache (cache hit) */
     cacheRead?: number;
   };
   /** Output/completion token usage */
