@@ -1,17 +1,6 @@
 import type { TokenUsage } from "../llm/ModelProvider.ts";
 
 /**
- * Create an empty TokenUsage object with all fields initialized to zero
- */
-export function emptyTokenUsage(): TokenUsage {
-  return {
-    input: { total: 0, cacheCreation: 0, cacheRead: 0 },
-    output: { total: 0, thinking: 0 },
-    total: 0,
-  };
-}
-
-/**
  * Add an optional number, preserving undefined if both are undefined.
  */
 function addOptional(a?: number, b?: number): number | undefined {
