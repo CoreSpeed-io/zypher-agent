@@ -1,5 +1,6 @@
 import * as z from "zod";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { ZypherContext } from "../ZypherAgent.ts";
 
 /**
  * Base interface for tool parameters
@@ -9,9 +10,7 @@ export type BaseParams = Record<string, unknown>;
 /**
  * Execution context provided to tools
  */
-export interface ToolExecutionContext {
-  workingDirectory: string;
-}
+export type ToolExecutionContext = ZypherContext;
 
 /**
  * The result of a tool execution

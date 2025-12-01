@@ -429,7 +429,7 @@ export class ZypherAgent {
           messages: emittingMessages,
           lastResponse: responseText,
           tools: toolCalls,
-          workingDirectory: this.#context.workingDirectory,
+          zypherContext: this.#context,
           stopReason: finalMessage.stop_reason,
           signal: mergedSignal,
           eventSubject: taskEventSubject,

@@ -23,7 +23,6 @@ import chalk from "chalk";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
-const DEFAULT_BACKUP_DIR = "./.backup";
 
 const providerType = new EnumType(["anthropic", "openai"]);
 
@@ -50,7 +49,6 @@ const { options: cli } = await new Command()
     "--openai-api-key <openaiApiKey:string>",
     "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
   )
-  .option("--backup-dir <backupDir:string>", "Directory to store backups")
   .parse(Deno.args);
 
 function inferProvider(
@@ -140,8 +138,7 @@ async function main(): Promise<void> {
       mcpServerManager.registerTool(ImageEditTool);
     }
 
-    const backupDir = cli.backupDir ?? DEFAULT_BACKUP_DIR;
-    const { EditFileTool } = createEditFileTools(backupDir);
+    const { EditFileTool } = createEditFileTools();
     mcpServerManager.registerTool(EditFileTool);
 
     console.log(

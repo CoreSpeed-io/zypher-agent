@@ -14,10 +14,11 @@ import { ensureDir } from "@std/fs";
  * Create file editing tools with an optional backup directory
  *
  * @param backupDir - The directory where file backups will be stored before edits are applied.
- *  Defaults to ./backup if not provided.
+ *  If not provided, defaults to {workspaceDataDir}/backup.
+ *  If a relative path is provided, it will be resolved relative to the working directory.
  * @returns An object containing the configured file editing tool
  */
-export function createEditFileTools(backupDir: string = "./backup"): {
+export function createEditFileTools(backupDir?: string): {
   EditFileTool: Tool<{
     targetFile: string;
     explanation: string;
@@ -120,7 +121,10 @@ Available action types:
     ): Promise<ToolResult> => {
       const target = resolve(ctx.workingDirectory, params.targetFile);
 
-      const resolvedBackupDir = resolve(ctx.workingDirectory, backupDir);
+      // Use provided backupDir (resolved relative to workingDirectory) or default to workspaceDataDir/backup
+      const resolvedBackupDir = backupDir
+        ? resolve(ctx.workingDirectory, backupDir)
+        : join(ctx.workspaceDataDir, "backup");
       await ensureDir(resolvedBackupDir);
 
       // Check if file exists and create backup if needed
@@ -232,7 +236,10 @@ Available action types:
 
     execute: async (params, ctx: ToolExecutionContext): Promise<ToolResult> => {
       const targetResolved = resolve(ctx.workingDirectory, params.targetFile);
-      const backupResolvedDir = resolve(ctx.workingDirectory, backupDir);
+      // Use provided backupDir (resolved relative to workingDirectory) or default to workspaceDataDir/backup
+      const backupResolvedDir = backupDir
+        ? resolve(ctx.workingDirectory, backupDir)
+        : join(ctx.workspaceDataDir, "backup");
 
       const fileName = basename(targetResolved);
 
