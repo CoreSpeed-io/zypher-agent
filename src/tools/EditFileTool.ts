@@ -16,34 +16,9 @@ import { ensureDir } from "@std/fs";
  * @param backupDir - The directory where file backups will be stored before edits are applied.
  *  If not provided, defaults to {workspaceDataDir}/backup.
  *  If a relative path is provided, it will be resolved relative to the working directory.
- * @returns An object containing the configured file editing tool
+ * @returns An array of edit tools (EditFileTool, UndoFileTool)
  */
-export function createEditFileTools(backupDir?: string): {
-  EditFileTool: Tool<{
-    targetFile: string;
-    explanation: string;
-    action:
-      | { type: "overwrite"; content: string }
-      | { type: "insert"; content: string; line: number }
-      | {
-        type: "replace_str";
-        oldContent: string;
-        newContent: string;
-        replaceAll?: boolean;
-      }
-      | {
-        type: "replace_regex";
-        pattern: string;
-        replacement: string;
-        flags?: string;
-      }
-      | { type: "patch"; diff: string };
-  }>;
-  UndoFileTool: Tool<{
-    targetFile: string;
-    explanation: string;
-  }>;
-} {
+export function createEditFileTools(backupDir?: string): Tool[] {
   const EditFileTool = createTool({
     name: "edit_file",
     description:
@@ -256,5 +231,5 @@ Available action types:
     },
   });
 
-  return { EditFileTool, UndoFileTool };
+  return [EditFileTool, UndoFileTool];
 }
