@@ -136,6 +136,15 @@ export class McpServerManager {
       );
     }
 
+    // Validate server ID format for tool naming compatibility
+    // Anthropic requires tool names to match: ^[a-zA-Z0-9_-]{1,128}$
+    const VALID_SERVER_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
+    if (!VALID_SERVER_ID_PATTERN.test(server.id)) {
+      throw new Error(
+        `Invalid server ID "${server.id}". Server IDs must only contain alphanumeric characters, underscores, and hyphens to be compatible with LLM tool naming requirements.`,
+      );
+    }
+
     // Create MCP client
     const client = new McpClient(this.context, server, { oauth });
 

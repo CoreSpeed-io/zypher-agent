@@ -43,7 +43,7 @@ describe("convertServerDetailToEndpoint", () => {
     const result = convertServerDetailToEndpoint(serverDetail);
 
     assertEquals(result, {
-      id: "test-scope/test-package",
+      id: "test-package",
       displayName: "Remote MCP Server",
       type: "remote",
       remote: {
@@ -71,7 +71,7 @@ describe("convertServerDetailToEndpoint", () => {
     const result = convertServerDetailToEndpoint(serverDetail);
 
     assertEquals(result, {
-      id: "test-scope/test-package",
+      id: "test-package",
       displayName: "Remote MCP Server",
       type: "remote",
       remote: {
@@ -108,7 +108,7 @@ describe("convertServerDetailToEndpoint", () => {
     const result = convertServerDetailToEndpoint(serverDetail);
 
     assertEquals(result, {
-      id: "test-scope/test-package",
+      id: "test-package",
       displayName: "NPM MCP Server",
       type: "command",
       command: {
@@ -182,7 +182,7 @@ describe("convertServerDetailToEndpoint", () => {
     const result = convertServerDetailToEndpoint(serverDetail);
 
     assertEquals(result, {
-      id: "test-scope/test-package",
+      id: "test-package",
       displayName: "NPM MCP Server with Named Args",
       type: "command",
       command: {
@@ -249,7 +249,7 @@ describe("convertServerDetailToEndpoint", () => {
     const result = convertServerDetailToEndpoint(serverDetail);
 
     assertEquals(result, {
-      id: "test-scope/test-package",
+      id: "test-package",
       displayName: "Python MCP Server",
       type: "command",
       command: {
@@ -277,7 +277,7 @@ describe("convertServerDetailToEndpoint", () => {
     const result = convertServerDetailToEndpoint(serverDetail);
 
     assertEquals(result, {
-      id: "test-scope/test-package",
+      id: "test-package",
       displayName: "UV MCP Server",
       type: "command",
       command: {
@@ -305,7 +305,7 @@ describe("convertServerDetailToEndpoint", () => {
     const result = convertServerDetailToEndpoint(serverDetail);
 
     assertEquals(result, {
-      id: "test-scope/test-package",
+      id: "test-package",
       displayName: "Docker MCP Server",
       type: "command",
       command: {
