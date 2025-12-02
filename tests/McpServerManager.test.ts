@@ -1,21 +1,20 @@
-import {
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  it,
-} from "@std/testing/bdd";
+import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
 import { expect } from "@std/expect";
 import { McpServerManager } from "../src/mcp/McpServerManager.ts";
 import type { McpServerEndpoint } from "../src/mcp/mod.ts";
 import type { Tool } from "../src/tools/mod.ts";
-import { createZypherContext } from "@zypher/utils/mod.ts";
 import type { ZypherContext } from "@zypher/ZypherAgent.ts";
 import type { McpServerManagerEvent } from "../src/mcp/McpServerManager.ts";
 
 describe("McpServerManager", () => {
-  let context: ZypherContext;
   let manager: McpServerManager;
+
+  const mockContext: ZypherContext = {
+    workingDirectory: "/tmp/test-workspace",
+    zypherDir: "/tmp/.zypher",
+    workspaceDataDir: "/tmp/.zypher/test-workspace",
+    fileAttachmentCacheDir: "/tmp/.zypher/cache/files",
+  };
 
   // Helper to create a server endpoint for testing.
   // We use a fake command ("echo") because tests register servers with enabled=false,
@@ -32,6 +31,7 @@ describe("McpServerManager", () => {
       },
     };
   }
+
   // Helper to create a mock tool
   function createMockTool(name: string): Tool {
     return {
@@ -42,12 +42,8 @@ describe("McpServerManager", () => {
     };
   }
 
-  beforeAll(async () => {
-    context = await createZypherContext(Deno.cwd());
-  });
-
   beforeEach(() => {
-    manager = new McpServerManager(context);
+    manager = new McpServerManager(mockContext);
   });
 
   afterEach(async () => {

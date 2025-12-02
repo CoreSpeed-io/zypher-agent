@@ -35,7 +35,9 @@ jobs:
         run: deno check .
 
       - name: Run unit tests
-        run: deno test --ignore=**/*.integration.test.ts
+        # --allow-env required for MCP SDK transitive dependencies
+        # (cross-spawn/which reads OSTYPE at module load)
+        run: deno test --allow-env --ignore=**/*.integration.test.ts
 
       - name: JSR publish dry run
         run: deno publish --dry-run --allow-slow-types
