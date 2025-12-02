@@ -4,9 +4,9 @@ import {
   type Tool,
   type ToolExecutionContext,
   type ToolResult,
-} from "./mod.ts";
+} from "../mod.ts";
 import { applyPatch } from "diff";
-import { fileExists } from "../utils/data.ts";
+import { fileExists } from "../../utils/data.ts";
 import { basename, dirname, join, resolve } from "@std/path";
 import { ensureDir } from "@std/fs";
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
+import { createTool, type Tool, type ToolExecutionContext } from "../mod.ts";
 
 export const GrepSearchTool: Tool<{
   query: string;
