@@ -3,10 +3,10 @@ import { expect } from "@std/expect";
 import type { Tool } from "@zypher/tools/mod.ts";
 import type {
   McpServerEndpoint,
-  McpServerManager,
   McpServerManagerEvent,
   ZypherContext,
 } from "@zypher/mod.ts";
+import { McpServerManager } from "@zypher/mod.ts";
 
 describe("McpServerManager", () => {
   let manager: McpServerManager;
