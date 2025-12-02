@@ -73,7 +73,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
     }
 
     const errors = await this.detectErrors(
-      context.workingDirectory,
+      context.zypherContext.workingDirectory,
       { signal: context.signal },
     );
 

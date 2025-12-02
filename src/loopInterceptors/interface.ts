@@ -3,6 +3,7 @@ import type { Tool } from "../tools/mod.ts";
 import type { FinalMessage } from "../llm/mod.ts";
 import type { Subject } from "rxjs";
 import type { TaskEvent } from "../TaskEvents.ts";
+import type { ZypherContext } from "../ZypherAgent.ts";
 
 /**
  * Decision made by a loop interceptor
@@ -24,8 +25,8 @@ export interface InterceptorContext {
   lastResponse: string;
   /** Available tools */
   tools: Tool[];
-  /** Current working directory */
-  workingDirectory: string;
+  /** The zypher context containing workspace and environment information */
+  zypherContext: ZypherContext;
   /** Stop reason from the LLM response (e.g., "end_turn", "max_tokens", "tool_use") */
   stopReason?: FinalMessage["stop_reason"];
   /** Abort signal for cancellation */

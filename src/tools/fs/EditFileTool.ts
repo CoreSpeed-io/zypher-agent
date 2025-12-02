@@ -4,9 +4,9 @@ import {
   type Tool,
   type ToolExecutionContext,
   type ToolResult,
-} from "./mod.ts";
+} from "../mod.ts";
 import { applyPatch } from "diff";
-import { fileExists } from "../utils/data.ts";
+import { fileExists } from "../../utils/data.ts";
 import { basename, dirname, join, resolve } from "@std/path";
 import { ensureDir } from "@std/fs";
 
@@ -14,35 +14,11 @@ import { ensureDir } from "@std/fs";
  * Create file editing tools with an optional backup directory
  *
  * @param backupDir - The directory where file backups will be stored before edits are applied.
- *  Defaults to ./backup if not provided.
- * @returns An object containing the configured file editing tool
+ *  If not provided, defaults to {workspaceDataDir}/backup.
+ *  If a relative path is provided, it will be resolved relative to the working directory.
+ * @returns An array of edit tools (EditFileTool, UndoFileTool)
  */
-export function createEditFileTools(backupDir: string = "./backup"): {
-  EditFileTool: Tool<{
-    targetFile: string;
-    explanation: string;
-    action:
-      | { type: "overwrite"; content: string }
-      | { type: "insert"; content: string; line: number }
-      | {
-        type: "replace_str";
-        oldContent: string;
-        newContent: string;
-        replaceAll?: boolean;
-      }
-      | {
-        type: "replace_regex";
-        pattern: string;
-        replacement: string;
-        flags?: string;
-      }
-      | { type: "patch"; diff: string };
-  }>;
-  UndoFileTool: Tool<{
-    targetFile: string;
-    explanation: string;
-  }>;
-} {
+export function createEditFileTools(backupDir?: string): Tool[] {
   const EditFileTool = createTool({
     name: "edit_file",
     description:
@@ -120,7 +96,10 @@ Available action types:
     ): Promise<ToolResult> => {
       const target = resolve(ctx.workingDirectory, params.targetFile);
 
-      const resolvedBackupDir = resolve(ctx.workingDirectory, backupDir);
+      // Use provided backupDir (resolved relative to workingDirectory) or default to workspaceDataDir/backup
+      const resolvedBackupDir = backupDir
+        ? resolve(ctx.workingDirectory, backupDir)
+        : join(ctx.workspaceDataDir, "backup");
       await ensureDir(resolvedBackupDir);
 
       // Check if file exists and create backup if needed
@@ -232,7 +211,10 @@ Available action types:
 
     execute: async (params, ctx: ToolExecutionContext): Promise<ToolResult> => {
       const targetResolved = resolve(ctx.workingDirectory, params.targetFile);
-      const backupResolvedDir = resolve(ctx.workingDirectory, backupDir);
+      // Use provided backupDir (resolved relative to workingDirectory) or default to workspaceDataDir/backup
+      const backupResolvedDir = backupDir
+        ? resolve(ctx.workingDirectory, backupDir)
+        : join(ctx.workspaceDataDir, "backup");
 
       const fileName = basename(targetResolved);
 
@@ -249,5 +231,5 @@ Available action types:
     },
   });
 
-  return { EditFileTool, UndoFileTool };
+  return [EditFileTool, UndoFileTool];
 }
