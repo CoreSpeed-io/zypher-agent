@@ -136,7 +136,7 @@ export function convertServerDetailToEndpoint(
     const headers = convertToRecord(remote.headers);
 
     return {
-      id: serverDetail.scope + "/" + serverDetail.packageName,
+      id: serverDetail.packageName,
       displayName: serverDetail.displayName,
       type: "remote",
       remote: {
@@ -164,7 +164,7 @@ export function convertServerDetailToEndpoint(
     const env = convertToRecord(pkg.environmentVariables);
 
     return {
-      id: serverDetail.scope + "/" + serverDetail.packageName,
+      id: serverDetail.packageName,
       displayName: serverDetail.displayName,
       type: "command",
       command: {
