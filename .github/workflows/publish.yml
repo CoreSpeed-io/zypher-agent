@@ -55,12 +55,14 @@ jobs:
         run: deno install --frozen=true
 
       - name: Run validation
+        # --allow-env required in unit tests for MCP SDK transitive dependencies
+        # (cross-spawn/which reads OSTYPE at module load)
         run: |
           echo "🔍 Validating v${{ needs.check-version-change.outputs.new-version }}..."
           deno fmt --check
           deno lint
           deno check .
-          deno test --ignore=**/*.integration.test.ts
+          deno test --allow-env --ignore=**/*.integration.test.ts
 
       - name: Create Git Tag
         run: |
