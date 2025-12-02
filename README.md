@@ -32,33 +32,23 @@
 #### Using JSR
 
 ```bash
-# In your Deno project: 
-import { ZypherAgent } from "jsr:@corespeed/zypher@^0.4.2";
+deno add jsr:@corespeed/zypher
 ```
 
 ### SDK Usage
 
 ```typescript
-import {
-  AnthropicModelProvider,
-  createZypherContext,
-  EditFileTool,
-  ReadFileTool,
-  ZypherAgent,
-} from "@corespeed/zypher";
+import { AnthropicModelProvider, createZypherAgent } from "@corespeed/zypher";
+import { createFileSystemTools } from "@corespeed/zypher/tools";
+import { eachValueFrom } from "rxjs-for-await";
 
-// Initialize context and provider
-const context = await createZypherContext("/path/to/workspace");
-const provider = new AnthropicModelProvider({
-  apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
+const agent = await createZypherAgent({
+  modelProvider: new AnthropicModelProvider({
+    apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
+  }),
+  tools: [...createFileSystemTools()],
+  mcpServers: ["@modelcontextprotocol/sequentialthinking-server"],
 });
-
-// Create agent
-const agent = new ZypherAgent(context, provider);
-
-// Register tools
-agent.mcp.registerTool(ReadFileTool);
-agent.mcp.registerTool(EditFileTool);
 
 // Run task with streaming
 const taskEvents = agent.runTask(
@@ -66,10 +56,8 @@ const taskEvents = agent.runTask(
   "claude-sonnet-4-20250514",
 );
 
-for await (const event of taskEvents) {
-  if (event.type === "text") {
-    console.log(event.content);
-  }
+for await (const event of eachValueFrom(taskEvents)) {
+  console.log(event);
 }
 ```
 

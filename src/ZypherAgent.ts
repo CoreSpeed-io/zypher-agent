@@ -25,6 +25,7 @@ import {
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
+import type { Tool } from "./tools/mod.ts";
 
 /**
  * Function that loads the system prompt for the agent.
@@ -68,6 +69,8 @@ export interface ZypherAgentOptions {
   storageService?: StorageService;
   /** Checkpoint manager for creating and managing git-based checkpoints */
   checkpointManager?: CheckpointManager;
+  /** Tools to register with the agent. */
+  tools?: Tool[];
   /** Override default implementations of core components */
   overrides?: {
     /** Function that loads the system prompt for the agent. Defaults to {@link getSystemPrompt}. */
@@ -140,6 +143,13 @@ export class ZypherAgent {
     }
 
     this.#checkpointManager = options.checkpointManager;
+
+    // Register tools if provided
+    if (options.tools) {
+      for (const tool of options.tools) {
+        this.#mcpServerManager.registerTool(tool);
+      }
+    }
   }
 
   /**
@@ -419,7 +429,7 @@ export class ZypherAgent {
           messages: emittingMessages,
           lastResponse: responseText,
           tools: toolCalls,
-          workingDirectory: this.#context.workingDirectory,
+          zypherContext: this.#context,
           stopReason: finalMessage.stop_reason,
           signal: mergedSignal,
           eventSubject: taskEventSubject,

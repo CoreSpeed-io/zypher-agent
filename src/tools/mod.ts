@@ -1,5 +1,6 @@
 import * as z from "zod";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { ZypherContext } from "../ZypherAgent.ts";
 
 /**
  * Base interface for tool parameters
@@ -9,9 +10,7 @@ export type BaseParams = Record<string, unknown>;
 /**
  * Execution context provided to tools
  */
-export interface ToolExecutionContext {
-  workingDirectory: string;
-}
+export type ToolExecutionContext = ZypherContext;
 
 /**
  * The result of a tool execution
@@ -91,12 +90,9 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
   };
 }
 
-// Tool exports
-export { ReadFileTool } from "./ReadFileTool.ts";
-export { ListDirTool } from "./ListDirTool.ts";
-export { createEditFileTools } from "./EditFileTool.ts";
+// Filesystem tools
+export * from "./fs/mod.ts";
+
+// Other tools
 export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
-export { GrepSearchTool } from "./GrepSearchTool.ts";
-export { FileSearchTool } from "./FileSearchTool.ts";
-export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
 export { createImageTools } from "./ImageTools.ts";

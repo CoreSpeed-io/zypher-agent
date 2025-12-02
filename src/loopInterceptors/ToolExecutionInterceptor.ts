@@ -167,9 +167,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       return { decision: LoopDecision.COMPLETE };
     }
 
-    const toolExecutionContext = {
-      workingDirectory: context.workingDirectory,
-    } satisfies ToolExecutionContext;
+    const toolExecutionContext: ToolExecutionContext = context.zypherContext;
 
     const toolResults = await Promise.all(
       toolBlocks.map(async (block) => {

@@ -1,21 +1,14 @@
 import "@std/dotenv/load";
 import {
   AnthropicModelProvider,
-  createZypherContext,
+  createZypherAgent,
   formatError,
   OpenAIModelProvider,
   runAgentInTerminal,
-  ZypherAgent,
 } from "@zypher/mod.ts";
 import {
-  CopyFileTool,
-  createEditFileTools,
+  createFileSystemTools,
   createImageTools,
-  DeleteFileTool,
-  FileSearchTool,
-  GrepSearchTool,
-  ListDirTool,
-  ReadFileTool,
   RunTerminalCmdTool,
 } from "@zypher/tools/mod.ts";
 import { Command, EnumType } from "@cliffy/command";
@@ -23,7 +16,6 @@ import chalk from "chalk";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
-const DEFAULT_BACKUP_DIR = "./.backup";
 
 const providerType = new EnumType(["anthropic", "openai"]);
 
@@ -50,7 +42,6 @@ const { options: cli } = await new Command()
     "--openai-api-key <openaiApiKey:string>",
     "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
   )
-  .option("--backup-dir <backupDir:string>", "Directory to store backups")
   .parse(Deno.args);
 
 function inferProvider(
@@ -105,48 +96,27 @@ async function main(): Promise<void> {
         baseUrl: cli.baseUrl,
       });
 
-    const workingDirectory = cli.workDir ?? Deno.cwd();
-    const context = await createZypherContext(
-      workingDirectory,
-      {
-        userId: cli.userId,
-      },
-    );
-
-    const agent = new ZypherAgent(
-      context,
-      providerInstance,
-    );
-
-    const mcpServerManager = agent.mcp;
-
-    // Register all available tools
-    mcpServerManager.registerTool(ReadFileTool);
-    mcpServerManager.registerTool(ListDirTool);
-    mcpServerManager.registerTool(RunTerminalCmdTool);
-    mcpServerManager.registerTool(GrepSearchTool);
-    mcpServerManager.registerTool(FileSearchTool);
-    mcpServerManager.registerTool(CopyFileTool);
-    mcpServerManager.registerTool(DeleteFileTool);
-
-    // Image tools are powered by OpenAI only
+    // Build tools list
     const openaiApiKey = cli.provider === "openai"
       ? cli.apiKey
       : cli.openaiApiKey;
 
-    if (openaiApiKey) {
-      const { ImageGenTool, ImageEditTool } = createImageTools(openaiApiKey);
-      mcpServerManager.registerTool(ImageGenTool);
-      mcpServerManager.registerTool(ImageEditTool);
-    }
+    const tools = [
+      ...createFileSystemTools(),
+      RunTerminalCmdTool,
+      ...(openaiApiKey ? createImageTools(openaiApiKey) : []),
+    ];
 
-    const backupDir = cli.backupDir ?? DEFAULT_BACKUP_DIR;
-    const { EditFileTool } = createEditFileTools(backupDir);
-    mcpServerManager.registerTool(EditFileTool);
+    const agent = await createZypherAgent({
+      modelProvider: providerInstance,
+      workingDirectory: cli.workDir,
+      tools,
+      context: { userId: cli.userId },
+    });
 
     console.log(
       "🔧 Registered tools:",
-      Array.from(mcpServerManager.tools.keys()).join(", "),
+      Array.from(agent.mcp.tools.keys()).join(", "),
     );
 
     await runAgentInTerminal(agent, modelToUse);

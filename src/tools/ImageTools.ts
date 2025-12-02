@@ -103,27 +103,9 @@ async function saveImages(
  * Create image tools with a specific OpenAI API key
  *
  * @param openaiApiKey - The OpenAI API key to use for image operations
- * @returns An object containing the configured image generation and editing tools
+ * @returns An array of image tools (ImageGenTool, ImageEditTool)
  */
-export function createImageTools(openaiApiKey: string): {
-  ImageGenTool: Tool<{
-    prompt: string;
-    size: "auto" | "1024x1024" | "1536x1024" | "1024x1536";
-    quality: "auto" | "low" | "medium" | "high";
-    background: "auto" | "transparent" | "opaque";
-    destinationPath: string;
-    explanation?: string | undefined;
-  }>;
-  ImageEditTool: Tool<{
-    sourcePath: string;
-    mimeType: "image/jpeg" | "image/png" | "image/webp";
-    prompt: string;
-    size: "auto" | "1024x1024" | "1536x1024" | "1024x1536";
-    quality: "auto" | "low" | "medium" | "high";
-    destinationPath: string;
-    explanation?: string | undefined;
-  }>;
-} {
+export function createImageTools(openaiApiKey: string): Tool[] {
   // Initialize OpenAI client with the provided API key
   const openai = new OpenAI({
     apiKey: openaiApiKey,
@@ -316,8 +298,5 @@ export function createImageTools(openaiApiKey: string): {
     },
   });
 
-  return {
-    ImageGenTool,
-    ImageEditTool,
-  };
+  return [ImageGenTool, ImageEditTool];
 }

@@ -4,7 +4,7 @@ import {
   type Tool,
   type ToolExecutionContext,
   type ToolResult,
-} from "./mod.ts";
+} from "../mod.ts";
 import * as path from "@std/path";
 import { encodeBase64 } from "@std/encoding/base64";
 
