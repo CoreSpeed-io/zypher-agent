@@ -75,7 +75,9 @@ export function createCodeExecutionTool(
       if (typeof result === "string") {
         return result;
       }
-      const mcpResult = result as { content?: { type: string; text?: string }[] };
+      const mcpResult = result as {
+        content?: { type: string; text?: string }[];
+      };
       const textContent = mcpResult.content?.find((c) => c.type === "text");
       const text = textContent?.text ?? "";
       try {
