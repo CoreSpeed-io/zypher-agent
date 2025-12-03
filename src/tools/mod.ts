@@ -2,6 +2,10 @@ import * as z from "zod";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ZypherContext } from "../ZypherAgent.ts";
 
+export type ToolCaller = "model" | "code_execution";
+
+export const DEFAULT_ALLOWED_CALLERS: ToolCaller[] = ["model"];
+
 /**
  * Base interface for tool parameters
  */
@@ -36,6 +40,8 @@ export interface Tool<P extends BaseParams = BaseParams> {
    */
   readonly parameters: InputSchema;
 
+  readonly allowed_callers?: ToolCaller[];
+
   /**
    * Execute the tool with the given parameters
    */
@@ -67,6 +73,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
   name: string;
   description: string;
   schema: T;
+  allowed_callers?: ToolCaller[];
   execute: (
     params: InferParams<T>,
     ctx: ToolExecutionContext,
@@ -79,6 +86,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
     name: options.name,
     description: options.description,
     parameters: jsonSchema as InputSchema,
+    allowed_callers: options.allowed_callers ?? DEFAULT_ALLOWED_CALLERS,
     execute: async (
       params: InferParams<T>,
       ctx: ToolExecutionContext,
@@ -96,3 +104,7 @@ export * from "./fs/mod.ts";
 // Other tools
 export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
 export { createImageTools } from "./ImageTools.ts";
+export {
+  createCodeExecutionTool,
+  type CodeExecutionToolOptions,
+} from "./code-execution-tool.ts";
