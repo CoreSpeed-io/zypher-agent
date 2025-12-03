@@ -69,7 +69,7 @@ export function createCodeExecutionTool(
       }
       const result = await tool.execute(
         (args as Record<string, unknown>) ?? {},
-        { workingDirectory: mcpServerManager.context.workingDirectory },
+        mcpServerManager.context,
       );
       // If result is a string, return it directly; otherwise parse MCP result
       if (typeof result === "string") {
