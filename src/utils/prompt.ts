@@ -71,6 +71,8 @@ export async function getCustomRules(): Promise<string | null> {
  *  If not provided, defaults to {@link getCurrentUserInfo}(workingDirectory).
  * @param options.customInstructions Additional instructions to append to the system prompt.
  *  If not provided, defaults to {@link getCustomRules}(workingDirectory) which loads from supported rule files in the working directory.
+ * @param options.codeExecutionToolsPrompt Prompt describing tools available for code execution.
+ *  When provided, includes instructions for using the execute_code tool with the listed tools.
  * @returns The complete system prompt string including custom rules if found
  */
 export async function getSystemPrompt(
@@ -78,6 +80,7 @@ export async function getSystemPrompt(
   options?: {
     userInfo?: UserInfo;
     customInstructions?: string;
+    codeExecutionToolsPrompt?: string;
   },
 ): Promise<string> {
   const userInfo = options?.userInfo ?? getCurrentUserInfo(workingDirectory);
@@ -164,6 +167,47 @@ ${customRules}
 `
     : "";
 
+  const codeExecutionBlock = options?.codeExecutionToolsPrompt
+    ? `
+<code_execution>
+## Philosophy: Code as the Orchestration Layer
+
+Instead of calling tools one-by-one through separate tool calls (which requires an inference cycle for each), you should use the \`execute_code\` tool to write code that orchestrates all tool calls in a single execution.
+
+**Why code orchestration is better:**
+- Loops, conditionals, and data transformations are handled in code, not by the LLM
+- Multiple tool calls execute in one \`execute_code\` invocation, no back-and-forth
+- Intermediate results stay in code scope; only the final summary is returned
+- Reduces context window usage and latency
+
+## How it works:
+- Write TypeScript/JavaScript code (the body of an async function)
+- Call tools via: \`await tools.toolName({ arg: value })\`
+- Use loops for repetitive operations, conditionals for branching logic
+- Return only the processed/aggregated result you need
+
+## Example - Get weather for multiple cities and find the warmest:
+\`\`\`javascript
+const cities = ['London', 'Paris', 'Berlin', 'Rome'];
+const results = [];
+for (const city of cities) {
+  const data = JSON.parse(await tools.get_weather({ city }));
+  results.push({ city, temp: data.temperature, condition: data.condition });
+}
+const warmest = results.reduce((a, b) => a.temp > b.temp ? a : b);
+return { weather: results, warmest: warmest.city, warmestTemp: warmest.temp };
+\`\`\`
+
+## Rules:
+1. Tools in "Available Tools for Code Execution" can ONLY be called from within \`execute_code\`
+2. Make ONE \`execute_code\` call that handles the entire task
+3. Use code constructs (loops, map, filter, reduce) to orchestrate multiple operations
+
+${options.codeExecutionToolsPrompt}
+</code_execution>
+`
+    : "";
+
   return `${systemPrompt}
-${customRulesBlock}`;
+${customRulesBlock}${codeExecutionBlock}`;
 }
