@@ -22,7 +22,7 @@ export type OnToolUseCallback = (
 ) => void;
 
 export interface CodeExecutionToolOptions {
-  /** Execution timeout in milliseconds. Default: 60000 (60s) */
+  /** Execution timeout in milliseconds. Default: 600000 (10 minutes) */
   timeout?: number;
   /** Custom CodeExecutionController. Default: DenoWebWorker implementation */
   controller?: CodeExecutionController;
@@ -45,7 +45,7 @@ export function createCodeExecutionTool(
   mcpServerManager: McpServerManager,
   options: CodeExecutionToolOptions = {},
 ): Tool {
-  const timeout = options.timeout ?? 60_000;
+  const timeout = options.timeout ?? 600_000;
   const onToolUse = options.onToolUse;
 
   // Create tool call handler that routes to MCP servers or direct tools
@@ -110,14 +110,13 @@ export function createCodeExecutionTool(
 
   return createTool({
     name: "execute_code",
-    description: `Execute TypeScript/JavaScript code with access to tools.
+    description: `Execute TypeScript code with access to tools.
 
 ## Usage
 Write the BODY of an async function. You have access to a \`tools\` object.
 
 - MCP tools: \`await tools.mcp__serverName__toolName({ arg: value })\`
 - Non-MCP tools: \`await tools.toolName({ arg: value })\`
-- Process data with TypeScript or JavaScript
 - Use console.log() for debugging (output is captured)
 - RETURN the final result (will be JSON stringified)
 
@@ -132,14 +131,11 @@ return { ticker: "AAPL", averagePrice: avg.toFixed(2), dataPoints: data.length }
 
 ## Guidelines
 1. Return concise summaries, not raw data
-2. TypeScript types are optional but supported
-3. Handle errors with try/catch if needed
-4. Timeout: ${timeout / 1000} seconds
+2. Handle errors with try/catch if needed
+3. Timeout: ${timeout / 1000} seconds
 `,
     schema: z.object({
-      code: z.string().describe(
-        "The TypeScript/JavaScript code body to execute.",
-      ),
+      code: z.string().describe("The TypeScript code body to execute."),
     }),
     allowed_callers: ["model"],
 
