@@ -295,6 +295,7 @@ class AnthropicModelStream implements ModelStream {
             subscriber.next({
               type: "tool_use",
               toolName: currentToolName,
+              caller: { type: "model" },
             });
           }
         })
