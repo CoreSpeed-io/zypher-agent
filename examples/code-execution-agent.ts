@@ -2,8 +2,11 @@
  * Example: Agent with Code Execution Tool
  *
  * Demonstrates getting weather for multiple cities using PTC.
- * The LLM can use execute_code to call tools.builtin.get_weather()
+ * The LLM can use execute_code to call tools.get_weather()
  * and process the results efficiently.
+ *
+ * The system prompt is automatically generated with available tools
+ * for code execution when tools have `allowed_callers: ["code_execution"]`.
  *
  * Run:
  *   deno run -A --unstable-worker-options examples/code-execution-agent.ts
@@ -13,51 +16,11 @@ import "@std/dotenv/load";
 import { z } from "zod";
 import {
   createZypherContext,
-  getSystemPrompt,
   OpenAIModelProvider,
   runAgentInTerminal,
   ZypherAgent,
 } from "@zypher/mod.ts";
 import { createCodeExecutionTool, createTool } from "@zypher/tools/mod.ts";
-
-// Custom instructions for code execution
-const CODE_EXECUTION_INSTRUCTIONS = `
-<code_execution>
-You have access to the \`execute_code\` tool which lets you write and run TypeScript/JavaScript code
-that can orchestrate multiple tool calls efficiently.
-
-**When to use execute_code:**
-- When you need to call the same tool multiple times (e.g., get weather for 10 cities)
-- When you need to process/aggregate results from multiple tool calls
-- When you need to perform calculations or data transformations on tool results
-
-**How it works:**
-- Write the BODY of an async function (no function declaration needed)
-- Access tools via: \`await tools.builtin.toolName({ arg: value })\`
-- Use \`return\` to send the final result back
-- Console.log output is captured for debugging
-
-**Example - Get weather for multiple cities:**
-\`\`\`typescript
-const cities = ["Paris", "London", "Berlin", "Rome", "Madrid"];
-const results = [];
-
-for (const city of cities) {
-  const weather = await tools.builtin.get_weather({ city });
-  results.push(JSON.parse(weather));
-}
-
-// Find the warmest city
-const warmest = results.reduce((a, b) => a.temperature > b.temperature ? a : b);
-return { allCities: results, warmest };
-\`\`\`
-
-**Benefits:**
-- Reduces back-and-forth: one execute_code call instead of 10 separate tool calls
-- Process data in code instead of asking the LLM to analyze raw results
-- Return only the summary/result you need
-</code_execution>
-`;
 
 // Create a simple weather tool
 const WeatherTool = createTool({
@@ -66,6 +29,7 @@ const WeatherTool = createTool({
   schema: z.object({
     city: z.string().describe("City name"),
   }),
+  allowed_callers: ["code_execution"],
   execute: ({ city }) => {
     // Mock weather data for European cities
     const MOCK_WEATHER: Record<string, { temp: number; condition: string }> = {
@@ -89,7 +53,7 @@ const WeatherTool = createTool({
       city,
       temperature: data.temp,
       condition: data.condition,
-      unit: "celsius",
+      unit: "celsius-degreesd",
     }));
   },
 });
@@ -104,24 +68,30 @@ const context = await createZypherContext(Deno.cwd());
 const agent = new ZypherAgent(
   context,
   new OpenAIModelProvider({ apiKey }),
-  {
-    overrides: {
-      systemPromptLoader: () =>
-        getSystemPrompt(context.workingDirectory, {
-          customInstructions: CODE_EXECUTION_INSTRUCTIONS,
-        }),
-    },
-  },
+  // No custom systemPromptLoader needed - code execution tools prompt is auto-generated
 );
 
 // Register weather tool
 agent.mcp.registerTool(WeatherTool);
 
-// Register code execution tool
-agent.mcp.registerTool(createCodeExecutionTool(agent.mcp, { timeout: 30_000 }));
+// Register code execution tool with callback to show tool calls from runner
+agent.mcp.registerTool(
+  createCodeExecutionTool(agent.mcp, {
+    timeout: 30_000,
+    onToolUse: (toolName, args) => {
+      console.log(
+        `\n🔧 Using tool: ${toolName} [code_execution]\n${
+          JSON.stringify(args)
+        }`,
+      );
+    },
+  }),
+);
 
 console.log("Tools:", Array.from(agent.mcp.tools.keys()).join(", "));
-console.log("\nTry: Get weather for all European cities and find the warmest one");
-console.log("(In execute_code, use: tools.builtin.get_weather({ city }))\n");
+console.log(
+  "\nTry: Get weather for all European cities and find the warmest one",
+);
+console.log("(In execute_code, use: tools.get_weather({ city }))\n");
 
-await runAgentInTerminal(agent, "gpt-4o");
+await runAgentInTerminal(agent, "gpt-5");
