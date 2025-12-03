@@ -8,10 +8,9 @@
  * - Non-MCP tools: just "{toolName}" (e.g., "read_file") - no prefix
  */
 
-import type { ToolDefinition } from "../mod.ts";
+import type { Tool } from "../mod.ts";
 
-// Re-export ToolDefinition from mod.ts
-export type { ToolDefinition } from "../mod.ts";
+export type ToolDefinition = Pick<Tool, "name" | "description" | "parameters">;
 
 // ============================================================================
 // Protocol Messages
