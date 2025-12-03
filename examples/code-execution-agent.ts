@@ -15,8 +15,8 @@
 import "@std/dotenv/load";
 import { z } from "zod";
 import {
+  AnthropicModelProvider,
   createZypherContext,
-  OpenAIModelProvider,
   runAgentInTerminal,
   ZypherAgent,
 } from "@zypher/mod.ts";
@@ -58,17 +58,16 @@ const WeatherTool = createTool({
   },
 });
 
-const apiKey = Deno.env.get("OPENAI_API_KEY");
+const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
 if (!apiKey) {
-  console.error("Error: Set OPENAI_API_KEY environment variable");
+  console.error("Error: Set ANTHROPIC_API_KEY environment variable");
   Deno.exit(1);
 }
 
 const context = await createZypherContext(Deno.cwd());
 const agent = new ZypherAgent(
   context,
-  new OpenAIModelProvider({ apiKey }),
-  // No custom systemPromptLoader needed - code execution tools prompt is auto-generated
+  new AnthropicModelProvider({ apiKey }),
 );
 
 // Register weather tool
@@ -94,4 +93,4 @@ console.log(
 );
 console.log("(In execute_code, use: tools.get_weather({ city }))\n");
 
-await runAgentInTerminal(agent, "gpt-5");
+await runAgentInTerminal(agent, "claude-sonnet-4-20250514");
