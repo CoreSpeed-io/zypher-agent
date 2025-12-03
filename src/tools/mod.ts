@@ -1,9 +1,14 @@
 import * as z from "zod";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
-export type ToolCaller = "model" | "code_execution";
+/** Caller type - who invoked the tool call */
+export type CallerType = "model" | "code_execution";
 
-export const DEFAULT_ALLOWED_CALLERS: ToolCaller[] = ["model"];
+export type Caller = {
+  type: CallerType;
+};
+
+export const DEFAULT_ALLOWED_CALLERS: CallerType[] = ["model"];
 
 /**
  * Base interface for tool parameters
@@ -41,7 +46,7 @@ export interface Tool<P extends BaseParams = BaseParams> {
    */
   readonly parameters: InputSchema;
 
-  readonly allowed_callers?: ToolCaller[];
+  readonly allowed_callers?: CallerType[];
 
   /**
    * Execute the tool with the given parameters
@@ -74,7 +79,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
   name: string;
   description: string;
   schema: T;
-  allowed_callers?: ToolCaller[];
+  allowed_callers?: CallerType[];
   execute: (
     params: InferParams<T>,
     ctx: ToolExecutionContext,
@@ -87,7 +92,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
     name: options.name,
     description: options.description,
     parameters: jsonSchema as InputSchema,
-    allowed_callers: options.allowed_callers ?? DEFAULT_ALLOWED_CALLERS,
+    allowed_callers: options.allowed_callers ?? (["model"] as CallerType[]),
     execute: async (
       params: InferParams<T>,
       ctx: ToolExecutionContext,
@@ -109,6 +114,6 @@ export { FileSearchTool } from "./FileSearchTool.ts";
 export { CopyFileTool, DeleteFileTool } from "./FileTools.ts";
 export { createImageTools } from "./ImageTools.ts";
 export {
-  createCodeExecutionTool,
   type CodeExecutionToolOptions,
+  createCodeExecutionTool,
 } from "./code-execution-tool.ts";
