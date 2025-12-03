@@ -61,7 +61,9 @@ export async function runAgentInTerminal(agent: ZypherAgent, model: string) {
             }
           } else if (event.type === "tool_use") {
             Deno.stdout.write(
-              textEncoder.encode(`\n\n🔧 Using tool: ${event.toolName}\n`),
+              textEncoder.encode(
+                `\n\n🔧 Using tool: ${event.toolName} [${event.caller.type}]\n`,
+              ),
             );
           } else if (event.type === "tool_use_input") {
             Deno.stdout.write(textEncoder.encode(event.partialInput));
