@@ -42,7 +42,8 @@ export class DenoWebWorkerController implements CodeExecutionController {
       return Promise.resolve({
         type: "result" as const,
         success: false,
-        error: `Unsupported language: ${language}. Only "typescript" is supported.`,
+        error:
+          `Unsupported language: ${language}. Only "typescript" is supported.`,
       });
     }
 
