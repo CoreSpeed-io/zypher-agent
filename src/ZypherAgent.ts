@@ -26,13 +26,27 @@ import {
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
 import type { Tool } from "./tools/mod.ts";
+import {
+  buildToolDefinitions,
+  generateCodeExecutionToolsPrompt,
+} from "./tools/codeExecution/mod.ts";
+
+/**
+ * Options for loading the system prompt.
+ */
+export interface SystemPromptLoaderOptions {
+  /** Prompt describing tools available for code execution */
+  codeExecutionToolsPrompt?: string;
+}
 
 /**
  * Function that loads the system prompt for the agent.
  * This allows developers to implement custom prompt loading logic,
  * such as reading from files, fetching from APIs, or computing dynamically.
  */
-export type SystemPromptLoader = () => Promise<string>;
+export type SystemPromptLoader = (
+  options?: SystemPromptLoaderOptions,
+) => Promise<string>;
 
 /**
  * ZypherContext represents the workspace and filesystem environment where the agent operates.
@@ -117,7 +131,10 @@ export class ZypherAgent {
     this.#modelProvider = modelProvider;
     this.#context = context;
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
-      (() => getSystemPrompt(context.workingDirectory));
+      ((opts) =>
+        getSystemPrompt(context.workingDirectory, {
+          codeExecutionToolsPrompt: opts?.codeExecutionToolsPrompt,
+        }));
     this.#config = {
       maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -307,8 +324,23 @@ export class ZypherAgent {
     }
 
     try {
+      // Generate code execution tools prompt if there are tools available for code execution
+      let codeExecutionToolsPrompt: string | undefined;
+      const codeExecutionTools = this.#mcpServerManager.codeExecutionTools;
+      if (codeExecutionTools.length > 0) {
+        const toolDefinitions = buildToolDefinitions(this.#mcpServerManager);
+        const availableToolsPrompt = generateCodeExecutionToolsPrompt(
+          toolDefinitions,
+        );
+        if (availableToolsPrompt.trim().length > 0) {
+          codeExecutionToolsPrompt = availableToolsPrompt;
+        }
+      }
+
       // Reload system prompt to get current custom rules from working directory
-      const systemPrompt = await this.#systemPromptLoader();
+      const systemPrompt = await this.#systemPromptLoader({
+        codeExecutionToolsPrompt,
+      });
 
       let iterations = 0;
 
