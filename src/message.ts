@@ -1,3 +1,5 @@
+import type { Caller } from "./tools/mod.ts";
+
 export type ContentBlock =
   | TextBlock
   | ImageBlock
@@ -80,6 +82,8 @@ export interface ToolUseBlock {
   name: string;
   /** The input parameters for the tool */
   input: unknown;
+  /** Origin of the tool call - direct LLM or code execution runner */
+  caller?: Caller;
 }
 
 export interface ToolResultBlock {

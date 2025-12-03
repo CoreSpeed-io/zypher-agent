@@ -1,5 +1,6 @@
 import type { FinalMessage, TokenUsage } from "./llm/ModelProvider.ts";
 import type { Message } from "./message.ts";
+import type { Caller } from "./tools/mod.ts";
 
 export type TaskEvent =
   | TaskTextEvent
@@ -52,6 +53,8 @@ export interface TaskHistoryChangedEvent {
 export interface TaskToolUseEvent {
   type: "tool_use";
   toolName: string;
+  /** Origin of the tool call - model(LLM) or code_execution */
+  caller: Caller;
 }
 
 /**
