@@ -11,6 +11,15 @@ export type Caller = {
 
 export const DEFAULT_ALLOWED_CALLERS: CallerType[] = ["model"];
 
+/** Caller type - who invoked the tool call */
+export type CallerType = "model" | "code_execution";
+
+export type Caller = {
+  type: CallerType;
+};
+
+export const DEFAULT_ALLOWED_CALLERS: CallerType[] = ["model"];
+
 /**
  * Base interface for tool parameters
  */
