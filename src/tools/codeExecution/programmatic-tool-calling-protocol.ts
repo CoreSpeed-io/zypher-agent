@@ -1,12 +1,17 @@
-
-
 /**
  * Programmatic Tool Calling (PTC) Protocol - defines communication between
  * CodeExecutionController <--> CodeExecutionRunner.
  * Transport-agnostic: works over WebWorker, HTTP, or direct execution.
+ *
+ * Tool Naming Convention:
+ * - MCP tools: "mcp__{serverId}__{toolName}" (e.g., "mcp__slack__send_message")
+ * - Non-MCP tools: just "{toolName}" (e.g., "read_file") - no prefix
  */
 
-import type { InputSchema } from "../mod.ts";
+import type { ToolDefinition } from "../mod.ts";
+
+// Re-export ToolDefinition from mod.ts
+export type { ToolDefinition } from "../mod.ts";
 
 // ============================================================================
 // Protocol Messages
@@ -19,7 +24,7 @@ export interface CodeExecutionRequest {
   language: string;
   /** Function body to execute */
   code: string;
-  /** Available tools: serverId → tool signatures */
+  /** Available tools: flat array of tool definitions with prefixed names */
   toolDefinitions: ToolDefinitions;
 }
 
@@ -28,7 +33,7 @@ export interface ToolCallRequest {
   type: "tool_call";
   /** Unique ID for matching response */
   callId: string;
-  serverId: string;
+  /** Full prefixed tool name (e.g., "mcp__slack__send_message") */
   toolName: string;
   args: unknown;
 }
@@ -48,8 +53,8 @@ export interface CodeExecutionResult {
   success: boolean;
   data?: unknown;
   error?: string;
-  /** Captured console output */
   logs?: string[];
+  /** True if execution was terminated due to timeout */
   timedOut?: boolean;
 }
 
@@ -60,24 +65,22 @@ export type ControllerMessage = CodeExecutionRequest | ToolCallResponse;
 export type RunnerMessage = ToolCallRequest | CodeExecutionResult;
 
 // ============================================================================
-// Tool Definitions
+// Tool Definitions (flat array with prefixed names)
 // ============================================================================
-export interface ToolDefinition {
-  readonly name: string;
-  readonly description: string;
-  readonly parameters: InputSchema;
-}
 
-/** Tool definitions: serverId → tool signatures (serializable) */
-export type ToolDefinitions = Record<string, ToolDefinition[]>;
+/** Flat array of tool definitions with prefixed names */
+export type ToolDefinitions = ToolDefinition[];
 
 // ============================================================================
 // CodeExecutionController Interface
 // ============================================================================
 
-/** Routes tool calls to MCP servers */
-export type ToolCallHandler = (
-  serverId: string,
+/**
+ * Routes tool calls - receives prefixed toolName, resolves to appropriate handler.
+ * @param toolName - Full prefixed tool name (e.g., "mcp__slack__send_message")
+ * @param args - Tool arguments
+ */
+export type CallToolHandler = (
   toolName: string,
   args: unknown,
 ) => Promise<unknown>;
@@ -88,16 +91,13 @@ export type ToolCallHandler = (
  */
 export interface CodeExecutionController {
   /** Handler for tool calls from Runner */
-  onToolCall: ToolCallHandler;
+  onCallTool: CallToolHandler;
 
   execute(
     code: string,
     language: string,
     toolDefinitions: ToolDefinitions,
   ): Promise<CodeExecutionResult>;
-
-  /** Clean up resources */
-  dispose(): void;
 }
 
 // ============================================================================
@@ -111,11 +111,10 @@ export interface CodeExecutionController {
 export interface CodeExecutionRunner {
   /**
    * Request a tool call from Controller.
-   * @param serverId - MCP server ID
-   * @param toolName - Tool name (without server prefix)
+   * @param toolName - Full prefixed tool name (e.g., "mcp__slack__send_message")
    * @param args - Tool arguments
    */
-  toolCall(serverId: string, toolName: string, args: unknown): Promise<unknown>;
+  callTool(toolName: string, args: unknown): Promise<unknown>;
 
   /** Send final execution result to Controller */
   sendResult(result: Omit<CodeExecutionResult, "type">): void;
