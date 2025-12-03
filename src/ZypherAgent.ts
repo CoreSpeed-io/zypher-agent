@@ -345,9 +345,7 @@ export class ZypherAgent {
       this.#messages.push(userMessage);
       taskEventSubject.next({ type: "message", message: userMessage });
 
-      const toolCalls = Array.from(
-        this.#mcpServerManager.tools.values(),
-      );
+      const toolCalls = this.#mcpServerManager.modelTools;
 
       // Cache file attachments if enabled
       let cacheMap: FileAttachmentCacheMap | undefined;
