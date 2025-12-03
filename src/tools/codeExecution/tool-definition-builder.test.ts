@@ -1,7 +1,5 @@
 import { assertEquals } from "@std/assert";
-import {
-  generateCodeExecutionToolsPrompt,
-} from "./tool-definition-builder.ts";
+import { generateCodeExecutionToolsPrompt } from "./tool-definition-builder.ts";
 import type { ToolDefinitions } from "./programmatic-tool-calling-protocol.ts";
 
 const generateCodeExecutionToolsPromptCases: {

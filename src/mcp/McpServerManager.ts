@@ -1,8 +1,8 @@
 import { McpClient, type McpClientStatus } from "./McpClient.ts";
 import {
+  type CallerType,
   DEFAULT_ALLOWED_CALLERS,
   type Tool,
-  type ToolCaller,
 } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
@@ -402,7 +402,7 @@ export class McpServerManager {
     return allTools;
   }
 
-  getToolsForCaller(caller: ToolCaller): Tool[] {
+  getToolsForCaller(caller: CallerType): Tool[] {
     const allTools = this.tools;
     const filtered: Tool[] = [];
     for (const [_name, tool] of allTools) {
