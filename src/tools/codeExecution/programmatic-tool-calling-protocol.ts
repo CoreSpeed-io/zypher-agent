@@ -19,7 +19,7 @@ export type ToolDefinition = Pick<Tool, "name" | "description" | "parameters">;
 /** Request to execute code (Controller → Runner) */
 export interface CodeExecutionRequest {
   type: "execute";
-  /** Code language (e.g., "javascript", "python") */
+  /** Code language (e.g., "typescript") */
   language: string;
   /** Function body to execute */
   code: string;
