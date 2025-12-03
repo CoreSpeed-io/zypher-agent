@@ -1,5 +1,9 @@
 import { McpClient, type McpClientStatus } from "./McpClient.ts";
-import type { Tool } from "../tools/mod.ts";
+import {
+  DEFAULT_ALLOWED_CALLERS,
+  type Tool,
+  type ToolCaller,
+} from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 import type { OAuthOptions } from "./connect.ts";
@@ -396,6 +400,26 @@ export class McpServerManager {
     }
 
     return allTools;
+  }
+
+  getToolsForCaller(caller: ToolCaller): Tool[] {
+    const allTools = this.tools;
+    const filtered: Tool[] = [];
+    for (const [_name, tool] of allTools) {
+      const allowed = tool.allowed_callers ?? DEFAULT_ALLOWED_CALLERS;
+      if (allowed.includes(caller)) {
+        filtered.push(tool);
+      }
+    }
+    return filtered;
+  }
+
+  get modelTools(): Tool[] {
+    return this.getToolsForCaller("model");
+  }
+
+  get codeExecutionTools(): Tool[] {
+    return this.getToolsForCaller("code_execution");
   }
 
   /**
