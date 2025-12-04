@@ -415,7 +415,7 @@ export class McpServerManager {
     const allTools = this.tools;
     const filtered: Tool[] = [];
     for (const [_name, tool] of allTools) {
-      const allowed = tool.allowed_callers ?? DEFAULT_ALLOWED_CALLERS;
+      const allowed = tool.allowedCallers ?? DEFAULT_ALLOWED_CALLERS;
       if (allowed.includes(caller)) {
         filtered.push(tool);
       }

@@ -45,7 +45,7 @@ export interface Tool<P extends BaseParams = BaseParams> {
    */
   readonly parameters: InputSchema;
 
-  readonly allowed_callers?: CallerType[];
+  readonly allowedCallers?: CallerType[];
 
   /**
    * Execute the tool with the given parameters
@@ -78,7 +78,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
   name: string;
   description: string;
   schema: T;
-  allowed_callers?: CallerType[];
+  allowedCallers?: CallerType[];
   execute: (
     params: InferParams<T>,
     ctx: ToolExecutionContext,
@@ -91,7 +91,7 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
     name: options.name,
     description: options.description,
     parameters: jsonSchema as InputSchema,
-    allowed_callers: options.allowed_callers ?? (["model"] as CallerType[]),
+    allowedCallers: options.allowedCallers ?? (["model"] as CallerType[]),
     execute: async (
       params: InferParams<T>,
       ctx: ToolExecutionContext,
