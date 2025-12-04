@@ -8,12 +8,9 @@
 import * as z from "zod";
 import { createTool, type Tool } from "./mod.ts";
 import type { McpServerManager } from "../mcp/McpServerManager.ts";
-import type { CodeExecutionController } from "./codeExecution/programmatic-tool-calling-protocol.ts";
+import type { CodeExecutionController } from "./codeExecution/ProgrammaticToolCallingProtocol.ts";
 import { createController } from "./codeExecution/implementation/denowebworker/controller.ts";
-import {
-  buildToolDefinitions,
-  parseToolName,
-} from "./codeExecution/tool-definition-builder.ts";
+import { buildToolDefinitions } from "./codeExecution/ToolDefinitionBuilder.ts";
 
 /** Callback when a tool is invoked from code execution */
 export type OnToolUseCallback = (
@@ -48,61 +45,36 @@ export function createCodeExecutionTool(
   const timeout = options.timeout ?? 600_000;
   const onToolUse = options.onToolUse;
 
-  // Create tool call handler that routes to MCP servers or direct tools
-  // Tool Calling tools use plain names (e.g., "read_file")
-  // MCP tools use prefixed names (e.g., "mcp__slack__send_message")
+  // Create tool call handler that routes to appropriate tools
+  // Both built-in tools (e.g., "read_file") and MCP tools (e.g., "mcp__slack__send_message")
+  // are looked up via mcpServerManager.getTool() which handles both cases
   const onCallTool = async (
-    prefixedToolName: string,
+    toolName: string,
     args: unknown,
   ): Promise<unknown> => {
-    // Parse the prefixed tool name to extract routing info
-    const parsed = parseToolName(prefixedToolName);
-
     // Emit tool use callback if provided
-    onToolUse?.(parsed.toolName, args);
+    onToolUse?.(toolName, args);
 
-    // Handle non-MCP tools
-    if (parsed.type === "tool") {
-      const tool = mcpServerManager.getTool(parsed.toolName);
-      if (!tool) {
-        throw new Error(`Tool "${parsed.toolName}" not found`);
-      }
-      const result = await tool.execute(
-        (args as Record<string, unknown>) ?? {},
-        mcpServerManager.context,
-      );
-      // If result is a string, return it directly; otherwise parse MCP result
-      if (typeof result === "string") {
-        return result;
-      }
-      const mcpResult = result as {
-        content?: { type: string; text?: string }[];
-      };
-      const textContent = mcpResult.content?.find((c) => c.type === "text");
-      const text = textContent?.text ?? "";
-      try {
-        return JSON.parse(text);
-      } catch {
-        return text;
-      }
+    // Unified tool lookup - works for both built-in and MCP tools
+    const tool = mcpServerManager.getTool(toolName);
+    if (!tool) {
+      throw new Error(`Tool "${toolName}" not found`);
     }
 
-    // Handle MCP server tools
-    const server = mcpServerManager.servers.get(parsed.serverId!);
-    if (!server) {
-      throw new Error(`MCP server "${parsed.serverId}" not found`);
+    const result = await tool.execute(
+      (args as Record<string, unknown>) ?? {},
+      mcpServerManager.context,
+    );
+
+    // If result is a string, return it directly; otherwise parse MCP result
+    if (typeof result === "string") {
+      return result;
     }
-
-    const result = await server.client.executeToolCall({
-      name: parsed.toolName,
-      input: (args as Record<string, unknown>) ?? {},
-    });
-
-    // Extract text content and parse JSON
-    const textContent = result.content.find((c) => c.type === "text");
-    const text = textContent?.type === "text" && "text" in textContent
-      ? textContent.text
-      : "";
+    const mcpResult = result as {
+      content?: { type: string; text?: string }[];
+    };
+    const textContent = mcpResult.content?.find((c) => c.type === "text");
+    const text = textContent?.text ?? "";
     try {
       return JSON.parse(text);
     } catch {

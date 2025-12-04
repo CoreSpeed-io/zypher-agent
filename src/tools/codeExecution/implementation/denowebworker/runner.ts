@@ -10,7 +10,7 @@ import type {
   ToolCallRequest,
   ToolCallResponse,
   ToolDefinitions,
-} from "../../programmatic-tool-calling-protocol.ts";
+} from "../../ProgrammaticToolCallingProtocol.ts";
 
 declare const self: {
   postMessage(message: unknown): void;
