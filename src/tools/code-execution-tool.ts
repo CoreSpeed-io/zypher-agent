@@ -139,7 +139,7 @@ return { ticker: "AAPL", averagePrice: avg.toFixed(2), dataPoints: data.length }
     schema: z.object({
       code: z.string().describe("The TypeScript code body to execute."),
     }),
-    allowed_callers: ["model"],
+    allowedCallers: ["model"],
 
     execute: async ({ code }) => {
       // Create a new controller for each execution to support parallel calls
