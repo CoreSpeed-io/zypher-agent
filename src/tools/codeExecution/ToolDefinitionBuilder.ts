@@ -11,10 +11,7 @@ import type { McpServerManager } from "../../mcp/McpServerManager.ts";
 import type {
   ToolDefinition,
   ToolDefinitions,
-} from "./programmatic-tool-calling-protocol.ts";
-
-/** Prefix for MCP server tools */
-export const MCP_PREFIX = "mcp__";
+} from "./ProgrammaticToolCallingProtocol.ts";
 
 /**
  * Build tool definitions from McpServerManager.
@@ -43,33 +40,6 @@ export function buildToolDefinitions(
   }
 
   return definitions;
-}
-
-// TODO: fix it after merging new tool api design
-export function parseToolName(toolName: string): {
-  type: "mcp_tool" | "tool";
-  serverId?: string;
-  toolName: string;
-} {
-  if (toolName.startsWith(MCP_PREFIX)) {
-    // Format: "mcp__{serverId}__{toolName}"
-    const rest = toolName.slice(MCP_PREFIX.length);
-    const separatorIndex = rest.indexOf("__");
-    if (separatorIndex === -1) {
-      throw new Error(`Invalid MCP tool name format: ${toolName}`);
-    }
-    return {
-      type: "mcp_tool",
-      serverId: rest.slice(0, separatorIndex),
-      toolName: rest.slice(separatorIndex + 2),
-    };
-  } else {
-    // Non-MCP tools: just the tool name, no prefix
-    return {
-      type: "tool",
-      toolName: toolName,
-    };
-  }
 }
 
 export function generateCodeExecutionToolsPrompt(

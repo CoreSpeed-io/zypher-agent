@@ -20,7 +20,7 @@ export type {
   ToolCallResponse,
   ToolDefinition,
   ToolDefinitions,
-} from "./programmatic-tool-calling-protocol.ts";
+} from "./ProgrammaticToolCallingProtocol.ts";
 
 // DenoWebWorker Implementation
 export {
@@ -32,6 +32,4 @@ export {
 export {
   buildToolDefinitions,
   generateCodeExecutionToolsPrompt,
-  MCP_PREFIX,
-  parseToolName,
-} from "./tool-definition-builder.ts";
+} from "./ToolDefinitionBuilder.ts";

@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
-import { generateCodeExecutionToolsPrompt } from "./tool-definition-builder.ts";
-import type { ToolDefinitions } from "./programmatic-tool-calling-protocol.ts";
+import { generateCodeExecutionToolsPrompt } from "./ToolDefinitionBuilder.ts";
+import type { ToolDefinitions } from "./ProgrammaticToolCallingProtocol.ts";
 
 const generateCodeExecutionToolsPromptCases: {
   name: string;

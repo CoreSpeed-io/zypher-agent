@@ -112,4 +112,4 @@ export { createImageTools } from "./ImageTools.ts";
 export {
   type CodeExecutionToolOptions,
   createCodeExecutionTool,
-} from "./code-execution-tool.ts";
+} from "./CodeExecutionTool.ts";
