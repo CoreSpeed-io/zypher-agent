@@ -36,8 +36,10 @@ jobs:
 
       - name: Run unit tests
         # --allow-env required for MCP SDK transitive dependencies
+        # --allow-read required for tests that read webworker files from disk
+        # --unstable-worker-options required for webworker code_execution tests
         # (cross-spawn/which reads OSTYPE at module load)
-        run: deno test --allow-env --ignore=**/*.integration.test.ts
+        run: deno test --allow-env --allow-read --unstable-worker-options --ignore=**/*.integration.test.ts
 
       - name: JSR publish dry run
         run: deno publish --dry-run --allow-slow-types
