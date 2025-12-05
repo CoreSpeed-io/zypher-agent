@@ -165,16 +165,6 @@ export class ZypherAgent {
       options.tools.forEach((tool) => {
         this.#mcpServerManager.registerTool(tool);
       });
-
-      // Register `execute_code` with programmatic tools
-      const programmaticTools: Tool[] = options.tools.filter((tool) => {
-        return tool.allowedCallers?.includes("programmatic");
-      });
-      if (programmaticTools.length > 0) {
-        // Register execute_code tool that wraps the programmatic tools
-        const executeCodeTool = createExecuteCodeTool(programmaticTools);
-        this.#mcpServerManager.registerTool(executeCodeTool);
-      }
     }
   }
 
