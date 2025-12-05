@@ -11,7 +11,7 @@ export function generateProgrammaticToolPrompt(
     return "";
   }
 
-  const lines: string[] = ["## Available Tools for execute_code tool", ""];
+  const lines: string[] = ["## Available Tools for Code Execution", ""];
 
   for (const tool of toolDefinitions) {
     lines.push(`### tools.${tool.name}(input: inputSchema)`);

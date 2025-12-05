@@ -339,7 +339,6 @@ export class ZypherAgent {
       const systemPrompt = await this.#systemPromptLoader({
         programmaticToolsPrompt,
       });
-      console.log("System Prompt Loaded:\n", systemPrompt);
 
       let iterations = 0;
 
