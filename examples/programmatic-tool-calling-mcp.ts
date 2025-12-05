@@ -11,7 +11,7 @@
  * - ask_question: Ask questions about a repository with AI-powered responses
  *
  * Run:
- *   deno run -A examples/mcp-server.ts
+ *   deno run --unstable-worker-options -A examples/programmatic-tool-calling-mcp.ts
  */
 
 import "@std/dotenv/load";
