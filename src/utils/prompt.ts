@@ -71,6 +71,8 @@ export async function getCustomRules(): Promise<string | null> {
  *  If not provided, defaults to {@link getCurrentUserInfo}(workingDirectory).
  * @param options.customInstructions Additional instructions to append to the system prompt.
  *  If not provided, defaults to {@link getCustomRules}(workingDirectory) which loads from supported rule files in the working directory.
+ * @param options.programmaticToolsPrompt Prompt describing tools available for code execution.
+ *  When provided, includes instructions for using the execute_code tool with the listed tools.
  * @returns The complete system prompt string including custom rules if found
  */
 export async function getSystemPrompt(
@@ -78,6 +80,7 @@ export async function getSystemPrompt(
   options?: {
     userInfo?: UserInfo;
     customInstructions?: string;
+    programmaticToolsPrompt?: string;
   },
 ): Promise<string> {
   const userInfo = options?.userInfo ?? getCurrentUserInfo(workingDirectory);
@@ -149,13 +152,13 @@ Otherwise, follow debugging best practices:
 </calling_external_apis>
 
 <user_info>
-The user's OS version is ${userInfo.osVersion}. The absolute path of the user's workspace is ${userInfo.workspacePath}. The user's shell is ${userInfo.shell}. 
+The user's OS version is ${userInfo.osVersion}. The absolute path of the user's workspace is ${userInfo.workspacePath}. The user's shell is ${userInfo.shell}.
 </user_info>
 
 Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
 `;
 
-  const customRules = options?.customInstructions ?? await getCustomRules();
+  const customRules = options?.customInstructions ?? (await getCustomRules());
   const customRulesBlock = customRules
     ? `
 <custom_instructions>
@@ -164,6 +167,34 @@ ${customRules}
 `
     : "";
 
-  return `${systemPrompt}
-${customRulesBlock}`;
+  const executeCodeBlock = options?.programmaticToolsPrompt
+    ? `
+<execute_code>
+## Philosophy: Code as the Orchestration Layer
+
+Instead of calling tools one-by-one through separate tool calls (which requires an inference cycle for each), you should use the \`execute_code\` tool to write code that orchestrates all tool calls in a single execution.
+
+**Why code orchestration is better:**
+- Loops, conditionals, and data transformations are handled in code, not by the LLM
+- Multiple tool calls execute in one \`execute_code\` invocation, no back-and-forth
+- Intermediate results stay in code scope; only the final summary is returned
+- Reduces context window usage and latency
+
+## How it works:
+- Write TypeScript/JavaScript code (the body of an async function)
+- Call tools via: \`await tools.toolName({ arg: value })\`
+- Use loops for repetitive operations, conditionals for branching logic
+- Return only the processed/aggregated result you need(Tools return objects directly - no JSON.parse needed)
+
+## Rules:
+1. Tools in "Available Tools for Code Execution" can ONLY be called from within \`execute_code\`
+2. Make ONE \`execute_code\` call that handles the entire task
+3. Use code constructs (loops, map, filter, reduce) to orchestrate multiple operations
+
+${options.programmaticToolsPrompt}
+</execute_code>
+`
+    : "";
+
+  return `${systemPrompt}${customRulesBlock}${executeCodeBlock}`;
 }

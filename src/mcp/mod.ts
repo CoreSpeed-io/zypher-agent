@@ -6,6 +6,8 @@ export * from "./connect.ts";
 
 export * from "./InMemoryOAuthProvider.ts";
 
+import type { CallerType } from "../tools/mod.ts";
+
 /** Command configuration for local MCP server execution */
 export interface McpCommandConfig {
   /** Command to execute the MCP server */
@@ -31,6 +33,13 @@ export type McpServerEndpoint =
     id: string;
     /** Human-readable display name (e.g., "GitHub Copilot") */
     displayName?: string;
+    /**
+     * Allowed callers for tools from this server.
+     * - "direct": Tools can be called directly by the LLM (default)
+     * - "programmatic": Tools can only be called via execute_code
+     * @default ["direct"]
+     */
+    allowedCallers?: CallerType[];
   }
   & (
     | {

@@ -26,13 +26,23 @@ import {
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
 import type { Tool } from "./tools/mod.ts";
+import { generateProgrammaticToolPrompt } from "./tools/codeExecution/mod.ts";
+/**
+ * Options for loading the system prompt.
+ */
+export interface SystemPromptLoaderOptions {
+  /** Prompt describing tools available for code execution */
+  programmaticToolsPrompt?: string;
+}
 
 /**
  * Function that loads the system prompt for the agent.
  * This allows developers to implement custom prompt loading logic,
  * such as reading from files, fetching from APIs, or computing dynamically.
  */
-export type SystemPromptLoader = () => Promise<string>;
+export type SystemPromptLoader = (
+  options?: SystemPromptLoaderOptions,
+) => Promise<string>;
 
 /**
  * ZypherContext represents the workspace and filesystem environment where the agent operates.
@@ -117,7 +127,10 @@ export class ZypherAgent {
     this.#modelProvider = modelProvider;
     this.#context = context;
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
-      (() => getSystemPrompt(context.workingDirectory));
+      ((opts) =>
+        getSystemPrompt(context.workingDirectory, {
+          programmaticToolsPrompt: opts?.programmaticToolsPrompt,
+        }));
     this.#config = {
       maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -146,9 +159,10 @@ export class ZypherAgent {
 
     // Register tools if provided
     if (options.tools) {
-      for (const tool of options.tools) {
+      // Register direct tools
+      options.tools.forEach((tool) => {
         this.#mcpServerManager.registerTool(tool);
-      }
+      });
     }
   }
 
@@ -307,8 +321,24 @@ export class ZypherAgent {
     }
 
     try {
+      // Generate code execution tools prompt from programmatic tools
+      let programmaticToolsPrompt: string | undefined;
+      const programmaticTools = this.#mcpServerManager.programmaticTools;
+      if (programmaticTools.length > 0) {
+        const toolDefinitions = programmaticTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        }));
+        programmaticToolsPrompt = generateProgrammaticToolPrompt(
+          toolDefinitions,
+        );
+      }
+
       // Reload system prompt to get current custom rules from working directory
-      const systemPrompt = await this.#systemPromptLoader();
+      const systemPrompt = await this.#systemPromptLoader({
+        programmaticToolsPrompt,
+      });
 
       let iterations = 0;
 
@@ -316,7 +346,10 @@ export class ZypherAgent {
       let checkpoint: Checkpoint | undefined;
       if (this.#checkpointManager) {
         const checkpointName = `Before task: ${
-          taskDescription.substring(0, 50)
+          taskDescription.substring(
+            0,
+            50,
+          )
         }${taskDescription.length > 50 ? "..." : ""}`;
         checkpointId = await this.#checkpointManager.createCheckpoint(
           checkpointName,
@@ -345,9 +378,7 @@ export class ZypherAgent {
       this.#messages.push(userMessage);
       taskEventSubject.next({ type: "message", message: userMessage });
 
-      const toolCalls = Array.from(
-        this.#mcpServerManager.tools.values(),
-      );
+      const toolCalls = this.#mcpServerManager.directTools;
 
       // Cache file attachments if enabled
       let cacheMap: FileAttachmentCacheMap | undefined;

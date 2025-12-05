@@ -24,7 +24,11 @@ import type {
   CompatibilityCallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assign, createActor, setup, waitFor } from "xstate";
-import { createTool, type Tool } from "../tools/mod.ts";
+import {
+  createTool,
+  DEFAULT_ALLOWED_CALLERS,
+  type Tool,
+} from "../tools/mod.ts";
 import { jsonToZod } from "./utils.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import { formatError, isAbortError } from "../error.ts";
@@ -556,6 +560,10 @@ export class McpClient {
       signal,
     });
 
+    // Get allowedCallers from server endpoint config, default to ["direct"]
+    const allowedCallers = this.#serverEndpoint.allowedCallers ??
+      DEFAULT_ALLOWED_CALLERS;
+
     // Convert MCP tools to our internal tool format
     this.#tools = toolResult.tools.map((tool) => {
       const inputSchema = jsonToZod(tool.inputSchema);
@@ -563,6 +571,7 @@ export class McpClient {
         name: `mcp__${this.#serverEndpoint.id}__${tool.name}`,
         description: tool.description ?? "",
         schema: inputSchema,
+        allowedCallers,
         execute: async (params: Record<string, unknown>) => {
           const result = await this.executeToolCall({
             name: tool.name,

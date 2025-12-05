@@ -106,7 +106,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
             { type: "text", text: JSON.stringify(result.structuredContent) },
           ],
         };
-      } else {
+      } else if (result.content && Array.isArray(result.content)) {
         return {
           type: "tool_result" as const,
           toolUseId,
@@ -135,6 +135,18 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
               };
             }
           }),
+        };
+      } else {
+        // Plain object case - stringify it
+        return {
+          type: "tool_result" as const,
+          toolUseId,
+          name,
+          input: parameters,
+          success: true,
+          content: [
+            { type: "text", text: JSON.stringify(result) },
+          ],
         };
       }
     } catch (error) {

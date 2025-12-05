@@ -6,6 +6,8 @@ import {
   type ZypherContext,
 } from "./ZypherAgent.ts";
 import { createZypherContext } from "./utils/context.ts";
+import { createExecuteCodeTool } from "./tools/codeExecution/programmatic/mod.ts";
+import type { Tool } from "./tools/mod.ts";
 
 /**
  * Options for creating a ZypherAgent using the simplified factory function.
@@ -87,6 +89,13 @@ export async function createZypherAgent(
           : agent.mcp.registerServer(server)
       ),
     );
+  }
+
+  // Register `execute_code` with programmatic tools
+  const programmaticTools: Tool[] = agent.mcp.programmaticTools;
+  if (programmaticTools.length > 0) {
+    const executeCodeTool = createExecuteCodeTool(programmaticTools);
+    agent.mcp.registerTool(executeCodeTool);
   }
 
   return agent;
