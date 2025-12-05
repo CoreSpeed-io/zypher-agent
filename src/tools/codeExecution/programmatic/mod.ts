@@ -35,82 +35,38 @@ export type {
   ToolDefinitions,
 } from "./protocol.ts";
 
-// Re-export utilities
 export { generateCodeExecutionToolsPrompt } from "./prompt.ts";
-
-/** Callback when a tool is invoked from code execution (internal use) */
-export type OnBeforeToolCallCallback = (
-  toolName: string,
-  args: unknown,
-) => void | Promise<void>;
 
 export interface ProgrammaticOptions {
   /** Execution timeout in milliseconds. Default: 600000 (10 minutes) */
   timeout?: number;
   /** Custom CodeExecutionController. Default: DenoWebWorker implementation */
   controller?: CodeExecutionController;
-  /** @internal Callback before tool execution (set by ZypherAgent from hooks) */
-  onBeforeToolCall?: OnBeforeToolCallCallback;
 }
 
-/**
- * Wraps tools for programmatic (code execution) access.
- * Returns an `execute_code` Tool that has the wrapped tools embedded.
- *
- * @example
- * ```typescript
- * // Single tool
- * const agent = await createZypherAgent({
- *   tools: [programmatic(WeatherTool)],
- * });
- *
- * // Multiple tools with options
- * const agent = await createZypherAgent({
- *   tools: [programmatic(WeatherTool, StockTool, { timeout: 30_000 })],
- * });
- *
- * // Mixed: some tools programmatic, some direct
- * const agent = await createZypherAgent({
- *   tools: [
- *     ReadFileTool,  // Direct tool - LLM calls directly
- *     programmatic(WeatherTool, StockTool),  // Programmatic - via execute_code
- *   ],
- * });
- * ```
- *
- * @param args - Tools to wrap, optionally followed by ProgrammaticOptions
- * @returns An `execute_code` Tool with the wrapped tools embedded
- */
-export function programmatic(...args: (Tool | ProgrammaticOptions)[]): Tool {
-  // Parse arguments: extract tools and options
-  const lastArg = args[args.length - 1];
-  const isOptions = lastArg &&
-    typeof lastArg === "object" &&
-    !("execute" in lastArg) &&
-    !("name" in lastArg);
+export function programmatic(tool: Tool): Tool;
+export function programmatic(...tools: Tool[]): Tool[];
+export function programmatic(...args: Tool[]): Tool | Tool[] {
+  const wrap = (t: Tool) => ({
+    ...t,
+    allowedCallers: ["programmatic"] as ["programmatic"],
+  });
 
-  const tools = (isOptions ? args.slice(0, -1) : args) as Tool[];
-  const options = (isOptions ? lastArg : {}) as ProgrammaticOptions;
+  return args.length === 1 ? wrap(args[0]) : args.map(wrap);
+}
 
-  if (tools.length === 0) {
-    throw new Error("programmatic() requires at least one tool");
-  }
-
-  const timeout = options.timeout ?? 600_000;
-  const onBeforeToolCall = options.onBeforeToolCall;
-
-  // Build tool lookup map
-  const toolMap = new Map<string, Tool>();
-  for (const tool of tools) {
-    toolMap.set(tool.name, tool);
-  }
-
+export function createExecuteCodeTool(tools: Tool[], timeout = 600_000): Tool {
   // Build tool definitions for the worker
   const toolDefinitions: ToolDefinitions = tools.map((tool) => ({
     name: tool.name,
     description: tool.description,
     parameters: tool.parameters,
   }));
+  // Build a map of tool name to tool for execution
+  const toolMap: Record<string, Tool> = {};
+  for (const tool of tools) {
+    toolMap[tool.name] = tool;
+  }
 
   // Tool call handler - routes calls to wrapped tools
   const handleToolCall = async (
@@ -118,16 +74,10 @@ export function programmatic(...args: (Tool | ProgrammaticOptions)[]): Tool {
     args: unknown,
     ctx: ToolExecutionContext,
   ): Promise<unknown> => {
-    // Call hook before tool execution
-    if (onBeforeToolCall) {
-      await onBeforeToolCall(toolName, args);
+    if (!(toolName in toolMap)) {
+      throw new Error(`Tool '${toolName}' not found`);
     }
-
-    const tool = toolMap.get(toolName);
-    if (!tool) {
-      throw new Error(`Tool "${toolName}" not found`);
-    }
-
+    const tool = toolMap[toolName];
     const result = await tool.execute(
       (args as Record<string, unknown>) ?? {},
       ctx,
@@ -175,8 +125,6 @@ return results;
       required: ["code"],
     },
     allowedCallers: ["direct"],
-    programmaticTools: tools,
-
     execute: async (
       params: { code: string },
       ctx: ToolExecutionContext,
@@ -187,7 +135,6 @@ return results;
           timeout,
           onCallTool: (name, args) => handleToolCall(name, args, ctx),
         },
-        options.controller,
       );
 
       const result = await controller.execute(

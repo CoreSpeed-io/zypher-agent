@@ -149,7 +149,6 @@ export class DenoWebWorkerController implements CodeExecutionController {
  */
 export function createController(
   options: DenoWebWorkerControllerOptions,
-  customController?: CodeExecutionController,
 ): CodeExecutionController {
-  return customController ?? new DenoWebWorkerController(options);
+  return new DenoWebWorkerController(options);
 }

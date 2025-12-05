@@ -23,14 +23,6 @@ export type ToolApprovalHandler = (
 ) => Promise<boolean>;
 
 /**
- * Callback invoked before a tool is executed.
- */
-export type OnBeforeToolCallHandler = (
-  toolName: string,
-  args: unknown,
-) => void | Promise<void>;
-
-/**
  * Interceptor that handles tool execution when the LLM requests tool calls
  */
 export class ToolExecutionInterceptor implements LoopInterceptor {
@@ -39,16 +31,13 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
 
   readonly #mcpServerManager: McpServerManager;
   readonly #handleToolApproval?: ToolApprovalHandler;
-  readonly #onBeforeToolCall?: OnBeforeToolCallHandler;
 
   constructor(
     mcpServerManager: McpServerManager,
     handleToolApproval?: ToolApprovalHandler,
-    onBeforeToolCall?: OnBeforeToolCallHandler,
   ) {
     this.#mcpServerManager = mcpServerManager;
     this.#handleToolApproval = handleToolApproval;
-    this.#onBeforeToolCall = onBeforeToolCall;
   }
 
   /**
@@ -92,11 +81,6 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
         type: "tool_use_approved",
         toolName: name,
       });
-
-      // Call onBeforeToolCall hook if provided
-      if (this.#onBeforeToolCall) {
-        await this.#onBeforeToolCall(name, parameters);
-      }
 
       const result = await tool.execute(parameters, ctx);
 

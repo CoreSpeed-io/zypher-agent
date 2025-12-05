@@ -1,18 +1,15 @@
 /**
- * Example: Programmatic Tool Calling
+ * Example: Agent with Code Execution Tool
  *
- * Demonstrates programmatic tool calling where the LLM can use
- * execute_code to call tools like tools.get_weather() and
- * tools.calculator() and process the results efficiently.
- *
- * Also integrates DeepWiki MCP server for querying GitHub repository
- * documentation using tools like ask_question, read_wiki_structure, etc.
+ * Demonstrates getting weather for multiple cities using PTC.
+ * The LLM can use execute_code to call tools.get_weather()
+ * and process the results efficiently.
  *
  * Uses the `programmatic()` wrapper which returns an `execute_code` tool
  * with the wrapped tools embedded inside.
  *
  * Run:
- *   deno run -A --unstable-worker-options examples/programmatic-tool-calling.ts
+ *   deno run -A --unstable-worker-options examples/code-execution-agent.ts
  */
 
 import "@std/dotenv/load";
@@ -106,9 +103,11 @@ const getWeather = createTool({
   },
 });
 
+// Create agent with programmatic weather tool - clean, declarative API
 const agent = await createZypherAgent({
   modelProvider: new AnthropicModelProvider({ apiKey }),
   tools: [
+    getWeather,
     ...programmatic(getWeather, calculator),
   ],
 });
@@ -117,7 +116,6 @@ console.log("Tools:", Array.from(agent.mcp.tools.keys()).join(", "));
 console.log(
   "\nTry: Get weather of London and Paris",
 );
-console.log("Or: calculate 10005 + 10001 for me.");
-console.log("Or: What is the architecture of facebook/react?\n");
+console.log("Or: calculate 10005 + 10001 for me.\n");
 
 await runAgentInTerminal(agent, "claude-sonnet-4-20250514");
