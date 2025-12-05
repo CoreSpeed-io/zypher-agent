@@ -107,7 +107,4 @@ export * from "./fs/mod.ts";
 // Other tools
 export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
 export { createImageTools } from "./ImageTools.ts";
-export {
-  programmatic,
-  type ProgrammaticOptions,
-} from "./codeExecution/mod.ts";
+export { programmatic, type ProgrammaticOptions } from "./codeExecution/mod.ts";
