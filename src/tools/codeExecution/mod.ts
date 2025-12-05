@@ -25,7 +25,6 @@ export type {
 
 export {
   generateCodeExecutionToolsPrompt,
-  type OnBeforeToolCallCallback,
   programmatic,
   type ProgrammaticOptions,
 } from "./programmatic/mod.ts";
