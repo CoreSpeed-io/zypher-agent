@@ -27,8 +27,6 @@ import {
 import type { TaskEvent } from "./TaskEvents.ts";
 import type { Tool } from "./tools/mod.ts";
 import { generateProgrammaticToolPrompt } from "./tools/codeExecution/mod.ts";
-import { createExecuteCodeTool } from "./tools/codeExecution/programmatic/mod.ts";
-
 /**
  * Options for loading the system prompt.
  */
@@ -324,7 +322,7 @@ export class ZypherAgent {
 
     try {
       // Generate code execution tools prompt from programmatic tools
-      let programmaticToolsPrompt : string | undefined;
+      let programmaticToolsPrompt: string | undefined;
       const programmaticTools = this.#mcpServerManager.programmaticTools;
       if (programmaticTools.length > 0) {
         const toolDefinitions = programmaticTools.map((tool) => ({
@@ -332,7 +330,9 @@ export class ZypherAgent {
           description: tool.description,
           parameters: tool.parameters,
         }));
-        programmaticToolsPrompt = generateProgrammaticToolPrompt(toolDefinitions);
+        programmaticToolsPrompt = generateProgrammaticToolPrompt(
+          toolDefinitions,
+        );
       }
 
       // Reload system prompt to get current custom rules from working directory

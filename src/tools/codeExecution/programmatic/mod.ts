@@ -54,7 +54,9 @@ export function programmatic(
     allowedCallers: ["programmatic"] as ["programmatic"],
   });
 
-  return args.length === 1 ? wrap(args[0]) : args.map(wrap) as Programmatic<Tool>[];
+  return args.length === 1
+    ? wrap(args[0])
+    : args.map(wrap) as Programmatic<Tool>[];
 }
 
 export function createExecuteCodeTool(tools: Tool[], timeout = 600_000): Tool {
