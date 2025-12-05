@@ -10,7 +10,7 @@ import type {
   ToolCallRequest,
   ToolCallResponse,
   ToolDefinitions,
-} from "../../ProgrammaticToolCallingProtocol.ts";
+} from "../../programmatic/protocol.ts";
 
 declare const self: {
   postMessage(message: unknown): void;
@@ -20,10 +20,13 @@ declare const self: {
 type ToolsProxy = Record<string, (args?: unknown) => Promise<unknown>>;
 
 class DenoWebWorkerRunner implements CodeExecutionRunner {
-  private pendingCalls = new Map<string, {
-    resolve: (value: unknown) => void;
-    reject: (error: Error) => void;
-  }>();
+  private pendingCalls = new Map<
+    string,
+    {
+      resolve: (value: unknown) => void;
+      reject: (error: Error) => void;
+    }
+  >();
   private logs: string[] = [];
 
   constructor() {
@@ -32,7 +35,9 @@ class DenoWebWorkerRunner implements CodeExecutionRunner {
   }
 
   private setupConsole(): void {
-    const format = (args: unknown[]) => args.map(String).join(" ");
+    const stringify = (v: unknown) =>
+      typeof v === "object" && v !== null ? JSON.stringify(v) : String(v);
+    const format = (args: unknown[]) => args.map(stringify).join(" ");
     console.log = (...args: unknown[]) => this.logs.push(format(args));
     console.info = (...args: unknown[]) =>
       this.logs.push(`[INFO] ${format(args)}`);
@@ -70,23 +75,26 @@ class DenoWebWorkerRunner implements CodeExecutionRunner {
       const data = await this.runCode(code, tools);
       this.sendResult({ success: true, data, logs: this.getLogs() });
     } catch (e) {
-      const error = e instanceof Error ? e.stack ?? e.message : String(e);
+      const error = e instanceof Error ? (e.stack ?? e.message) : String(e);
       this.sendResult({ success: false, error, logs: this.getLogs() });
     }
   }
 
   private buildToolsProxy(definitions: ToolDefinitions): ToolsProxy {
     return Object.fromEntries(
-      definitions.map((
-        t,
-      ) => [t.name, (args?: unknown) => this.callTool(t.name, args ?? {})]),
+      definitions.map((t) => [
+        t.name,
+        (args?: unknown) => this.callTool(t.name, args ?? {}),
+      ]),
     );
   }
 
   private async runCode(code: string, tools: ToolsProxy): Promise<unknown> {
     const moduleCode = `export default async function(tools) {\n${code}\n}`;
     const dataUrl = `data:application/typescript;base64,${
-      encodeBase64(new TextEncoder().encode(moduleCode))
+      encodeBase64(
+        new TextEncoder().encode(moduleCode),
+      )
     }`;
     return (await import(dataUrl)).default(tools);
   }
@@ -109,9 +117,12 @@ class DenoWebWorkerRunner implements CodeExecutionRunner {
     const callId = crypto.randomUUID();
     return new Promise((resolve, reject) => {
       this.pendingCalls.set(callId, { resolve, reject });
-      self.postMessage(
-        { type: "tool_call", callId, toolName: name, args } as ToolCallRequest,
-      );
+      self.postMessage({
+        type: "tool_call",
+        callId,
+        toolName: name,
+        args,
+      } as ToolCallRequest);
     });
   }
 

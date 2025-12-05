@@ -26,10 +26,8 @@ import {
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
 import type { Tool } from "./tools/mod.ts";
-import {
-  buildToolDefinitions,
-  generateCodeExecutionToolsPrompt,
-} from "./tools/codeExecution/mod.ts";
+import { generateCodeExecutionToolsPrompt } from "./tools/codeExecution/mod.ts";
+import { programmatic } from "./tools/codeExecution/programmatic/mod.ts";
 
 /**
  * Options for loading the system prompt.
@@ -78,6 +76,26 @@ export interface ZypherAgentConfig {
   taskTimeoutMs: number;
 }
 
+/**
+ * Callback invoked before a tool is executed.
+ * Called for both direct tool calls and programmatic (code execution) tool calls.
+ */
+export type OnBeforeToolCallHook = (
+  toolName: string,
+  args: unknown,
+) => void | Promise<void>;
+
+/**
+ * Hooks for customizing agent behavior at key points.
+ */
+export interface ZypherAgentHooks {
+  /**
+   * Called before any tool is executed.
+   * Useful for logging, analytics, or custom validation.
+   */
+  onBeforeToolCall?: OnBeforeToolCallHook;
+}
+
 export interface ZypherAgentOptions {
   /** Storage service for file attachments */
   storageService?: StorageService;
@@ -85,6 +103,8 @@ export interface ZypherAgentOptions {
   checkpointManager?: CheckpointManager;
   /** Tools to register with the agent. */
   tools?: Tool[];
+  /** Hooks for customizing agent behavior */
+  hooks?: ZypherAgentHooks;
   /** Override default implementations of core components */
   overrides?: {
     /** Function that loads the system prompt for the agent. Defaults to {@link getSystemPrompt}. */
@@ -109,6 +129,7 @@ export class ZypherAgent {
   readonly #systemPromptLoader: SystemPromptLoader;
   readonly #storageService?: StorageService;
   readonly #fileAttachmentManager?: FileAttachmentManager;
+  readonly #hooks: ZypherAgentHooks;
 
   readonly #context: ZypherContext;
   readonly #config: ZypherAgentConfig;
@@ -140,6 +161,7 @@ export class ZypherAgent {
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
       taskTimeoutMs: options.config?.taskTimeoutMs ?? DEFAULT_TASK_TIMEOUT_MS, // Default is 15 minutes
     };
+    this.#hooks = options.hooks ?? {};
     this.#messages = [];
 
     // Services and interceptors
@@ -147,7 +169,11 @@ export class ZypherAgent {
       new McpServerManager(context);
     this.#loopInterceptorManager = options.overrides?.loopInterceptorManager ??
       new LoopInterceptorManager([
-        new ToolExecutionInterceptor(this.#mcpServerManager),
+        new ToolExecutionInterceptor(
+          this.#mcpServerManager,
+          undefined, // handleToolApproval
+          this.#hooks.onBeforeToolCall,
+        ),
         new MaxTokensInterceptor(),
       ]);
 
@@ -163,9 +189,29 @@ export class ZypherAgent {
 
     // Register tools if provided
     if (options.tools) {
-      for (const tool of options.tools) {
+      // Register direct tools
+      options.tools.filter((tool) => {
+        return !tool.programmaticTools;
+      }).forEach((tool) => {
         this.#mcpServerManager.registerTool(tool);
-      }
+      });
+
+      let programmaticTools: Tool[] = [];
+      // Collect programmatic tools
+      options.tools.filter((tool) => {
+        return tool.programmaticTools;
+      }).forEach((tool) => {
+        if (tool.programmaticTools) {
+          programmaticTools = programmaticTools.concat(tool.programmaticTools);
+        }
+      });
+      // Register programmatic tools
+      const codeExecutionTool = programmatic(...programmaticTools, {
+        // TODO: make timeout configurable
+        timeout: 600000, // Default 10 minutes
+        onBeforeToolCall: this.#hooks.onBeforeToolCall,
+      });
+      this.#mcpServerManager.registerTool(codeExecutionTool);
     }
   }
 
@@ -324,16 +370,18 @@ export class ZypherAgent {
     }
 
     try {
-      // Generate code execution tools prompt if there are tools available for code execution
+      // Generate code execution tools prompt from programmatic tools
       let codeExecutionToolsPrompt: string | undefined;
-      const codeExecutionTools = this.#mcpServerManager.codeExecutionTools;
-      if (codeExecutionTools.length > 0) {
-        const toolDefinitions = buildToolDefinitions(this.#mcpServerManager);
-        const availableToolsPrompt = generateCodeExecutionToolsPrompt(
-          toolDefinitions,
-        );
-        if (availableToolsPrompt.trim().length > 0) {
-          codeExecutionToolsPrompt = availableToolsPrompt;
+      const programmaticTools = this.#mcpServerManager.programmaticTools;
+      if (programmaticTools.length > 0) {
+        const toolDefinitions = programmaticTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        }));
+        const prompt = generateCodeExecutionToolsPrompt(toolDefinitions);
+        if (prompt.trim().length > 0) {
+          codeExecutionToolsPrompt = prompt;
         }
       }
 
@@ -348,7 +396,10 @@ export class ZypherAgent {
       let checkpoint: Checkpoint | undefined;
       if (this.#checkpointManager) {
         const checkpointName = `Before task: ${
-          taskDescription.substring(0, 50)
+          taskDescription.substring(
+            0,
+            50,
+          )
         }${taskDescription.length > 50 ? "..." : ""}`;
         checkpointId = await this.#checkpointManager.createCheckpoint(
           checkpointName,
@@ -377,7 +428,7 @@ export class ZypherAgent {
       this.#messages.push(userMessage);
       taskEventSubject.next({ type: "message", message: userMessage });
 
-      const toolCalls = this.#mcpServerManager.modelTools;
+      const toolCalls = this.#mcpServerManager.directTools;
 
       // Cache file attachments if enabled
       let cacheMap: FileAttachmentCacheMap | undefined;

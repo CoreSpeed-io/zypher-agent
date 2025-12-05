@@ -3,13 +3,13 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ZypherContext } from "../ZypherAgent.ts";
 
 /** Caller type - who invoked the tool call */
-export type CallerType = "model" | "code_execution";
+export type CallerType = "direct" | "programmatic";
 
 export type Caller = {
   type: CallerType;
 };
 
-export const DEFAULT_ALLOWED_CALLERS: CallerType[] = ["model"];
+export const DEFAULT_ALLOWED_CALLERS: CallerType[] = ["direct"];
 
 /**
  * Base interface for tool parameters
@@ -24,7 +24,9 @@ export type ToolExecutionContext = ZypherContext;
 /**
  * The result of a tool execution
  */
-export type ToolResult = CallToolResult | string;
+export type ToolResult = CallToolResult | string | {
+  [x: string]: unknown;
+};
 
 /**
  * Base interface for all tools
@@ -47,13 +49,12 @@ export interface Tool<P extends BaseParams = BaseParams> {
 
   readonly allowedCallers?: CallerType[];
 
+  readonly programmaticTools?: Tool[];
+
   /**
    * Execute the tool with the given parameters
    */
-  execute(
-    params: P,
-    ctx: ToolExecutionContext,
-  ): Promise<ToolResult>;
+  execute(params: P, ctx: ToolExecutionContext): Promise<ToolResult>;
 }
 
 /**
@@ -91,11 +92,8 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
     name: options.name,
     description: options.description,
     parameters: jsonSchema as InputSchema,
-    allowedCallers: options.allowedCallers ?? (["model"] as CallerType[]),
-    execute: async (
-      params: InferParams<T>,
-      ctx: ToolExecutionContext,
-    ) => {
+    allowedCallers: options.allowedCallers ?? (["direct"] as CallerType[]),
+    execute: async (params: InferParams<T>, ctx: ToolExecutionContext) => {
       // Validate params using Zod schema
       const validatedParams = await options.schema.parseAsync(params);
       return options.execute(validatedParams, ctx);
@@ -110,6 +108,6 @@ export * from "./fs/mod.ts";
 export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";
 export { createImageTools } from "./ImageTools.ts";
 export {
-  type CodeExecutionToolOptions,
-  createCodeExecutionTool,
-} from "./CodeExecutionTool.ts";
+  programmatic,
+  type ProgrammaticOptions,
+} from "./codeExecution/mod.ts";

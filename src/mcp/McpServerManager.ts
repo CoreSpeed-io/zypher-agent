@@ -93,12 +93,13 @@ export class McpServerManager {
     registryClient?: McpStoreSDK,
   ) {
     // Default to CoreSpeed MCP Store if none provided
-    this.#registryClient = registryClient ?? new McpStoreSDK({
-      baseURL: Deno.env.get("MCP_STORE_BASE_URL") ??
-        "https://api1.mcp.corespeed.io",
-      // The api key is only for admin endpoints. It's not needed for the public endpoints.
-      apiKey: "",
-    });
+    this.#registryClient = registryClient ??
+      new McpStoreSDK({
+        baseURL: Deno.env.get("MCP_STORE_BASE_URL") ??
+          "https://api1.mcp.corespeed.io",
+        // The api key is only for admin endpoints. It's not needed for the public endpoints.
+        apiKey: "",
+      });
   }
 
   /**
@@ -135,9 +136,7 @@ export class McpServerManager {
       throw new Error("McpServerManager has been disposed");
     }
     if (this.#serverStateMap.has(server.id)) {
-      throw new Error(
-        `Server ${server.id} already exists`,
-      );
+      throw new Error(`Server ${server.id} already exists`);
     }
 
     // Validate server ID format for tool naming compatibility
@@ -278,9 +277,7 @@ export class McpServerManager {
     }
     const state = this.#serverStateMap.get(id);
     if (!state) {
-      throw new Error(
-        `Server with id ${id} not found`,
-      );
+      throw new Error(`Server with id ${id} not found`);
     }
 
     // Dispose the client first (emits final status events)
@@ -317,9 +314,7 @@ export class McpServerManager {
     }
     const state = this.#serverStateMap.get(serverId);
     if (!state) {
-      throw new Error(
-        `Server ${serverId} not found`,
-      );
+      throw new Error(`Server ${serverId} not found`);
     }
 
     const newEnabled = updates.enabled ?? state.client.desiredEnabled;
@@ -351,9 +346,7 @@ export class McpServerManager {
       throw new Error("McpServerManager has been disposed");
     }
     if (this.#toolbox.has(tool.name)) {
-      throw new Error(
-        `Tool ${tool.name} already registered`,
-      );
+      throw new Error(`Tool ${tool.name} already registered`);
     }
 
     this.#toolbox.set(tool.name, tool);
@@ -423,12 +416,12 @@ export class McpServerManager {
     return filtered;
   }
 
-  get modelTools(): Tool[] {
-    return this.getToolsForCaller("model");
+  get directTools(): Tool[] {
+    return this.getToolsForCaller("direct");
   }
 
-  get codeExecutionTools(): Tool[] {
-    return this.getToolsForCaller("code_execution");
+  get programmaticTools(): Tool[] {
+    return this.getToolsForCaller("programmatic");
   }
 
   /**
@@ -466,7 +459,9 @@ export class McpServerManager {
     if (this.#toolbox.size > 0) {
       console.log(
         `\nDirectly registered tools: ${
-          Array.from(this.#toolbox.keys()).join(", ")
+          Array.from(this.#toolbox.keys()).join(
+            ", ",
+          )
         }`,
       );
     }

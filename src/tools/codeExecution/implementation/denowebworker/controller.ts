@@ -14,7 +14,7 @@ import type {
   ToolCallRequest,
   ToolCallResponse,
   ToolDefinitions,
-} from "../../ProgrammaticToolCallingProtocol.ts";
+} from "../../programmatic/protocol.ts";
 
 export interface DenoWebWorkerControllerOptions {
   /** Timeout in milliseconds. Default: 600000 (10 minutes) */

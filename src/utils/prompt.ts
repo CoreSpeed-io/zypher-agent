@@ -152,13 +152,13 @@ Otherwise, follow debugging best practices:
 </calling_external_apis>
 
 <user_info>
-The user's OS version is ${userInfo.osVersion}. The absolute path of the user's workspace is ${userInfo.workspacePath}. The user's shell is ${userInfo.shell}. 
+The user's OS version is ${userInfo.osVersion}. The absolute path of the user's workspace is ${userInfo.workspacePath}. The user's shell is ${userInfo.shell}.
 </user_info>
 
 Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
 `;
 
-  const customRules = options?.customInstructions ?? await getCustomRules();
+  const customRules = options?.customInstructions ?? (await getCustomRules());
   const customRulesBlock = customRules
     ? `
 <custom_instructions>
@@ -184,14 +184,15 @@ Instead of calling tools one-by-one through separate tool calls (which requires 
 - Write TypeScript/JavaScript code (the body of an async function)
 - Call tools via: \`await tools.toolName({ arg: value })\`
 - Use loops for repetitive operations, conditionals for branching logic
-- Return only the processed/aggregated result you need
+- Return only the processed/aggregated result you need(Tools return objects directly - no JSON.parse needed)
 
 ## Example - Get weather for multiple cities and find the warmest:
 \`\`\`javascript
 const cities = ['London', 'Paris', 'Berlin', 'Rome'];
 const results = [];
 for (const city of cities) {
-  const data = JSON.parse(await tools.get_weather({ city }));
+
+  const data = await tools.get_weather({ city });
   results.push({ city, temp: data.temperature, condition: data.condition });
 }
 const warmest = results.reduce((a, b) => a.temp > b.temp ? a : b);

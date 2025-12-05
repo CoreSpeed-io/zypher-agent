@@ -5,9 +5,10 @@
  * - Protocol types and interfaces
  * - DenoWebWorker implementation
  * - Utility functions
+ * - Programmatic function for wrapping tools
  */
 
-// Protocol
+// Re-export from programmatic module
 export type {
   CallToolHandler,
   CodeExecutionController,
@@ -20,16 +21,17 @@ export type {
   ToolCallResponse,
   ToolDefinition,
   ToolDefinitions,
-} from "./ProgrammaticToolCallingProtocol.ts";
+} from "./programmatic/mod.ts";
+
+export {
+  generateCodeExecutionToolsPrompt,
+  type OnBeforeToolCallCallback,
+  programmatic,
+  type ProgrammaticOptions,
+} from "./programmatic/mod.ts";
 
 // DenoWebWorker Implementation
 export {
   DenoWebWorkerController,
   type DenoWebWorkerControllerOptions,
 } from "./implementation/denowebworker/controller.ts";
-
-// Utilities
-export {
-  buildToolDefinitions,
-  generateCodeExecutionToolsPrompt,
-} from "./ToolDefinitionBuilder.ts";

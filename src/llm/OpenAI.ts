@@ -127,7 +127,7 @@ export class OpenAIModelProvider implements ModelProvider {
           subscriber.next({
             type: "tool_use",
             toolName: toolName,
-            caller: { type: "model" },
+            caller: { type: "direct" as const },
           });
         }
 
