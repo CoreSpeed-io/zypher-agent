@@ -1,22 +1,12 @@
 /**
  * Programmatic Tool Calling Module
  *
- * The `programmatic()` function takes any number of tools and returns a single
- * `execute_code` Tool. This tool is self-contained - it has the wrapped tools
- * embedded inside and doesn't need McpServerManager.
- *
- * @example
- * ```typescript
- * import { programmatic } from "@corespeed/zypher/tools";
- *
- * const agent = await createZypherAgent({
- *   modelProvider: new AnthropicModelProvider({ apiKey }),
- *   tools: [programmatic(WeatherTool, StockTool, { timeout: 30_000 })],
- * });
- * ```
+ * The `programmatic()` function marks tools or MCP server endpoints so their
+ * tools can only be called via the `execute_code` tool, not directly by the LLM.
  */
 
 import type { Tool, ToolExecutionContext, ToolResult } from "../../mod.ts";
+import type { McpServerEndpoint } from "../../../mcp/mod.ts";
 import type { CodeExecutionController, ToolDefinitions } from "./protocol.ts";
 import { createController } from "../implementation/denowebworker/controller.ts";
 
@@ -35,7 +25,7 @@ export type {
   ToolDefinitions,
 } from "./protocol.ts";
 
-export { generateCodeExecutionToolsPrompt } from "./prompt.ts";
+export { generateProgrammaticToolPrompt } from "./prompt.ts";
 
 export interface ProgrammaticOptions {
   /** Execution timeout in milliseconds. Default: 600000 (10 minutes) */
@@ -44,15 +34,27 @@ export interface ProgrammaticOptions {
   controller?: CodeExecutionController;
 }
 
-export function programmatic(tool: Tool): Tool;
-export function programmatic(...tools: Tool[]): Tool[];
-export function programmatic(...args: Tool[]): Tool | Tool[] {
-  const wrap = (t: Tool) => ({
+type Programmatic<T> = T & { allowedCallers: ["programmatic"] };
+
+/**
+ * Marks a Tool or MCP server endpoint as programmatic-only.
+ * Tools marked as programmatic can only be called via execute_code, not directly by the LLM.
+ */
+export function programmatic<T extends Tool | McpServerEndpoint>(
+  item: T,
+): Programmatic<T>;
+export function programmatic<T extends Tool[]>(
+  ...items: T
+): { [K in keyof T]: Programmatic<T[K]> };
+export function programmatic(
+  ...args: (Tool | McpServerEndpoint)[]
+): Programmatic<Tool | McpServerEndpoint> | Programmatic<Tool>[] {
+  const wrap = <U extends Tool | McpServerEndpoint>(t: U): Programmatic<U> => ({
     ...t,
     allowedCallers: ["programmatic"] as ["programmatic"],
   });
 
-  return args.length === 1 ? wrap(args[0]) : args.map(wrap);
+  return args.length === 1 ? wrap(args[0]) : args.map(wrap) as Programmatic<Tool>[];
 }
 
 export function createExecuteCodeTool(tools: Tool[], timeout = 600_000): Tool {
@@ -92,7 +94,7 @@ export function createExecuteCodeTool(tools: Tool[], timeout = 600_000): Tool {
 
 ## Usage
 Write the BODY of an async function. You have access to a \`tools\` object.
-Available tools are listed in the <code_execution> section of system prompt.
+Available tools are listed in the <execute_code> section of system prompt.
 
 - Call tools: \`const result = await tools.toolName({ arg: value })\`
 - Tools return **objects directly** (not JSON strings) - access properties directly like \`result.field\`

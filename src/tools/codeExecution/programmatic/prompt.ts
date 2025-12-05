@@ -4,14 +4,14 @@
 
 import type { ToolDefinitions } from "./protocol.ts";
 
-export function generateCodeExecutionToolsPrompt(
+export function generateProgrammaticToolPrompt(
   toolDefinitions: ToolDefinitions,
 ): string {
   if (toolDefinitions.length === 0) {
     return "";
   }
 
-  const lines: string[] = ["## Available Tools for Code Execution", ""];
+  const lines: string[] = ["## Available Tools for execute_code tool", ""];
 
   for (const tool of toolDefinitions) {
     lines.push(`### tools.${tool.name}(input: inputSchema)`);
