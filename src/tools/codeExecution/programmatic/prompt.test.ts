@@ -1,8 +1,8 @@
 import { assertEquals } from "@std/assert";
-import { generateCodeExecutionToolsPrompt } from "./prompt.ts";
+import { generateProgrammaticToolPrompt } from "./prompt.ts";
 import type { ToolDefinitions } from "./protocol.ts";
 
-const generateCodeExecutionToolsPromptCases: {
+const generateProgrammaticToolPromptCases: {
   name: string;
   input: ToolDefinitions;
   expected: string;
@@ -100,8 +100,8 @@ inputSchema:
   },
 ];
 
-for (const tc of generateCodeExecutionToolsPromptCases) {
-  Deno.test(`generateCodeExecutionToolsPrompt - ${tc.name}`, () => {
-    assertEquals(generateCodeExecutionToolsPrompt(tc.input), tc.expected);
+for (const tc of generateProgrammaticToolPromptCases) {
+  Deno.test(`generateProgrammaticToolPrompt - ${tc.name}`, () => {
+    assertEquals(generateProgrammaticToolPrompt(tc.input), tc.expected);
   });
 }

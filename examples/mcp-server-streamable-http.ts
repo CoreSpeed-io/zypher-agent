@@ -20,6 +20,7 @@ import {
   createZypherAgent,
   runAgentInTerminal,
 } from "@corespeed/zypher";
+import { programmatic } from "@zypher/tools/codeExecution/programmatic/mod.ts";
 
 const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
 if (!apiKey) {
@@ -31,14 +32,14 @@ if (!apiKey) {
 const agent = await createZypherAgent({
   modelProvider: new AnthropicModelProvider({ apiKey }),
   mcpServers: [
-    {
+    programmatic({
       id: "deepwiki",
       displayName: "DeepWiki",
       type: "remote",
       remote: {
         url: "https://mcp.deepwiki.com/mcp",
       },
-    },
+    }),
   ],
 });
 

@@ -26,7 +26,7 @@ import {
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
 import type { Tool } from "./tools/mod.ts";
-import { generateCodeExecutionToolsPrompt } from "./tools/codeExecution/mod.ts";
+import { generateProgrammaticToolPrompt } from "./tools/codeExecution/mod.ts";
 import { createExecuteCodeTool } from "./tools/codeExecution/programmatic/mod.ts";
 
 /**
@@ -34,7 +34,7 @@ import { createExecuteCodeTool } from "./tools/codeExecution/programmatic/mod.ts
  */
 export interface SystemPromptLoaderOptions {
   /** Prompt describing tools available for code execution */
-  codeExecutionToolsPrompt?: string;
+  programmaticToolsPrompt?: string;
 }
 
 /**
@@ -131,7 +131,7 @@ export class ZypherAgent {
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
       ((opts) =>
         getSystemPrompt(context.workingDirectory, {
-          codeExecutionToolsPrompt: opts?.codeExecutionToolsPrompt,
+          programmaticToolsPrompt: opts?.programmaticToolsPrompt,
         }));
     this.#config = {
       maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
@@ -162,9 +162,7 @@ export class ZypherAgent {
     // Register tools if provided
     if (options.tools) {
       // Register direct tools
-      options.tools.filter((tool) => {
-        return tool.allowedCallers?.includes("direct");
-      }).forEach((tool) => {
+      options.tools.forEach((tool) => {
         this.#mcpServerManager.registerTool(tool);
       });
 
@@ -172,8 +170,11 @@ export class ZypherAgent {
       const programmaticTools: Tool[] = options.tools.filter((tool) => {
         return tool.allowedCallers?.includes("programmatic");
       });
-      const executeCodeTool = createExecuteCodeTool(programmaticTools);
-      this.#mcpServerManager.registerTool(executeCodeTool);
+      if (programmaticTools.length > 0) {
+        // Register execute_code tool that wraps the programmatic tools
+        const executeCodeTool = createExecuteCodeTool(programmaticTools);
+        this.#mcpServerManager.registerTool(executeCodeTool);
+      }
     }
   }
 
@@ -333,7 +334,7 @@ export class ZypherAgent {
 
     try {
       // Generate code execution tools prompt from programmatic tools
-      let codeExecutionToolsPrompt: string | undefined;
+      let programmaticToolsPrompt : string | undefined;
       const programmaticTools = this.#mcpServerManager.programmaticTools;
       if (programmaticTools.length > 0) {
         const toolDefinitions = programmaticTools.map((tool) => ({
@@ -341,16 +342,14 @@ export class ZypherAgent {
           description: tool.description,
           parameters: tool.parameters,
         }));
-        const prompt = generateCodeExecutionToolsPrompt(toolDefinitions);
-        if (prompt.trim().length > 0) {
-          codeExecutionToolsPrompt = prompt;
-        }
+        programmaticToolsPrompt = generateProgrammaticToolPrompt(toolDefinitions);
       }
 
       // Reload system prompt to get current custom rules from working directory
       const systemPrompt = await this.#systemPromptLoader({
-        codeExecutionToolsPrompt,
+        programmaticToolsPrompt,
       });
+      console.log("System Prompt Loaded:\n", systemPrompt);
 
       let iterations = 0;
 

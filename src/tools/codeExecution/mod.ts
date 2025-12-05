@@ -24,7 +24,7 @@ export type {
 } from "./programmatic/mod.ts";
 
 export {
-  generateCodeExecutionToolsPrompt,
+  generateProgrammaticToolPrompt,
   programmatic,
   type ProgrammaticOptions,
 } from "./programmatic/mod.ts";
