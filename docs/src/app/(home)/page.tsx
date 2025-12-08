@@ -117,7 +117,7 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="w-full border-t border-fd-border">
+      <section className="w-full">
         <div className="max-w-[1100px] mx-auto py-20 md:py-28">
           <h2 className="text-2xl md:text-3xl font-semibold text-fd-foreground mb-4 text-center">
             Everything you need to build AI agents
@@ -126,43 +126,52 @@ export default function HomePage() {
             A minimal yet powerful framework for creating AI agents with full control over tools, providers, and execution flow.
           </p>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Feature 1 */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Feature 1 - True Agent */}
             <div className="group p-6 border border-fd-border hover:border-fd-foreground/50 transition-all duration-200">
-              <div className="w-10 h-10 border border-fd-border flex items-center justify-center mb-4">
-                <svg className="w-5 h-5 text-fd-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="text-base font-semibold mb-2 text-fd-foreground">Interactive CLI</h3>
+              <h3 className="text-base font-semibold mb-2 text-fd-foreground">True Agent, Not Workflow</h3>
               <p className="text-fd-muted-foreground text-sm leading-relaxed">
-                Fast prototyping with an intuitive command-line interface for building and testing agents.
+                A reactive execution loop where the agent decides each next step via LLM reasoning — no predefined workflow paths required.
               </p>
             </div>
 
-            {/* Feature 2 */}
+            {/* Feature 2 - Interceptor Pipeline */}
             <div className="group p-6 border border-fd-border hover:border-fd-foreground/50 transition-all duration-200">
-              <div className="w-10 h-10 border border-fd-border flex items-center justify-center mb-4">
-                <svg className="w-5 h-5 text-fd-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
-                </svg>
-              </div>
-              <h3 className="text-base font-semibold mb-2 text-fd-foreground">Tool Calling & MCP</h3>
+              <h3 className="text-base font-semibold mb-2 text-fd-foreground">Extensible Interceptor Pipeline</h3>
               <p className="text-fd-muted-foreground text-sm leading-relaxed">
-                Built-in tool system with Model Context Protocol support for seamless integrations.
+                A post-reasoning pipeline with built-in tool execution, error handling, and token controls, plus support for custom interceptors.
               </p>
             </div>
 
-            {/* Feature 3 */}
+            {/* Feature 3 - Rich Tools + MCP */}
             <div className="group p-6 border border-fd-border hover:border-fd-foreground/50 transition-all duration-200">
-              <div className="w-10 h-10 border border-fd-border flex items-center justify-center mb-4">
-                <svg className="w-5 h-5 text-fd-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h3 className="text-base font-semibold mb-2 text-fd-foreground">Git Checkpoints</h3>
+              <h3 className="text-base font-semibold mb-2 text-fd-foreground">Rich Tools + MCP Protocol</h3>
               <p className="text-fd-muted-foreground text-sm leading-relaxed">
-                Track and revert changes with a git-based checkpoint system for reliable development.
+                A comprehensive tool system for file ops, execution, vision, and documents, with MCP protocol support for unlimited extensibility.
+              </p>
+            </div>
+
+            {/* Feature 4 - Model Agnostic */}
+            <div className="group p-6 border border-fd-border hover:border-fd-foreground/50 transition-all duration-200">
+              <h3 className="text-base font-semibold mb-2 text-fd-foreground">Model & Provider Agnostic</h3>
+              <p className="text-fd-muted-foreground text-sm leading-relaxed">
+                Works with Anthropic Claude, OpenAI GPT, and more models through a unified interface — with native support for each provider's unique features.
+              </p>
+            </div>
+
+            {/* Feature 5 - Multi-Agent */}
+            <div className="group p-6 border border-fd-border hover:border-fd-foreground/50 transition-all duration-200">
+              <h3 className="text-base font-semibold mb-2 text-fd-foreground">Multi-Agent Architecture</h3>
+              <p className="text-fd-muted-foreground text-sm leading-relaxed">
+                Break complex tasks into subtasks handled by specialized sub-agents — with automatic context sharing and coordinated handoffs.
+              </p>
+            </div>
+
+            {/* Feature 6 - Token Efficient */}
+            <div className="group p-6 border border-fd-border hover:border-fd-foreground/50 transition-all duration-200">
+              <h3 className="text-base font-semibold mb-2 text-fd-foreground">Token-Efficient by Design</h3>
+              <p className="text-fd-muted-foreground text-sm leading-relaxed">
+                Load only what's needed into context. On-demand skill loading, programmatic tool use that keeps intermediate results out of context, and prompt caching — minimal tokens, maximum efficiency.
               </p>
             </div>
           </div>
@@ -170,7 +179,7 @@ export default function HomePage() {
       </section>
 
       {/* Bottom CTA */}
-      <section className="w-full border-t border-fd-border">
+      <section className="w-full">
         <div className="max-w-[1100px] mx-auto py-20 text-center">
           <p className="text-sm text-fd-muted-foreground mb-6">
             Ready to build your first agent?
