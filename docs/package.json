@@ -15,7 +15,7 @@
     "fumadocs-mdx": "11.9.0",
     "fumadocs-ui": "15.7.11",
     "geist": "^1.5.1",
-    "next": "15.5.2",
+    "next": "15.5.7",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
