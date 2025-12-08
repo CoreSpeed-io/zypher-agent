@@ -1,0 +1,33 @@
+{
+  "name": "zypher-agent-docs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --turbo",
+    "start": "next start",
+    "postinstall": "fumadocs-mdx",
+    "lint": "biome check",
+    "format": "biome format --write"
+  },
+  "dependencies": {
+    "fumadocs-core": "15.7.11",
+    "fumadocs-mdx": "11.9.0",
+    "fumadocs-ui": "15.7.11",
+    "geist": "^1.5.1",
+    "next": "15.5.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.3",
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "24.3.1",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2"
+  }
+}

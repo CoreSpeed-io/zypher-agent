@@ -1,0 +1,278 @@
+---
+title: Built-in Tools
+description: Comprehensive reference for Zypher Agent's built-in tools including file system, terminal, search, and image processing capabilities
+---
+
+# Built-in Tools
+
+Zypher Agent comes with a comprehensive set of built-in tools that provide essential functionality for file system operations, terminal commands, searching, and image processing. These tools are available for you to selectively register based on your application's needs.
+
+## File System Tools
+
+### read_file
+
+Read file contents with support for line ranges and selective reading.
+
+```typescript
+// Agent can read specific sections of files
+await agent.runTask("Read lines 10-50 of the main.ts file");
+await agent.runTask("Show me the imports at the top of utils.ts");
+```
+
+**Key features:**
+- **Line range support** - Read specific line ranges (1-indexed)
+- **Partial file reading** - View sections without loading entire files
+- **Entire file reading** - Option to read complete files when needed
+- **Smart context** - Includes summaries of lines outside the selected range
+
+**Parameters:**
+- `relativePath` - File path relative to workspace root
+- `startLineOneIndexed` - Starting line number (inclusive)
+- `endLineOneIndexedInclusive` - Ending line number (inclusive)
+- `shouldReadEntireFile` - Whether to read the complete file
+- `explanation` - Optional context for why the file is being read
+
+### edit_file
+
+Create new files or edit existing ones with precise control.
+
+```typescript
+// Agent can make targeted edits
+await agent.runTask("Add error handling to the login function in auth.ts");
+await agent.runTask("Create a new component for user profiles");
+```
+
+**Key features:**
+- **Precise editing** - Make targeted changes to specific sections
+- **File creation** - Create new files with initial content
+- **Safe operations** - Validates changes before applying them
+- **Context preservation** - Maintains file structure and formatting
+
+### list_directory
+
+Browse and explore directory contents.
+
+```typescript
+// Agent can explore project structure
+await agent.runTask("Show me the structure of the src directory");
+await agent.runTask("List all files in the components folder");
+```
+
+**Key features:**
+- **Recursive listing** - Explore nested directory structures
+- **File filtering** - Focus on specific file types or patterns
+- **Detailed information** - File sizes, permissions, and metadata
+
+### file_search
+
+Find files using glob patterns and search criteria.
+
+```typescript
+// Agent can locate files efficiently
+await agent.runTask("Find all TypeScript test files");
+await agent.runTask("Locate configuration files in the project");
+```
+
+**Key features:**
+- **Glob pattern support** - Use wildcards and patterns like `**/*.test.ts`
+- **Cross-platform** - Works consistently across operating systems
+- **Fast searching** - Efficient file system traversal
+
+### copy_file
+
+Copy files or directories to new locations.
+
+```typescript
+// Agent can duplicate and organize files
+await agent.runTask("Copy the template component to create a new one");
+await agent.runTask("Backup the configuration files to a backup folder");
+```
+
+**Key features:**
+- **File and directory copying** - Handle both individual files and entire directories
+- **Preserve metadata** - Maintain file permissions and timestamps
+- **Overwrite protection** - Safe handling of existing destination files
+
+### delete_file
+
+Remove files or directories from the file system.
+
+```typescript
+// Agent can clean up unnecessary files
+await agent.runTask("Remove temporary files and build artifacts");
+await agent.runTask("Delete the old migration files");
+```
+
+**Key features:**
+- **Safe deletion** - Careful handling to prevent accidental data loss
+- **Directory removal** - Can delete entire directory trees
+- **Confirmation patterns** - Follows safe deletion practices
+
+## Terminal Tools
+
+### run_terminal_cmd
+
+Execute shell commands and capture their output.
+
+```typescript
+// Agent can run system commands
+await agent.runTask("Install the project dependencies");
+await agent.runTask("Run the test suite and show results");
+await agent.runTask("Check the git status and recent commits");
+```
+
+**Key features:**
+- **Command execution** - Run any shell command available on the system
+- **Output capture** - Capture both stdout and stderr
+- **Environment support** - Works with environment variables and PATH
+- **Cross-platform** - Handles differences between operating systems
+- **Working directory** - Executes commands in the correct project context
+
+**Common use cases:**
+- **Package management** - `npm install`, `yarn add`, `deno add`
+- **Build processes** - `npm run build`, `cargo build`, `go build`
+- **Testing** - `npm test`, `pytest`, `cargo test`
+- **Git operations** - `git status`, `git commit`, `git push`
+- **System information** - `ps aux`, `netstat`, `df -h`
+
+## Search Tools
+
+### grep_search
+
+Search through file contents using regular expressions and patterns.
+
+```typescript
+// Agent can find specific content in files
+await agent.runTask("Find all TODO comments in the codebase");
+await agent.runTask("Search for functions that use the deprecated API");
+await agent.runTask("Locate all error handling patterns");
+```
+
+**Key features:**
+- **Regular expression support** - Use powerful regex patterns for complex searches
+- **Multi-file search** - Search across multiple files simultaneously
+- **Context lines** - Include surrounding lines for better understanding
+- **Case sensitivity control** - Configure case-sensitive or case-insensitive searches
+- **File type filtering** - Limit searches to specific file types
+
+**Search patterns:**
+- **Text literals** - Simple string matching
+- **Regex patterns** - Complex pattern matching with `\d+`, `\w+`, etc.
+- **Word boundaries** - Use `\b` for exact word matches
+- **Line anchors** - Use `^` and `$` for line start/end matching
+
+## Image Tools
+
+Image processing tools are available when configured for your specific use case.
+
+```typescript
+// When image tools are enabled, agent can:
+await agent.runTask("Analyze this screenshot and extract the text");
+await agent.runTask("Resize the product images for the web");
+await agent.runTask("Convert the diagrams from PNG to SVG format");
+```
+
+**Capabilities:**
+- **Image analysis** - Extract information from images
+- **Format conversion** - Convert between different image formats
+- **Resizing and optimization** - Adjust image dimensions and quality
+- **Metadata extraction** - Read EXIF data and image properties
+
+## Tool Usage Patterns
+
+### Combining Tools
+
+Tools work together seamlessly to accomplish complex tasks:
+
+```typescript
+// Multi-tool workflows
+await agent.runTask(`
+  1. Search for all API endpoints in the codebase
+  2. Read the authentication middleware file
+  3. Check if tests exist for each endpoint
+  4. Create a security audit report
+`);
+
+// The agent automatically:
+// 1. Uses grep_search to find API route definitions
+// 2. Uses read_file to examine middleware implementation
+// 3. Uses file_search to locate test files
+// 4. Uses edit_file to create the audit report
+```
+
+### Error Handling
+
+Built-in tools include robust error handling:
+
+```typescript
+// Tools gracefully handle various error conditions:
+// - File not found errors
+// - Permission denied issues
+// - Invalid command syntax
+// - Network connectivity problems
+// - Disk space limitations
+```
+
+### Performance Considerations
+
+**Efficient file reading:**
+- Use line ranges instead of reading entire large files
+- Specify precise sections when possible
+- Let the agent choose appropriate ranges based on context
+
+**Smart searching:**
+- Use specific patterns to limit search scope
+- Combine file_search with grep_search for efficient workflows
+- Leverage glob patterns to focus on relevant files
+
+**Terminal optimization:**
+- Commands run in the project's working directory
+- Environment variables are properly inherited
+- Output is captured efficiently for analysis
+
+## Tool Configuration
+
+Built-in tools need to be explicitly registered based on your application's needs:
+
+```typescript
+// Create agent with empty McpServerManager
+const agent = new ZypherAgent(modelProvider);
+
+// Register only the built-in tools you need
+agent.mcpServerManager.registerTool(ReadFileTool);
+agent.mcpServerManager.registerTool(EditFileTool);
+
+// Check registered tools
+const allTools = agent.mcpServerManager.getAllTools();
+console.log('Registered tools:', Array.from(allTools.keys()));
+```
+
+## Security Considerations
+
+Built-in tools operate with appropriate security boundaries:
+
+- **File system access** - Limited to the project workspace by default
+- **Command execution** - Runs with the same permissions as the agent process
+- **Path validation** - Prevents directory traversal attacks
+- **Safe operations** - Includes safeguards against destructive operations
+
+## Best Practices
+
+### File Operations
+- **Use relative paths** - Keep file operations within the project scope
+- **Read efficiently** - Use line ranges for large files
+- **Validate before editing** - Let the agent examine files before making changes
+
+### Terminal Commands
+- **Check status** - Use commands like `git status` before making changes
+- **Test safely** - Run tests in safe environments
+- **Capture output** - Let the agent analyze command results
+
+### Search Operations
+- **Be specific** - Use precise patterns to reduce noise
+- **Combine searches** - Use multiple search strategies for comprehensive results
+- **Context matters** - Include surrounding lines when analyzing matches
+
+---
+
+Built-in tools provide the foundation for your agent's capabilities. For external integrations and custom functionality, see the [MCP Integration guide](/docs/core-concepts/tools-and-mcp).
