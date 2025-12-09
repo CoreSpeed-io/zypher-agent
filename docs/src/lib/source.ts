@@ -7,16 +7,3 @@ export const source = loader({
   baseUrl: '/docs',
   source: docs.toFumadocsSource(),
 });
-
-// Add bottom links to page tree
-export const bottomLinks = [
-  {
-    type: 'separator' as const,
-  },
-  {
-    type: 'page' as const,
-    name: 'API Reference',
-    url: 'https://jsr.io/@corespeed/zypher/doc',
-    external: true,
-  },
-];

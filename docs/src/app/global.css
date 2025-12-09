@@ -1,24 +1,3 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
-
-/* Remove border-radius and shadow from code blocks for sharp developer aesthetic */
-figure,
-pre,
-pre code,
-.prose pre,
-.prose figure,
-[data-rehype-pretty-code-figure],
-[data-rehype-pretty-code-figure] pre,
-[data-rehype-pretty-code-figure] figcaption,
-[class*="codeblock"],
-[class*="code-block"] {
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-/* Target all figcaption (code block headers) */
-figcaption {
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}

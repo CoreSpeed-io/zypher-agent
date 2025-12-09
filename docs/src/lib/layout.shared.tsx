@@ -27,10 +27,6 @@ export function baseOptions(): BaseLayoutProps {
     // see https://fumadocs.dev/docs/ui/navigation/links
     links: [
       {
-        text: 'Docs',
-        url: '/docs',
-      },
-      {
         text: 'API Reference',
         url: 'https://jsr.io/@corespeed/zypher/doc',
         external: true,

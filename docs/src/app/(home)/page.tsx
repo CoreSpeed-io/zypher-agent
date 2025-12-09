@@ -62,7 +62,7 @@ export default function HomePage() {
               <span className="text-[#F2572B]">Zypher</span>
             </h1>
 
-            
+
 
             <p className="text-lg md:text-xl text-fd-muted-foreground mb-10 leading-relaxed max-w-lg text-balance">
               A few lines of code to create powerful AI agents. Connect any MCP server, choose your LLM provider, and start building.
