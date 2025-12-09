@@ -110,5 +110,13 @@ self.onmessage = async (e) => {
       }
       break;
     }
+
+    case "tool_error": {
+      const pendingCompleter = pendingToolCalls.get(parsed.toolUseId);
+      if (!pendingCompleter) return;
+      pendingToolCalls.delete(parsed.toolUseId);
+      pendingCompleter.reject(parsed.error);
+      break;
+    }
   }
 };

@@ -22,9 +22,17 @@ export const ToolResponseMessageSchema = z.object({
   result: ToolResultSchema,
 });
 
+export const ToolErrorMessageSchema = z.object({
+  type: z.literal("tool_error"),
+  toolUseId: z.string(),
+  toolName: z.string(),
+  error: z.unknown(),
+});
+
 export const HostToWorkerMessageSchema = z.discriminatedUnion("type", [
   ExecuteMessageSchema,
   ToolResponseMessageSchema,
+  ToolErrorMessageSchema,
 ]);
 
 // ============================================================================
@@ -57,6 +65,7 @@ export const WorkerToHostMessageSchema = z.discriminatedUnion("type", [
 
 export type ExecuteMessage = z.infer<typeof ExecuteMessageSchema>;
 export type ToolResponseMessage = z.infer<typeof ToolResponseMessageSchema>;
+export type ToolErrorMessage = z.infer<typeof ToolErrorMessageSchema>;
 export type HostToWorkerMessage = z.infer<typeof HostToWorkerMessageSchema>;
 
 export type ToolUseMessage = z.infer<typeof ToolUseMessageSchema>;
