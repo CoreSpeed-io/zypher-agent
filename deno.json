@@ -50,5 +50,5 @@
     "zod": "npm:zod@^4.1.13"
   },
   "nodeModulesDir": "auto",
-  "exclude": ["dist/", "node_modules/", "npm/"]
+  "exclude": ["dist/", "node_modules/", "npm/", "docs/"]
 }
