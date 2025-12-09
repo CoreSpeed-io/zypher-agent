@@ -80,7 +80,7 @@ export class OpenAIModelProvider implements ModelProvider {
         function: {
           name: tool.name,
           description: tool.description,
-          parameters: tool.parameters,
+          parameters: tool.schema,
           strict: false, // in strict mode, no optional parameters are allowed
         },
       }));

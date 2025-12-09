@@ -92,7 +92,7 @@ export class AnthropicModelProvider implements ModelProvider {
     ): Anthropic.ToolUnion => ({
       name: tool.name,
       description: tool.description,
-      input_schema: tool.parameters,
+      input_schema: tool.schema,
       ...(params.tools && index === params.tools.length - 1 && {
         // cache the last tool as it's large and reusable
         ...(this.#enablePromptCaching && {
