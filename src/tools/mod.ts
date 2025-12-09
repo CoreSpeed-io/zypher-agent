@@ -34,13 +34,13 @@ export interface Tool<P extends BaseParams = BaseParams> {
   /**
    * The JSON schema for the tool's parameters
    */
-  readonly parameters: InputSchema;
+  readonly schema: InputSchema;
 
   /**
    * Execute the tool with the given parameters
    */
   execute(
-    params: P,
+    input: P,
     ctx: ToolExecutionContext,
   ): Promise<ToolResult>;
 }
@@ -78,14 +78,14 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
   return {
     name: options.name,
     description: options.description,
-    parameters: jsonSchema as InputSchema,
+    schema: jsonSchema as InputSchema,
     execute: async (
-      params: InferParams<T>,
+      input: InferParams<T>,
       ctx: ToolExecutionContext,
     ) => {
-      // Validate params using Zod schema
-      const validatedParams = await options.schema.parseAsync(params);
-      return options.execute(validatedParams, ctx);
+      // Validate input using Zod schema
+      const validatedInput = await options.schema.parseAsync(input);
+      return options.execute(validatedInput, ctx);
     },
   };
 }
