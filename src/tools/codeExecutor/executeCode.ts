@@ -9,8 +9,7 @@ import type { McpServerManager } from "../../mcp/mod.ts";
 import { Completer } from "../../utils/mod.ts";
 import {
   type CodeExecutionResult,
-  type ExecuteMessage,
-  type ToolResponseMessage,
+  type HostToWorkerMessage,
   WorkerToHostMessageSchema,
 } from "./protocol.ts";
 
@@ -34,6 +33,10 @@ export async function executeCode(
     { type: "module" },
   );
 
+  function postMessage(message: HostToWorkerMessage) {
+    worker.postMessage(message);
+  }
+
   try {
     worker.onmessage = async (event) => {
       const message = WorkerToHostMessageSchema.parse(event.data);
@@ -41,26 +44,26 @@ export async function executeCode(
       if (message.type === "tool_use") {
         const { toolUseId, toolName, input } = message;
 
-        let response: ToolResponseMessage;
         try {
           const result = await mcpServerManager.callTool(
             toolUseId,
             toolName,
             input,
           );
-          response = { type: "tool_response", toolUseId, toolName, result };
-        } catch (error) {
-          response = {
+          postMessage({
             type: "tool_response",
             toolUseId,
             toolName,
-            result: {
-              content: [{ type: "text", text: String(error) }],
-              isError: true,
-            },
-          };
+            result,
+          });
+        } catch (error) {
+          postMessage({
+            type: "tool_error",
+            toolUseId,
+            toolName,
+            error,
+          });
         }
-        worker.postMessage(response);
       } else {
         completer.resolve(message);
       }
@@ -76,12 +79,11 @@ export async function executeCode(
     };
 
     const toolNames = Array.from(mcpServerManager.tools.keys());
-    const executeMessage: ExecuteMessage = {
+    postMessage({
       type: "execute",
       code,
       tools: toolNames,
-    };
-    worker.postMessage(executeMessage);
+    });
 
     return await completer.wait({ signal });
   } finally {
