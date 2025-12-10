@@ -19,7 +19,7 @@ function callTool(
   toolName: string,
   input: unknown,
 ): Promise<ToolResult> {
-  const toolUseId = `code-runner-${crypto.randomUUID()}`;
+  const toolUseId = `ptc_${crypto.randomUUID()}`;
   const completer = new Completer<ToolResult>();
   pendingToolCalls.set(toolUseId, completer);
   postMessage({

@@ -2,8 +2,11 @@
  * Custom error class for abort operations
  */
 export class AbortError extends Error {
-  constructor(message = "The operation was aborted") {
-    super(message);
+  constructor(
+    message = "The operation was aborted",
+    options?: { cause?: unknown },
+  ) {
+    super(message, options);
     this.name = "AbortError";
   }
 }

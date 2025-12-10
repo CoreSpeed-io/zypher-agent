@@ -20,6 +20,17 @@ export interface ExecuteCodeOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * Executes TypeScript/JavaScript code in an isolated Web Worker environment.
+ *
+ * The code has access to a `tools` proxy object for calling registered tools.
+ * Tool calls are routed through the McpServerManager for execution.
+ *
+ * @param code - The TypeScript/JavaScript code to execute
+ * @param mcpServerManager - Manager providing access to registered tools
+ * @param options - Execution options including abort signal for cancellation
+ * @returns Promise resolving to the execution result with data, logs, and success status
+ */
 export async function executeCode(
   code: string,
   mcpServerManager: McpServerManager,
@@ -57,6 +68,10 @@ export async function executeCode(
             result,
           });
         } catch (error) {
+          // Send error back to worker instead of rejecting the completer here.
+          // This allows the agent's code to handle tool errors gracefully via try/catch,
+          // rather than terminating the entire code execution on the first tool failure.
+          // The worker will throw this error, which the agent code can catch and handle.
           postMessage({
             type: "tool_error",
             toolUseId,
@@ -65,6 +80,7 @@ export async function executeCode(
           });
         }
       } else {
+        // Message is a CodeExecutionResult - the worker has finished executing the code
         completer.resolve(message);
       }
     };

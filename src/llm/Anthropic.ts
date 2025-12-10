@@ -12,6 +12,8 @@ import { Anthropic, type ClientOptions } from "@anthropic-ai/sdk";
 import type { ContentBlock, ImageBlock, Message } from "../message.ts";
 import { Observable } from "rxjs";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
+import * as z from "zod";
+import { injectOutputSchema } from "./utils.ts";
 
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -91,8 +93,8 @@ export class AnthropicModelProvider implements ModelProvider {
       index,
     ): Anthropic.ToolUnion => ({
       name: tool.name,
-      description: tool.description,
-      input_schema: tool.schema,
+      description: injectOutputSchema(tool.description, tool.outputSchema),
+      input_schema: z.toJSONSchema(tool.schema) as Anthropic.Tool.InputSchema,
       ...(params.tools && index === params.tools.length - 1 && {
         // cache the last tool as it's large and reusable
         ...(this.#enablePromptCaching && {
