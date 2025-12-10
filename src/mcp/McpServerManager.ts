@@ -98,14 +98,43 @@ export type McpServerManagerEvent =
     error: unknown;
   };
 
+/**
+ * Handler function for tool approval requests.
+ * Called before each tool execution to determine if the tool should be allowed to run.
+ *
+ * @param name - The name of the tool being invoked
+ * @param input - The input parameters passed to the tool
+ * @param options - Optional settings including an AbortSignal for cancellation
+ * @returns Promise resolving to true if the tool is approved, false to reject
+ *
+ * @example
+ * ```typescript
+ * const handler: ToolApprovalHandler = async (name, input) => {
+ *   console.log(`Tool ${name} requested with input:`, input);
+ *   // Prompt user for approval or apply custom logic
+ *   return true; // or false to reject
+ * };
+ * ```
+ */
 export type ToolApprovalHandler = (
   name: string,
   input: unknown,
   options?: { signal?: AbortSignal },
 ) => Promise<boolean>;
 
+/**
+ * Configuration options for McpServerManager.
+ */
 export interface McpServerManagerOptions {
+  /**
+   * Optional handler called before each tool execution for approval.
+   * If not provided, all tools are automatically approved.
+   */
   toolApprovalHandler?: ToolApprovalHandler;
+  /**
+   * Optional MCP Store registry client for discovering and registering servers.
+   * Defaults to the CoreSpeed MCP Store.
+   */
   registryClient?: McpStoreSDK;
 }
 
@@ -478,6 +507,18 @@ export class McpServerManager {
     return undefined;
   }
 
+  /**
+   * Executes a tool by name with the given input.
+   *
+   * @param toolUseId - Unique identifier for this tool invocation (used for event tracking).
+   *   Must be unique across calls. Recommended: for direct tool calling, pass the tool_use_id
+   *   from the LLM response as-is; for programmatic tool calling (PTC), use a "ptc_" prefix with a UUID.
+   * @param name - The name of the tool to execute
+   * @param input - The input parameters to pass to the tool
+   * @param options - Optional settings including an AbortSignal for cancellation
+   * @returns Promise resolving to the tool execution result
+   * @throws Error if tool is not found or if rejected by the approval handler
+   */
   async callTool(
     toolUseId: string,
     name: string,

@@ -12,6 +12,8 @@ import type {
 } from "./ModelProvider.ts";
 import { type ClientOptions, OpenAI } from "@openai/openai";
 import { type ImageBlock, isFileAttachment, type Message } from "../message.ts";
+import * as z from "zod";
+import { injectOutputSchema } from "./utils.ts";
 
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -76,11 +78,11 @@ export class OpenAIModelProvider implements ModelProvider {
   ): ModelStream {
     const openaiTools: OpenAI.Chat.ChatCompletionTool[] | undefined = params
       .tools?.map((tool) => ({
-        type: "function",
+        type: "function" as const,
         function: {
           name: tool.name,
-          description: tool.description,
-          parameters: tool.schema,
+          description: injectOutputSchema(tool.description, tool.outputSchema),
+          parameters: z.toJSONSchema(tool.schema) as OpenAI.FunctionParameters,
           strict: false, // in strict mode, no optional parameters are allowed
         },
       }));

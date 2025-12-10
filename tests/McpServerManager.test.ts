@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
 import { expect } from "@std/expect";
+import z from "zod";
 import type { Tool } from "@zypher/tools/mod.ts";
 import type {
   McpServerEndpoint,
@@ -39,7 +40,7 @@ describe("McpServerManager", () => {
     return {
       name,
       description: `Mock tool ${name}`,
-      schema: { type: "object", properties: {} },
+      schema: z.object({}),
       execute: () => Promise.resolve("ok"),
     };
   }

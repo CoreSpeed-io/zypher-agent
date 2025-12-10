@@ -1,4 +1,4 @@
-import * as z from "zod";
+import type * as z from "zod";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ZypherContext } from "../ZypherAgent.ts";
 
@@ -20,27 +20,13 @@ export type ToolResult = CallToolResult | string;
 /**
  * Base interface for all tools
  */
-export interface Tool<P extends BaseParams = BaseParams> {
-  /**
-   * The name of the tool
-   */
+export interface Tool<T extends BaseParams = BaseParams> {
   readonly name: string;
-
-  /**
-   * A description of what the tool does
-   */
   readonly description: string;
-
-  /**
-   * The JSON schema for the tool's parameters
-   */
-  readonly schema: InputSchema;
-
-  /**
-   * Execute the tool with the given parameters
-   */
+  readonly schema: z.ZodType<T>;
+  readonly outputSchema?: z.ZodType;
   execute(
-    input: P,
+    input: T,
     ctx: ToolExecutionContext,
   ): Promise<ToolResult>;
 }
@@ -58,31 +44,25 @@ export interface InputSchema {
   [k: string]: unknown;
 }
 
-type InferParams<T extends z.ZodType> = z.infer<T>;
-
 /**
  * Helper function to create a tool with a simpler API
  */
-export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
+export function createTool<T extends BaseParams>(options: {
   name: string;
   description: string;
-  schema: T;
+  schema: z.ZodType<T>;
+  outputSchema?: z.ZodType;
   execute: (
-    params: InferParams<T>,
+    params: T,
     ctx: ToolExecutionContext,
   ) => Promise<ToolResult>;
-}): Tool<InferParams<T>> {
-  // Convert Zod schema to JSON Schema
-  const jsonSchema = z.toJSONSchema(options.schema);
-
+}): Tool<T> {
   return {
     name: options.name,
     description: options.description,
-    schema: jsonSchema as InputSchema,
-    execute: async (
-      input: InferParams<T>,
-      ctx: ToolExecutionContext,
-    ) => {
+    schema: options.schema,
+    outputSchema: options.outputSchema,
+    execute: async (input: T, ctx: ToolExecutionContext) => {
       // Validate input using Zod schema
       const validatedInput = await options.schema.parseAsync(input);
       return options.execute(validatedInput, ctx);
@@ -92,6 +72,9 @@ export function createTool<T extends z.ZodObject<z.ZodRawShape>>(options: {
 
 // Filesystem tools
 export * from "./fs/mod.ts";
+
+// Code executor tool
+export * from "./codeExecutor/mod.ts";
 
 // Other tools
 export { RunTerminalCmdTool } from "./RunTerminalCmdTool.ts";

@@ -1,45 +1,81 @@
 import z from "zod";
 import type { McpServerManager } from "../../mcp/mod.ts";
-import { AbortError } from "../../error.ts";
-import { createTool, type ToolResult } from "../mod.ts";
+import { AbortError, isAbortError } from "../../error.ts";
+import { createTool, type Tool, type ToolResult } from "../mod.ts";
 import { executeCode } from "./executeCode.ts";
 
+/**
+ * Configuration options for the execute_code tool.
+ */
 export interface ExecuteCodeToolOptions {
+  /**
+   * Maximum execution time in milliseconds before the code is terminated.
+   * @default 600000 (10 minutes)
+   */
   timeout?: number;
 }
 
 export function createExecuteCodeTool(
   mcpServerManager: McpServerManager,
   options: ExecuteCodeToolOptions = {},
-) {
-  const { timeout = 600000 } = options;
+): Tool {
+  const { timeout = 600_000 } = options;
 
   return createTool({
     name: "execute_code",
-    description: `Execute TypeScript/JavaScript code with access to tools.
+    description:
+      `Execute arbitrary TypeScript/JavaScript code in an isolated environment.
 
-## Usage
-Write the BODY of an async function. You have access to a \`tools\` object.
+Use this tool for:
+- Complex computations, data transformations, or algorithmic tasks
+- Tasks requiring loops, conditionals, filtering, or aggregation
+- Programmatic Tool Calling (PTC): orchestrating multiple tool calls in code
 
-- Call tools: \`const result = await tools.toolName({ arg: value })\`
-- Tools return **objects directly** (not JSON strings) - access properties directly like \`result.field\`
-- Use console.log() for debugging (output is captured)
-- RETURN the final result (will be JSON stringified)
+## Programmatic Tool Calling (PTC)
 
-## Example
+For tasks requiring many tool calls (loops, filtering, pre/post-processing), write code that orchestrates all operations in a single execution instead of calling tools one-by-one.
+
+**Why PTC is better:**
+- Loops and conditionals are handled in code, not by the LLM
+- Multiple tool calls execute in one invocation—no back-and-forth inference cycles
+- Intermediate results stay in code scope; only the final summary is returned
+- Reduces context window usage and latency significantly
+
+### Code Environment and Example
+
+Your code runs as the body of an async function with access to a \`tools\` proxy object:
+
 \`\`\`typescript
+// Call any available tool directly
+const result = await tools.toolName({ arg: value });
+
+// Tools return ToolResult objects with this structure:
+// {
+//   content: [{ type: "text", text: "Human-readable output" }],
+//   structuredContent?: { ... },  // If outputSchema is defined, this is required and strictly typed
+// }
+
+// When a tool has an outputSchema, use structuredContent for typed access
+console.log(result.structuredContent.field);
+
+// Example: Batch processing multiple files
+const files = ["config.json", "settings.json", "data.json"];
 const results = [];
-for (const item of items) {
-  const data = await tools.some_tool({ param: item });
-  results.push({ item, value: data.field });
+for (const file of files) {
+  try {
+    const content = await tools.read_file({ path: file });
+    results.push({ file, keys: Object.keys(content) });
+  } catch (e) {
+    results.push({ file, error: e.message });
+  }
 }
 return results;
 \`\`\`
 
 ## Guidelines
-1. Return concise summaries, not raw data
-2. Handle errors with try/catch if needed
-3. Timeout: ${timeout / 1000} seconds
+- Use console.log() for debugging (output is captured)
+- Handle errors with try/catch when appropriate
+- Timeout: ${timeout / 1000} seconds
 `,
     schema: z.object({
       code: z.string().describe("The code to execute"),
@@ -50,39 +86,23 @@ return results;
           signal: AbortSignal.timeout(timeout),
         });
 
-        const parts: string[] = [];
-
-        if (result.logs.length > 0) {
-          parts.push("## Console Output\n" + result.logs.join("\n"));
-        }
-
-        if (result.success) {
-          if (result.data !== undefined) {
-            const dataStr = typeof result.data === "string"
-              ? result.data
-              : JSON.stringify(result.data, null, 2);
-            parts.push("## Result\n" + dataStr);
-          }
-        } else {
-          const errorStr = result.error instanceof Error
-            ? result.error.message
-            : String(result.error);
-          parts.push("## Error\n" + errorStr);
-        }
+        const structuredContent = {
+          data: result.data,
+          error: result.error,
+          logs: result.logs,
+        };
 
         return {
-          content: [{ type: "text", text: parts.join("\n\n") }],
+          content: [{ type: "text", text: JSON.stringify(structuredContent) }],
+          structuredContent,
           isError: !result.success,
         };
       } catch (error) {
-        if (error instanceof AbortError) {
-          return {
-            content: [{
-              type: "text",
-              text: `Code execution timed out after ${timeout / 1000} seconds`,
-            }],
-            isError: true,
-          };
+        if (isAbortError(error)) {
+          throw new AbortError(
+            `Code execution timed out after ${timeout / 1000} seconds`,
+            { cause: error },
+          );
         }
         throw error;
       }
