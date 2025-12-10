@@ -33,6 +33,103 @@ import { connectToServer, type OAuthOptions } from "./connect.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 import { from, map, type Observable } from "rxjs";
 
+import { z } from "zod";
+
+export interface McpResource {
+  uri: string;
+  name: string;
+  title?: string;
+  description?: string;
+  mimeType?: string;
+  size?: number;
+  annotations?: Record<string, unknown>;
+}
+
+export interface McpResourceContent {
+  uri?: string;
+  name?: string;
+  title?: string;
+  mimeType?: string;
+  text?: string;
+  blob?: string; // base64
+  annotations?: Record<string, unknown>;
+}
+
+/** Binary resource content with streaming support */
+export interface McpBinaryResourceContent {
+  uri?: string;
+  name?: string;
+  title?: string;
+  mimeType?: string;
+  data?: Uint8Array;
+  stream?: ReadableStream<Uint8Array>;
+  size?: number;
+  annotations?: Record<string, unknown>;
+}
+
+/** Resource reading options */
+export interface McpResourceReadOptions {
+  uri: string;
+  signal?: AbortSignal;
+  useCache?: boolean;
+  streaming?: boolean;
+  maxSize?: number; // Maximum size in bytes for non-streaming reads
+}
+
+/** Resource subscription information */
+export interface McpResourceSubscription {
+  uri: string;
+  unsubscribe: () => Promise<void> | void;
+}
+
+/** Resource capabilities supported by the server */
+export interface McpResourceCapabilities {
+  subscribe?: boolean;
+  listChanged?: boolean;
+}
+
+/**
+ * Resource validation error
+ * Error codes: https://www.mcpevals.io/blog/mcp-error-codes
+ */
+export class McpResourceError extends Error {
+  constructor(
+    message: string,
+    public readonly code: number,
+    public readonly uri?: string,
+  ) {
+    super(message);
+    this.name = "McpResourceError";
+  }
+}
+
+/** Resource cache entry */
+interface ResourceCacheEntry {
+  resources: McpResource[];
+  content?: McpResourceContent[];
+  timestamp: number;
+  ttl: number;
+}
+
+/** Resource filter options */
+export interface McpResourceFilter {
+  mimeType?: string;
+  minSize?: number;
+  maxSize?: number;
+  annotations?: Record<string, unknown>;
+  namePattern?: string;
+  titlePattern?: string;
+}
+
+export interface McpResourceTemplate {
+  uriTemplate: string;
+  name?: string;
+  title?: string;
+  description?: string;
+  mimeType?: string;
+  annotations?: Record<string, unknown>;
+}
+
 /** Client-specific configuration options */
 export interface McpClientOptions {
   /** Optional name of the client for identification */
@@ -118,6 +215,11 @@ export class McpClient {
   #tools: Tool[] = [];
   #connectAbortController: AbortController = new AbortController();
   #transport: Transport | null = null;
+  #resourceSubscriptions = new Map<string, McpResourceSubscription>();
+  #resourceCache = new Map<string, ResourceCacheEntry>();
+  #resourceCapabilities: McpResourceCapabilities = {};
+  #resourceListChangeCallbacks = new Set<() => void>();
+  #defaultCacheTTL = 5 * 60 * 1000; // 5 min
 
   /**
    * Creates a new MCPClient instance with separated server and client configuration
@@ -378,6 +480,22 @@ export class McpClient {
     }
 
     try {
+      // Clean up resource subscriptions, resource cache and callbacks
+      for (const subscription of this.#resourceSubscriptions.values()) {
+        try {
+          const result = subscription.unsubscribe();
+          if (result instanceof Promise) {
+            await result;
+          }
+        } catch (error) {
+          console.warn("Error unsubscribing from resource:", error);
+        }
+      }
+
+      this.#resourceSubscriptions.clear();
+      this.#clearResourceCache();
+      this.#resourceListChangeCallbacks.clear();
+
       await this.#client.close();
     } catch (_) {
       // Ignore errors during close - we're cleaning up anyway
@@ -599,6 +717,585 @@ export class McpClient {
     });
 
     return normalizeToCallToolResult(result);
+  }
+
+  /**
+   * Lists resources exposed by the connected MCP server.
+   */
+  async listResources(options?: {
+    cursor?: string;
+    signal?: AbortSignal;
+    filter?: McpResourceFilter;
+    useCache?: boolean;
+  }): Promise<{ resources: McpResource[]; nextCursor?: string }> {
+    try {
+      if (options?.useCache !== false) {
+        const cacheKey = `list:${options?.cursor ?? "default"}`;
+        const cached = this.#resourceCache.get(cacheKey);
+        if (cached && this.#isCacheValid(cached)) {
+          const filteredResources = options?.filter
+            ? cached.resources.filter((resource) =>
+              this.#matchesFilter(resource, options.filter!)
+            )
+            : cached.resources;
+          return {
+            resources: filteredResources,
+            nextCursor: undefined,
+          };
+        }
+      }
+
+      const result = await this.#client.listResources({
+        cursor: options?.cursor,
+        signal: options?.signal,
+        filter: options?.filter,
+        useCache: options?.useCache,
+      });
+
+      console.log("SDK listResources result:", result);
+
+      const resources =
+        (result as { resources: McpResource[]; nextCursor?: string }).resources;
+
+      // Apply filters
+      const filteredResources = options?.filter
+        ? resources.filter((resource) =>
+          this.#matchesFilter(resource, options.filter!)
+        )
+        : resources;
+
+      // Cache the result
+      if (options?.useCache !== false) {
+        const cacheKey = `list:${options?.cursor ?? "default"}`;
+        this.#resourceCache.set(cacheKey, {
+          resources: filteredResources,
+          timestamp: Date.now(),
+          ttl: this.#defaultCacheTTL,
+        });
+      }
+
+      return {
+        resources: filteredResources,
+        nextCursor: (result as { nextCursor?: string }).nextCursor,
+      };
+    } catch (error) {
+      console.error("SDK request error:", error);
+      throw this.#normalizeResourceError(error, "resources/list");
+    }
+  }
+
+  /**
+   * Reads the contents of a specific resource by URI.
+   */
+  async readResource(
+    params: McpResourceReadOptions,
+  ): Promise<{ contents: McpResourceContent[] }> {
+    this.#validateResourceUri(params.uri);
+
+    try {
+      if (params.useCache !== false && !params.streaming) {
+        const cached = this.#resourceCache.get(params.uri);
+        if (cached && cached.content && this.#isCacheValid(cached)) {
+          return { contents: cached.content };
+        }
+      }
+
+      const result = await this.#client.request(
+        {
+          method: "resources/read",
+          params: {
+            uri: params.uri,
+            streaming: params.streaming,
+            maxSize: params.maxSize,
+          },
+        },
+        z.object({
+          contents: z.array(z.object({
+            uri: z.string().optional(),
+            name: z.string().optional(),
+            title: z.string().optional(),
+            mimeType: z.string().optional(),
+            text: z.string().optional(),
+            blob: z.string().optional(),
+            annotations: z.record(z.unknown()).optional(),
+          })),
+        }),
+      );
+
+      console.log("SDK readResource result:", result);
+
+      const contents = (result as { contents: McpResourceContent[] }).contents;
+
+      if (params.maxSize && contents.length > 0) {
+        const totalSize = contents.reduce((size, content) => {
+          if (content.text) {
+            size += new TextEncoder().encode(content.text).length;
+          }
+          if (content.blob) size += Math.ceil(content.blob.length * 0.75); // Approximate base64 size
+          return size;
+        }, 0);
+
+        if (totalSize > params.maxSize) {
+          throw new McpResourceError(
+            `Resource content exceeds maximum size limit: ${totalSize} > ${params.maxSize}`,
+            -32603,
+            params.uri,
+          );
+        }
+      }
+
+      // Cache the result
+      if (params.useCache !== false && !params.streaming) {
+        this.#resourceCache.set(params.uri, {
+          resources: [{ uri: params.uri, name: "" }],
+          content: contents,
+          timestamp: Date.now(),
+          ttl: this.#defaultCacheTTL,
+        });
+      }
+
+      return { contents };
+    } catch (error) {
+      console.error("SDK readResource error:", error);
+      throw this.#normalizeResourceError(error, "resources/read", params.uri);
+    }
+  }
+
+  /**
+   * Reads binary content from a resource with streaming support.
+   */
+  async readBinaryResource(params: {
+    uri: string;
+    signal?: AbortSignal;
+    streaming?: boolean;
+    maxSize?: number;
+  }): Promise<{ content: McpBinaryResourceContent }> {
+    this.#validateResourceUri(params.uri);
+
+    try {
+      if (params.streaming) {
+        const result = await this.readResource({
+          uri: params.uri,
+          signal: params.signal,
+          streaming: params.streaming,
+          maxSize: params.maxSize,
+        });
+
+        // Convert text/blob content to binary
+        const binaryContent: McpBinaryResourceContent = {
+          uri: params.uri,
+          mimeType: result.contents[0]?.mimeType,
+          name: result.contents[0]?.name,
+          title: result.contents[0]?.title,
+          annotations: result.contents[0]?.annotations,
+        };
+
+        if (result.contents[0]?.text) {
+          binaryContent.data = new TextEncoder().encode(
+            result.contents[0].text,
+          );
+          binaryContent.size = binaryContent.data.length;
+        } else if (result.contents[0]?.blob) {
+          try {
+            const binaryString = atob(result.contents[0].blob);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            binaryContent.data = bytes;
+            binaryContent.size = bytes.length;
+          } catch (error) {
+            throw new McpResourceError(
+              `Failed to decode base64 blob: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+              -32603,
+              params.uri,
+            );
+          }
+        }
+
+        return { content: binaryContent };
+      }
+
+      // Non-streaming binary
+      const result = await this.readResource({
+        uri: params.uri,
+        signal: params.signal,
+        streaming: false,
+        maxSize: params.maxSize,
+      });
+
+      const content = result.contents[0];
+      if (!content) {
+        throw new McpResourceError(
+          `No content found for resource: ${params.uri}`,
+          -32002,
+          params.uri,
+        );
+      }
+
+      const binaryContent: McpBinaryResourceContent = {
+        uri: content.uri || params.uri,
+        name: content.name,
+        title: content.title,
+        mimeType: content.mimeType,
+        annotations: content.annotations,
+      };
+
+      if (content.text) {
+        binaryContent.data = new TextEncoder().encode(content.text);
+        binaryContent.size = binaryContent.data.length;
+      } else if (content.blob) {
+        try {
+          // Decode base64 blob
+          const binaryString = atob(content.blob);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          binaryContent.data = bytes;
+          binaryContent.size = bytes.length;
+        } catch (error) {
+          throw new McpResourceError(
+            `Failed to decode base64 blob: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            -32603,
+            params.uri,
+          );
+        }
+      }
+
+      return { content: binaryContent };
+    } catch (error) {
+      console.error("SDK readBinaryResource error:", error);
+      throw this.#normalizeResourceError(error, "resources/read", params.uri);
+    }
+  }
+
+  /**
+   * Lists resource templates exposed by the server.
+   */
+  async listResourceTemplates(_options?: {
+    signal?: AbortSignal;
+  }): Promise<{ resourceTemplates: McpResourceTemplate[] }> {
+    try {
+      const result = await this.#client.request(
+        {
+          method: "resources/templates/list",
+        },
+        z.object({
+          resourceTemplates: z.array(z.object({
+            uriTemplate: z.string(),
+            name: z.string().optional(),
+            title: z.string().optional(),
+            description: z.string().optional(),
+            mimeType: z.string().optional(),
+            annotations: z.record(z.unknown()).optional(),
+          })),
+        }),
+      );
+
+      console.log("SDK listResourceTemplates result:", result);
+      return result as { resourceTemplates: McpResourceTemplate[] };
+    } catch (error) {
+      console.error("SDK listResourceTemplates error:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Subscribes to updates for a specific resource. Returns subscription info.
+   */
+  async subscribeToResource(params: {
+    uri: string;
+    onUpdated: (update: { uri: string; title?: string }) => void;
+    signal?: AbortSignal;
+  }): Promise<McpResourceSubscription> {
+    this.#validateResourceUri(params.uri);
+
+    if (this.#resourceSubscriptions.has(params.uri)) {
+      throw new McpResourceError(
+        `Already subscribed to resource: ${params.uri}`,
+        -32001,
+        params.uri,
+      );
+    }
+
+    try {
+      await this.#client.request({
+        method: "resources/subscribe",
+        params: { uri: params.uri },
+      }, z.object({}));
+
+      const clientWithEvents = this.#client as Client & {
+        on?: (event: string, cb: (...args: unknown[]) => void) => void;
+        off?: (event: string, cb: (...args: unknown[]) => void) => void;
+      };
+
+      const handler = (payload: unknown) => {
+        if (!payload || typeof payload !== "object") return;
+        const p = payload as {
+          method?: string;
+          params?: { uri?: string; title?: string };
+        };
+        if (
+          p.method === "notifications/resources/updated" &&
+          p.params?.uri === params.uri
+        ) {
+          // Invalidate cache and notify
+          this.#resourceCache.delete(params.uri);
+          params.onUpdated({ uri: params.uri, title: p.params.title });
+        }
+      };
+
+      if (typeof clientWithEvents.on === "function") {
+        clientWithEvents.on("notification", handler);
+      }
+
+      const unsubscribe = () => {
+        if (typeof clientWithEvents.off === "function") {
+          clientWithEvents.off("notification", handler);
+        }
+      };
+
+      const subscription: McpResourceSubscription = {
+        uri: params.uri,
+        unsubscribe,
+      };
+
+      this.#resourceSubscriptions.set(params.uri, subscription);
+      return subscription;
+    } catch (error) {
+      throw this.#normalizeResourceError(
+        error,
+        "resources/subscribe",
+        params.uri,
+      );
+    }
+  }
+
+  /**
+   * Unsubscribes from resource updates.
+   */
+  async unsubscribeFromResource(uri: string): Promise<void> {
+    this.#validateResourceUri(uri);
+
+    const subscription = this.#resourceSubscriptions.get(uri);
+    if (!subscription) {
+      throw new McpResourceError(
+        `Not subscribed to resource: ${uri}`,
+        -32001,
+        uri,
+      );
+    }
+
+    try {
+      const result = subscription.unsubscribe();
+      if (result instanceof Promise) {
+        await result;
+      }
+
+      this.#resourceSubscriptions.delete(uri);
+
+      await this.#client.request({
+        method: "resources/unsubscribe",
+        params: { uri },
+      }, z.object({}));
+    } catch (error) {
+      throw this.#normalizeResourceError(error, "resources/unsubscribe", uri);
+    }
+  }
+
+  /**
+   * Callback to be notified when the server's resource list changes.
+   */
+  onResourcesListChanged(callback: () => void): () => void {
+    this.#resourceListChangeCallbacks.add(callback);
+
+    const clientWithEvents = this.#client as Client & {
+      on?: (event: string, cb: (...args: unknown[]) => void) => void;
+      off?: (event: string, cb: (...args: unknown[]) => void) => void;
+    };
+
+    const listChangedHandler = () => {
+      this.#clearResourceCache();
+      callback();
+    };
+
+    if (typeof clientWithEvents.on === "function") {
+      clientWithEvents.on("resources/listChanged", listChangedHandler);
+    }
+
+    const notifHandler = (payload: unknown) => {
+      if (!payload || typeof payload !== "object") return;
+      const p = payload as { method?: string };
+      if (p.method === "notifications/resources/list_changed") {
+        this.#clearResourceCache();
+        callback();
+      }
+    };
+
+    if (typeof clientWithEvents.on === "function") {
+      clientWithEvents.on("notification", notifHandler);
+    }
+
+    return () => {
+      this.#resourceListChangeCallbacks.delete(callback);
+
+      if (typeof clientWithEvents.off === "function") {
+        clientWithEvents.off("resources/listChanged", listChangedHandler);
+        clientWithEvents.off("notification", notifHandler);
+      }
+    };
+  }
+
+  /**
+   * Gets resource capabilities supported by the server.
+   */
+  getResourceCapabilities(): McpResourceCapabilities {
+    return { ...this.#resourceCapabilities };
+  }
+
+  /**
+   * Sets resource capabilities
+   */
+  setResourceCapabilities(capabilities: McpResourceCapabilities): void {
+    this.#resourceCapabilities = { ...capabilities };
+  }
+
+  /**
+   * Clears resource cache.
+   */
+  clearResourceCache(): void {
+    this.#clearResourceCache();
+  }
+
+  /**
+   * Gets cache statistics.
+   */
+  getCacheStats(): { size: number; entries: string[] } {
+    return {
+      size: this.#resourceCache.size,
+      entries: Array.from(this.#resourceCache.keys()),
+    };
+  }
+
+  #validateResourceUri(uri: string): void {
+    if (!uri || typeof uri !== "string") {
+      throw new McpResourceError(
+        "Invalid resource URI: must be a non-empty string",
+        -32602,
+      );
+    }
+
+    try {
+      new URL(uri);
+    } catch {
+      throw new McpResourceError(
+        "Invalid resource URI: must be a valid URL",
+        -32602,
+        uri,
+      );
+    }
+  }
+
+  #normalizeResourceError(error: unknown, method: string, uri?: string): Error {
+    if (error instanceof McpResourceError) {
+      return error;
+    }
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // Map common errors to JRPC codes
+    if (
+      errorMessage.includes("Method not found") ||
+      errorMessage.includes("-32601")
+    ) {
+      return new McpResourceError(
+        `Method not supported: ${method}`,
+        -32601,
+        uri,
+      );
+    }
+
+    if (errorMessage.includes("not found") || errorMessage.includes("404")) {
+      return new McpResourceError(
+        `Resource not found: ${uri || "unknown"}`,
+        -32002,
+        uri,
+      );
+    }
+
+    if (errorMessage.includes("unauthorized") || errorMessage.includes("403")) {
+      return new McpResourceError(
+        `Access denied to resource: ${uri || "unknown"}`,
+        -32003,
+        uri,
+      );
+    }
+
+    if (errorMessage.includes("timeout")) {
+      return new McpResourceError(
+        `Request timeout for ${method}`,
+        -32004,
+        uri,
+      );
+    }
+
+    return new McpResourceError(
+      `Resource operation failed: ${errorMessage}`,
+      -32603,
+      uri,
+    );
+  }
+
+  #isCacheValid(entry: ResourceCacheEntry): boolean {
+    return Date.now() - entry.timestamp < entry.ttl;
+  }
+
+  #matchesFilter(resource: McpResource, filter: McpResourceFilter): boolean {
+    if (!filter) return true;
+
+    if (filter.mimeType && resource.mimeType !== filter.mimeType) {
+      return false;
+    }
+
+    if (filter.minSize !== undefined && (resource.size ?? 0) < filter.minSize) {
+      return false;
+    }
+
+    if (filter.maxSize !== undefined && (resource.size ?? 0) > filter.maxSize) {
+      return false;
+    }
+
+    if (
+      filter.namePattern && !resource.name.match(new RegExp(filter.namePattern))
+    ) {
+      return false;
+    }
+
+    if (
+      filter.titlePattern && resource.title &&
+      !resource.title.match(new RegExp(filter.titlePattern))
+    ) {
+      return false;
+    }
+
+    if (filter.annotations) {
+      for (const [key, value] of Object.entries(filter.annotations)) {
+        if (resource.annotations?.[key] !== value) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  #clearResourceCache(): void {
+    this.#resourceCache.clear();
   }
 }
 
