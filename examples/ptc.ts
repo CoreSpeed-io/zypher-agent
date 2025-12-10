@@ -6,10 +6,10 @@
  * the results efficiently.
  *
  * Also demonstrates tool approval handling - requiring user confirmation
- * before executing tools.
+ * before executing `execute_code` tool.
  *
  * Run:
- *   deno run -A --unstable-worker-options examples/ptc.ts
+ *   deno run --env --allow-read --allow-net --allow-env --allow-sys examples/ptc.ts
  */
 
 import "@std/dotenv/load";
@@ -22,6 +22,23 @@ import {
 import { createExecuteCodeTool, createTool } from "@zypher/tools/mod.ts";
 import { z } from "zod";
 import { eachValueFrom } from "rxjs-for-await";
+import { TextLineStream } from "jsr:@std/streams@1/text-line-stream";
+import chalk from "chalk";
+
+async function prompt(message: string): Promise<string> {
+  console.log(message);
+  const lines = Deno.stdin.readable
+    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(new TextLineStream());
+  try {
+    for await (const line of lines) {
+      return line;
+    }
+    return "";
+  } finally {
+    await lines.cancel();
+  }
+}
 
 const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
 if (!apiKey) {
@@ -87,21 +104,22 @@ const getWeather = createTool({
 // Create context and MCP server manager with tool approval handler
 const context = await createZypherContext(Deno.cwd());
 const mcpServerManager = new McpServerManager(context, {
-  // toolApprovalHandler: async (toolName, input) => {
-  //   console.log(`\n🔧 Tool approval requested: ${toolName}`);
-  //   console.log(`   Input: ${JSON.stringify(input)}`);
+  toolApprovalHandler: async (toolName, input) => {
+    if (toolName !== "execute_code") {
+      return true;
+    }
 
-  //   const rl = readline.createInterface({
-  //     input: process.stdin,
-  //     output: process.stdout,
-  //   });
-  //   const response = await rl.question("   Approve? (y/n): ");
-  //   rl.close();
+    const { code } = input as { code: string };
+    console.log(`\n🤖 Zypher Agent wants to run the following code:\n`);
+    console.log(chalk.dim("```typescript"));
+    console.log(chalk.cyan(code));
+    console.log(chalk.dim("```\n"));
 
-  //   const approved = response.toLowerCase() === "y";
-  //   console.log(approved ? "   ✅ Approved\n" : "   ❌ Rejected\n");
-  //   return approved;
-  // },
+    const response = await prompt("Run the code above? (y/N): ");
+    const approved = response.toLowerCase() === "y";
+    console.log(approved ? "✅ Approved\n" : "❌ Rejected\n");
+    return approved;
+  },
 });
 
 // Register tools
@@ -136,6 +154,34 @@ get two cities with the most similar weather and the city with the highest tempe
   "claude-sonnet-4-5-20250929",
 );
 
-for await (const event of eachValueFrom(events$)) {
-  console.log(event);
+const textEncoder = new TextEncoder();
+let isFirstTextChunk = true;
+
+try {
+  for await (const event of eachValueFrom(events$)) {
+    if (event.type === "text") {
+      if (isFirstTextChunk) {
+        await Deno.stdout.write(textEncoder.encode("🤖 "));
+        isFirstTextChunk = false;
+      }
+      await Deno.stdout.write(textEncoder.encode(event.content));
+    } else {
+      isFirstTextChunk = true;
+
+      if (event.type === "tool_use") {
+        console.log(`\n🔧 Using tool: ${event.toolName}`);
+      } else if (event.type === "tool_use_result") {
+        console.log(`📋 Tool result: ${event.toolName} (${event.toolUseId})`);
+        console.log(event.result);
+        console.log();
+      }
+    }
+  }
+
+  console.log("\n");
+  console.log(chalk.green("✅ Task completed.\n"));
+  Deno.exit(0);
+} catch (error) {
+  console.error(error);
+  Deno.exit(1);
 }
