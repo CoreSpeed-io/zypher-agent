@@ -563,6 +563,9 @@ export class McpClient {
         name: `mcp__${this.#serverEndpoint.id}__${tool.name}`,
         description: tool.description ?? "",
         schema: inputSchema,
+        outputSchema: tool.outputSchema
+          ? jsonToZod(tool.outputSchema)
+          : undefined,
         execute: async (params: Record<string, unknown>) => {
           const result = await this.executeToolCall({
             name: tool.name,

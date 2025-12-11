@@ -41,21 +41,41 @@ For tasks requiring many tool calls (loops, filtering, pre/post-processing), wri
 - Intermediate results stay in code scope; only the final answer is returned
 - Reduces context window usage and latency significantly
 
-### Code Environment and Example
-
-Your code runs as the body of an async function with access to a \`tools\` proxy object:
+### Code Environment
+Your code runs as the body of an async function. Write code directly—do NOT wrap it in a function. You have access to a \`tools\` proxy object to call any available tool.
 
 \`\`\`typescript
-// Call any available tool directly
-const result = await tools.toolName({ arg: value });
-
-// Tools return ToolResult objects with this structure:
-// {
-//   content: [{ type: "text", text: "Human-readable output" }],
-//   structuredContent?: { ... },  // If outputSchema is defined, this is required and strictly typed
+// Your code is executed like this internally:
+// async function execute(tools) {
+//   <YOUR CODE HERE>
 // }
 
-// Example: Find the largest file (only return what's asked, not all file sizes)
+// ❌ WRONG - don't define your own function:
+async function main() { ... }
+
+// ✅ CORRECT - write code directly:
+const result = await tools.someApi({ param: "value" });
+return result;
+\`\`\`
+
+### Tool Results
+Tools return ToolResult objects:
+\`\`\`typescript
+// {
+//   content: [{ type: "text", text: "Human-readable output" }],
+//   structuredContent?: { ... },  // Optional, but if outputSchema is defined, this is required and strictly typed
+// }
+\`\`\`
+
+**Tip:** If a tool doesn't have outputSchema defined, inspect its result structure first before writing complex logic:
+\`\`\`typescript
+const sample = await tools.some_tool({ param: "value" });
+return sample; // Examine the output, then write proper code in next execution
+\`\`\`
+
+### Example
+\`\`\`typescript
+// Find the largest file (only return what's asked, not all file sizes)
 const files = ["config.json", "settings.json", "data.json"];
 let largest = { file: "", size: 0 };
 for (const file of files) {
@@ -69,6 +89,7 @@ return largest;
 \`\`\`
 
 ## Guidelines
+- **IMPORTANT:** When a task involves tools that may return large datasets (e.g., listing all items, fetching many records), use execute_code from the START. Call the data-fetching tool inside your code so the large response stays in code scope and doesn't consume context window. Never call such tools directly first—always wrap them in execute_code.
 - **Keep return values concise.** Avoid returning all intermediate data (e.g., all items fetched in a loop). Include important details when necessary, but focus on the specific answer the user asked for.
 - Use console.log() for debugging (output is captured), but avoid excessive logging as it adds to context
 - Handle errors with try/catch when appropriate
