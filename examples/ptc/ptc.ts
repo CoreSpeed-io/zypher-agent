@@ -18,11 +18,11 @@ import {
   createZypherContext,
   McpServerManager,
   ZypherAgent,
-} from "@zypher/mod.ts";
-import { createExecuteCodeTool, createTool } from "@zypher/tools/mod.ts";
+} from "@corespeed/zypher";
+import { createExecuteCodeTool, createTool } from "@corespeed/zypher/tools";
 import { z } from "zod";
 import { eachValueFrom } from "rxjs-for-await";
-import { TextLineStream } from "jsr:@std/streams@1/text-line-stream";
+import { TextLineStream } from "@std/streams/text-line-stream";
 import chalk from "chalk";
 
 async function prompt(message: string): Promise<string> {
