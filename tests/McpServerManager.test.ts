@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
 import { expect } from "@std/expect";
+import z from "zod";
 import type { Tool } from "@zypher/tools/mod.ts";
 import type {
   McpServerEndpoint,
@@ -39,7 +40,7 @@ describe("McpServerManager", () => {
     return {
       name,
       description: `Mock tool ${name}`,
-      parameters: { type: "object", properties: {} },
+      schema: z.object({}),
       execute: () => Promise.resolve("ok"),
     };
   }
@@ -234,23 +235,23 @@ describe("McpServerManager", () => {
   });
 
   describe("Event Stream", () => {
-    it("should emit serverAdded event on registration", async () => {
+    it("should emit server_added event on registration", async () => {
       const events: McpServerManagerEvent[] = [];
       manager.events$.subscribe((event) => events.push(event));
 
       const endpoint = createServerEndpoint("event-server");
       await manager.registerServer(endpoint, false);
 
-      const addedEvent = events.find((e) => e.type === "serverAdded");
+      const addedEvent = events.find((e) => e.type === "server_added");
       expect(addedEvent).toBeDefined();
-      expect(addedEvent!.type).toBe("serverAdded");
-      if (addedEvent!.type === "serverAdded") {
+      expect(addedEvent!.type).toBe("server_added");
+      if (addedEvent!.type === "server_added") {
         expect(addedEvent!.serverId).toBe("event-server");
         expect(addedEvent!.source.type).toBe("direct");
       }
     });
 
-    it("should emit serverRemoved event on deregistration", async () => {
+    it("should emit server_removed event on deregistration", async () => {
       const events: McpServerManagerEvent[] = [];
 
       const endpoint = createServerEndpoint("remove-event-server");
@@ -259,9 +260,9 @@ describe("McpServerManager", () => {
       manager.events$.subscribe((event) => events.push(event));
       await manager.deregisterServer("remove-event-server");
 
-      const removedEvent = events.find((e) => e.type === "serverRemoved");
+      const removedEvent = events.find((e) => e.type === "server_removed");
       expect(removedEvent).toBeDefined();
-      if (removedEvent!.type === "serverRemoved") {
+      if (removedEvent!.type === "server_removed") {
         expect(removedEvent!.serverId).toBe("remove-event-server");
       }
     });

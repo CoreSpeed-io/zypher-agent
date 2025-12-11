@@ -12,7 +12,7 @@ import {
 import type { TokenUsage } from "./llm/mod.ts";
 import { AbortError, isAbortError, TaskConcurrencyError } from "./error.ts";
 import type { ModelProvider } from "./llm/mod.ts";
-import { type Observable, Subject } from "rxjs";
+import { filter, type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
 import {
   type FileAttachmentCacheMap,
@@ -306,6 +306,17 @@ export class ZypherAgent {
       );
     }
 
+    // Pipe MCP tool events directly to task events (event shapes are compatible)
+    const mcpSubscription = this.#mcpServerManager.events$.pipe(
+      filter((e) =>
+        e.type === "tool_use_pending_approval" ||
+        e.type === "tool_use_approved" ||
+        e.type === "tool_use_rejected" ||
+        e.type === "tool_use_result" ||
+        e.type === "tool_use_error"
+      ),
+    ).subscribe((event) => taskEventSubject.next(event));
+
     try {
       // Reload system prompt to get current custom rules from working directory
       const systemPrompt = await this.#systemPromptLoader();
@@ -467,6 +478,9 @@ export class ZypherAgent {
       // Only propagate unexpected errors to the subject
       taskEventSubject.error(error);
     } finally {
+      // Unsubscribe from MCP server manager events
+      mcpSubscription.unsubscribe();
+
       // Clear task timeout if it exists
       if (timeoutId !== null) {
         clearTimeout(timeoutId);

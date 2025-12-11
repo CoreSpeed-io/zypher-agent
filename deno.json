@@ -6,6 +6,9 @@
     ".": "./src/mod.ts",
     "./tools": "./src/tools/mod.ts"
   },
+  "workspace": [
+    "examples/ptc"
+  ],
   "tasks": {
     "start": "deno run -A bin/cli.ts",
     "compile": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
