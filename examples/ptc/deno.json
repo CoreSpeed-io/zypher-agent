@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@corespeed/zypher": "../../src/mod.ts",
+    "@std/streams": "jsr:@std/streams@^1.0.14"
+  }
+}
