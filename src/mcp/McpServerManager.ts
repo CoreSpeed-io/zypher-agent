@@ -1,5 +1,5 @@
 import { McpClient, type McpClientStatus } from "./McpClient.ts";
-import type { Tool } from "../tools/mod.ts";
+import type { Tool, ToolResult } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 import type { OAuthOptions } from "./connect.ts";
@@ -45,26 +45,98 @@ export type McpServerInfo = Omit<McpServerState, "subscription">;
  */
 export type McpServerManagerEvent =
   | {
-    type: "serverAdded";
+    type: "server_added";
     serverId: string;
     server: McpServerEndpoint;
     source: McpServerSource;
   }
   | {
-    type: "serverUpdated";
+    type: "server_updated";
     serverId: string;
     updates: { server?: McpServerEndpoint; enabled?: boolean };
   }
   | {
-    type: "serverRemoved";
+    type: "server_removed";
     serverId: string;
   }
   | {
-    type: "clientStatusChanged";
+    type: "client_status_changed";
     serverId: string;
     status: McpClientStatus;
     client: McpClient;
+  }
+  | {
+    type: "tool_use_pending_approval";
+    toolUseId: string;
+    toolName: string;
+    input: unknown;
+  }
+  | {
+    type: "tool_use_approved";
+    toolUseId: string;
+    toolName: string;
+  }
+  | {
+    type: "tool_use_rejected";
+    toolUseId: string;
+    toolName: string;
+    input: unknown;
+    reason: string;
+  }
+  | {
+    type: "tool_use_result";
+    toolUseId: string;
+    toolName: string;
+    input: unknown;
+    result: ToolResult;
+  }
+  | {
+    type: "tool_use_error";
+    toolUseId: string;
+    toolName: string;
+    input: unknown;
+    error: unknown;
   };
+
+/**
+ * Handler function for tool approval requests.
+ * Called before each tool execution to determine if the tool should be allowed to run.
+ *
+ * @param name - The name of the tool being invoked
+ * @param input - The input parameters passed to the tool
+ * @param options - Optional settings including an AbortSignal for cancellation
+ * @returns Promise resolving to true if the tool is approved, false to reject
+ *
+ * @example
+ * ```typescript
+ * const handler: ToolApprovalHandler = async (name, input) => {
+ *   console.log(`Tool ${name} requested with input:`, input);
+ *   // Prompt user for approval or apply custom logic
+ *   return true; // or false to reject
+ * };
+ * ```
+ */
+export type ToolApprovalHandler = (
+  name: string,
+  input: unknown,
+  options?: { signal?: AbortSignal },
+) => Promise<boolean>;
+
+/**
+ * Configuration options for McpServerManager.
+ */
+export interface McpServerManagerOptions {
+  /**
+   * Optional handler called before each tool execution for approval.
+   * If not provided, all tools are automatically approved.
+   */
+  toolApprovalHandler?: ToolApprovalHandler;
+  /**
+   * Optional MCP Store registry client for discovering and registering servers.
+   * Defaults to the CoreSpeed MCP Store.
+   */
+  registryClient?: McpStoreSDK;
+}
 
 /**
  * McpServerManager is a class that manages MCP (Model Context Protocol) servers and their tools.
@@ -81,20 +153,23 @@ export class McpServerManager {
   readonly #registryClient: McpStoreSDK;
   // Event subject for observable event streaming
   readonly #eventsSubject = new Subject<McpServerManagerEvent>();
+  readonly #toolApprovalHandler?: ToolApprovalHandler;
   // Flag to track if the manager has been disposed
   #disposed = false;
 
   constructor(
     readonly context: ZypherContext,
-    registryClient?: McpStoreSDK,
+    options: McpServerManagerOptions = {},
   ) {
     // Default to CoreSpeed MCP Store if none provided
-    this.#registryClient = registryClient ?? new McpStoreSDK({
-      baseURL: Deno.env.get("MCP_STORE_BASE_URL") ??
-        "https://api1.mcp.corespeed.io",
-      // The api key is only for admin endpoints. It's not needed for the public endpoints.
-      apiKey: "",
-    });
+    this.#registryClient = options.registryClient ??
+      new McpStoreSDK({
+        baseURL: Deno.env.get("MCP_STORE_BASE_URL") ??
+          "https://api1.mcp.corespeed.io",
+        // The api key is only for admin endpoints. It's not needed for the public endpoints.
+        apiKey: "",
+      });
+    this.#toolApprovalHandler = options.toolApprovalHandler;
   }
 
   /**
@@ -151,7 +226,7 @@ export class McpServerManager {
     // Subscribe to client status changes
     const subscription = client.status$.subscribe((status) => {
       this.#eventsSubject.next({
-        type: "clientStatusChanged",
+        type: "client_status_changed",
         serverId: server.id,
         status,
         client,
@@ -172,7 +247,7 @@ export class McpServerManager {
 
     // Emit serverAdded event
     this.#eventsSubject.next({
-      type: "serverAdded",
+      type: "server_added",
       serverId: server.id,
       server,
       source,
@@ -290,7 +365,7 @@ export class McpServerManager {
 
     // Emit serverRemoved event
     this.#eventsSubject.next({
-      type: "serverRemoved",
+      type: "server_removed",
       serverId: id,
     });
   }
@@ -332,7 +407,7 @@ export class McpServerManager {
 
     // Emit serverUpdated event
     this.#eventsSubject.next({
-      type: "serverUpdated",
+      type: "server_updated",
       serverId,
       updates,
     });
@@ -430,6 +505,90 @@ export class McpServerManager {
     }
 
     return undefined;
+  }
+
+  /**
+   * Executes a tool by name with the given input.
+   *
+   * @param toolUseId - Unique identifier for this tool invocation (used for event tracking).
+   *   Must be unique across calls. Recommended: for direct tool calling, pass the tool_use_id
+   *   from the LLM response as-is; for programmatic tool calling (PTC), use a "ptc_" prefix with a UUID.
+   * @param name - The name of the tool to execute
+   * @param input - The input parameters to pass to the tool
+   * @param options - Optional settings including an AbortSignal for cancellation
+   * @returns Promise resolving to the tool execution result
+   * @throws Error if tool is not found or if rejected by the approval handler
+   */
+  async callTool(
+    toolUseId: string,
+    name: string,
+    input: unknown,
+    options?: { signal?: AbortSignal },
+  ): Promise<ToolResult> {
+    const tool = this.getTool(name);
+    if (!tool) {
+      throw new Error(`Tool '${name}' not found`);
+    }
+
+    if (this.#toolApprovalHandler) {
+      this.#eventsSubject.next({
+        type: "tool_use_pending_approval",
+        toolUseId,
+        toolName: name,
+        input,
+      });
+      const approved = await this.#toolApprovalHandler(
+        name,
+        input,
+        options,
+      );
+
+      if (!approved) {
+        const reason = "Rejected by user";
+        this.#eventsSubject.next({
+          type: "tool_use_rejected",
+          toolUseId,
+          toolName: name,
+          input,
+          reason,
+        });
+        throw new Error(`Tool call ${name} rejected by user`);
+      }
+    }
+
+    // auto approve if no approval handler is provided
+    this.#eventsSubject.next({
+      type: "tool_use_approved",
+      toolUseId,
+      toolName: name,
+    });
+
+    try {
+      const result = await tool.execute(
+        input as Record<string, unknown>,
+        this.context,
+      );
+
+      this.#eventsSubject.next({
+        type: "tool_use_result",
+        toolUseId,
+        toolName: name,
+        input,
+        result,
+      });
+
+      return result;
+    } catch (error) {
+      this.#eventsSubject.next({
+        type: "tool_use_error",
+        toolUseId,
+        toolName: name,
+        input,
+        error,
+      });
+
+      throw error;
+    }
   }
 
   debugLogState(): void {

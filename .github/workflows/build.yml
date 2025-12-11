@@ -36,11 +36,12 @@ jobs:
 
       - name: Run unit tests
         # --allow-env required for MCP SDK transitive dependencies
+        # --allow-read required for executeCode and codeExecution worker tests
         # (cross-spawn/which reads OSTYPE at module load)
-        run: deno test --allow-env --ignore=**/*.integration.test.ts
+        run: deno test --allow-env --allow-read --ignore=**/*.integration.test.ts
 
       - name: JSR publish dry run
-        run: deno publish --dry-run --allow-slow-types
+        run: deno publish --dry-run
 
       # comment out for now until we resolve the node_fetch issue
       # - name: Build npm package

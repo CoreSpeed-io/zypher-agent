@@ -1,5 +1,6 @@
 import type { FinalMessage, TokenUsage } from "./llm/ModelProvider.ts";
 import type { Message } from "./message.ts";
+import type { ToolResult } from "./tools/mod.ts";
 
 export type TaskEvent =
   | TaskTextEvent
@@ -10,6 +11,8 @@ export type TaskEvent =
   | TaskToolUsePendingApprovalEvent
   | TaskToolUseRejectedEvent
   | TaskToolUseApprovedEvent
+  | TaskToolUseResultEvent
+  | TaskToolUseErrorEvent
   | TaskCancelledEvent
   | TaskUsageEvent
   | TaskCompletedEvent;
@@ -68,8 +71,9 @@ export interface TaskToolUseInputEvent {
  */
 export interface TaskToolUsePendingApprovalEvent {
   type: "tool_use_pending_approval";
+  toolUseId: string;
   toolName: string;
-  parameters: Record<string, unknown>;
+  input: unknown;
 }
 
 /**
@@ -77,6 +81,7 @@ export interface TaskToolUsePendingApprovalEvent {
  */
 export interface TaskToolUseRejectedEvent {
   type: "tool_use_rejected";
+  toolUseId: string;
   toolName: string;
   reason: string;
 }
@@ -86,7 +91,30 @@ export interface TaskToolUseRejectedEvent {
  */
 export interface TaskToolUseApprovedEvent {
   type: "tool_use_approved";
+  toolUseId: string;
   toolName: string;
+}
+
+/**
+ * Event emitted when a tool execution completes successfully
+ */
+export interface TaskToolUseResultEvent {
+  type: "tool_use_result";
+  toolUseId: string;
+  toolName: string;
+  input: unknown;
+  result: ToolResult;
+}
+
+/**
+ * Event emitted when a tool execution fails with an error
+ */
+export interface TaskToolUseErrorEvent {
+  type: "tool_use_error";
+  toolUseId: string;
+  toolName: string;
+  input: unknown;
+  error: unknown;
 }
 
 /**

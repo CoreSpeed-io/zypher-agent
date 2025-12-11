@@ -3,7 +3,7 @@ import { AbortError } from "../error.ts";
 export class Completer<T> {
   readonly #promise: Promise<T>;
   #resolve!: (value: T) => void;
-  #reject!: (error?: Error) => void;
+  #reject!: (reason?: unknown) => void;
 
   constructor() {
     this.#promise = new Promise((res, rej) => {
@@ -30,7 +30,7 @@ export class Completer<T> {
     this.#resolve(value);
   }
 
-  reject(error: Error) {
-    this.#reject(error);
+  reject(reason?: unknown) {
+    this.#reject(reason);
   }
 }
