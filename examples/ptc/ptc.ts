@@ -9,7 +9,7 @@
  * before executing `execute_code` tool.
  *
  * Run:
- *   deno run --env --allow-read --allow-net --allow-env --allow-sys examples/ptc.ts
+ *   deno run --env --allow-read --allow-net --allow-env --allow-sys ./ptc.ts
  */
 
 import "@std/dotenv/load";
