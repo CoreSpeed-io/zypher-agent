@@ -38,7 +38,7 @@ For tasks requiring many tool calls (loops, filtering, pre/post-processing), wri
 **Why PTC is better:**
 - Loops and conditionals are handled in code, not by the LLM
 - Multiple tool calls execute in one invocation—no back-and-forth inference cycles
-- Intermediate results stay in code scope; only the final summary is returned
+- Intermediate results stay in code scope; only the final answer is returned
 - Reduces context window usage and latency significantly
 
 ### Code Environment and Example
@@ -55,25 +55,22 @@ const result = await tools.toolName({ arg: value });
 //   structuredContent?: { ... },  // If outputSchema is defined, this is required and strictly typed
 // }
 
-// When a tool has an outputSchema, use structuredContent for typed access
-console.log(result.structuredContent.field);
-
-// Example: Batch processing multiple files
+// Example: Find the largest file (only return what's asked, not all file sizes)
 const files = ["config.json", "settings.json", "data.json"];
-const results = [];
+let largest = { file: "", size: 0 };
 for (const file of files) {
-  try {
-    const content = await tools.read_file({ path: file });
-    results.push({ file, keys: Object.keys(content) });
-  } catch (e) {
-    results.push({ file, error: e.message });
+  const stat = await tools.stat_file({ path: file });
+  if (stat.structuredContent.size > largest.size) {
+    largest = { file, size: stat.structuredContent.size };
   }
 }
-return results;
+// Return the answer the user asked for, not all intermediate file stats
+return largest;
 \`\`\`
 
 ## Guidelines
-- Use console.log() for debugging (output is captured)
+- **Keep return values concise.** Avoid returning all intermediate data (e.g., all items fetched in a loop). Include important details when necessary, but focus on the specific answer the user asked for.
+- Use console.log() for debugging (output is captured), but avoid excessive logging as it adds to context
 - Handle errors with try/catch when appropriate
 - Timeout: ${timeout / 1000} seconds
 `,
