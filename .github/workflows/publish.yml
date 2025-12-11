@@ -56,13 +56,14 @@ jobs:
 
       - name: Run validation
         # --allow-env required in unit tests for MCP SDK transitive dependencies
+        # --allow-read required for executeCode and codeExecution worker tests
         # (cross-spawn/which reads OSTYPE at module load)
         run: |
           echo "🔍 Validating v${{ needs.check-version-change.outputs.new-version }}..."
           deno fmt --check
           deno lint
           deno check .
-          deno test --allow-env --ignore=**/*.integration.test.ts
+          deno test --allow-env --allow-read --ignore=**/*.integration.test.ts
 
       - name: Create Git Tag
         run: |
