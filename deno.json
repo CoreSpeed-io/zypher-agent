@@ -3,7 +3,8 @@
     "packages/agent",
     "packages/cli",
     "examples/mcp",
-    "examples/ptc"
+    "examples/ptc",
+    "examples/acp"
   ],
   "tasks": {
     "start": "deno run -A bin/cli.ts",
