@@ -2,8 +2,6 @@
   "workspace": [
     "packages/agent",
     "packages/cli",
-    "packages/acp",
-    "examples/mcp",
     "examples/ptc",
     "examples/acp"
   ],
