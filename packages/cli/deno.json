@@ -7,8 +7,11 @@
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
-    "@zypher/agent": "../agent/src/mod.ts",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
     "chalk": "npm:chalk@^5.6.2",
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0"
+  },
+  "tasks": {
+    "start": "deno run -A main.ts"
   }
 }

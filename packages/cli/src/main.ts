@@ -4,45 +4,20 @@ import {
   createZypherAgent,
   formatError,
   OpenAIModelProvider,
-  runAgentInTerminal,
-} from "@zypher/mod.ts";
+} from "@zypher/agent";
 import {
   createFileSystemTools,
   createImageTools,
   RunTerminalCmdTool,
-} from "@zypher/tools/mod.ts";
+} from "@zypher/agent/tools";
 import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
+import { runAgentInTerminal } from "./terminal.ts";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
 
 const providerType = new EnumType(["anthropic", "openai"]);
-
-// Parse command line arguments using Cliffy
-const { options: cli } = await new Command()
-  .name("zypher")
-  .description("Zypher Agent CLI")
-  .type("provider", providerType)
-  .option("-k, --api-key <apiKey:string>", "Model provider API key", {
-    required: true,
-  })
-  .option("-m, --model <model:string>", "Model name")
-  .option(
-    "-p, --provider <provider:provider>",
-    "Model provider",
-  )
-  .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
-  .option(
-    "-w, --workDir <workingDirectory:string>",
-    "Working directory for agent operations",
-  )
-  .option("-u, --user-id <userId:string>", "Custom user ID")
-  .option(
-    "--openai-api-key <openaiApiKey:string>",
-    "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
-  )
-  .parse(Deno.args);
 
 function inferProvider(
   provider?: string,
@@ -61,7 +36,32 @@ function inferProvider(
   return "openai"; // fallback to OpenAI-compatible models
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
+  // Parse command line arguments using Cliffy
+  const { options: cli } = await new Command()
+    .name("zypher")
+    .description("Zypher Agent CLI")
+    .type("provider", providerType)
+    .option("-k, --api-key <apiKey:string>", "Model provider API key", {
+      required: true,
+    })
+    .option("-m, --model <model:string>", "Model name")
+    .option(
+      "-p, --provider <provider:provider>",
+      "Model provider",
+    )
+    .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
+    .option(
+      "-w, --workDir <workingDirectory:string>",
+      "Working directory for agent operations",
+    )
+    .option("-u, --user-id <userId:string>", "Custom user ID")
+    .option(
+      "--openai-api-key <openaiApiKey:string>",
+      "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
+    )
+    .parse(Deno.args);
+
   try {
     // Log CLI configuration
     if (cli.userId) {
@@ -119,21 +119,15 @@ async function main(): Promise<void> {
       Array.from(agent.mcp.tools.keys()).join(", "),
     );
 
+    // Handle Ctrl+C
+    Deno.addSignalListener("SIGINT", () => {
+      console.log("\n\nGoodbye! 👋\n");
+      Deno.exit(0);
+    });
+
     await runAgentInTerminal(agent, modelToUse);
   } catch (error) {
     console.error("Fatal Error:", formatError(error));
     Deno.exit(1);
   }
 }
-
-// Handle Ctrl+C
-Deno.addSignalListener("SIGINT", () => {
-  console.log("\n\nGoodbye! 👋\n");
-  Deno.exit(0);
-});
-
-// Run the CLI
-main().catch((error) => {
-  console.error("Unhandled error:", formatError(error));
-  Deno.exit(1);
-});

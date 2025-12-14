@@ -5,14 +5,10 @@
     "examples/ptc"
   ],
   "tasks": {
-    "start": "deno run -A bin/cli.ts",
-    "compile": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
-    "build:npm": "deno run -A scripts/build_npm.ts",
-    "publish:npm": "cd npm && npm publish --access restricted",
+    "cli": "deno run -A packages/cli/src/mod.ts",
     "test": "deno test -A --trace-leaks",
     "test:watch": "deno test -A --watch",
-    "checkall": "deno fmt && deno lint && deno check .",
-    "clean": "rm -rf dist/"
+    "checkall": "deno fmt && deno lint && deno check ."
   },
   "exclude": ["dist/", "node_modules/", "npm/", "docs/"]
 }

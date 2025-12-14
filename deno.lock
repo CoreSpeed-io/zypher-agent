@@ -1751,6 +1751,7 @@
       "packages/cli": {
         "dependencies": [
           "jsr:@cliffy/command@^1.0.0-rc.8",
+          "jsr:@std/dotenv@~0.225.5",
           "npm:chalk@^5.6.2",
           "npm:rxjs-for-await@1"
         ]

@@ -1,9 +1,8 @@
-import type { ZypherAgent } from "../agent/src/ZypherAgent.ts";
+import type { ZypherAgent } from "@zypher/agent";
 import readline from "node:readline";
 import { stdin, stdout } from "node:process";
 import chalk from "chalk";
-import { printMessage } from "../agent/src/message.ts";
-import { formatError } from "../agent/src/error.ts";
+import { formatError, printMessage } from "@zypher/agent";
 import { eachValueFrom } from "rxjs-for-await";
 
 /**
@@ -11,9 +10,12 @@ import { eachValueFrom } from "rxjs-for-await";
  * @param agent - The agent to run.
  * @param model - The model to use.
  */
-export async function runAgentInTerminal(agent: ZypherAgent, model: string) {
-  console.log("\n🤖 Welcome to Zypher Agent CLI!\n");
-  console.log(`🧠 Using model: ${chalk.cyan(model)}`);
+export async function runAgentInTerminal(
+  agent: ZypherAgent,
+  model: string,
+): Promise<void> {
+  console.log("\nWelcome to Zypher Agent CLI!\n");
+  console.log(`Using model: ${chalk.cyan(model)}`);
   console.log(
     'Type your task or command below. Use "exit" or Ctrl+C to quit.\n',
   );
@@ -23,16 +25,16 @@ export async function runAgentInTerminal(agent: ZypherAgent, model: string) {
 
   try {
     while (true) {
-      const task = await prompt("🔧 Enter your task: ", rl);
+      const task = await prompt("Enter your task: ", rl);
 
       if (task.toLowerCase() === "exit") {
-        console.log("\nGoodbye! 👋\n");
+        console.log("\nGoodbye!\n");
         break;
       }
 
       if (!task.trim()) continue;
 
-      console.log("\n🚀 Starting task execution...\n");
+      console.log("\nStarting task execution...\n");
       try {
         const taskEvents = await agent.runTask(task, model);
         let isFirstTextChunk = true;
@@ -41,7 +43,7 @@ export async function runAgentInTerminal(agent: ZypherAgent, model: string) {
         for await (const event of eachValueFrom(taskEvents)) {
           if (event.type === "text") {
             if (isFirstTextChunk) {
-              Deno.stdout.write(textEncoder.encode(chalk.blue("🤖 ")));
+              Deno.stdout.write(textEncoder.encode(chalk.blue("Agent: ")));
               isFirstTextChunk = false;
             }
 
@@ -61,13 +63,13 @@ export async function runAgentInTerminal(agent: ZypherAgent, model: string) {
             }
           } else if (event.type === "tool_use") {
             Deno.stdout.write(
-              textEncoder.encode(`\n\n🔧 Using tool: ${event.toolName}\n`),
+              textEncoder.encode(`\n\nUsing tool: ${event.toolName}\n`),
             );
           } else if (event.type === "tool_use_input") {
             Deno.stdout.write(textEncoder.encode(event.partialInput));
           } else if (event.type === "cancelled") {
             cancelled = true;
-            console.log("\n🛑 Task cancelled, reason: ", event.reason, "\n");
+            console.log("\nTask cancelled, reason: ", event.reason, "\n");
           }
         }
 
@@ -75,10 +77,10 @@ export async function runAgentInTerminal(agent: ZypherAgent, model: string) {
         Deno.stdout.write(textEncoder.encode("\n\n"));
 
         if (!cancelled) {
-          console.log("\n✅ Task completed.\n");
+          console.log("\nTask completed.\n");
         }
       } catch (error) {
-        console.error(chalk.red("\n❌ Error:"), formatError(error));
+        console.error(chalk.red("\nError:"), formatError(error));
         console.log("\nReady for next task.\n");
       }
     }
