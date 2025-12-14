@@ -10,7 +10,7 @@
  * ```typescript
  * import { runAgentInTerminal } from "@zypher/cli";
  * ```
- * 
+ *
  * @module
  */
 

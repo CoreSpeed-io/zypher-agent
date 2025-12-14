@@ -1722,7 +1722,11 @@
     "members": {
       "examples/ptc": {
         "dependencies": [
-          "jsr:@std/streams@^1.0.14"
+          "jsr:@std/dotenv@~0.225.5",
+          "jsr:@std/streams@^1.0.14",
+          "npm:chalk@^5.6.2",
+          "npm:rxjs-for-await@1",
+          "npm:zod@^4.1.13"
         ]
       },
       "packages/agent": {

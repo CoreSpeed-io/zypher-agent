@@ -18,8 +18,8 @@ import {
   createZypherContext,
   McpServerManager,
   ZypherAgent,
-} from "@corespeed/zypher";
-import { createExecuteCodeTool, createTool } from "@corespeed/zypher/tools";
+} from "@zypher/agent";
+import { createExecuteCodeTool, createTool } from "@zypher/agent/tools";
 import { z } from "zod";
 import { eachValueFrom } from "rxjs-for-await";
 import { TextLineStream } from "@std/streams/text-line-stream";
