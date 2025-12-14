@@ -20,7 +20,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.5.1
+          deno-version: v2.6.0
 
       - name: Install dependencies
         run: deno install --frozen=true
@@ -42,7 +42,3 @@ jobs:
 
       - name: JSR publish dry run
         run: deno publish --dry-run
-
-      # comment out for now until we resolve the node_fetch issue
-      # - name: Build npm package
-      #   run: deno task build:npm

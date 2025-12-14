@@ -49,7 +49,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.5.1
+          deno-version: v2.6.0
 
       - name: Install dependencies
         run: deno install --frozen=true
@@ -90,7 +90,7 @@ jobs:
             ${{ steps.changelog.outputs.changelog || format('Release v{0}', needs.check-version-change.outputs.new-version) }}
 
             ---
-            📦 **JSR Package**: https://jsr.io/@corespeed/zypher/v${{ needs.check-version-change.outputs.new-version }}
+            📦 **JSR Package**: https://jsr.io/@zypher/agent/v${{ needs.check-version-change.outputs.new-version }}
           draft: false
           prerelease: ${{ contains(needs.check-version-change.outputs.new-version, '-') }}
 
