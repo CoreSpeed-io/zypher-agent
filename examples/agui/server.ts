@@ -47,7 +47,6 @@ const getWeatherTool = createTool({
   },
 });
 
-
 const agent = await createZypherAgent({
   modelProvider: new AnthropicModelProvider({
     apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,

@@ -55,10 +55,12 @@ function convertUserContent(
   const blocks: ContentBlock[] = [];
 
   if (systemContext) {
-    blocks.push({
-      type: "text",
-      text: `[System Context]\n${systemContext}\n\n[User Message]`,
-    } satisfies TextBlock);
+    blocks.push(
+      {
+        type: "text",
+        text: `[System Context]\n${systemContext}\n\n[User Message]`,
+      } satisfies TextBlock,
+    );
   }
 
   const content = msg.content;
@@ -68,18 +70,28 @@ function convertUserContent(
     for (const item of content) {
       if (item.type === "text") {
         blocks.push({ type: "text", text: item.text } satisfies TextBlock);
-      } else if (item.type === "binary" && item.mimeType?.startsWith("image/")) {
+      } else if (
+        item.type === "binary" && item.mimeType?.startsWith("image/")
+      ) {
         // AG-UI uses 'binary' type for images
         if (item.data) {
-          blocks.push({
-            type: "image",
-            source: { type: "base64", mediaType: item.mimeType, data: item.data },
-          } satisfies ImageBlock);
+          blocks.push(
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                mediaType: item.mimeType,
+                data: item.data,
+              },
+            } satisfies ImageBlock,
+          );
         } else if (item.url) {
-          blocks.push({
-            type: "image",
-            source: { type: "url", url: item.url, mediaType: item.mimeType },
-          } satisfies ImageBlock);
+          blocks.push(
+            {
+              type: "image",
+              source: { type: "url", url: item.url, mediaType: item.mimeType },
+            } satisfies ImageBlock,
+          );
         }
       }
     }
@@ -88,7 +100,9 @@ function convertUserContent(
   return blocks;
 }
 
-function convertAssistantContent(msg: Message & { role: "assistant" }): ContentBlock[] {
+function convertAssistantContent(
+  msg: Message & { role: "assistant" },
+): ContentBlock[] {
   const blocks: ContentBlock[] = [];
 
   if (msg.content) {
@@ -103,12 +117,14 @@ function convertAssistantContent(msg: Message & { role: "assistant" }): ContentB
       } catch {
         input = toolCall.function.arguments;
       }
-      blocks.push({
-        type: "tool_use",
-        toolUseId: toolCall.id,
-        name: toolCall.function.name,
-        input,
-      } satisfies ToolUseBlock);
+      blocks.push(
+        {
+          type: "tool_use",
+          toolUseId: toolCall.id,
+          name: toolCall.function.name,
+          input,
+        } satisfies ToolUseBlock,
+      );
     }
   }
 
@@ -194,7 +210,9 @@ export function convertZypherMessagesToAGUI(
       } as Message;
 
       if (toolUses.length > 0) {
-        (aguiMsg as Message & { role: "assistant" }).toolCalls = toolUses.map((tu) => ({
+        (aguiMsg as Message & { role: "assistant" }).toolCalls = toolUses.map((
+          tu,
+        ) => ({
           id: tu.toolUseId,
           type: "function" as const,
           function: {
