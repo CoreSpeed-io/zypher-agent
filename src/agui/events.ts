@@ -180,26 +180,49 @@ export function createRunStartedEvent(
   threadId?: string,
   runId?: string,
 ): BaseEvent {
-  return { type: EventType.RUN_STARTED, threadId, runId, timestamp: Date.now() } as BaseEvent;
+  return {
+    type: EventType.RUN_STARTED,
+    threadId,
+    runId,
+    timestamp: Date.now(),
+  } as BaseEvent;
 }
 
 export function createRunFinishedEvent(
   threadId?: string,
   runId?: string,
 ): BaseEvent {
-  return { type: EventType.RUN_FINISHED, threadId, runId, timestamp: Date.now() } as BaseEvent;
+  return {
+    type: EventType.RUN_FINISHED,
+    threadId,
+    runId,
+    timestamp: Date.now(),
+  } as BaseEvent;
 }
 
 export function createRunErrorEvent(message: string, code?: string): BaseEvent {
-  return { type: EventType.RUN_ERROR, message, code, timestamp: Date.now() } as BaseEvent;
+  return {
+    type: EventType.RUN_ERROR,
+    message,
+    code,
+    timestamp: Date.now(),
+  } as BaseEvent;
 }
 
 export function createMessagesSnapshotEvent(messages: Message[]): BaseEvent {
-  return { type: EventType.MESSAGES_SNAPSHOT, messages, timestamp: Date.now() } as BaseEvent;
+  return {
+    type: EventType.MESSAGES_SNAPSHOT,
+    messages,
+    timestamp: Date.now(),
+  } as BaseEvent;
 }
 
 export function createStateSnapshotEvent(
   snapshot: Record<string, unknown>,
 ): BaseEvent {
-  return { type: EventType.STATE_SNAPSHOT, snapshot, timestamp: Date.now() } as BaseEvent;
+  return {
+    type: EventType.STATE_SNAPSHOT,
+    snapshot,
+    timestamp: Date.now(),
+  } as BaseEvent;
 }

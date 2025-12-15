@@ -143,7 +143,8 @@ class AGUIAdapter {
     this.#state = state;
     this.#threadId = threadId;
     this.#runId = runId;
-    this.#model = model ?? Deno.env.get("ZYPHER_MODEL") ?? "claude-sonnet-4-20250514";
+    this.#model = model ?? Deno.env.get("ZYPHER_MODEL") ??
+      "claude-sonnet-4-20250514";
   }
 
   async *runStream(): AsyncGenerator<BaseEvent> {

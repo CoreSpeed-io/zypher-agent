@@ -153,7 +153,7 @@ The frontend (CopilotKit) can then render this with `useCopilotAction`:
 ```tsx
 useCopilotAction({
   name: "get_weather",
-  available: "disabled",  // Don't expose to LLM, just render results
+  available: "disabled", // Don't expose to LLM, just render results
   render: ({ args, result, status }) => {
     if (status !== "complete") {
       return <div>Loading weather...</div>;
