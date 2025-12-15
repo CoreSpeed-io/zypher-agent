@@ -223,7 +223,16 @@ export class McpServerManager {
     // Create MCP client
     const client = new McpClient(this.context, server, { oauth });
 
-    // Subscribe to client status changes
+    // Emit serverAdded event BEFORE subscribing to status changes.
+    // This ensures consumers receive server_added before any client_status_changed events.
+    this.#eventsSubject.next({
+      type: "server_added",
+      serverId: server.id,
+      server,
+      source,
+    });
+
+    // Subscribe to client status changes (emits initial status immediately)
     const subscription = client.status$.subscribe((status) => {
       this.#eventsSubject.next({
         type: "client_status_changed",
@@ -244,14 +253,6 @@ export class McpServerManager {
 
     // Set enabled state
     client.desiredEnabled = enabled;
-
-    // Emit serverAdded event
-    this.#eventsSubject.next({
-      type: "server_added",
-      serverId: server.id,
-      server,
-      source,
-    });
 
     // Wait for connection to be ready if enabled
     if (enabled) {

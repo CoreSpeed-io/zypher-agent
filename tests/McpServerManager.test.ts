@@ -251,6 +251,29 @@ describe("McpServerManager", () => {
       }
     });
 
+    it("should emit events in correct order: server_added, then client_status_changed", async () => {
+      const events: McpServerManagerEvent[] = [];
+      manager.events$.subscribe((event) => events.push(event));
+
+      const endpoint = createServerEndpoint("order-test");
+      await manager.registerServer(endpoint, false);
+
+      // Filter events for this server
+      const serverEvents = events.filter(
+        (e) => "serverId" in e && e.serverId === "order-test",
+      );
+
+      // With enabled=false, we expect exactly: server_added, then one client_status_changed
+      expect(serverEvents.length).toBe(2);
+      expect(serverEvents[0].type).toBe("server_added");
+      expect(serverEvents[1].type).toBe("client_status_changed");
+
+      // Verify the initial status is "disconnected"
+      if (serverEvents[1].type === "client_status_changed") {
+        expect(serverEvents[1].status).toBe("disconnected");
+      }
+    });
+
     it("should emit server_removed event on deregistration", async () => {
       const events: McpServerManagerEvent[] = [];
 
