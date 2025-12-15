@@ -1,0 +1,10 @@
+{
+  "tasks": {
+    "dev": "deno run --env --allow-all ./server.ts"
+  },
+  "imports": {
+    "@corespeed/zypher": "../../src/mod.ts",
+    "@corespeed/zypher/agui": "../../src/agui/mod.ts",
+    "@corespeed/zypher/tools": "../../src/tools/mod.ts"
+  }
+}
