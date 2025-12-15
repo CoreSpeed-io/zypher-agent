@@ -165,10 +165,10 @@
       "integrity": "sha512-TGNDEUuEstk/DKu0/TflXAEt+p+p/WhTlFzEnoosvbaDU2LTjm42igSdlL0VijrKpWejtOKxX0b8A7uc+XiSAQ==",
       "dependencies": [
         "json-schema-to-ts",
-        "zod"
+        "zod@4.1.13"
       ],
       "optionalPeers": [
-        "zod"
+        "zod@4.1.13"
       ],
       "bin": true
     },
@@ -760,7 +760,7 @@
         "json-schema-typed",
         "pkce-challenge",
         "raw-body",
-        "zod",
+        "zod@4.1.13",
         "zod-to-json-schema"
       ]
     },
@@ -1696,10 +1696,10 @@
     "openai@6.9.1_zod@4.2.1": {
       "integrity": "sha512-vQ5Rlt0ZgB3/BNmTa7bIijYFhz3YBceAA3Z4JuoMSBftBF9YqFHIEhZakSs+O/Ad7EaoEimZvHxD5ylRjN11Lg==",
       "dependencies": [
-        "zod"
+        "zod@4.1.13"
       ],
       "optionalPeers": [
-        "zod"
+        "zod@4.1.13"
       ],
       "bin": true
     },
@@ -1783,7 +1783,13 @@
     "rxjs-for-await@1.0.0_rxjs@7.8.2": {
       "integrity": "sha512-MJhvf1vtQaljd5wlzsasvOjcohVogzkHkUI0gFE9nGhZ15/fT2vR1CjkLEh37oRqWwpv11vHo5D+sLM+Aw9Y8g==",
       "dependencies": [
-        "rxjs"
+        "rxjs@7.8.2"
+      ]
+    },
+    "rxjs@7.8.1": {
+      "integrity": "sha512-AA3TVj+0A2iuIoQkWEK/tqFjBq2j+6PO6Y0zJcvzLAFhEFIO3HL0vls9hWLncZbAAbK0mar7oZ4V079I/qPMxg==",
+      "dependencies": [
+        "tslib"
       ]
     },
     "rxjs@7.8.2": {
@@ -1979,7 +1985,7 @@
     "zod-to-json-schema@3.25.0_zod@4.2.1": {
       "integrity": "sha512-HvWtU2UG41LALjajJrML6uQejQhNJx+JBO9IflpSja4R03iNWfKXrj6W2h7ljuLyc1nKS+9yDyL/9tD1U/yBnQ==",
       "dependencies": [
-        "zod"
+        "zod@4.1.13"
       ]
     },
     "zod@4.2.1": {
