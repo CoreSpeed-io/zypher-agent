@@ -30,6 +30,9 @@ jobs:
         run: deno fmt --check
 
       - name: Run unit tests
+        # --allow-env required for MCP SDK transitive dependencies
+        # --allow-read required for executeCode and codeExecution worker tests
+        # (cross-spawn/which reads OSTYPE at module load)
         run: deno test --allow-env --allow-read --ignore=**/*.integration.test.ts
 
       - name: Publish to JSR
