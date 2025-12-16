@@ -29,7 +29,7 @@
 
 import "@std/dotenv/load";
 import { AnthropicModelProvider, createZypherAgent } from "@corespeed/zypher";
-import { acpStdioServer } from "@corespeed/zypher/acp";
+import { acpStdioServer } from "@zypher/acp";
 import { createTool } from "@corespeed/zypher/tools";
 import { z } from "zod";
 
