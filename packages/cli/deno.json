@@ -12,6 +12,6 @@
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0"
   },
   "tasks": {
-    "start": "deno run -A main.ts"
+    "start": "deno run -A src/mod.ts"
   }
 }
