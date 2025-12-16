@@ -6,8 +6,6 @@
     "jsr:@cliffy/internal@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/table@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@corespeed/mcp-store-client@^1.9.0": "1.9.0",
-    "jsr:@david/code-block-writer@^13.0.3": "13.0.3",
-    "jsr:@deno/dnt@~0.42.3": "0.42.3",
     "jsr:@std/assert@^1.0.14": "1.0.16",
     "jsr:@std/assert@^1.0.15": "1.0.16",
     "jsr:@std/assert@^1.0.16": "1.0.16",
@@ -18,29 +16,20 @@
     "jsr:@std/dotenv@~0.225.5": "0.225.5",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/expect@^1.0.17": "1.0.17",
-    "jsr:@std/fmt@1": "1.0.8",
     "jsr:@std/fmt@~1.0.2": "1.0.8",
-    "jsr:@std/fs@1": "1.0.20",
     "jsr:@std/fs@^1.0.19": "1.0.20",
     "jsr:@std/fs@^1.0.20": "1.0.20",
     "jsr:@std/internal@^1.0.10": "1.0.12",
     "jsr:@std/internal@^1.0.12": "1.0.12",
-    "jsr:@std/path@1": "1.1.3",
     "jsr:@std/path@^1.1.2": "1.1.3",
     "jsr:@std/path@^1.1.3": "1.1.3",
     "jsr:@std/streams@^1.0.14": "1.0.14",
     "jsr:@std/testing@^1.0.16": "1.0.16",
     "jsr:@std/text@~1.0.7": "1.0.16",
-    "jsr:@ts-morph/bootstrap@0.27": "0.27.0",
-    "jsr:@ts-morph/common@0.27": "0.27.0",
     "npm:@agentclientprotocol/sdk@0.8": "0.8.0_zod@4.2.1",
-    "npm:@anthropic-ai/sdk@0.71": "0.71.2_zod@4.2.1",
     "npm:@anthropic-ai/sdk@~0.71.2": "0.71.2_zod@4.2.1",
-    "npm:@aws-sdk/client-s3@^3.940.0": "3.953.0",
     "npm:@aws-sdk/client-s3@^3.952.0": "3.953.0",
-    "npm:@aws-sdk/s3-request-presigner@^3.940.0": "3.953.0",
     "npm:@aws-sdk/s3-request-presigner@^3.952.0": "3.953.0",
-    "npm:@modelcontextprotocol/sdk@^1.23.0": "1.25.1_zod@4.2.1_ajv@8.17.1_express@5.2.1",
     "npm:@modelcontextprotocol/sdk@^1.25.0": "1.25.1_zod@4.2.1_ajv@8.17.1_express@5.2.1",
     "npm:@modelcontextprotocol/sdk@^1.25.1": "1.25.1_zod@4.2.1_ajv@8.17.1_express@5.2.1",
     "npm:@types/node@*": "24.2.0",
@@ -55,7 +44,6 @@
     "npm:react@^19.2.3": "19.2.3",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
-    "npm:xstate@^5.24.0": "5.25.0",
     "npm:xstate@^5.25.0": "5.25.0",
     "npm:zod@^4.1.13": "4.2.1",
     "npm:zod@^4.2.0": "4.2.1"
@@ -67,7 +55,7 @@
         "jsr:@cliffy/flags",
         "jsr:@cliffy/internal",
         "jsr:@cliffy/table",
-        "jsr:@std/fmt@~1.0.2",
+        "jsr:@std/fmt",
         "jsr:@std/text"
       ]
     },
@@ -83,24 +71,11 @@
     "@cliffy/table@1.0.0-rc.8": {
       "integrity": "8bbcdc2ba5e0061b4b13810a24e6f5c6ab19c09f0cce9eb691ccd76c7c6c9db5",
       "dependencies": [
-        "jsr:@std/fmt@~1.0.2"
+        "jsr:@std/fmt"
       ]
     },
     "@corespeed/mcp-store-client@1.9.0": {
       "integrity": "cc1ee0325df7e75040e078d8e157772d2386a7b4166c672d8e80a8b86bbc6b47"
-    },
-    "@david/code-block-writer@13.0.3": {
-      "integrity": "f98c77d320f5957899a61bfb7a9bead7c6d83ad1515daee92dbacc861e13bb7f"
-    },
-    "@deno/dnt@0.42.3": {
-      "integrity": "62a917a0492f3c8af002dce90605bb0d41f7d29debc06aca40dba72ab65d8ae3",
-      "dependencies": [
-        "jsr:@david/code-block-writer",
-        "jsr:@std/fmt@1",
-        "jsr:@std/fs@1",
-        "jsr:@std/path@1",
-        "jsr:@ts-morph/bootstrap"
-      ]
     },
     "@std/assert@1.0.16": {
       "integrity": "6a7272ed1eaa77defe76e5ff63ca705d9c495077e2d5fd0126d2b53fc5bd6532",
@@ -171,19 +146,6 @@
     },
     "@std/text@1.0.16": {
       "integrity": "ddb9853b75119a2473857d691cf1ec02ad90793a2e8b4a4ac49d7354281a0cf8"
-    },
-    "@ts-morph/bootstrap@0.27.0": {
-      "integrity": "b8d7bc8f7942ce853dde4161b28f9aa96769cef3d8eebafb379a81800b9e2448",
-      "dependencies": [
-        "jsr:@ts-morph/common"
-      ]
-    },
-    "@ts-morph/common@0.27.0": {
-      "integrity": "c7b73592d78ce8479b356fd4f3d6ec3c460d77753a8680ff196effea7a939052",
-      "dependencies": [
-        "jsr:@std/fs@1",
-        "jsr:@std/path@1"
-      ]
     }
   },
   "npm": {
@@ -2035,32 +1997,13 @@
     }
   },
   "workspace": {
-    "dependencies": [
-      "jsr:@cliffy/command@^1.0.0-rc.8",
-      "jsr:@corespeed/mcp-store-client@^1.9.0",
-      "jsr:@deno/dnt@~0.42.3",
-      "jsr:@std/assert@^1.0.16",
-      "jsr:@std/crypto@^1.0.5",
-      "jsr:@std/dotenv@~0.225.5",
-      "jsr:@std/encoding@^1.0.10",
-      "jsr:@std/expect@^1.0.17",
-      "jsr:@std/fs@^1.0.20",
-      "jsr:@std/path@^1.1.3",
-      "jsr:@std/testing@^1.0.16",
-      "npm:@agentclientprotocol/sdk@0.8",
-      "npm:@anthropic-ai/sdk@0.71",
-      "npm:@aws-sdk/client-s3@^3.940.0",
-      "npm:@aws-sdk/s3-request-presigner@^3.940.0",
-      "npm:@modelcontextprotocol/sdk@^1.23.0",
-      "npm:chalk@^5.6.2",
-      "npm:diff@8.0.2",
-      "npm:openai@6.9.1",
-      "npm:rxjs-for-await@1",
-      "npm:rxjs@^7.8.2",
-      "npm:xstate@^5.24.0",
-      "npm:zod@^4.1.13"
-    ],
     "members": {
+      "examples/acp": {
+        "dependencies": [
+          "jsr:@std/dotenv@~0.225.5",
+          "npm:zod@^4.1.13"
+        ]
+      },
       "examples/mcp": {
         "dependencies": [
           "jsr:@cliffy/command@^1.0.0-rc.8",
