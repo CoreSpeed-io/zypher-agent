@@ -552,9 +552,12 @@ export class McpClient {
    * @private
    */
   async #discoverTools(signal: AbortSignal): Promise<void> {
-    const toolResult = await this.#client.listTools({
-      signal,
-    });
+    const toolResult = await this.#client.listTools(
+      undefined,
+      {
+        signal,
+      },
+    );
 
     // Convert MCP tools to our internal tool format
     this.#tools = toolResult.tools.map((tool) => {
