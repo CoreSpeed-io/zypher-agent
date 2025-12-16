@@ -1,8 +1,19 @@
+# Publish packages to JSR
+#
+# Triggers:
+# - release: [published] - For manually created GitHub releases
+# - workflow_call - Called by release.yml after automated releases
+#   (GitHub doesn't trigger workflows from events created by GITHUB_TOKEN)
+# - workflow_dispatch - Manual trigger for testing
+#
+# See: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
+
 name: Publish to JSR
 
 on:
   release:
     types: [published]
+  workflow_call:
   workflow_dispatch:
 
 jobs:
