@@ -14,7 +14,7 @@ import { EventType, RunAgentInputSchema } from "@ag-ui/core";
 import type { BaseEvent, Message, RunAgentInput } from "@ag-ui/core";
 import { eachValueFrom } from "rxjs-for-await";
 
-import type { ZypherAgent } from "../ZypherAgent.ts";
+import type { ZypherAgent } from "@zypher/agent";
 import {
   convertZypherMessagesToAGUI,
   extractTaskDescription,

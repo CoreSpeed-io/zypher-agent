@@ -1,6 +1,6 @@
 import { EventType } from "@ag-ui/core";
 import type { BaseEvent, Message } from "@ag-ui/core";
-import type { TaskEvent } from "../TaskEvents.ts";
+import type { TaskEvent } from "@zypher/agent";
 import type { EventContext } from "./adapter.ts";
 
 export function convertTaskEvent(
@@ -32,6 +32,8 @@ export function convertTaskEvent(
 
     case "tool_use": {
       const toolCallId = crypto.randomUUID();
+      // Store by toolName - for same tool called multiple times, later calls overwrite
+      // but that's okay since tool_use_input/result come with toolUseId for disambiguation
       context.toolCallIds.set(event.toolName, toolCallId);
 
       if (context.textMessageStarted) {
@@ -41,8 +43,10 @@ export function convertTaskEvent(
           timestamp,
         } as BaseEvent);
         context.textMessageStarted = false;
-        context.messageId = crypto.randomUUID();
       }
+
+      // Generate a new messageId for each tool call to avoid duplicate React keys
+      context.messageId = crypto.randomUUID();
 
       events.push({
         type: EventType.TOOL_CALL_START,
@@ -55,6 +59,7 @@ export function convertTaskEvent(
     }
 
     case "tool_use_input": {
+      // Look up by toolName (tool_use_input doesn't have toolUseId)
       const toolCallId = context.toolCallIds.get(event.toolName);
       if (toolCallId) {
         events.push({
@@ -68,7 +73,9 @@ export function convertTaskEvent(
     }
 
     case "tool_use_result": {
-      const toolCallId = context.toolCallIds.get(event.toolName) ??
+      // Look up by toolUseId first (preferred), then fall back to toolName
+      const toolCallId = context.toolCallIds.get(event.toolUseId) ??
+        context.toolCallIds.get(event.toolName) ??
         event.toolUseId;
 
       events.push({
@@ -103,7 +110,9 @@ export function convertTaskEvent(
     }
 
     case "tool_use_error": {
-      const toolCallId = context.toolCallIds.get(event.toolName) ??
+      // Look up by toolUseId first (preferred), then fall back to toolName
+      const toolCallId = context.toolCallIds.get(event.toolUseId) ??
+        context.toolCallIds.get(event.toolName) ??
         event.toolUseId;
 
       events.push({

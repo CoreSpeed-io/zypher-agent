@@ -3,7 +3,7 @@
  *
  * @example
  * ```typescript
- * import { createAGUIStream } from "@corespeed/zypher/agui";
+ * import { createAGUIStream } from "@zypher/agui";
  *
  * const stream = createAGUIStream(await request.json(), { agent });
  * return new Response(stream, { headers: { "Content-Type": "text/event-stream" } });
