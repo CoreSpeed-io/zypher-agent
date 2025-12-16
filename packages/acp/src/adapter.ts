@@ -6,9 +6,8 @@
  */
 
 import type * as acp from "acp";
-import type { ZypherAgent } from "../ZypherAgent.ts";
-import type { TaskEvent } from "../TaskEvents.ts";
-import type { ToolResult } from "../tools/mod.ts";
+import type { TaskEvent, ZypherAgent } from "@zypher/agent";
+import type { ToolResult } from "@zypher/agent/tools";
 import { convertPromptContent } from "./content.ts";
 
 /**

@@ -9,7 +9,7 @@
  */
 
 import type { ContentBlock as AcpContentBlock } from "acp";
-import type { ImageBlock } from "../message.ts";
+import type { ImageBlock } from "@zypher/agent";
 
 const SUPPORTED_IMAGE_TYPES = new Set([
   "image/jpeg",

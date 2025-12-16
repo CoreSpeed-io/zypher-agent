@@ -2083,6 +2083,12 @@
           "npm:zod@^4.1.13"
         ]
       },
+      "packages/acp": {
+        "dependencies": [
+          "jsr:@zypher/agent@0.7",
+          "npm:@agentclientprotocol/sdk@0.8"
+        ]
+      },
       "packages/agent": {
         "dependencies": [
           "jsr:@corespeed/mcp-store-client@^1.9.0",

@@ -6,8 +6,16 @@
  *
  * Uses the official @agentclientprotocol/sdk for protocol handling.
  *
+ * Run directly as CLI:
+ *   deno run -A jsr:@zypher/acp
+ *
  * @module
  */
 
 export { type ACPServer, acpStdioServer } from "./server.ts";
 export type { AgentFactory } from "./adapter.ts";
+
+if (import.meta.main) {
+  const { main } = await import("./main.ts");
+  main();
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@zypher/acp",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "imports": {
+    "@zypher/agent": "jsr:@zypher/agent@^0.7.0",
+    "@zypher/agent/tools": "jsr:@zypher/agent@^0.7.0/tools",
+    "acp": "npm:@agentclientprotocol/sdk@^0.8.0"
+  }
+}
