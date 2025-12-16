@@ -1,0 +1,91 @@
+# Create GitHub Releases for monorepo packages
+#
+# Manual trigger (workflow_dispatch) input format:
+# [
+#   {
+#     "name": "@zypher/agent",      # JSR package name
+#     "version": "0.6.2",           # Version to release
+#     "path": "packages/agent",     # Path for changelog filtering
+#     "short_name": "agent"         # Used for tag: agent/v0.6.2
+#   }
+# ]
+#
+# Example for single package:
+#   [{"name":"@zypher/agent","version":"0.6.2","path":"packages/agent","short_name":"agent"}]
+#
+# Example for multiple packages:
+#   [{"name":"@zypher/agent","version":"0.6.2","path":"packages/agent","short_name":"agent"},{"name":"@zypher/cli","version":"0.1.1","path":"packages/cli","short_name":"cli"}]
+
+name: Create GitHub Releases
+
+on:
+  workflow_call:
+    inputs:
+      packages:
+        description: "JSON array of packages to release"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "JSON array of packages (see workflow file for format)"
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        package: ${{ fromJson(inputs.packages) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          TAG="${{ matrix.package.short_name }}/v${{ matrix.package.version }}"
+          git tag -a "$TAG" -m "Release ${{ matrix.package.name }} v${{ matrix.package.version }}"
+          git push origin "$TAG"
+
+      - name: Generate changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v6
+        with:
+          includeOnlyPaths: |
+            ${{ matrix.package.path }}/
+          configurationJson: |
+            {
+              "tag_resolver": {
+                "method": "semver",
+                "filter": {
+                  "pattern": "${{ matrix.package.short_name }}/v(.+)",
+                  "flags": "g"
+                }
+              }
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ matrix.package.short_name }}/v${{ matrix.package.version }}
+          name: ${{ matrix.package.short_name }} v${{ matrix.package.version }}
+          body: |
+            ${{ steps.changelog.outputs.changelog }}
+
+            ## Contributors
+            ${{ steps.changelog.outputs.contributors }}
+
+            ---
+            📦 **JSR Package**: https://jsr.io/${{ matrix.package.name }}/${{ matrix.package.version }}
+          draft: false
+          prerelease: ${{ contains(matrix.package.version, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

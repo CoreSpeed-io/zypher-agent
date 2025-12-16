@@ -1,9 +1,8 @@
-import type { ZypherAgent } from "./ZypherAgent.ts";
+import type { ZypherAgent } from "@zypher/agent";
 import readline from "node:readline";
 import { stdin, stdout } from "node:process";
 import chalk from "chalk";
-import { printMessage } from "./message.ts";
-import { formatError } from "./error.ts";
+import { formatError, printMessage } from "@zypher/agent";
 import { eachValueFrom } from "rxjs-for-await";
 
 /**

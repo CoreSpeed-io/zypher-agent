@@ -81,7 +81,7 @@ async function main() {
         grant_types: ["authorization_code", "refresh_token"],
         response_types: ["code"],
         client_name: "ZypherAgent OAuth Test Client",
-        client_uri: "https://github.com/CoreSpeed-io/zypher-agent",
+        client_uri: "https://github.com/corespeed-io/zypher-agent",
         software_id: "zypher-agent-oauth-test-client",
         software_version: "1.0.0",
       },

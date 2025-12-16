@@ -2,8 +2,8 @@
 
 **Production-ready AI agents that live in your applications**
 
-[![Build](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml/badge.svg)](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml)
-[![JSR](https://jsr.io/badges/@corespeed/zypher)](https://jsr.io/badges/@corespeed/zypher)
+[![Build](https://github.com/corespeed-io/zypher-agent/actions/workflows/build.yml/badge.svg)](https://github.com/corespeed-io/zypher-agent/actions/workflows/build.yml)
+[![JSR](https://jsr.io/badges/@zypher/agent)](https://jsr.io/badges/@zypher/agent)
 
 ## Features
 
@@ -32,14 +32,14 @@
 #### Using JSR
 
 ```bash
-deno add jsr:@corespeed/zypher
+deno add jsr:@zypher/agent
 ```
 
 ### SDK Usage
 
 ```typescript
-import { AnthropicModelProvider, createZypherAgent } from "@corespeed/zypher";
-import { createFileSystemTools } from "@corespeed/zypher/tools";
+import { AnthropicModelProvider, createZypherAgent } from "@zypher/agent";
+import { createFileSystemTools } from "@zypher/agent/tools";
 import { eachValueFrom } from "rxjs-for-await";
 
 const agent = await createZypherAgent({
@@ -72,8 +72,8 @@ details.
 ## Resources
 
 - [Documentation](https://zypher.corespeed.io/docs) and
-  [API Reference](https://jsr.io/@corespeed/zypher/doc)
-- [Issue Tracker](https://github.com/CoreSpeed-io/zypher-agent/issues)
+  [API Reference](https://jsr.io/@zypher/agent/doc)
+- [Issue Tracker](https://github.com/corespeed-io/zypher-agent/issues)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 
 ---

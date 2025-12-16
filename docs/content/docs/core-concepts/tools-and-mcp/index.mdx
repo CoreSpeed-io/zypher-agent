@@ -25,7 +25,7 @@ Your agent automatically decides which tools to use based on the task you give i
 The `McpServerManager` is your one-stop shop for managing all agent capabilities. When you create a ZypherAgent, it automatically creates an empty McpServerManager, which you can access via `agent.mcp`:
 
 ```typescript
-import { ZypherAgent, AnthropicModelProvider } from '@corespeed/zypher';
+import { ZypherAgent, AnthropicModelProvider } from '@zypher/agent';
 
 const agent = new ZypherAgent(
   new AnthropicModelProvider({ apiKey: "your-key" })
@@ -199,7 +199,7 @@ await agent.runTask("Research React 19 features and update our docs");
 You can also register tools directly with the McpServerManager:
 
 ```typescript
-import { defineTool } from '@corespeed/zypher/tools';
+import { defineTool } from '@zypher/agent/tools';
 import { z } from 'zod';
 
 // Create a custom tool
