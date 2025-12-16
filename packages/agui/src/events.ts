@@ -13,6 +13,8 @@ export function convertTaskEvent(
   switch (event.type) {
     case "text": {
       if (!context.textMessageStarted) {
+        // Generate new messageId for each new text message to avoid duplicate React keys
+        context.messageId = crypto.randomUUID();
         context.textMessageStarted = true;
         events.push({
           type: EventType.TEXT_MESSAGE_START,
@@ -99,10 +101,12 @@ export function convertTaskEvent(
         resultContent = JSON.stringify(event.result);
       }
 
+      // Tool result message needs its own unique messageId
+      const toolResultMessageId = crypto.randomUUID();
       events.push({
         type: EventType.TOOL_CALL_RESULT,
         toolCallId,
-        messageId: context.messageId,
+        messageId: toolResultMessageId,
         content: resultContent,
         timestamp,
       } as BaseEvent);
@@ -121,10 +125,12 @@ export function convertTaskEvent(
         timestamp,
       } as BaseEvent);
 
+      // Tool error message needs its own unique messageId
+      const toolErrorMessageId = crypto.randomUUID();
       events.push({
         type: EventType.TOOL_CALL_RESULT,
         toolCallId,
-        messageId: context.messageId,
+        messageId: toolErrorMessageId,
         content: `Error: ${String(event.error)}`,
         timestamp,
       } as BaseEvent);
