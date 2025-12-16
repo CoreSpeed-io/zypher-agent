@@ -19,5 +19,5 @@
       "tags": ["recommended", "jsr"]
     }
   },
-  "exclude": ["dist/", "node_modules/", "npm/", "docs/"]
+  "exclude": ["dist/", "node_modules/", "npm/", "docs/", "examples/"]
 }
