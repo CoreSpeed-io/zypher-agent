@@ -18,6 +18,5 @@
       "tags": ["recommended", "jsr"]
     }
   },
-  "nodeModulesDir": "auto",
   "exclude": ["dist/", "node_modules/", "npm/", "docs/"]
 }
