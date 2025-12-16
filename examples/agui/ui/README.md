@@ -8,10 +8,9 @@ market data, and provide investment insights.
 
 ## Prerequisites
 
-- OpenAI API Key (for the Zypher agent)
-- Python 3.12+
-- uv
 - Node.js 20+
+- Deno (for the backend agent server)
+- Anthropic API Key (for the Zypher agent)
 - Any of the following package managers:
   - pnpm (recommended)
   - npm
@@ -42,23 +41,15 @@ yarn install
 bun install
 ```
 
-> **Note:** This will automatically setup the Python environment as well.
->
-> If you have manual isseus, you can run:
->
-> ```sh
-> npm run install:agent
-> ```
+2. Set up your Anthropic API key:
 
-3. Set up your OpenAI API key:
-
-Create a `.env` file inside the `agent` folder with the following content:
+Create a `.env` file in the parent `agui` folder with the following content:
 
 ```
-OPENAI_API_KEY=sk-...your-openai-key-here...
+ANTHROPIC_API_KEY=sk-ant-...your-anthropic-key-here...
 ```
 
-4. Start the development server:
+3. Start the development server:
 
 ```bash
 # Using pnpm
@@ -83,11 +74,10 @@ The following scripts can also be run using your preferred package manager:
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
-- `dev:agent` - Starts only the Zypher agent server
+- `dev:agent` - Starts only the Zypher agent server (Deno)
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
 - `lint` - Runs ESLint for code linting
-- `install:agent` - Installs Python dependencies for the agent
 
 ## Documentation
 
@@ -122,16 +112,15 @@ details.
 
 If you see "I'm having trouble connecting to my tools", make sure:
 
-1. The Zypher agent is running on port 8000
-2. Your OpenAI API key is set correctly
+1. The Zypher agent server is running on port 8000
+2. Your Anthropic API key is set correctly in the `.env` file
 3. Both servers started successfully
 
-### Python Dependencies
+### Running the Agent Server Manually
 
-If you encounter Python import errors:
+If you need to run the agent server manually:
 
 ```bash
-cd agent
-uv sync
-uv run src/main.py
+cd ..  # Go to the parent agui folder
+deno run --env --allow-all ./server.ts
 ```
