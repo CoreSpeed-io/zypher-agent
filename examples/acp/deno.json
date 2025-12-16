@@ -2,6 +2,8 @@
   "imports": {
     "@corespeed/zypher": "../../packages/agent/src/mod.ts",
     "@corespeed/zypher/tools": "../../packages/agent/src/tools/mod.ts",
-    "@zypher/acp": "../../packages/acp/src/mod.ts"
+    "@zypher/acp": "../../packages/acp/src/mod.ts",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
+    "zod": "npm:zod@^4.1.13"
   }
 }
