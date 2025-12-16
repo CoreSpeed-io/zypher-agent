@@ -28,7 +28,7 @@ export function baseOptions(): BaseLayoutProps {
     links: [
       {
         text: 'API Reference',
-        url: 'https://jsr.io/@corespeed/zypher/doc',
+        url: 'https://jsr.io/@zypher/agent/doc',
         external: true,
       },
     ],

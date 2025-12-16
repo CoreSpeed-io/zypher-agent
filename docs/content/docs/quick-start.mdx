@@ -19,7 +19,7 @@ Get Zypher Agent running in under 5 minutes. This guide shows you the essential 
 Add Zypher Agent to your project:
 
 ```bash
-deno add jsr:@corespeed/zypher
+deno add jsr:@zypher/agent
 deno add npm:rxjs-for-await
 ```
 
@@ -43,7 +43,7 @@ import {
   AnthropicModelProvider,
   createZypherContext,
   ZypherAgent,
-} from "@corespeed/zypher";
+} from "@zypher/agent";
 import { eachValueFrom } from "rxjs-for-await";
 
 // Helper function to safely get environment variables
@@ -105,7 +105,7 @@ You'll see the AI agent respond with an explanation of what AI agents are.
 
 You've created your first Zypher Agent with just a few lines of code. The basic pattern is:
 
-1. **Install** - `deno add jsr:@corespeed/zypher`
+1. **Install** - `deno add jsr:@zypher/agent`
 2. **Create** - Agent with your preferred LLM provider
 3. **Run** - Any task with `agent.runTask()`
 
@@ -129,7 +129,7 @@ agent.runTask("List the pros and cons of different programming languages")
 For a more interactive experience, you can use the built-in terminal interface with `runAgentInTerminal`. This provides a chat-like interface where you can have conversations with your agent:
 
 ```typescript
-import { runAgentInTerminal } from "@corespeed/zypher";
+import { runAgentInTerminal } from "@zypher/agent";
 
 // const agent = new ZypherAgent(...)
 // await agent.init()
@@ -158,8 +158,8 @@ Congratulations! 🎉 You've created your first Zypher Agent. Here's what to exp
 
 ### Get Inspired
 - **[Basic Research Agent](/docs/examples/basic-research-agent)** - Complete example with web crawling
-- **[Examples Repository](https://github.com/CoreSpeed-io/zypher-examples)** - Ready-to-run examples and starter templates
+- **[Examples Repository](https://github.com/corespeed-io/zypher-examples)** - Ready-to-run examples and starter templates
 
 ---
 
-**Ready for more?** Check out our [examples section](/docs/examples) or browse the [examples repository](https://github.com/CoreSpeed-io/zypher-examples) to see what's possible with Zypher Agent!
+**Ready for more?** Check out our [examples section](/docs/examples) or browse the [examples repository](https://github.com/corespeed-io/zypher-examples) to see what's possible with Zypher Agent!

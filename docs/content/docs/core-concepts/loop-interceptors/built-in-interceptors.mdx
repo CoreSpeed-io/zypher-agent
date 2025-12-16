@@ -12,7 +12,7 @@ Zypher Agent comes with several pre-built interceptors for common control patter
 Automatically continues conversations when responses are truncated due to token limits:
 
 ```typescript
-import { MaxTokensInterceptor } from '@corespeed/zypher';
+import { MaxTokensInterceptor } from '@zypher/agent';
 
 const tokenInterceptor = new MaxTokensInterceptor({
   // Enable automatic continuation
@@ -58,7 +58,7 @@ import {
   ErrorDetectionInterceptor,
   TypeScriptErrorDetector,
   ESLintErrorDetector 
-} from '@corespeed/zypher';
+} from '@zypher/agent';
 
 const errorInterceptor = new ErrorDetectionInterceptor(true);
 
@@ -131,7 +131,7 @@ errorInterceptor.enabled = false;
 Handles tool execution when the LLM requests tool calls:
 
 ```typescript
-import { ToolExecutionInterceptor } from '@corespeed/zypher';
+import { ToolExecutionInterceptor } from '@zypher/agent';
 
 const toolInterceptor = new ToolExecutionInterceptor(
   mcpServerManager,

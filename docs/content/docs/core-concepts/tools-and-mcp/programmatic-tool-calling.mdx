@@ -31,13 +31,13 @@ Traditional:                         Programmatic Tool Calling (PTC):
 In Zypher, programmatic tool calling is implemented with the programmatic function. You can use it to wrap tools or MCP servers so they are callable only via code execution:
 
 ```typescript
-import { programmatic } from '@corespeed/zypher/tools';
+import { programmatic } from '@zypher/agent/tools';
 ```
 
 ### Using Programmatic Tool Calling with Tools
 
 ```typescript
-import { createTool, programmatic } from '@corespeed/zypher/tools';
+import { createTool, programmatic } from '@zypher/agent/tools';
 import { z } from 'zod';
 
 const getWeather = createTool({

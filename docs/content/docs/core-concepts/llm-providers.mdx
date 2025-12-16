@@ -44,7 +44,7 @@ interface ModelProvider {
 Anthropic's Claude models with advanced reasoning and safety features. **Zypher Agent uses Anthropic's native API directly**, ensuring full compatibility with all Anthropic features and optimizations:
 
 ```typescript
-import { AnthropicModelProvider } from '@corespeed/zypher';
+import { AnthropicModelProvider } from '@zypher/agent';
 
 const anthropicProvider = new AnthropicModelProvider({
   apiKey: Deno.env.get('ANTHROPIC_API_KEY')!,
@@ -85,7 +85,7 @@ For the most up-to-date model list, see [Anthropic's model overview](https://doc
 OpenAI's GPT models including reasoning models. **Currently uses OpenAI's Chat Completion API**, which provides broad compatibility with OpenAI-compatible model providers but has some limitations on document processing compared to newer APIs:
 
 ```typescript
-import { OpenAIModelProvider } from '@corespeed/zypher';
+import { OpenAIModelProvider } from '@zypher/agent';
 
 const openaiProvider = new OpenAIModelProvider({
   apiKey: Deno.env.get('OPENAI_API_KEY')!,
@@ -164,7 +164,7 @@ We plan to add a new OpenAI provider based on the new Response API that will sup
 Configure your agent with a provider:
 
 ```typescript
-import { ZypherAgent, AnthropicModelProvider } from '@corespeed/zypher';
+import { ZypherAgent, AnthropicModelProvider } from '@zypher/agent';
 
 // Create provider
 const provider = new AnthropicModelProvider({

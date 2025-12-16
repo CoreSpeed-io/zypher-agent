@@ -47,7 +47,7 @@ The checkpoint system uses Git to track working directory changes:
 Zypher Agent automatically creates checkpoints before each task when checkpointing is enabled (which it is by default):
 
 ```typescript
-import { ZypherAgent } from '@corespeed/zypher';
+import { ZypherAgent } from '@zypher/agent';
 
 const agent = new ZypherAgent(/* ... */);
 
@@ -64,7 +64,7 @@ await agent.runTask("Update documentation with new examples");
 For advanced use cases, you can create manual checkpoints:
 
 ```typescript
-import { createCheckpoint } from '@corespeed/zypher';
+import { createCheckpoint } from '@zypher/agent';
 
 // Create a checkpoint with a descriptive name
 const checkpointId = await createCheckpoint("before-experimental-changes");
@@ -92,7 +92,7 @@ console.log(`Checkpoint created: ${checkpointId}`);
 ### Applying a Checkpoint
 
 ```typescript
-import { applyCheckpoint, createCheckpoint } from '@corespeed/zypher';
+import { applyCheckpoint, createCheckpoint } from '@zypher/agent';
 
 // Create a backup before applying checkpoint
 const backupId = await createCheckpoint("current-state-backup");
@@ -124,7 +124,7 @@ await applyCheckpoint("a1b2c3d4e5f6...");
 ### View Available Checkpoints
 
 ```typescript
-import { listCheckpoints, getCheckpointDetails } from '@corespeed/zypher';
+import { listCheckpoints, getCheckpointDetails } from '@zypher/agent';
 
 // Get all checkpoints
 const checkpoints = await listCheckpoints();
