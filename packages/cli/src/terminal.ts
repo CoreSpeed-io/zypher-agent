@@ -10,12 +10,9 @@ import { eachValueFrom } from "rxjs-for-await";
  * @param agent - The agent to run.
  * @param model - The model to use.
  */
-export async function runAgentInTerminal(
-  agent: ZypherAgent,
-  model: string,
-): Promise<void> {
-  console.log("\nWelcome to Zypher Agent CLI!\n");
-  console.log(`Using model: ${chalk.cyan(model)}`);
+export async function runAgentInTerminal(agent: ZypherAgent, model: string) {
+  console.log("\n🤖 Welcome to Zypher Agent CLI!\n");
+  console.log(`🧠 Using model: ${chalk.cyan(model)}`);
   console.log(
     'Type your task or command below. Use "exit" or Ctrl+C to quit.\n',
   );
@@ -25,16 +22,16 @@ export async function runAgentInTerminal(
 
   try {
     while (true) {
-      const task = await prompt("Enter your task: ", rl);
+      const task = await prompt("🔧 Enter your task: ", rl);
 
       if (task.toLowerCase() === "exit") {
-        console.log("\nGoodbye!\n");
+        console.log("\nGoodbye! 👋\n");
         break;
       }
 
       if (!task.trim()) continue;
 
-      console.log("\nStarting task execution...\n");
+      console.log("\n🚀 Starting task execution...\n");
       try {
         const taskEvents = await agent.runTask(task, model);
         let isFirstTextChunk = true;
@@ -43,7 +40,7 @@ export async function runAgentInTerminal(
         for await (const event of eachValueFrom(taskEvents)) {
           if (event.type === "text") {
             if (isFirstTextChunk) {
-              Deno.stdout.write(textEncoder.encode(chalk.blue("Agent: ")));
+              Deno.stdout.write(textEncoder.encode(chalk.blue("🤖 ")));
               isFirstTextChunk = false;
             }
 
@@ -63,13 +60,13 @@ export async function runAgentInTerminal(
             }
           } else if (event.type === "tool_use") {
             Deno.stdout.write(
-              textEncoder.encode(`\n\nUsing tool: ${event.toolName}\n`),
+              textEncoder.encode(`\n\n🔧 Using tool: ${event.toolName}\n`),
             );
           } else if (event.type === "tool_use_input") {
             Deno.stdout.write(textEncoder.encode(event.partialInput));
           } else if (event.type === "cancelled") {
             cancelled = true;
-            console.log("\nTask cancelled, reason: ", event.reason, "\n");
+            console.log("\n🛑 Task cancelled, reason: ", event.reason, "\n");
           }
         }
 
@@ -77,10 +74,10 @@ export async function runAgentInTerminal(
         Deno.stdout.write(textEncoder.encode("\n\n"));
 
         if (!cancelled) {
-          console.log("\nTask completed.\n");
+          console.log("\n✅ Task completed.\n");
         }
       } catch (error) {
-        console.error(chalk.red("\nError:"), formatError(error));
+        console.error(chalk.red("\n❌ Error:"), formatError(error));
         console.log("\nReady for next task.\n");
       }
     }
