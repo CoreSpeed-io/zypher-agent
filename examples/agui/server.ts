@@ -10,9 +10,9 @@ import {
   AnthropicModelProvider,
   createZypherAgent,
   getSystemPrompt,
-} from "@corespeed/zypher";
-import { createTool } from "@corespeed/zypher/tools";
-import { createAGUIStream } from "@corespeed/zypher/agui";
+} from "@zypher/agent";
+import { createTool } from "@zypher/agent/tools";
+import { createAGUIStream } from "@zypher/agui";
 
 // Example: Weather tool
 const getWeatherTool = createTool({

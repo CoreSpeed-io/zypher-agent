@@ -95,7 +95,7 @@ The example includes a **Weather tool** for testing backend_tool_rendering.
 To add custom tools, modify `server.ts`:
 
 ```typescript
-import { createTool } from "@corespeed/zypher/tools";
+import { createTool } from "@zypher/agent/tools";
 import { z } from "zod";
 
 const myTool = createTool({
@@ -171,7 +171,7 @@ The `createAGUIStream` function creates an AG-UI compatible SSE stream from a
 request body:
 
 ```typescript
-import { createAGUIStream } from "@corespeed/zypher/agui";
+import { createAGUIStream } from "@zypher/agui";
 
 Deno.serve({ port: 8000 }, async (request) => {
   if (request.method !== "POST") {
