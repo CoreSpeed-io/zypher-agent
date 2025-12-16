@@ -6,7 +6,7 @@ import type {
   TextBlock,
   ToolResultBlock,
   ToolUseBlock,
-} from "../message.ts";
+} from "@zypher/agent";
 
 export function convertAGUIMessagesToZypher(
   aguiMessages: Message[],

@@ -1,9 +1,11 @@
 {
   "workspace": [
     "packages/agent",
+    "packages/agui",
     "packages/cli",
     "packages/acp",
     "examples/mcp",
+    "examples/agui",
     "examples/ptc"
   ],
   "tasks": {
