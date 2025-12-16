@@ -10,5 +10,11 @@
     "test:watch": "deno test -A --watch",
     "checkall": "deno fmt && deno lint && deno check ."
   },
+
+  "lint": {
+    "rules": {
+      "tags": ["recommended", "jsr"]
+    }
+  },
   "exclude": ["dist/", "node_modules/", "npm/", "docs/"]
 }

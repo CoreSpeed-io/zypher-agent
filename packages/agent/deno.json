@@ -1,22 +1,10 @@
 {
   "name": "@zypher/agent",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "license": "Apache-2.0",
   "exports": {
     ".": "./src/mod.ts",
     "./tools": "./src/tools/mod.ts"
-  },
-  "tasks": {
-    "start": "deno run -A bin/cli.ts",
-    "compile": "deno compile --allow-all --frozen=true --output dist/cli bin/cli.ts",
-    "test": "deno test -A --trace-leaks",
-    "test:watch": "deno test -A --watch",
-    "checkall": "deno fmt && deno lint && deno check ."
-  },
-  "lint": {
-    "rules": {
-      "tags": ["recommended", "jsr"]
-    }
   },
   "imports": {
     "@corespeed/mcp-store-client": "jsr:@corespeed/mcp-store-client@^1.9.0",
