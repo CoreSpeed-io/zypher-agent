@@ -3,8 +3,9 @@
     "dev": "deno run --env --allow-all ./server.ts"
   },
   "imports": {
-    "@corespeed/zypher": "../../src/mod.ts",
-    "@corespeed/zypher/agui": "../../src/agui/mod.ts",
-    "@corespeed/zypher/tools": "../../src/tools/mod.ts"
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
+    "@zypher/agent": "jsr:@zypher/agent@^0.7.0",
+    "@zypher/agui": "jsr:@zypher/agui@^0.7.0",
+    "zod": "npm:zod@^4.2.0"
   }
 }
