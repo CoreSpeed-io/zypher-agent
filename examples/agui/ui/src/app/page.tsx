@@ -8,7 +8,7 @@ import {
   useRenderToolCall,
 } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-core/v2";
-import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 export default function CopilotKitPage() {
@@ -58,9 +58,9 @@ export default function CopilotKitPage() {
 
   return (
     <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
-      }
+      style={{
+        "--copilot-kit-primary-color": themeColor,
+      } as CopilotKitCSSProperties}
       className="h-screen"
     >
       <CopilotChat className="h-full" />

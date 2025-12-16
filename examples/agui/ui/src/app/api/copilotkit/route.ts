@@ -1,11 +1,10 @@
-
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
+  ExperimentalEmptyAdapter,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 // 1. You can use any service adapter here for multi-agent support. We use
 //    the empty adapter since we're only using one agent.
@@ -21,7 +20,7 @@ const runtime = new CopilotRuntime({
 });
 
 // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
-export const POST = async (req: NextRequest) => {
+export const POST = (req: NextRequest) => {
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
     serviceAdapter,
