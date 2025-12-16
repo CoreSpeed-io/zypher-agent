@@ -1,10 +1,10 @@
-# CopilotKit <> PydanticAI Starter
+# CopilotKit <> Zypher Starter
 
-This is a starter template for building AI agents using [PydanticAI](https://ai.pydantic.dev/) and [CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated investment analyst agent that can research stocks, analyze market data, and provide investment insights.
+This is a starter template for building AI agents using [Zypher](https://github.com/corespeed-io/zypher-agent) and [CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated investment analyst agent that can research stocks, analyze market data, and provide investment insights.
 
 ## Prerequisites
 
-- OpenAI API Key (for the PydanticAI agent)
+- OpenAI API Key (for the Zypher agent)
 - Python 3.12+
 - uv
 - Node.js 20+ 
@@ -73,7 +73,7 @@ The following scripts can also be run using your preferred package manager:
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
-- `dev:agent` - Starts only the PydanticAI agent server
+- `dev:agent` - Starts only the Zypher agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
 - `lint` - Runs ESLint for code linting
@@ -88,7 +88,7 @@ The main UI component is in `src/app/page.tsx`. You can:
 
 ## 📚 Documentation
 
-- [PydanticAI Documentation](https://ai.pydantic.dev) - Learn more about PydanticAI and its features
+- [Zypher Documentation](https://github.com/corespeed-io/zypher-agent) - Learn more about Zypher and its features
 - [CopilotKit Documentation](https://docs.copilotkit.ai) - Explore CopilotKit's capabilities
 - [Next.js Documentation](https://nextjs.org/docs) - Learn about Next.js features and API
 
@@ -104,7 +104,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ### Agent Connection Issues
 If you see "I'm having trouble connecting to my tools", make sure:
-1. The PydanticAI agent is running on port 8000
+1. The Zypher agent is running on port 8000
 2. Your OpenAI API key is set correctly
 3. Both servers started successfully
 
