@@ -44,10 +44,9 @@ class ACPServerImpl implements ACPServer {
  *
  * @example Basic usage
  * ```typescript
- * import { createACPServer } from "@corespeed/zypher/acp";
- * import { createZypherAgent } from "@corespeed/zypher";
- * import { AnthropicModelProvider } from "@corespeed/zypher/llm";
- * import { createFileSystemTools } from "@corespeed/zypher/tools";
+ * import { acpStdioServer } from "@zypher/acp";
+ * import { createZypherAgent, AnthropicModelProvider } from "@zypher/agent";
+ * import { createTool } from "@zypher/agent/tools";
  *
  * const modelProvider = new AnthropicModelProvider({
  *   apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
@@ -56,7 +55,7 @@ class ACPServerImpl implements ACPServer {
  * const server = acpStdioServer(async (cwd) => {
  *   return await createZypherAgent({
  *     modelProvider,
- *     tools: [...createFileSystemTools()],
+ *     tools: [],
  *     workingDirectory: cwd,
  *   });
  * });
@@ -67,7 +66,7 @@ class ACPServerImpl implements ACPServer {
  * @example Shared agent (not recommended for most use cases)
  * ```typescript
  * const sharedAgent = await createZypherAgent({ modelProvider, tools });
- * const server = createACPServer(async () => sharedAgent);
+ * const server = acpStdioServer(async () => sharedAgent);
  * server.start();
  * ```
  *

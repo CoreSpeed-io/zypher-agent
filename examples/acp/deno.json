@@ -1,6 +1,7 @@
 {
   "imports": {
-    "@corespeed/zypher": "../../src/mod.ts",
-    "@corespeed/zypher/acp": "../../src/acp/mod.ts"
+    "@corespeed/zypher": "../../packages/agent/src/mod.ts",
+    "@corespeed/zypher/tools": "../../packages/agent/src/tools/mod.ts",
+    "@zypher/acp": "../../packages/acp/src/mod.ts"
   }
 }
