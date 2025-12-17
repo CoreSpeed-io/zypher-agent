@@ -1,6 +1,11 @@
 import type { Checkpoint } from "./CheckpointManager.ts";
 import type { CheckpointManager } from "./CheckpointManager.ts";
-import type { ContentBlock, FileAttachment, Message } from "./message.ts";
+import type {
+  ContentBlock,
+  FileAttachment,
+  ImageBlock,
+  Message,
+} from "./message.ts";
 import { McpServerManager } from "./mcp/McpServerManager.ts";
 import type { StorageService } from "./storage/StorageService.ts";
 import {
@@ -252,6 +257,7 @@ export class ZypherAgent {
     taskDescription: string,
     model: string,
     fileAttachments?: FileAttachment[],
+    images?: ImageBlock[],
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
@@ -266,6 +272,7 @@ export class ZypherAgent {
       taskDescription,
       model,
       fileAttachments,
+      images,
       options,
     );
 
@@ -277,6 +284,7 @@ export class ZypherAgent {
     taskDescription: string,
     model: string,
     fileAttachments?: FileAttachment[],
+    images?: ImageBlock[],
     options?: {
       maxIterations?: number;
       signal?: AbortSignal;
@@ -339,6 +347,7 @@ export class ZypherAgent {
 
       const messageContent: ContentBlock[] = [
         ...(fileAttachments ?? []),
+        ...(images ?? []),
         {
           type: "text" as const,
           text: taskDescription,
