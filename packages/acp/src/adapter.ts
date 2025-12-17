@@ -8,6 +8,7 @@
 import type * as acp from "acp";
 import type { TaskEvent, ZypherAgent } from "@zypher/agent";
 import type { ToolResult } from "@zypher/agent/tools";
+import { eachValueFrom } from "rxjs-for-await";
 import { convertPromptContent } from "./content.ts";
 import denoConfig from "../deno.json" with { type: "json" };
 
@@ -47,7 +48,6 @@ export type AgentFactory = (
 interface AcpSession {
   agent: ZypherAgent;
   abort: AbortController | null;
-  toolCallIds: Map<string, string>;
 }
 
 export class ACPProtocolAdapter implements acp.Agent {
@@ -59,8 +59,11 @@ export class ACPProtocolAdapter implements acp.Agent {
   constructor(conn: acp.AgentSideConnection, factory: AgentFactory) {
     this.#conn = conn;
     this.#factory = factory;
-    this.#defaultModel = Deno.env.get("ZYPHER_MODEL") ??
-      "claude-sonnet-4-20250514";
+    const model = Deno.env.get("ZYPHER_MODEL");
+    if (!model) {
+      throw new Error("ZYPHER_MODEL environment variable is required");
+    }
+    this.#defaultModel = model;
   }
 
   initialize(_params: acp.InitializeRequest): Promise<acp.InitializeResponse> {
@@ -93,7 +96,6 @@ export class ACPProtocolAdapter implements acp.Agent {
     this.#sessions.set(sessionId, {
       agent,
       abort: null,
-      toolCallIds: new Map(),
     });
 
     return { sessionId };
@@ -124,7 +126,7 @@ export class ACPProtocolAdapter implements acp.Agent {
         { signal: session.abort.signal },
       );
 
-      for await (const event of observable) {
+      for await (const event of eachValueFrom(observable)) {
         this.#handleTaskEvent(params.sessionId, event);
       }
 
@@ -164,13 +166,11 @@ export class ACPProtocolAdapter implements acp.Agent {
         break;
 
       case "tool_use": {
-        const toolCallId = `call_${Date.now()}_${event.toolName}`;
-        session.toolCallIds.set(event.toolName, toolCallId);
         this.#conn.sessionUpdate({
           sessionId,
           update: {
             sessionUpdate: "tool_call",
-            toolCallId,
+            toolCallId: event.toolUseId,
             title: event.toolName,
             kind: this.#getToolKind(event.toolName),
             status: "in_progress",
@@ -180,54 +180,43 @@ export class ACPProtocolAdapter implements acp.Agent {
       }
 
       case "tool_use_input": {
-        const toolCallId = session.toolCallIds.get(event.toolName);
-        if (toolCallId) {
-          this.#conn.sessionUpdate({
-            sessionId,
-            update: {
-              title: event.toolName,
-              sessionUpdate: "tool_call_update",
-              toolCallId,
-              rawInput: event.partialInput,
-              status: "in_progress",
-            },
-          });
-        }
+        this.#conn.sessionUpdate({
+          sessionId,
+          update: {
+            title: event.toolName,
+            sessionUpdate: "tool_call_update",
+            toolCallId: event.toolUseId,
+            rawInput: event.partialInput,
+            status: "in_progress",
+          },
+        });
         break;
       }
 
       case "tool_use_result": {
-        const toolCallId = session.toolCallIds.get(event.toolName);
-        if (toolCallId) {
-          const { success, content } = extractToolResult(event.result);
-          this.#conn.sessionUpdate({
-            sessionId,
-            update: {
-              sessionUpdate: "tool_call_update",
-              toolCallId,
-              status: success ? "completed" : "failed",
-              rawOutput: content,
-            },
-          });
-          session.toolCallIds.delete(event.toolName);
-        }
+        const { success, content } = extractToolResult(event.result);
+        this.#conn.sessionUpdate({
+          sessionId,
+          update: {
+            sessionUpdate: "tool_call_update",
+            toolCallId: event.toolUseId,
+            status: success ? "completed" : "failed",
+            rawOutput: content,
+          },
+        });
         break;
       }
 
       case "tool_use_error": {
-        const toolCallId = session.toolCallIds.get(event.toolName);
-        if (toolCallId) {
-          this.#conn.sessionUpdate({
-            sessionId,
-            update: {
-              sessionUpdate: "tool_call_update",
-              toolCallId,
-              status: "failed",
-              rawOutput: String(event.error),
-            },
-          });
-          session.toolCallIds.delete(event.toolName);
-        }
+        this.#conn.sessionUpdate({
+          sessionId,
+          update: {
+            sessionUpdate: "tool_call_update",
+            toolCallId: event.toolUseId,
+            status: "failed",
+            rawOutput: String(event.error),
+          },
+        });
         break;
       }
 

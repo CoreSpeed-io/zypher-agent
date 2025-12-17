@@ -2028,7 +2028,8 @@
       },
       "packages/acp": {
         "dependencies": [
-          "npm:@agentclientprotocol/sdk@0.12"
+          "npm:@agentclientprotocol/sdk@0.12",
+          "npm:rxjs-for-await@1"
         ]
       },
       "packages/agent": {
