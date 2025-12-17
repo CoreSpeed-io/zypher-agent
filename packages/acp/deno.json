@@ -6,8 +6,6 @@
     ".": "./src/mod.ts"
   },
   "imports": {
-    "@zypher/agent": "jsr:@zypher/agent@^0.7.0",
-    "@zypher/agent/tools": "jsr:@zypher/agent@^0.7.0/tools",
-    "acp": "npm:@agentclientprotocol/sdk@^0.8.0"
+    "acp": "npm:@agentclientprotocol/sdk@^0.12.0"
   }
 }
