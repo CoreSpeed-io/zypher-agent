@@ -77,7 +77,6 @@ export class AcpProtocolAdapter implements acp.Agent {
       agentCapabilities: {
         loadSession: false,
         promptCapabilities: {
-          image: true,
           embeddedContext: true,
         },
         mcpCapabilities: {
@@ -116,14 +115,15 @@ export class AcpProtocolAdapter implements acp.Agent {
 
     session.abort?.abort();
     session.abort = new AbortController();
-    const { text: promptText, images } = convertPromptContent(params.prompt);
+    // TODO: support image
+    // https://agentclientprotocol.com/protocol/initialization#prompt-capabilities
+    const { text: promptText } = convertPromptContent(params.prompt);
 
     try {
       const observable = session.agent.runTask(
         promptText,
         this.#defaultModel,
         undefined,
-        images,
         { signal: session.abort.signal },
       );
 
