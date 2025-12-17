@@ -28,9 +28,9 @@
  */
 
 import "@std/dotenv/load";
-import { AnthropicModelProvider, createZypherAgent } from "@corespeed/zypher";
+import { AnthropicModelProvider, createZypherAgent } from "@zypher/agent";
 import { acpStdioServer } from "@zypher/acp";
-import { createTool } from "@corespeed/zypher/tools";
+import { createTool } from "@zypher/agent/tools";
 import { z } from "zod";
 
 const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
