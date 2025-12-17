@@ -12,7 +12,7 @@
  * @module
  */
 
-export { type ACPServer, acpStdioServer } from "./server.ts";
+export { type AcpServer, acpStdioServer } from "./server.ts";
 export type { AgentFactory } from "./adapter.ts";
 
 if (import.meta.main) {

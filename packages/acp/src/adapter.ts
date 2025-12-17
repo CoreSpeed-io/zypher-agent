@@ -50,7 +50,7 @@ interface AcpSession {
   abort: AbortController | null;
 }
 
-export class ACPProtocolAdapter implements acp.Agent {
+export class AcpProtocolAdapter implements acp.Agent {
   readonly #conn: acp.AgentSideConnection;
   readonly #factory: AgentFactory;
   readonly #sessions = new Map<string, AcpSession>();
