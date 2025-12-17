@@ -28,14 +28,49 @@
  * }
  */
 
+import type * as acp from "acp";
 import {
   AnthropicModelProvider,
   createZypherAgent,
+  type McpServerEndpoint,
   type ModelProvider,
   OpenAIModelProvider,
 } from "@zypher/agent";
 import { createFileSystemTools, RunTerminalCmdTool } from "@zypher/agent/tools";
 import { acpStdioServer } from "./server.ts";
+
+/**
+ * Converts ACP McpServer configurations to Zypher McpServerEndpoint format.
+ */
+function convertMcpServers(
+  acpServers: acp.McpServer[],
+): McpServerEndpoint[] {
+  return acpServers.map((server): McpServerEndpoint => {
+    if ("type" in server && (server.type === "http" || server.type === "sse")) {
+      return {
+        id: server.name,
+        type: "remote",
+        remote: {
+          url: server.url,
+          headers: Object.fromEntries(
+            server.headers.map((h) => [h.name, h.value]),
+          ),
+        },
+      };
+    }
+
+    const stdioServer = server as acp.McpServerStdio;
+    return {
+      id: stdioServer.name,
+      type: "command",
+      command: {
+        command: stdioServer.command,
+        args: stdioServer.args,
+        env: Object.fromEntries(stdioServer.env.map((e) => [e.name, e.value])),
+      },
+    };
+  });
+}
 
 export function main(): void {
   let modelProvider: ModelProvider;
@@ -61,12 +96,50 @@ export function main(): void {
     }
   }
 
-  const server = acpStdioServer(async (cwd) => {
-    return await createZypherAgent({
-      modelProvider,
-      tools: [...createFileSystemTools(), RunTerminalCmdTool],
-      workingDirectory: cwd,
+  const logFile = "/tmp/zypher-acp-debug.log";
+  const log = (msg: string) => {
+    const timestamp = new Date().toISOString();
+    Deno.writeTextFileSync(logFile, `[${timestamp}] ${msg}\n`, {
+      append: true,
     });
+  };
+
+  log("=== ACP Server Started ===");
+
+  const server = acpStdioServer(async (cwd, mcpServers) => {
+    log(
+      `Creating agent with MCP servers: ${JSON.stringify(mcpServers, null, 2)}`,
+    );
+    const convertedServers = mcpServers
+      ? convertMcpServers(mcpServers)
+      : undefined;
+    log(`Converted MCP servers: ${JSON.stringify(convertedServers, null, 2)}`);
+
+    try {
+      const agent = await createZypherAgent({
+        modelProvider,
+        tools: [...createFileSystemTools(), RunTerminalCmdTool],
+        workingDirectory: cwd,
+        mcpServers: convertedServers,
+      });
+
+      // Debug: Log registered tools
+      log(`Registered tools: ${Array.from(agent.mcp.tools.keys()).join(", ")}`);
+      log(`MCP servers registered: ${agent.mcp.servers.size}`);
+      for (const [id, info] of agent.mcp.servers) {
+        log(
+          `  Server ${id}: connected=${info.client.connected}, toolCount=${info.client.toolCount}`,
+        );
+        if (info.client.toolCount > 0) {
+          log(`    Tools: ${info.client.tools.map((t) => t.name).join(", ")}`);
+        }
+      }
+
+      return agent;
+    } catch (error) {
+      log(`ERROR creating agent: ${error}`);
+      throw error;
+    }
   });
 
   server.start();
