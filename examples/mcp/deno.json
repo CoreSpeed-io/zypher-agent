@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.25.1"
+  }
+}
