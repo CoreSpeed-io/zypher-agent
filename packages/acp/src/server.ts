@@ -6,14 +6,14 @@
  */
 
 import * as acp from "acp";
-import { ACPProtocolAdapter, type AgentFactory } from "./adapter.ts";
+import { AcpProtocolAdapter, type AgentFactory } from "./adapter.ts";
 
-export interface ACPServer {
+export interface AcpServer {
   start(): void;
   stop(): void;
 }
 
-class ACPServerImpl implements ACPServer {
+class AcpServerImpl implements AcpServer {
   #factory: AgentFactory;
   #connection: acp.AgentSideConnection | null = null;
 
@@ -27,7 +27,7 @@ class ACPServerImpl implements ACPServer {
     const stream = acp.ndJsonStream(output, input);
 
     this.#connection = new acp.AgentSideConnection((conn) => {
-      return new ACPProtocolAdapter(conn, this.#factory);
+      return new AcpProtocolAdapter(conn, this.#factory);
     }, stream);
   }
 
@@ -73,8 +73,8 @@ class ACPServerImpl implements ACPServer {
  * The model must be configured via the `ZYPHER_MODEL` environment variable.
  *
  * @param factory - Function that creates a ZypherAgent for each session
- * @returns An ACPServer instance with start() and stop() methods
+ * @returns An AcpServer instance with start() and stop() methods
  */
-export function acpStdioServer(factory: AgentFactory): ACPServer {
-  return new ACPServerImpl(factory);
+export function acpStdioServer(factory: AgentFactory): AcpServer {
+  return new AcpServerImpl(factory);
 }
