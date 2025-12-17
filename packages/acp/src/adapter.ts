@@ -124,13 +124,9 @@ export class ACPProtocolAdapter implements acp.Agent {
         { signal: session.abort.signal },
       );
 
-      await new Promise<void>((resolve, reject) => {
-        observable.subscribe({
-          next: (event) => this.#handleTaskEvent(params.sessionId, event),
-          error: reject,
-          complete: resolve,
-        });
-      });
+      for await (const event of observable) {
+        this.#handleTaskEvent(params.sessionId, event);
+      }
 
       return { stopReason: "end_turn" };
     } catch (error) {
