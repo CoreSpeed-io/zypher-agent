@@ -28,9 +28,11 @@
  * }
  */
 
+import type * as acp from "acp";
 import {
   AnthropicModelProvider,
   createZypherAgent,
+  type McpServerEndpoint,
   type ModelProvider,
   OpenAIModelProvider,
 } from "@zypher/agent";

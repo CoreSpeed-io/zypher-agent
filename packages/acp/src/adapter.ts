@@ -82,6 +82,7 @@ export class AcpProtocolAdapter implements acp.Agent {
         },
         mcpCapabilities: {
           http: true,
+          sse: true,
         },
       },
     });
