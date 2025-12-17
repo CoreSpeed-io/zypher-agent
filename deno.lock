@@ -26,7 +26,7 @@
     "jsr:@std/streams@^1.0.14": "1.0.14",
     "jsr:@std/testing@^1.0.16": "1.0.16",
     "jsr:@std/text@~1.0.7": "1.0.16",
-    "npm:@agentclientprotocol/sdk@0.8": "0.8.0_zod@4.2.1",
+    "npm:@agentclientprotocol/sdk@0.12": "0.12.0_zod@4.2.1",
     "npm:@anthropic-ai/sdk@~0.71.2": "0.71.2_zod@4.2.1",
     "npm:@aws-sdk/client-s3@^3.952.0": "3.952.0",
     "npm:@aws-sdk/s3-request-presigner@^3.952.0": "3.952.0",
@@ -142,8 +142,8 @@
     }
   },
   "npm": {
-    "@agentclientprotocol/sdk@0.8.0_zod@4.2.1": {
-      "integrity": "sha512-RnYsrYqrGFNpPc/cgHgMPHjgn52F1tw5PWyr7UucQ2V1O72JWy3fCCkUgbbRgn7wbNVFsrEZMuBS186Mxgkhfg==",
+    "@agentclientprotocol/sdk@0.12.0_zod@4.2.1": {
+      "integrity": "sha512-V8uH/KK1t7utqyJmTA7y7DzKu6+jKFIXM+ZVouz8E55j8Ej2RV42rEvPKn3/PpBJlliI5crcGk1qQhZ7VwaepA==",
       "dependencies": [
         "zod"
       ]
@@ -1986,8 +1986,7 @@
       },
       "packages/acp": {
         "dependencies": [
-          "jsr:@zypher/agent@0.7",
-          "npm:@agentclientprotocol/sdk@0.8"
+          "npm:@agentclientprotocol/sdk@0.12"
         ]
       },
       "packages/agent": {
