@@ -89,3 +89,13 @@ jobs:
           prerelease: ${{ contains(matrix.package.version, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Call publish workflow directly because GitHub doesn't trigger workflows
+  # from events (like release creation) made with GITHUB_TOKEN.
+  # See: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
+  publish:
+    needs: release
+    uses: ./.github/workflows/publish.yml
+    permissions:
+      contents: read
+      id-token: write # The OIDC ID token is used for authentication with JSR.

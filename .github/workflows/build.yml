@@ -106,3 +106,4 @@ jobs:
       packages: ${{ needs.detect-changes.outputs.packages }}
     permissions:
       contents: write
+      id-token: write # Required for publish.yml to authenticate with JSR
