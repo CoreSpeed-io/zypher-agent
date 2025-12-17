@@ -9,6 +9,7 @@ import type * as acp from "acp";
 import type { TaskEvent, ZypherAgent } from "@zypher/agent";
 import type { ToolResult } from "@zypher/agent/tools";
 import { convertPromptContent } from "./content.ts";
+import denoConfig from "../deno.json" with { type: "json" };
 
 /**
  * Extracts success status and content string from a ToolResult
@@ -68,7 +69,7 @@ export class ACPProtocolAdapter implements acp.Agent {
       agentInfo: {
         name: "zypher-agent",
         title: "Zypher Agent",
-        version: "0.1.0",
+        version: denoConfig.version,
       },
       agentCapabilities: {
         loadSession: false,
