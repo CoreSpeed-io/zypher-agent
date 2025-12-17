@@ -115,14 +115,14 @@ export class AcpProtocolAdapter implements acp.Agent {
 
     session.abort?.abort();
     session.abort = new AbortController();
-    // TODO: support image and file in prompts
-    const { text: promptText } = convertPromptContent(params.prompt);
+    const { text: promptText, images } = convertPromptContent(params.prompt);
 
     try {
       const observable = session.agent.runTask(
         promptText,
         this.#defaultModel,
         undefined,
+        images,
         { signal: session.abort.signal },
       );
 
