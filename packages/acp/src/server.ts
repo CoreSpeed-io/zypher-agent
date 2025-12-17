@@ -70,8 +70,7 @@ class ACPServerImpl implements ACPServer {
  * server.start();
  * ```
  *
- * The default model can be configured via the `ZYPHER_MODEL` environment variable.
- * If not set, defaults to `claude-sonnet-4-20250514`.
+ * The model must be configured via the `ZYPHER_MODEL` environment variable.
  *
  * @param factory - Function that creates a ZypherAgent for each session
  * @returns An ACPServer instance with start() and stop() methods
