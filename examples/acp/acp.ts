@@ -29,7 +29,7 @@
  * Environment variables (checked in order):
  *   - OPENAI_API_KEY: Use OpenAI as the model provider (default model: gpt-4o-2024-11-20)
  *   - ANTHROPIC_API_KEY: Use Anthropic as the model provider (default model: claude-sonnet-4-20250514)
- *   - ZYPHER_MODEL: Override the default model (e.g., "gpt-4o", "claude-sonnet-4-20250514")
+ *   - ZYPHER_MODEL: Optional: override the default model (e.g., "gpt-4o", "claude-sonnet-4-20250514")
  */
 
 import "@std/dotenv/load";
@@ -44,22 +44,17 @@ import { createTool } from "@zypher/agent/tools";
 import { z } from "zod";
 
 let modelProvider: ModelProvider;
+let defaultModel: string;
 
 const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
 if (openaiApiKey) {
   modelProvider = new OpenAIModelProvider({ apiKey: openaiApiKey });
-  // Set default model for OpenAI if not already set
-  if (!Deno.env.get("ZYPHER_MODEL")) {
-    Deno.env.set("ZYPHER_MODEL", "gpt-4o-2024-11-20");
-  }
+  defaultModel = "gpt-4o-2024-11-20";
 } else {
   const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (anthropicApiKey) {
     modelProvider = new AnthropicModelProvider({ apiKey: anthropicApiKey });
-    // Set default model for Anthropic if not already set
-    if (!Deno.env.get("ZYPHER_MODEL")) {
-      Deno.env.set("ZYPHER_MODEL", "claude-sonnet-4-20250514");
-    }
+    defaultModel = "claude-sonnet-4-20250514";
   } else {
     console.error(
       "Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable",
@@ -67,6 +62,8 @@ if (openaiApiKey) {
     Deno.exit(1);
   }
 }
+
+const model = Deno.env.get("ZYPHER_MODEL") || defaultModel;
 
 const getWeather = createTool({
   name: "get_weather",
@@ -124,6 +121,6 @@ const server = acpStdioServer(async (cwd) => {
     tools: [getWeather],
     workingDirectory: cwd,
   });
-});
+}, model);
 
 server.start();
