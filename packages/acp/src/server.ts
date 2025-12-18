@@ -6,7 +6,7 @@
  */
 
 import * as acp from "acp";
-import { AcpProtocolAdapter, type AgentFactory } from "./adapter.ts";
+import { AcpProtocolAdapter, type ZypherAgentBuilder } from "./adapter.ts";
 
 export interface AcpServer {
   start(): void;
@@ -14,12 +14,12 @@ export interface AcpServer {
 }
 
 class AcpServerImpl implements AcpServer {
-  #factory: AgentFactory;
+  #builder: ZypherAgentBuilder;
   #model: string;
   #connection: acp.AgentSideConnection | null = null;
 
-  constructor(factory: AgentFactory, model: string) {
-    this.#factory = factory;
+  constructor(builder: ZypherAgentBuilder, model: string) {
+    this.#builder = builder;
     this.#model = model;
   }
 
@@ -29,7 +29,7 @@ class AcpServerImpl implements AcpServer {
     const stream = acp.ndJsonStream(output, input);
 
     this.#connection = new acp.AgentSideConnection((conn) => {
-      return new AcpProtocolAdapter(conn, this.#factory, this.#model);
+      return new AcpProtocolAdapter(conn, this.#builder, this.#model);
     }, stream);
   }
 
@@ -75,13 +75,13 @@ class AcpServerImpl implements AcpServer {
  * server.start();
  * ```
  *
- * @param factory - Function that creates a ZypherAgent for each session
+ * @param builder - Function that creates a ZypherAgent for each session
  * @param model - The model identifier to use for agent tasks
  * @returns An AcpServer instance with start() and stop() methods
  */
 export function acpStdioServer(
-  factory: AgentFactory,
+  builder: ZypherAgentBuilder,
   model: string,
 ): AcpServer {
-  return new AcpServerImpl(factory, model);
+  return new AcpServerImpl(builder, model);
 }

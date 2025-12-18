@@ -13,7 +13,7 @@
  */
 
 export { type AcpServer, acpStdioServer } from "./server.ts";
-export type { AgentFactory } from "./adapter.ts";
+export type { ZypherAgentBuilder } from "./adapter.ts";
 
 if (import.meta.main) {
   const { main } = await import("./main.ts");
