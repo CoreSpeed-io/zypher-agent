@@ -40,7 +40,7 @@ function extractToolResult(result: ToolResult): {
   return { success, content };
 }
 
-export type AgentFactory = (
+export type ZypherAgentBuilder = (
   cwd: string,
   mcpServers?: acp.McpServer[],
 ) => Promise<ZypherAgent>;
@@ -52,17 +52,17 @@ interface AcpSession {
 
 export class AcpProtocolAdapter implements acp.Agent {
   readonly #conn: acp.AgentSideConnection;
-  readonly #factory: AgentFactory;
+  readonly #builder: ZypherAgentBuilder;
   readonly #sessions = new Map<string, AcpSession>();
   readonly #defaultModel: string;
 
   constructor(
     conn: acp.AgentSideConnection,
-    factory: AgentFactory,
+    builder: ZypherAgentBuilder,
     model: string,
   ) {
     this.#conn = conn;
-    this.#factory = factory;
+    this.#builder = builder;
     this.#defaultModel = model;
   }
 
@@ -91,7 +91,7 @@ export class AcpProtocolAdapter implements acp.Agent {
     params: acp.NewSessionRequest,
   ): Promise<acp.NewSessionResponse> {
     const sessionId = crypto.randomUUID();
-    const agent = await this.#factory(params.cwd, params.mcpServers);
+    const agent = await this.#builder(params.cwd, params.mcpServers);
 
     this.#sessions.set(sessionId, {
       agent,
