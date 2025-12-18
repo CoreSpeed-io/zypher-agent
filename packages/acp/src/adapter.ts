@@ -152,9 +152,6 @@ export class AcpProtocolAdapter implements acp.Agent {
   }
 
   #handleTaskEvent(sessionId: string, event: TaskEvent): void {
-    const session = this.#sessions.get(sessionId);
-    if (!session) return;
-
     switch (event.type) {
       case "text":
         this.#conn.sessionUpdate({
