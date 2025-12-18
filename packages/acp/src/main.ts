@@ -9,7 +9,7 @@
  * Environment variables (checked in order):
  *   OPENAI_API_KEY - Use OpenAI as the model provider (default model: gpt-4o-2024-11-20)
  *   ANTHROPIC_API_KEY - Use Anthropic as the model provider (default model: claude-sonnet-4-20250514)
- *   ZYPHER_MODEL - Override the default model
+ *   ZYPHER_MODEL - Optional: override the default model
  *
  * Zed configuration example:
  * {
@@ -74,20 +74,17 @@ function convertMcpServers(
 
 export function main(): void {
   let modelProvider: ModelProvider;
+  let defaultModel: string;
 
   const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
   if (openaiApiKey) {
     modelProvider = new OpenAIModelProvider({ apiKey: openaiApiKey });
-    if (!Deno.env.get("ZYPHER_MODEL")) {
-      Deno.env.set("ZYPHER_MODEL", "gpt-4o-2024-11-20");
-    }
+    defaultModel = "gpt-4o-2024-11-20";
   } else {
     const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (anthropicApiKey) {
       modelProvider = new AnthropicModelProvider({ apiKey: anthropicApiKey });
-      if (!Deno.env.get("ZYPHER_MODEL")) {
-        Deno.env.set("ZYPHER_MODEL", "claude-sonnet-4-20250514");
-      }
+      defaultModel = "claude-sonnet-4-20250514";
     } else {
       console.error(
         "Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable",
@@ -95,6 +92,8 @@ export function main(): void {
       Deno.exit(1);
     }
   }
+
+  const model = Deno.env.get("ZYPHER_MODEL") || defaultModel;
 
   const server = acpStdioServer(async (cwd, mcpServers) => {
     const convertedServers = mcpServers
@@ -109,7 +108,7 @@ export function main(): void {
     });
 
     return agent;
-  });
+  }, model);
 
   server.start();
 }
