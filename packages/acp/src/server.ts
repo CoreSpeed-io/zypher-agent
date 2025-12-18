@@ -15,10 +15,12 @@ export interface AcpServer {
 
 class AcpServerImpl implements AcpServer {
   #factory: AgentFactory;
+  #model: string;
   #connection: acp.AgentSideConnection | null = null;
 
-  constructor(factory: AgentFactory) {
+  constructor(factory: AgentFactory, model: string) {
     this.#factory = factory;
+    this.#model = model;
   }
 
   start(): void {
@@ -27,7 +29,7 @@ class AcpServerImpl implements AcpServer {
     const stream = acp.ndJsonStream(output, input);
 
     this.#connection = new acp.AgentSideConnection((conn) => {
-      return new AcpProtocolAdapter(conn, this.#factory);
+      return new AcpProtocolAdapter(conn, this.#factory, this.#model);
     }, stream);
   }
 
@@ -52,13 +54,16 @@ class AcpServerImpl implements AcpServer {
  *   apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
  * });
  *
- * const server = acpStdioServer(async (cwd) => {
- *   return await createZypherAgent({
- *     modelProvider,
- *     tools: [],
- *     workingDirectory: cwd,
- *   });
- * });
+ * const server = acpStdioServer(
+ *   async (cwd) => {
+ *     return await createZypherAgent({
+ *       modelProvider,
+ *       tools: [],
+ *       workingDirectory: cwd,
+ *     });
+ *   },
+ *   "claude-sonnet-4-20250514",
+ * );
  *
  * server.start();
  * ```
@@ -66,15 +71,17 @@ class AcpServerImpl implements AcpServer {
  * @example Shared agent (not recommended for most use cases)
  * ```typescript
  * const sharedAgent = await createZypherAgent({ modelProvider, tools });
- * const server = acpStdioServer(async () => sharedAgent);
+ * const server = acpStdioServer(async () => sharedAgent, "claude-sonnet-4-20250514");
  * server.start();
  * ```
  *
- * The model must be configured via the `ZYPHER_MODEL` environment variable.
- *
  * @param factory - Function that creates a ZypherAgent for each session
+ * @param model - The model identifier to use for agent tasks
  * @returns An AcpServer instance with start() and stop() methods
  */
-export function acpStdioServer(factory: AgentFactory): AcpServer {
-  return new AcpServerImpl(factory);
+export function acpStdioServer(
+  factory: AgentFactory,
+  model: string,
+): AcpServer {
+  return new AcpServerImpl(factory, model);
 }

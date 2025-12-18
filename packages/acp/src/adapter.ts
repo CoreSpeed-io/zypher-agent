@@ -56,13 +56,13 @@ export class AcpProtocolAdapter implements acp.Agent {
   readonly #sessions = new Map<string, AcpSession>();
   readonly #defaultModel: string;
 
-  constructor(conn: acp.AgentSideConnection, factory: AgentFactory) {
+  constructor(
+    conn: acp.AgentSideConnection,
+    factory: AgentFactory,
+    model: string,
+  ) {
     this.#conn = conn;
     this.#factory = factory;
-    const model = Deno.env.get("ZYPHER_MODEL");
-    if (!model) {
-      throw new Error("ZYPHER_MODEL environment variable is required");
-    }
     this.#defaultModel = model;
   }
 
