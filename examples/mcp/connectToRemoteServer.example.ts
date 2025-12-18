@@ -25,6 +25,7 @@
  *   deno run --allow-all connectToRemoteServer.example.ts http://localhost:8080/mcp
  */
 
+import { Command } from "@cliffy/command";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
   connectToRemoteServer,
@@ -33,46 +34,7 @@ import {
 } from "@zypher/agent";
 import { CliOAuthCallbackHandler } from "@zypher/cli";
 
-function printUsage() {
-  console.log(
-    "Usage: deno run --allow-all connectToRemoteServer.example.ts <server-url>",
-  );
-  console.log("");
-  console.log("Examples:");
-  console.log(
-    "  deno run --allow-all connectToRemoteServer.example.ts https://your-mcp-server.com/mcp",
-  );
-  console.log(
-    "  deno run --allow-all connectToRemoteServer.example.ts http://localhost:8080/mcp",
-  );
-  console.log("");
-  console.log(
-    "This script will guide you through the OAuth authorization process.",
-  );
-}
-
-async function main() {
-  const args = Deno.args;
-
-  if (args.length !== 1) {
-    console.error("❌ Error: Server URL is required");
-    console.log("");
-    printUsage();
-    Deno.exit(1);
-  }
-
-  const serverUrl = args[0];
-
-  // Validate URL
-  try {
-    new URL(serverUrl);
-  } catch {
-    console.error("❌ Error: Invalid server URL");
-    console.log("");
-    printUsage();
-    Deno.exit(1);
-  }
-
+async function run(serverUrl: string) {
   console.log("🔗 MCP OAuth Connection Example");
   console.log("================================");
   console.log(`Server URL: ${serverUrl}`);
@@ -208,5 +170,17 @@ async function main() {
 }
 
 if (import.meta.main) {
-  await main();
+  await new Command()
+    .name("connectToRemoteServer")
+    .version("1.0.0")
+    .description(
+      "Connect to an OAuth-enabled MCP server using the low-leve connectToRemoteServer API",
+    )
+    .arguments("<server-url:string>")
+    .example(
+      "Remote server",
+      "deno run --allow-all connectToRemoteServer.example.ts https://mcp-server.com/mcp",
+    )
+    .action((_options, serverUrl) => run(serverUrl))
+    .parse(Deno.args);
 }

@@ -1,5 +1,26 @@
 {
   "imports": {
-    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.25.1"
+    "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.25.1",
+    "@types/react": "npm:@types/react@^19.2.7",
+    "ink": "npm:ink@^6.5.1",
+    "ink-select-input": "npm:ink-select-input@^6.2.0",
+    "ink-text-input": "npm:ink-text-input@^6.0.0",
+    "react": "npm:react@^19.2.3",
+    "react-dom/server": "npm:react-dom@^19.2.3/server",
+    "xstate": "npm:xstate@^5.25.0"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["react"]
+    }
+  },
+  "compilerOptions": {
+    "types": [
+      "react",
+      "@types/react"
+    ],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   }
 }
