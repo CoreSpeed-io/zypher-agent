@@ -73,9 +73,18 @@ function extractToolResult(result: ToolResult): {
   return { success, content };
 }
 
+/**
+ * Client configuration passed to the agent builder.
+ */
+export interface AcpClientConfig {
+  /** Working directory for the session */
+  cwd: string;
+  /** MCP servers configured for this session */
+  mcpServers?: McpServerEndpoint[];
+}
+
 export type ZypherAgentBuilder = (
-  cwd: string,
-  mcpServers?: McpServerEndpoint[],
+  clientConfig: AcpClientConfig,
 ) => Promise<ZypherAgent>;
 
 interface AcpSession {
@@ -127,7 +136,7 @@ export class ZypherAcpAgent implements acp.Agent {
     const mcpServers = params.mcpServers
       ? convertMcpServers(params.mcpServers)
       : undefined;
-    const agent = await this.#builder(params.cwd, mcpServers);
+    const agent = await this.#builder({ cwd: params.cwd, mcpServers });
 
     this.#sessions.set(sessionId, {
       agent,

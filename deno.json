@@ -3,8 +3,8 @@
     "packages/agent",
     "packages/cli",
     "packages/acp",
-    "examples/ptc",
-    "examples/acp"
+    "examples/mcp",
+    "examples/ptc"
   ],
   "tasks": {
     "cli": "deno run -A packages/cli/src/mod.ts",

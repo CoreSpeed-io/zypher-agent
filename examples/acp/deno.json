@@ -1,6 +1,0 @@
-{
-  "imports": {
-    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
-    "zod": "npm:zod@^4.1.13"
-  }
-}

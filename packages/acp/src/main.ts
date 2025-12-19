@@ -63,12 +63,12 @@ function extractModelProvider(): { provider: ModelProvider; model: string } {
 export async function main(): Promise<void> {
   const { provider: modelProvider, model } = extractModelProvider();
 
-  await runAcpServer(async (cwd, mcpServers) => {
+  await runAcpServer(async (clientConfig) => {
     return await createZypherAgent({
       modelProvider,
       tools: [...createFileSystemTools(), RunTerminalCmdTool],
-      workingDirectory: cwd,
-      mcpServers,
+      workingDirectory: clientConfig.cwd,
+      mcpServers: clientConfig.mcpServers,
     });
   }, model);
 }
