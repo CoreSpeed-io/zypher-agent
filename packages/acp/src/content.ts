@@ -23,7 +23,6 @@ export function convertPromptContent(blocks: AcpContentBlock[]): PromptContent {
   for (const block of blocks) {
     const result = convertBlock(block);
     if (result.text) parts.push(result.text);
-      
   }
 
   return { text: parts.join("\n\n") };
