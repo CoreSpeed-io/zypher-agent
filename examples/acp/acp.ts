@@ -60,7 +60,9 @@ function extractModelProvider(): { provider: ModelProvider; model: string } {
     };
   }
 
-  console.error("Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable");
+  console.error(
+    "Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable",
+  );
   Deno.exit(1);
 }
 
