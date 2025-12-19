@@ -276,7 +276,7 @@ function App({ client }: AppProps) {
     }
   }, [isAwaitingOAuth, viewMode.type]);
 
-  // Subscribe to status changes (logging is handled outside React)
+  // Subscribe to status changes
   useEffect(() => {
     const subscription = client.status$.subscribe(setStatus);
     return () => subscription.unsubscribe();
@@ -505,16 +505,14 @@ async function run({ command, url }: RunOptions) {
     oauth: oauthOptions,
   });
 
-  // Log status changes outside React to avoid closure issues
+  // Log status changes
   console.log(`Server: ${serverName}`);
-  console.log(`Initial status: ${formatStatus(client.status)}`);
+  console.log(`[status] Initial: ${formatStatus(client.status)}`);
   let prevStatus = formatStatus(client.status);
   client.status$.subscribe((newStatus) => {
     const newFormatted = formatStatus(newStatus);
-    if (prevStatus !== newFormatted) {
-      console.log(`[status] ${prevStatus} → ${newFormatted}`);
-      prevStatus = newFormatted;
-    }
+    console.log(`[status] ${prevStatus} → ${newFormatted}`);
+    prevStatus = newFormatted;
   });
 
   // Render the Ink app
