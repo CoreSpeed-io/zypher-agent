@@ -28,87 +28,45 @@
  * }
  */
 
-import type * as acp from "acp";
 import {
   AnthropicModelProvider,
   createZypherAgent,
-  type McpServerEndpoint,
   type ModelProvider,
   OpenAIModelProvider,
 } from "@zypher/agent";
 import { createFileSystemTools, RunTerminalCmdTool } from "@zypher/agent/tools";
-import { acpStdioServer } from "./server.ts";
+import { runAcpServer } from "./server.ts";
 
-/**
- * Converts ACP McpServer configurations to Zypher McpServerEndpoint format.
- */
-function convertMcpServers(
-  acpServers: acp.McpServer[],
-): McpServerEndpoint[] {
-  return acpServers.map((server): McpServerEndpoint => {
-    if ("type" in server && (server.type === "http" || server.type === "sse")) {
-      return {
-        id: server.name,
-        type: "remote",
-        remote: {
-          url: server.url,
-          headers: Object.fromEntries(
-            server.headers.map((h) => [h.name, h.value]),
-          ),
-        },
-      };
-    }
-
-    const stdioServer = server as acp.McpServerStdio;
+function extractModelProvider(): { provider: ModelProvider; model: string } {
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  if (openaiKey) {
     return {
-      id: stdioServer.name,
-      type: "command",
-      command: {
-        command: stdioServer.command,
-        args: stdioServer.args,
-        env: Object.fromEntries(stdioServer.env.map((e) => [e.name, e.value])),
-      },
+      provider: new OpenAIModelProvider({ apiKey: openaiKey }),
+      model: Deno.env.get("ZYPHER_MODEL") || "gpt-4o-2024-11-20",
     };
-  });
-}
-
-export function main(): void {
-  let modelProvider: ModelProvider;
-  let defaultModel: string;
-
-  const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-  if (openaiApiKey) {
-    modelProvider = new OpenAIModelProvider({ apiKey: openaiApiKey });
-    defaultModel = "gpt-4o-2024-11-20";
-  } else {
-    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (anthropicApiKey) {
-      modelProvider = new AnthropicModelProvider({ apiKey: anthropicApiKey });
-      defaultModel = "claude-sonnet-4-20250514";
-    } else {
-      console.error(
-        "Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable",
-      );
-      Deno.exit(1);
-    }
   }
 
-  const model = Deno.env.get("ZYPHER_MODEL") || defaultModel;
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (anthropicKey) {
+    return {
+      provider: new AnthropicModelProvider({ apiKey: anthropicKey }),
+      model: Deno.env.get("ZYPHER_MODEL") || "claude-sonnet-4-20250514",
+    };
+  }
 
-  const server = acpStdioServer(async (cwd, mcpServers) => {
-    const convertedServers = mcpServers
-      ? convertMcpServers(mcpServers)
-      : undefined;
+  console.error("Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable");
+  Deno.exit(1);
+}
 
-    const agent = await createZypherAgent({
+export async function main(): Promise<void> {
+  const { provider: modelProvider, model } = extractModelProvider();
+
+  await runAcpServer(async (cwd, mcpServers) => {
+    return await createZypherAgent({
       modelProvider,
       tools: [...createFileSystemTools(), RunTerminalCmdTool],
       workingDirectory: cwd,
-      mcpServers: convertedServers,
+      mcpServers,
     });
-
-    return agent;
   }, model);
-
-  server.start();
 }

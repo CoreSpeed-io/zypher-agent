@@ -12,8 +12,11 @@
  * @module
  */
 
-export { type AcpServer, acpStdioServer } from "./server.ts";
-export type { ZypherAgentBuilder } from "./adapter.ts";
+export {
+  runAcpServer,
+  type RunAcpServerOptions,
+  type ZypherAgentBuilder,
+} from "./server.ts";
 
 if (import.meta.main) {
   const { main } = await import("./main.ts");

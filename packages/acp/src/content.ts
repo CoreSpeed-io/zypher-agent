@@ -45,7 +45,7 @@ function convertBlock(
   switch (block.type) {
     case "text":
       return { text: block.text };
-
+    // we have these for protocol compatibility, but ZypherAgent does not support it natively
     case "image":
       return convertImage(block);
 
