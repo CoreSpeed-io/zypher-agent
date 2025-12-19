@@ -169,13 +169,13 @@ class HttpServerOAuthProvider extends InMemoryOAuthProvider
     }
   }
 
-  async waitForCallback(): Promise<string> {
+  async waitForCallback(options?: { signal?: AbortSignal }): Promise<string> {
     if (!this.#codeCompleter) {
       throw new Error("OAuth flow not started");
     }
 
     try {
-      const code = await this.#codeCompleter.wait();
+      const code = await this.#codeCompleter.wait({ signal: options?.signal });
       return code;
     } finally {
       if (this.#server) {
@@ -256,10 +256,9 @@ type ViewMode =
 
 interface AppProps {
   client: McpClient;
-  serverName: string;
 }
 
-function App({ client, serverName }: AppProps) {
+function App({ client }: AppProps) {
   const { exit } = useApp();
   const [status, setStatus] = useState<McpClientStatus>(client.status);
   const [viewMode, setViewMode] = useState<ViewMode>({ type: "menu" });
@@ -267,12 +266,6 @@ function App({ client, serverName }: AppProps) {
 
   // Derive OAuth waiting state from client status
   const isAwaitingOAuth = matchesState({ connecting: "awaitingOAuth" }, status);
-
-  // Log initial state
-  useEffect(() => {
-    console.log(`Server: ${serverName}`);
-    console.log(`Initial status: ${formatStatus(client.status)}`);
-  }, [client, serverName]);
 
   // Switch view mode based on OAuth status
   useEffect(() => {
@@ -283,23 +276,21 @@ function App({ client, serverName }: AppProps) {
     }
   }, [isAwaitingOAuth, viewMode.type]);
 
-  // Subscribe to status changes
+  // Subscribe to status changes (logging is handled outside React)
   useEffect(() => {
-    const subscription = client.status$.subscribe((newStatus) => {
-      const prevFormatted = formatStatus(status);
-      const newFormatted = formatStatus(newStatus);
-      if (prevFormatted !== newFormatted) {
-        console.log(`[status] ${prevFormatted} → ${newFormatted}`);
-      }
-      setStatus(newStatus);
-    });
+    const subscription = client.status$.subscribe(setStatus);
     return () => subscription.unsubscribe();
-  }, [client, status]);
+  }, [client]);
 
-  // Handle escape key to go back
+  // Handle escape key to go back or cancel OAuth
   useInput((_input, key) => {
-    if (key.escape && viewMode.type !== "menu") {
-      setViewMode({ type: "menu" });
+    if (key.escape) {
+      if (viewMode.type === "oauth-waiting") {
+        console.log("Cancelling OAuth...");
+        client.desiredEnabled = false;
+      } else if (viewMode.type !== "menu") {
+        setViewMode({ type: "menu" });
+      }
     }
   });
 
@@ -440,6 +431,7 @@ function App({ client, serverName }: AppProps) {
             <Text color="cyan">{client.pendingOAuthUrl}</Text>
           </Box>
           <Text>Waiting for authorization callback...</Text>
+          <Text dimColor>Press ESC to cancel</Text>
         </Box>
       )}
     </Box>
@@ -513,8 +505,20 @@ async function run({ command, url }: RunOptions) {
     oauth: oauthOptions,
   });
 
+  // Log status changes outside React to avoid closure issues
+  console.log(`Server: ${serverName}`);
+  console.log(`Initial status: ${formatStatus(client.status)}`);
+  let prevStatus = formatStatus(client.status);
+  client.status$.subscribe((newStatus) => {
+    const newFormatted = formatStatus(newStatus);
+    if (prevStatus !== newFormatted) {
+      console.log(`[status] ${prevStatus} → ${newFormatted}`);
+      prevStatus = newFormatted;
+    }
+  });
+
   // Render the Ink app
-  render(<App client={client} serverName={serverName} />);
+  render(<App client={client} />);
 }
 
 if (import.meta.main) {
