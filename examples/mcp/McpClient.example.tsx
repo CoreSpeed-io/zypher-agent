@@ -19,7 +19,7 @@
 
 import { Command } from "@cliffy/command";
 import { useEffect, useState } from "react";
-import { Box, render, Text, useApp, useInput, useStdout } from "ink";
+import { Box, render, Text, useApp, useInput } from "ink";
 import SelectInput from "ink-select-input";
 import TextInput from "ink-text-input";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -87,9 +87,17 @@ function renderHtmlResponse(element: React.ReactElement): Response {
   });
 }
 
+// Fixed port for OAuth callback server.
+// RFC 8252 recommends dynamic port selection (port 0) for native OAuth clients,
+// but the MCP SDK's OAuthClientProvider.redirectUrl is a sync getter, making it
+// impossible to return a dynamically assigned port without hacks.
+// See: https://github.com/modelcontextprotocol/typescript-sdk/issues/1316
+const OAUTH_CALLBACK_PORT = 9876;
+
 class HttpServerOAuthProvider extends InMemoryOAuthProvider
   implements OAuthCallbackHandler {
-  #serverPortCompleter?: Completer<number>;
+  #codeCompleter?: Completer<string>;
+  #server?: Deno.HttpServer;
 
   constructor(clientMetadata: OAuthClientMetadata) {
     super({
@@ -98,44 +106,24 @@ class HttpServerOAuthProvider extends InMemoryOAuthProvider
   }
 
   override async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
-    this.#serverPortCompleter = new Completer<number>();
-    const port = await this.#serverPortCompleter.wait(); // defer redirection until server is ready
-    if (port === 0) {
-      throw new Error("Failed to start OAuth callback server.");
-    }
-    const originalRedirectUri = authorizationUrl.searchParams.get(
-      "redirect_uri",
+    console.info(
+      `[OAuth] Starting callback server on port ${OAUTH_CALLBACK_PORT}...`,
     );
-    if (!originalRedirectUri) {
-      throw new Error("No redirect URI found in authorization URL.");
-    }
 
-    const redirectUri = new URL(
-      "http://localhost:" + port,
-      originalRedirectUri,
-    );
-    authorizationUrl.searchParams.set("redirect_uri", redirectUri.toString());
-
-    // Open the authorization URL in the default browser
-    const command = new Deno.Command("open", {
-      args: [authorizationUrl.toString()],
-    });
-    await command.output();
-  }
-
-  async waitForCallback(): Promise<string> {
-    const codeCompleter = new Completer<string>();
-    const server = Deno.serve(
+    this.#codeCompleter = new Completer<string>();
+    const serverReadyCompleter = new Completer<void>();
+    this.#server = Deno.serve(
       {
-        port: 0, // Let OS assign available port
-        onListen: ({ port }) => {
-          this.#serverPortCompleter?.resolve(port);
+        hostname: "localhost",
+        port: OAUTH_CALLBACK_PORT,
+        onListen: () => {
+          serverReadyCompleter.resolve();
         },
       },
       (req) => {
         const url = new URL(req.url);
 
-        if (url.pathname !== "/oauth/callback") {
+        if (url.pathname !== "/mcp/oauth/callback") {
           return new Response("Not Found", { status: 404 });
         }
 
@@ -143,16 +131,18 @@ class HttpServerOAuthProvider extends InMemoryOAuthProvider
         const error = url.searchParams.get("error");
 
         if (code) {
-          codeCompleter.resolve(code);
+          console.info("[OAuth] Received authorization code");
+          this.#codeCompleter?.resolve(code);
           return renderHtmlResponse(<OAuthSuccessPage />);
         } else if (error) {
           const errorDesc = url.searchParams.get("error_description") ?? error;
-          codeCompleter.reject(
+          console.error(`[OAuth] Authorization failed: ${errorDesc}`);
+          this.#codeCompleter?.reject(
             new Error(`OAuth authorization failed: ${errorDesc}`),
           );
           return renderHtmlResponse(<OAuthErrorPage error={errorDesc} />);
         } else {
-          codeCompleter.reject(
+          this.#codeCompleter?.reject(
             new Error("No authorization code found in callback"),
           );
           return new Response("Bad Request", { status: 400 });
@@ -160,10 +150,38 @@ class HttpServerOAuthProvider extends InMemoryOAuthProvider
       },
     );
 
+    // Wait for the server to be ready
+    await serverReadyCompleter.wait();
+
+    // Open the authorization URL in the default browser
+    console.log("[OAuth] Opening browser for authorization...");
     try {
-      return await codeCompleter.wait();
+      const command = new Deno.Command("open", {
+        args: [authorizationUrl.toString()],
+      });
+      await command.output();
+    } catch (error) {
+      console.error(`[OAuth] Error opening browser: ${error}`);
+      console.log(
+        `Please manually open the following URL in your browser: ${authorizationUrl.toString()}`,
+      );
+      throw error;
+    }
+  }
+
+  async waitForCallback(): Promise<string> {
+    if (!this.#codeCompleter) {
+      throw new Error("OAuth flow not started");
+    }
+
+    try {
+      const code = await this.#codeCompleter.wait();
+      return code;
     } finally {
-      await server.shutdown();
+      if (this.#server) {
+        console.log("[OAuth] Shutting down server...");
+        await this.#server.shutdown();
+      }
     }
   }
 }
@@ -188,10 +206,6 @@ function getStatusColor(status: McpClientStatus): string {
   if (matchesState("connecting", status)) return "yellow";
   if (matchesState("connected", status)) return "green";
   return "white";
-}
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", { hour12: false });
 }
 
 type UserCommand =
@@ -229,57 +243,6 @@ function getAvailableCommands(status: McpClientStatus): UserCommandItem[] {
   return pick("quit");
 }
 
-// --- Log entry type ---
-
-interface LogEntry {
-  timestamp: Date;
-  message: string;
-  type: "info" | "warn" | "error" | "debug";
-}
-
-// --- Console hijacker hook ---
-
-function useConsoleCapture(maxLogs = 100) {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-
-  const addLog = (type: LogEntry["type"], ...args: unknown[]) => {
-    const message = args
-      .map((arg) =>
-        typeof arg === "string" ? arg : JSON.stringify(arg, null, 2)
-      )
-      .join(" ");
-    setLogs((prev) =>
-      [...prev, { timestamp: new Date(), message, type }].slice(-maxLogs)
-    );
-  };
-
-  useEffect(() => {
-    const originalConsole = {
-      log: console.log,
-      info: console.info,
-      warn: console.warn,
-      error: console.error,
-      debug: console.debug,
-    };
-
-    console.log = (...args) => addLog("info", ...args);
-    console.info = (...args) => addLog("info", ...args);
-    console.warn = (...args) => addLog("warn", ...args);
-    console.error = (...args) => addLog("error", ...args);
-    console.debug = (...args) => addLog("debug", ...args);
-
-    return () => {
-      console.log = originalConsole.log;
-      console.info = originalConsole.info;
-      console.warn = originalConsole.warn;
-      console.error = originalConsole.error;
-      console.debug = originalConsole.debug;
-    };
-  }, []);
-
-  return logs;
-}
-
 // --- View modes ---
 
 type ViewMode =
@@ -298,8 +261,6 @@ interface AppProps {
 
 function App({ client, serverName }: AppProps) {
   const { exit } = useApp();
-  const { stdout } = useStdout();
-  const logs = useConsoleCapture();
   const [status, setStatus] = useState<McpClientStatus>(client.status);
   const [viewMode, setViewMode] = useState<ViewMode>({ type: "menu" });
   const [toolInput, setToolInput] = useState("{}");
@@ -328,7 +289,7 @@ function App({ client, serverName }: AppProps) {
       const prevFormatted = formatStatus(status);
       const newFormatted = formatStatus(newStatus);
       if (prevFormatted !== newFormatted) {
-        console.log(`<status> ${prevFormatted} → ${newFormatted}`);
+        console.log(`[status] ${prevFormatted} → ${newFormatted}`);
       }
       setStatus(newStatus);
     });
@@ -393,7 +354,7 @@ function App({ client, serverName }: AppProps) {
       const result = await client.executeToolCall({ name: toolName, input });
       console.log(`Result: ${JSON.stringify(result, null, 2)}`);
     } catch (e) {
-      console.error(`Error: ${e instanceof Error ? e.message : e}`);
+      console.error(e);
     }
     setViewMode({ type: "menu" });
   };
@@ -402,40 +363,12 @@ function App({ client, serverName }: AppProps) {
   const tools = client.tools;
 
   return (
-    <Box flexDirection="column" padding={1} height={stdout.rows}>
+    <Box flexDirection="column" borderStyle="single" paddingX={1} marginY={1}>
       {/* Header */}
       <Box marginBottom={1}>
         <Text bold>🔗 MCP Client Example</Text>
         <Text></Text>
         <Text color={getStatusColor(status)}>[{formatStatus(status)}]</Text>
-      </Box>
-
-      {/* Logs */}
-      <Box
-        flexDirection="column"
-        flexGrow={1}
-        minHeight={10}
-        borderStyle="single"
-        borderColor="gray"
-        paddingX={1}
-        marginBottom={1}
-        overflow="hidden"
-      >
-        {logs.slice(-50).map((log: LogEntry, i: number) => (
-          <Box key={i}>
-            <Text
-              color={log.type === "error"
-                ? "red"
-                : log.type === "warn"
-                ? "yellow"
-                : log.type === "debug"
-                ? "gray"
-                : "white"}
-            >
-              <Text dimColor>[{formatTime(log.timestamp)}]</Text> {log.message}
-            </Text>
-          </Box>
-        ))}
       </Box>
 
       {/* Menu */}
@@ -537,16 +470,18 @@ async function run({ command, url }: RunOptions) {
       },
     };
     serverName = command;
-  } else {
+  } else if (url) {
     serverEndpoint = {
       id: "test-server",
       displayName: "Test Server",
       type: "remote",
       remote: {
-        url: url!,
+        url,
       },
     };
-    serverName = url!;
+    serverName = url;
+  } else {
+    throw new Error("Either --command or --url is required");
   }
 
   // Create context
@@ -556,7 +491,9 @@ async function run({ command, url }: RunOptions) {
   let oauthOptions: OAuthOptions | undefined;
   if (serverEndpoint.type === "remote") {
     const httpServerOAuthProvider = new HttpServerOAuthProvider({
-      redirect_uris: ["http://localhost/mcp/oauth/callback"],
+      redirect_uris: [
+        `http://localhost:${OAUTH_CALLBACK_PORT}/mcp/oauth/callback`,
+      ],
       token_endpoint_auth_method: "client_secret_post",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
