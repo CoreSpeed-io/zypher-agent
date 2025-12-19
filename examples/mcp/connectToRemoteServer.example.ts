@@ -174,7 +174,7 @@ if (import.meta.main) {
     .name("connectToRemoteServer")
     .version("1.0.0")
     .description(
-      "Connect to an OAuth-enabled MCP server using the low-leve connectToRemoteServer API",
+      "Connect to an OAuth-enabled MCP server using the low-level connectToRemoteServer API",
     )
     .arguments("<server-url:string>")
     .example(
