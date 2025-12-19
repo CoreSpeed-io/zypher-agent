@@ -2,6 +2,7 @@
   "workspace": [
     "packages/agent",
     "packages/cli",
+    "examples/mcp",
     "examples/ptc"
   ],
   "tasks": {

@@ -1,8 +1,16 @@
 /**
- * Interactive OAuth Connection Test Script
+ * Low-Level OAuth Connection Example
  *
- * This script tests OAuth-enabled MCP server connections with manual user interaction.
- * It guides you through the complete OAuth flow:
+ * This example demonstrates how to use the low-level `connectToRemoteServer` API
+ * to connect to OAuth-enabled MCP servers. This function accepts a `Client` instance
+ * from the MCP SDK and handles connection logic, transport fallback, and OAuth flow.
+ *
+ * NOTE: For most use cases, prefer the high-level `McpClient` API which wraps the
+ * MCP SDK's `Client` with a state machine that manages connection lifecycle, OAuth,
+ * reconnection, and exposes a simple `desiredEnabled` API for control.
+ * See the `McpClient.example.ts` example for the recommended approach.
+ *
+ * The OAuth flow in this example:
  * 1. Prints an authorization URL for you to visit
  * 2. You authorize the application in your browser
  * 3. You copy and paste the callback URL back
@@ -10,63 +18,25 @@
  * 5. Displays server capabilities (tools, resources, prompts)
  *
  * Usage:
- *   deno run --allow-all test_oauth_connection.ts <server-url>
+ *   deno run --allow-all connectToRemoteServer.example.ts <server-url>
  *
  * Examples:
- *   deno run --allow-all test_oauth_connection.ts https://your-mcp-server.com/mcp
- *   deno run --allow-all test_oauth_connection.ts http://localhost:8080/mcp
+ *   deno run --allow-all connectToRemoteServer.example.ts https://your-mcp-server.com/mcp
+ *   deno run --allow-all connectToRemoteServer.example.ts http://localhost:8080/mcp
  */
 
+import { Command } from "@cliffy/command";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
   connectToRemoteServer,
   InMemoryOAuthProvider,
   type McpRemoteConfig,
-  type OAuthCallbackHandler,
-} from "@zypher/mcp/mod.ts";
+} from "@zypher/agent";
+import { CliOAuthCallbackHandler } from "@zypher/cli";
 
-function printUsage() {
-  console.log(
-    "Usage: deno run --allow-all test_oauth_connection.ts <server-url>",
-  );
-  console.log("");
-  console.log("Examples:");
-  console.log(
-    "  deno run --allow-all test_oauth_connection.ts https://your-mcp-server.com/mcp",
-  );
-  console.log(
-    "  deno run --allow-all test_oauth_connection.ts http://localhost:8080/mcp",
-  );
-  console.log("");
-  console.log(
-    "This script will guide you through the OAuth authorization process.",
-  );
-}
-
-async function main() {
-  const args = Deno.args;
-
-  if (args.length !== 1) {
-    console.error("❌ Error: Server URL is required");
-    console.log("");
-    printUsage();
-    Deno.exit(1);
-  }
-
-  const serverUrl = args[0];
-
-  // Validate URL
-  try {
-    new URL(serverUrl);
-  } catch {
-    console.error("❌ Error: Invalid server URL");
-    console.log("");
-    printUsage();
-    Deno.exit(1);
-  }
-
-  console.log("🔗 MCP OAuth Connection Test");
-  console.log("============================");
+async function run(serverUrl: string) {
+  console.log("🔗 MCP OAuth Connection Example");
+  console.log("================================");
   console.log(`Server URL: ${serverUrl}`);
   console.log("");
 
@@ -80,9 +50,9 @@ async function main() {
         token_endpoint_auth_method: "client_secret_post",
         grant_types: ["authorization_code", "refresh_token"],
         response_types: ["code"],
-        client_name: "ZypherAgent OAuth Test Client",
-        client_uri: "https://github.com/corespeed-io/zypher-agent",
-        software_id: "zypher-agent-oauth-test-client",
+        client_name: "MCP OAuth Example Client",
+        client_uri: "https://github.com/anthropics/zypher-agent",
+        software_id: "zypher-mcp-oauth-example",
         software_version: "1.0.0",
       },
       onRedirect: (authorizationUrl: string) => {
@@ -98,7 +68,7 @@ async function main() {
 
     // Create client
     client = new Client({
-      name: "zypher-agent-oauth-test-client",
+      name: "mcp-oauth-example-client",
       version: "1.0.0",
     });
 
@@ -182,10 +152,10 @@ async function main() {
     }
 
     console.log("");
-    console.log("✨ OAuth connection test completed successfully!");
+    console.log("✨ OAuth connection example completed successfully!");
   } catch (error) {
     console.error("");
-    console.error("❌ OAuth connection test failed:", error);
+    console.error("❌ OAuth connection failed:", error);
     Deno.exit(1);
   } finally {
     // Clean up
@@ -199,38 +169,18 @@ async function main() {
   }
 }
 
-/**
- * Simple CLI-based OAuth callback handler for testing
- * Handles waiting for user to complete OAuth flow and provide authorization code
- */
-class CliOAuthCallbackHandler implements OAuthCallbackHandler {
-  waitForCallback(): Promise<string> {
-    const input = prompt("After authorization, paste the callback URL here: ");
-
-    if (!input?.trim()) {
-      throw new Error("No callback URL provided");
-    }
-
-    // Parse the callback URL to extract authorization code
-    let callbackUrl: URL;
-    try {
-      callbackUrl = new URL(input.trim());
-    } catch {
-      throw new Error("Invalid callback URL format");
-    }
-
-    const code = callbackUrl.searchParams.get("code");
-    const error = callbackUrl.searchParams.get("error");
-    if (code) {
-      return Promise.resolve(code);
-    } else if (error) {
-      throw new Error(`OAuth authorization failed: ${error}`);
-    } else {
-      throw new Error("No authorization code or error found in callback URL");
-    }
-  }
-}
-
 if (import.meta.main) {
-  await main();
+  await new Command()
+    .name("connectToRemoteServer")
+    .version("1.0.0")
+    .description(
+      "Connect to an OAuth-enabled MCP server using the low-level connectToRemoteServer API",
+    )
+    .arguments("<server-url:string>")
+    .example(
+      "Remote server",
+      "deno run --allow-all connectToRemoteServer.example.ts https://mcp-server.com/mcp",
+    )
+    .action((_options, serverUrl) => run(serverUrl))
+    .parse(Deno.args);
 }

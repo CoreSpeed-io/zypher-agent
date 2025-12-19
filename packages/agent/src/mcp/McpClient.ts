@@ -31,7 +31,7 @@ import { formatError, isAbortError } from "../error.ts";
 import { assert } from "@std/assert";
 import { connectToServer, type OAuthOptions } from "./connect.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
-import { from, map, type Observable } from "rxjs";
+import { distinctUntilChanged, from, map, type Observable } from "rxjs";
 
 /** Client-specific configuration options */
 export interface McpClientOptions {
@@ -501,7 +501,11 @@ export class McpClient {
    * @returns Observable that emits status changes (read-only for consumers)
    */
   get status$(): Observable<McpClientStatus> {
-    return from(this.#actor).pipe(map(() => this.status));
+    return from(this.#actor).pipe(
+      map(() => this.status),
+      // Use JSON comparison because status can be objects like { connecting: "initializing" }
+      distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
+    );
   }
 
   /**

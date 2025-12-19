@@ -21,9 +21,10 @@ export interface OAuthCallbackHandler {
   /**
    * Waits for the OAuth callback and returns the authorization code
    * The OAuthClientProvider is responsible for redirecting/showing the authorization URL
+   * @param options Optional configuration including abort signal for cancellation
    * @returns Promise that resolves to the authorization code
    */
-  waitForCallback(): Promise<string>;
+  waitForCallback(options?: { signal?: AbortSignal }): Promise<string>;
 }
 
 /**
@@ -194,7 +195,7 @@ async function attemptToConnect(
       // Wait for the OAuth callback handler to complete the flow
       // The OAuth provider has already shown the authorization URL via redirectToAuthorization
       const authorizationCode = await options.oauth.callbackHandler
-        .waitForCallback();
+        .waitForCallback({ signal: options.signal });
 
       // Exchange the authorization code for an access token so the next connection attempt will succeed
       await transport.finishAuth(authorizationCode);
