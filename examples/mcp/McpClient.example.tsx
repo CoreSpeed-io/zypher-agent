@@ -117,7 +117,9 @@ class HttpServerOAuthProvider extends InMemoryOAuthProvider
         hostname: "localhost",
         port: OAUTH_CALLBACK_PORT,
         onListen: ({ port, hostname }) => {
-          console.info(`[OAuth] Callback server started on http://${hostname}:${port}`);
+          console.info(
+            `[OAuth] Callback server started on http://${hostname}:${port}`,
+          );
           serverReadyCompleter.resolve();
         },
       },
