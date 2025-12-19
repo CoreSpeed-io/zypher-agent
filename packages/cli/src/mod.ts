@@ -14,7 +14,8 @@
  * @module
  */
 
-export { runAgentInTerminal } from "./terminal.ts";
+export { runAgentInTerminal } from "./runAgentInTerminal.ts";
+export { CliOAuthCallbackHandler } from "./CliOAuthCallbackHandler.ts";
 
 if (import.meta.main) {
   const { main } = await import("./main.ts");
