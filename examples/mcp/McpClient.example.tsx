@@ -107,7 +107,7 @@ class HttpServerOAuthProvider extends InMemoryOAuthProvider
 
   override async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
     console.info(
-      `[OAuth] Starting callback server on port ${OAUTH_CALLBACK_PORT}...`,
+      `[OAuth] Starting callback server...`,
     );
 
     this.#codeCompleter = new Completer<string>();
@@ -116,7 +116,8 @@ class HttpServerOAuthProvider extends InMemoryOAuthProvider
       {
         hostname: "localhost",
         port: OAUTH_CALLBACK_PORT,
-        onListen: () => {
+        onListen: ({ port, hostname }) => {
+          console.info(`[OAuth] Callback server started on http://${hostname}:${port}`);
           serverReadyCompleter.resolve();
         },
       },
@@ -181,6 +182,7 @@ class HttpServerOAuthProvider extends InMemoryOAuthProvider
       if (this.#server) {
         console.log("[OAuth] Shutting down server...");
         await this.#server.shutdown();
+        console.log("[OAuth] Server shut down successfully");
       }
     }
   }
@@ -234,7 +236,7 @@ function getAvailableCommands(status: McpClientStatus): UserCommandItem[] {
   const pick = (...keys: UserCommand[]) => keys.map((k) => USER_COMMANDS[k]);
 
   if (matchesState("disconnected", status)) return pick("connect", "quit");
-  if (matchesState("error", status)) return pick("retry", "connect", "quit");
+  if (matchesState("error", status)) return pick("retry", "quit");
   if (matchesState("disposed", status)) return [];
   if (matchesState("connecting", status)) return pick("disconnect", "quit");
   if (matchesState("connected", status)) {
@@ -324,10 +326,10 @@ function App({ client }: AppProps) {
         break;
 
       case "quit":
-        if (client.status !== "disposed") {
-          console.log("Disposing client...");
-          await client.dispose();
-        }
+        console.log("Disposing client...");
+        await client.dispose();
+        // Give React time to update the UI state
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         exit();
         break;
     }
@@ -353,12 +355,16 @@ function App({ client }: AppProps) {
   const commands = getAvailableCommands(status);
   const tools = client.tools;
 
+  // Return empty when disposed (after all hooks)
+  if (status === "disposed") {
+    return null;
+  }
+
   return (
     <Box flexDirection="column" borderStyle="single" paddingX={1} marginY={1}>
       {/* Header */}
-      <Box marginBottom={1}>
+      <Box marginBottom={1} gap={1}>
         <Text bold>🔗 MCP Client Example</Text>
-        <Text></Text>
         <Text color={getStatusColor(status)}>[{formatStatus(status)}]</Text>
       </Box>
 
@@ -516,7 +522,11 @@ async function run({ command, url }: RunOptions) {
   });
 
   // Render the Ink app
-  render(<App client={client} />);
+  const { waitUntilExit, clear } = render(<App client={client} />);
+  await waitUntilExit();
+  clear();
+  console.log("Goodbye!");
+  Deno.exit(0);
 }
 
 if (import.meta.main) {
