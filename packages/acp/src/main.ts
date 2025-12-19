@@ -35,7 +35,7 @@ import {
   OpenAIModelProvider,
 } from "@zypher/agent";
 import { createFileSystemTools, RunTerminalCmdTool } from "@zypher/agent/tools";
-import { runAcpServer } from "./server.ts";
+import { type AcpClientConfig, runAcpServer } from "./server.ts";
 
 function extractModelProvider(): { provider: ModelProvider; model: string } {
   const openaiKey = Deno.env.get("OPENAI_API_KEY");
@@ -63,7 +63,7 @@ function extractModelProvider(): { provider: ModelProvider; model: string } {
 export async function main(): Promise<void> {
   const { provider: modelProvider, model } = extractModelProvider();
 
-  await runAcpServer(async (clientConfig) => {
+  await runAcpServer(async (clientConfig: AcpClientConfig) => {
     return await createZypherAgent({
       modelProvider,
       tools: [...createFileSystemTools(), RunTerminalCmdTool],

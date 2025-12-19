@@ -79,7 +79,7 @@ function extractToolResult(result: ToolResult): {
 export interface AcpClientConfig {
   /** Working directory for the session */
   cwd: string;
-  /** MCP servers configured for this session */
+  /** MCP servers(from ACP client) configured for this session */
   mcpServers?: McpServerEndpoint[];
 }
 
