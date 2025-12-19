@@ -5,8 +5,9 @@
  */
 
 import * as acp from "acp";
+import { Completer } from "@zypher/agent";
 import { ZypherAcpAgent, type ZypherAgentBuilder } from "./ZypherAcpAgent.ts";
-export type { ZypherAgentBuilder } from "./ZypherAcpAgent.ts";
+export type { AcpClientConfig, ZypherAgentBuilder } from "./ZypherAcpAgent.ts";
 
 /**
  * Options for running an ACP server.
@@ -31,11 +32,12 @@ export interface RunAcpServerOptions {
  * const modelProvider = new AnthropicModelProvider({ apiKey: "..." });
  *
  * await runAcpServer(
- *   async (cwd, mcpServers) => {
+ *   async (clientConfig) => {
  *     return await createZypherAgent({
  *       modelProvider,
  *       tools: [...],
- *       workingDirectory: cwd,
+ *       workingDirectory: clientConfig.cwd,
+ *       mcpServers: clientConfig.mcpServers,
  *     });
  *   },
  *   "claude-sonnet-4-20250514",
@@ -68,17 +70,10 @@ export async function runAcpServer(
     (conn) => new ZypherAcpAgent(conn, builder, model),
     stream,
   );
-
-  if (options?.signal) {
-    const abortPromise = new Promise<void>((_, reject) => {
-      options.signal!.addEventListener(
-        "abort",
-        () => reject(new Error("Aborted")),
-        { once: true },
-      );
-    });
-    await Promise.race([connection.closed, abortPromise]);
-  } else {
-    await connection.closed;
-  }
+  
+  const abortCompleter = new Completer<void>();
+  await Promise.race([
+    connection.closed,
+    abortCompleter.wait({ signal: options?.signal }),
+  ]);
 }
