@@ -36,34 +36,35 @@ import "@std/dotenv/load";
 import {
   AnthropicModelProvider,
   createZypherAgent,
+  type ModelProvider,
   OpenAIModelProvider,
 } from "@zypher/agent";
-import type { ModelProvider } from "@zypher/agent";
-import { acpStdioServer } from "@zypher/acp";
+import { runAcpServer } from "@zypher/acp";
 import { createTool } from "@zypher/agent/tools";
 import { z } from "zod";
 
-let modelProvider: ModelProvider;
-let defaultModel: string;
-
-const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-if (openaiApiKey) {
-  modelProvider = new OpenAIModelProvider({ apiKey: openaiApiKey });
-  defaultModel = "gpt-4o-2024-11-20";
-} else {
-  const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (anthropicApiKey) {
-    modelProvider = new AnthropicModelProvider({ apiKey: anthropicApiKey });
-    defaultModel = "claude-sonnet-4-20250514";
-  } else {
-    console.error(
-      "Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable",
-    );
-    Deno.exit(1);
+function extractModelProvider(): { provider: ModelProvider; model: string } {
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  if (openaiKey) {
+    return {
+      provider: new OpenAIModelProvider({ apiKey: openaiKey }),
+      model: Deno.env.get("ZYPHER_MODEL") || "gpt-4o-2024-11-20",
+    };
   }
+
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (anthropicKey) {
+    return {
+      provider: new AnthropicModelProvider({ apiKey: anthropicKey }),
+      model: Deno.env.get("ZYPHER_MODEL") || "claude-sonnet-4-20250514",
+    };
+  }
+
+  console.error("Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable");
+  Deno.exit(1);
 }
 
-const model = Deno.env.get("ZYPHER_MODEL") || defaultModel;
+const { provider: modelProvider, model } = extractModelProvider();
 
 const getWeather = createTool({
   name: "get_weather",
@@ -115,12 +116,11 @@ const getWeather = createTool({
   },
 });
 
-const server = acpStdioServer(async (cwd) => {
+await runAcpServer(async (cwd, mcpServers) => {
   return await createZypherAgent({
     modelProvider,
     tools: [getWeather],
     workingDirectory: cwd,
+    mcpServers,
   });
 }, model);
-
-server.start();

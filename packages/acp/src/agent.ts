@@ -1,16 +1,49 @@
 /**
- * ACP Protocol Adapter
+ * Zypher ACP Agent
  *
  * Implements the acp.Agent interface, bridging ZypherAgent's task execution
  * to the ACP protocol.
  */
 
 import type * as acp from "acp";
-import type { TaskEvent, ZypherAgent } from "@zypher/agent";
+import type { McpServerEndpoint, TaskEvent, ZypherAgent } from "@zypher/agent";
 import type { ToolResult } from "@zypher/agent/tools";
 import { eachValueFrom } from "rxjs-for-await";
 import { convertPromptContent } from "./content.ts";
 import denoConfig from "../deno.json" with { type: "json" };
+
+/**
+ * Converts ACP McpServer configurations to Zypher McpServerEndpoint format.
+ */
+function convertMcpServers(
+  acpServers: acp.McpServer[],
+): McpServerEndpoint[] {
+  return acpServers.map((server): McpServerEndpoint => {
+    if ("type" in server && (server.type === "http" || server.type === "sse")) {
+      return {
+        id: server.name,
+        type: "remote",
+        remote: {
+          url: server.url,
+          headers: Object.fromEntries(
+            server.headers.map((h) => [h.name, h.value]),
+          ),
+        },
+      };
+    }
+
+    const stdioServer = server as acp.McpServerStdio;
+    return {
+      id: stdioServer.name,
+      type: "command",
+      command: {
+        command: stdioServer.command,
+        args: stdioServer.args,
+        env: Object.fromEntries(stdioServer.env.map((e) => [e.name, e.value])),
+      },
+    };
+  });
+}
 
 /**
  * Extracts success status and content string from a ToolResult
@@ -42,7 +75,7 @@ function extractToolResult(result: ToolResult): {
 
 export type ZypherAgentBuilder = (
   cwd: string,
-  mcpServers?: acp.McpServer[],
+  mcpServers?: McpServerEndpoint[],
 ) => Promise<ZypherAgent>;
 
 interface AcpSession {
@@ -50,7 +83,7 @@ interface AcpSession {
   abort: AbortController | null;
 }
 
-export class AcpProtocolAdapter implements acp.Agent {
+export class ZypherAcpAgent implements acp.Agent {
   readonly #conn: acp.AgentSideConnection;
   readonly #builder: ZypherAgentBuilder;
   readonly #sessions = new Map<string, AcpSession>();
@@ -91,7 +124,10 @@ export class AcpProtocolAdapter implements acp.Agent {
     params: acp.NewSessionRequest,
   ): Promise<acp.NewSessionResponse> {
     const sessionId = crypto.randomUUID();
-    const agent = await this.#builder(params.cwd, params.mcpServers);
+    const mcpServers = params.mcpServers
+      ? convertMcpServers(params.mcpServers)
+      : undefined;
+    const agent = await this.#builder(params.cwd, mcpServers);
 
     this.#sessions.set(sessionId, {
       agent,

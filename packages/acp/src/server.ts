@@ -1,87 +1,84 @@
 /**
- * ACP Server Factory
+ * ACP Server
  *
- * Provides a factory function to create an ACP-compatible server
- * that adapts ZypherAgent to the ACP protocol.
+ * Runs a Zypher ACP agent over stdio.
  */
 
 import * as acp from "acp";
-import { AcpProtocolAdapter, type ZypherAgentBuilder } from "./adapter.ts";
+import { ZypherAcpAgent, type ZypherAgentBuilder } from "./agent.ts";
+export type { ZypherAgentBuilder } from "./agent.ts";
 
-export interface AcpServer {
-  start(): void;
-  stop(): void;
-}
-
-class AcpServerImpl implements AcpServer {
-  #builder: ZypherAgentBuilder;
-  #model: string;
-  #connection: acp.AgentSideConnection | null = null;
-
-  constructor(builder: ZypherAgentBuilder, model: string) {
-    this.#builder = builder;
-    this.#model = model;
-  }
-
-  start(): void {
-    const input: ReadableStream<Uint8Array> = Deno.stdin.readable;
-    const output: WritableStream<Uint8Array> = Deno.stdout.writable;
-    const stream = acp.ndJsonStream(output, input);
-
-    this.#connection = new acp.AgentSideConnection((conn) => {
-      return new AcpProtocolAdapter(conn, this.#builder, this.#model);
-    }, stream);
-  }
-
-  stop(): void {
-    this.#connection = null;
-  }
+/**
+ * Options for running an ACP server.
+ */
+export interface RunAcpServerOptions {
+  /** Custom input stream, defaults to Deno.stdin.readable */
+  input?: ReadableStream<Uint8Array>;
+  /** Custom output stream, defaults to Deno.stdout.writable */
+  output?: WritableStream<Uint8Array>;
+  /** Signal to stop the server */
+  signal?: AbortSignal;
 }
 
 /**
- * Creates an ACP server that adapts ZypherAgent instances to the ACP protocol.
- *
- * The factory function is called for each new ACP session, allowing
- * session-specific agent configuration (working directory, MCP servers, etc.).
+ * Runs a Zypher ACP server.
  *
  * @example Basic usage
  * ```typescript
- * import { acpStdioServer } from "@zypher/acp";
+ * import { runAcpServer } from "@zypher/acp";
  * import { createZypherAgent, AnthropicModelProvider } from "@zypher/agent";
- * import { createTool } from "@zypher/agent/tools";
  *
- * const modelProvider = new AnthropicModelProvider({
- *   apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
- * });
+ * const modelProvider = new AnthropicModelProvider({ apiKey: "..." });
  *
- * const server = acpStdioServer(
- *   async (cwd) => {
+ * await runAcpServer(
+ *   async (cwd, mcpServers) => {
  *     return await createZypherAgent({
  *       modelProvider,
- *       tools: [],
+ *       tools: [...],
  *       workingDirectory: cwd,
  *     });
  *   },
  *   "claude-sonnet-4-20250514",
  * );
- *
- * server.start();
  * ```
  *
- * @example Shared agent (not recommended for most use cases)
+ * @example With abort signal
  * ```typescript
- * const sharedAgent = await createZypherAgent({ modelProvider, tools });
- * const server = acpStdioServer(async () => sharedAgent, "claude-sonnet-4-20250514");
- * server.start();
+ * const controller = new AbortController();
+ * setTimeout(() => controller.abort(), 60000);
+ *
+ * await runAcpServer(builder, model, { signal: controller.signal });
  * ```
  *
  * @param builder - Function that creates a ZypherAgent for each session
  * @param model - The model identifier to use for agent tasks
- * @returns An AcpServer instance with start() and stop() methods
+ * @param options - Optional configuration for streams and cancellation
+ * @returns Promise that resolves when the connection closes
  */
-export function acpStdioServer(
+export async function runAcpServer(
   builder: ZypherAgentBuilder,
   model: string,
-): AcpServer {
-  return new AcpServerImpl(builder, model);
+  options?: RunAcpServerOptions,
+): Promise<void> {
+  const input = options?.input ?? Deno.stdin.readable;
+  const output = options?.output ?? Deno.stdout.writable;
+  const stream = acp.ndJsonStream(output, input);
+
+  const connection = new acp.AgentSideConnection(
+    (conn) => new ZypherAcpAgent(conn, builder, model),
+    stream,
+  );
+
+  if (options?.signal) {
+    const abortPromise = new Promise<void>((_, reject) => {
+      options.signal!.addEventListener(
+        "abort",
+        () => reject(new Error("Aborted")),
+        { once: true },
+      );
+    });
+    await Promise.race([connection.closed, abortPromise]);
+  } else {
+    await connection.closed;
+  }
 }
