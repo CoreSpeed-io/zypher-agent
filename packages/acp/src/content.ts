@@ -10,7 +10,6 @@
 
 import type { ContentBlock as AcpContentBlock } from "acp";
 
-
 export interface PromptContent {
   text: string;
 }
@@ -36,7 +35,7 @@ function convertBlock(
   switch (block.type) {
     case "text":
       return { text: block.text };
-    
+
     case "resource":
       return convertResource(block.resource);
 
@@ -45,9 +44,9 @@ function convertBlock(
 
     case "audio":
       return { text: `[Audio: ${block.mimeType}, not transcribed]` };
-    
+
     case "image":
-      return {text: `[Image: ${block.mimeType}], not supported`};
+      return { text: `[Image: ${block.mimeType}], not supported` };
 
     default:
       return {
@@ -70,7 +69,7 @@ function convertResource(resource: {
       text: `<resource uri="${uri}" type="${mimeType}">\n${text}\n</resource>`,
     };
   }
-  
+
   if (resource.blob !== undefined) {
     return { text: `[Binary: ${getFilename(uri)} (${resource.mimeType})]` };
   }

@@ -70,7 +70,7 @@ export async function runAcpServer(
     (conn) => new ZypherAcpAgent(conn, builder, model),
     stream,
   );
-  
+
   const abortCompleter = new Completer<void>();
   await Promise.race([
     connection.closed,
