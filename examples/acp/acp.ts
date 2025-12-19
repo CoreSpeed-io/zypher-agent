@@ -82,7 +82,7 @@ const getWeather = createTool({
     ),
     unit: z.literal("celsius").describe("Temperature unit"),
   }),
-  execute: ({ city }) => {
+  execute: ({ city }: { city: string }) => {
     const MOCK_WEATHER: Record<string, { temp: number; condition: string }> = {
       tokyo: { temp: 22, condition: "Sunny" },
       london: { temp: 15, condition: "Cloudy" },
