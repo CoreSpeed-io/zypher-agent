@@ -64,8 +64,11 @@ jobs:
               "tag_resolver": {
                 "method": "semver",
                 "filter": {
-                  "pattern": "${{ matrix.package.short_name }}/v(.+)",
-                  "flags": "g"
+                  "pattern": "^(?!${{ matrix.package.short_name }}/v.+$).*"
+                },
+                "transformer": {
+                  "pattern": "^${{ matrix.package.short_name }}/(.+)",
+                  "target": "$1"
                 }
               }
             }
@@ -80,11 +83,9 @@ jobs:
           body: |
             ${{ steps.changelog.outputs.changelog }}
 
-            ## Contributors
-            ${{ steps.changelog.outputs.contributors }}
-
             ---
             📦 **JSR Package**: https://jsr.io/${{ matrix.package.name }}/${{ matrix.package.version }}
+            👤 **Contributors**: ${{ steps.changelog.outputs.contributors }}
           draft: false
           prerelease: ${{ contains(matrix.package.version, '-') }}
         env:
