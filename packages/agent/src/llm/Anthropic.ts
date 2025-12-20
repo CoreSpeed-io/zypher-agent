@@ -281,7 +281,8 @@ class AnthropicModelStream implements ModelStream {
   constructor(stream: ReturnType<Anthropic["messages"]["stream"]>) {
     this.#stream = stream;
     this.#events = new Observable((subscriber) => {
-      // Track the current tool name for subsequent inputJson events
+      // Track the current tool use id and name for subsequent inputJson events
+      let currentToolUseId: string | null = null;
       let currentToolName: string | null = null;
 
       stream
@@ -291,11 +292,13 @@ class AnthropicModelStream implements ModelStream {
             event.type === "content_block_start" &&
             event.content_block?.type === "tool_use"
           ) {
-            // Store the tool name for subsequent inputJson events
+            // Store the tool use id and name for subsequent inputJson events
+            currentToolUseId = event.content_block.id;
             currentToolName = event.content_block.name;
-            // Send the initial tool use notification with the tool name
+            // Send the initial tool use notification with the tool name and id
             subscriber.next({
               type: "tool_use",
+              toolUseId: currentToolUseId,
               toolName: currentToolName,
             });
           }
@@ -305,9 +308,10 @@ class AnthropicModelStream implements ModelStream {
         })
         .on("inputJson", (inputJson) => {
           // Send updates whenever we have new partial JSON for a tool
-          if (inputJson && currentToolName) {
+          if (inputJson && currentToolUseId && currentToolName) {
             subscriber.next({
               type: "tool_use_input",
+              toolUseId: currentToolUseId,
               toolName: currentToolName,
               partialInput: inputJson,
             });

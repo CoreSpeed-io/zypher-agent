@@ -54,6 +54,7 @@ export interface TaskHistoryChangedEvent {
  */
 export interface TaskToolUseEvent {
   type: "tool_use";
+  toolUseId: string;
   toolName: string;
 }
 
@@ -62,6 +63,7 @@ export interface TaskToolUseEvent {
  */
 export interface TaskToolUseInputEvent {
   type: "tool_use_input";
+  toolUseId: string;
   toolName: string;
   partialInput: string;
 }
