@@ -11,7 +11,6 @@ import {
   CopyFileTool,
   createEditFileTools,
   createImageTools,
-  createLoadSkillTool,
   DeleteFileTool,
   FileSearchTool,
   GrepSearchTool,
@@ -156,8 +155,6 @@ async function main(): Promise<void> {
 
     // Register Skill loading tools
     await agent.skills.discoverSkills();
-    const LoadSkillTool = createLoadSkillTool(agent.skills);
-    mcpServerManager.registerTool(LoadSkillTool);
 
     console.log(
       "🔧 Registered tools:",

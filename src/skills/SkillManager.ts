@@ -109,7 +109,6 @@ export class SkillManager {
       metadata,
       skillPath,
       skillMdPath,
-      instructionsLoaded: false,
     };
   }
 
@@ -158,41 +157,6 @@ export class SkillManager {
   }
 
   /**
-   * Loads the instructions (Level 2) for a Skill
-   */
-  async loadSkillInstructions(skillName: string): Promise<string | null> {
-    const skill = this.#skills.get(skillName);
-    if (!skill) {
-      return null;
-    }
-
-    // Return cached instructions if already loaded
-    if (skill.instructionsLoaded && skill.instructions) {
-      return skill.instructions;
-    }
-
-    try {
-      const content = await Deno.readTextFile(skill.skillMdPath);
-
-      // Extract body
-      const bodyMatch = content.match(/^---\s*\n[\s\S]*?\n---\s*\n([\s\S]*)$/);
-      const instructions = bodyMatch ? bodyMatch[1].trim() : content.trim();
-
-      skill.instructions = instructions;
-      skill.instructionsLoaded = true;
-
-      return instructions;
-    } catch (error) {
-      console.warn(
-        `Failed to load instructions for Skill ${skillName}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      return null;
-    }
-  }
-
-  /**
    * Gets Skill metadata formatted for system prompt inclusion
    * The Agent will decide which Skills to use based on the metadata
    */
@@ -208,9 +172,18 @@ export class SkillManager {
 
     return `
 <agent_skills>
-**MANDATORY TASK INITIATION STEP**: Before starting any task, you MUST check whether relevant Agent Skills are available. Agent Skills define reusable, domain-specific capabilities. If relevant Skills are listed below, you MUST load their instructions using the 'load_skill_instructions' tool BEFORE doing anything else. This step is REQUIRED.
+**MANDATORY TASK INITIATION STEP**: Before starting any task, you MUST check whether relevant Agent Skills are available. Agent Skills define reusable, domain-specific capabilities. If relevant Skills are listed below, you MUST load their instructions using the 'list_dir' tool and 'read_file' tool tool BEFORE doing anything else. This step is REQUIRED.
 
-**Available Agent Skills:**
+**Here is a template skill definition for your reference**:
+---
+name: template-skill
+description: Replace with description of the skill and when Claude should use it.
+---
+
+# Insert instructions below
+Some instructions...
+
+**Available Agent Skills**:
 
 ${skillDescriptions}
 
@@ -222,13 +195,13 @@ ${skillDescriptions}
    - Review the Skill descriptions above.
 
 2. **IF ANY Skill description matches or partially overlaps the task**:  
-   - You MUST call 'load_skill_instructions' with that Skill’s name BEFORE proceeding.
+   - You MUST call 'list_dir' tool and 'read_file' tool to load the Skill instructions BEFORE proceeding.
 
 3. **After loading Skill instructions**:
    - Carefully review all provided guidance and the list of optional resources (scripts, markdown files, templates, etc.).
 
 4. **When a resource is mentioned or required** (e.g., “see REFERENCE.md”):  
-   - Use 'load_skill_resource' to load that specific file ON DEMAND — do not pre-load everything.
+   - Use 'list_dir' tool and 'read_file' tool to load that specific file ON DEMAND — do not pre-load everything.
 
 5. **Follow the Skill’s instruction file** ('SKILL.md') and any loaded resources precisely to complete the task.
 
@@ -244,8 +217,8 @@ ${skillDescriptions}
 - They enable Zypher to specialize in specific tasks while preserving context
 - Instructions are loaded in tiers:
   - Level 1: Metadata (Skill name, description) — always loaded
-  - Level 2: Instructions (from 'SKILL.md') — load with 'load_skill_instructions'
-  - Level 3: Resources — load with 'load_skill_resource' when needed
+  - Level 2: Instructions (from 'SKILL.md') — load with 'list_dir' tool and 'read_file' tool
+  - Level 3: Resources — load with 'list_dir' tool and 'read_file' tool when needed
 
 ---
 

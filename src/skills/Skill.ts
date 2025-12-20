@@ -20,8 +20,6 @@ export interface Skill {
   skillMdPath: string;
   /** Full content of SKILL.md (instructions) */
   instructions?: string;
-  /** Whether the instructions have been loaded */
-  instructionsLoaded: boolean;
 }
 
 /**
