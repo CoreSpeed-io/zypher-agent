@@ -110,9 +110,23 @@ export class OpenAIModelProvider implements ModelProvider {
     const observable = new Observable<ModelEvent>((subscriber) => {
       // Track which tool calls we've already emitted events for
       const emittedToolCalls = new Set<string>();
+      // Track tool call ids from raw chunks (index -> id mapping)
+      const toolCallIds = new Map<number, string>();
 
       stream.on("content.delta", (event) => {
         subscriber.next({ type: "text", content: event.delta });
+      });
+
+      stream.on("chunk", (chunk) => {
+        const toolCalls = chunk.choices[0]?.delta?.tool_calls;
+        if (toolCalls) {
+          for (const tc of toolCalls) {
+            // Note: tc.index can be 0
+            if (tc.id && tc.index !== undefined) {
+              toolCallIds.set(tc.index, tc.id);
+            }
+          }
+        }
       });
 
       // Listen for tool call deltas
@@ -123,11 +137,15 @@ export class OpenAIModelProvider implements ModelProvider {
         // Use index as the unique identifier for this tool call
         const toolKey = `${toolIndex}`;
 
+        // Get the tool call id from our mapping
+        const toolUseId = toolCallIds.get(toolIndex) ?? `fallback_${toolIndex}`;
+
         // Emit initial tool_use event when we first see this tool call
         if (!emittedToolCalls.has(toolKey)) {
           emittedToolCalls.add(toolKey);
           subscriber.next({
             type: "tool_use",
+            toolUseId,
             toolName: toolName,
           });
         }
@@ -135,6 +153,7 @@ export class OpenAIModelProvider implements ModelProvider {
         // Emit tool_use_input event with delta partial input
         subscriber.next({
           type: "tool_use_input",
+          toolUseId,
           toolName: toolName,
           partialInput: event.arguments_delta,
         });
