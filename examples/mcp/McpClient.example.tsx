@@ -254,7 +254,8 @@ type ViewMode =
   | { type: "tools" }
   | { type: "call-tool-select" }
   | { type: "call-tool-input"; toolName: string }
-  | { type: "oauth-waiting" };
+  | { type: "oauth-waiting" }
+  | { type: "exiting" };
 
 // --- Main App Component ---
 
@@ -286,13 +287,29 @@ function App({ client }: AppProps) {
     return () => subscription.unsubscribe();
   }, [client]);
 
+  // Shared exit handler for quit command and Ctrl+C
+  const handleExit = async () => {
+    if (viewMode.type === "exiting") return; // Already exiting
+    console.log("Exiting...");
+    setViewMode({ type: "exiting" });
+    await client.dispose();
+    // Give React time to render the exiting UI and disposed state
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    exit();
+  };
+
   // Handle escape key to go back or cancel OAuth
-  useInput((_input, key) => {
+  // Handle Ctrl+C to show exit UI
+  useInput((input, key) => {
+    if (key.ctrl && input === "c") {
+      handleExit();
+      return;
+    }
     if (key.escape) {
       if (viewMode.type === "oauth-waiting") {
         console.log("Cancelling OAuth...");
         client.desiredEnabled = false;
-      } else if (viewMode.type !== "menu") {
+      } else if (viewMode.type !== "menu" && viewMode.type !== "exiting") {
         setViewMode({ type: "menu" });
       }
     }
@@ -328,11 +345,7 @@ function App({ client }: AppProps) {
         break;
 
       case "quit":
-        console.log("Disposing client...");
-        await client.dispose();
-        // Give React time to update the UI state
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        exit();
+        await handleExit();
         break;
     }
   };
@@ -442,6 +455,13 @@ function App({ client }: AppProps) {
           <Text dimColor>Press ESC to cancel</Text>
         </Box>
       )}
+
+      {/* Exiting */}
+      {viewMode.type === "exiting" && (
+        <Box flexDirection="column">
+          <Text bold color="yellow">Shutting down...</Text>
+        </Box>
+      )}
     </Box>
   );
 }
@@ -524,9 +544,10 @@ async function run({ command, url }: RunOptions) {
   });
 
   // Render the Ink app
-  const { waitUntilExit, clear } = render(<App client={client} />);
+  const { waitUntilExit } = render(<App client={client} />, {
+    exitOnCtrlC: false,
+  });
   await waitUntilExit();
-  clear();
   console.log("Goodbye!");
   Deno.exit(0);
 }
