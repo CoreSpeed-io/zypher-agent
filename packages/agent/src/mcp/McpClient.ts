@@ -193,13 +193,11 @@ export class McpClient {
           on: {
             connectionSuccess: {
               target: "connected",
-              actions: assign({ oauthUrl: () => undefined }),
             },
             connectionFailed: {
               target: "error",
               actions: assign({
                 lastError: ({ event }) => event.error,
-                oauthUrl: () => undefined,
               }),
             },
           },
@@ -218,7 +216,9 @@ export class McpClient {
                 },
               },
             },
-            awaitingOAuth: {},
+            awaitingOAuth: {
+              exit: assign({ oauthUrl: () => undefined }),
+            },
           },
         },
         connected: {
