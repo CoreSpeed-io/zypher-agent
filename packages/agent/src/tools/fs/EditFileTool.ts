@@ -97,7 +97,7 @@ Action types:
         }
 
         case "insert": {
-          if (!params.line) {
+          if (params.line === undefined) {
             throw new Error("'line' is required for insert action");
           }
 
