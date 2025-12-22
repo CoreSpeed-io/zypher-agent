@@ -56,8 +56,8 @@ Action types:
       replaceAll: z.boolean().optional().describe(
         "Replace all occurrences instead of just the first (replace_str only)",
       ),
-      flags: z.string().default("g").describe(
-        "Regex flags like 'g', 'i', 'gi' (replace_regex only)",
+      flags: z.string().optional().describe(
+        "Regex flags like 'g', 'i', 'gi' (replace_regex only, defaults to 'g')",
       ),
     }),
 
@@ -144,7 +144,7 @@ Action types:
           }
 
           const original = await Deno.readTextFile(target);
-          const regex = new RegExp(params.oldContent, params.flags);
+          const regex = new RegExp(params.oldContent, params.flags ?? "g");
           const matches = original.match(regex);
 
           if (matches) {
