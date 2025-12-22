@@ -5,7 +5,6 @@ import {
   type ToolExecutionContext,
   type ToolResult,
 } from "../mod.ts";
-import { applyPatch } from "diff";
 import { fileExists } from "../../utils/data.ts";
 import { basename, dirname, join, resolve } from "@std/path";
 import { ensureDir } from "@std/fs";
@@ -19,75 +18,47 @@ import { ensureDir } from "@std/fs";
  * @returns An array of edit tools (EditFileTool, UndoFileTool)
  */
 export function createEditFileTools(backupDir?: string): Tool[] {
+  /**
+   * Field usage by action type:
+   * | type          | content (required)   | oldContent       | line     | replaceAll | flags    |
+   * |---------------|----------------------|------------------|----------|------------|----------|
+   * | overwrite     | new file content     | -                | -        | -          | -        |
+   * | insert        | text to insert       | -                | required | -          | -        |
+   * | replace_str   | replacement text     | string to find   | -        | optional   | -        |
+   * | replace_regex | replacement text     | regex pattern    | -        | -          | optional |
+   */
   const EditFileTool = createTool({
     name: "edit_file",
     description:
-      `Edit a text file using one of five action types. The 'action' parameter is a discriminated union - a JSON object where the 'type' field determines which other fields are required.
+      `Edit a text file. The 'type' field determines which other fields are required.
 
-Available action types:
-1. 'overwrite' - Replace entire file content OR create a new file. Structure: {type: "overwrite", content: "..."}
-2. 'insert' - Insert content at a specific line number (1-based). Structure: {type: "insert", content: "...", line: 1}
-3. 'replace_str' - Replace exact string matches. Structure: {type: "replace_str", oldContent: "...", newContent: "...", replaceAll: false}
-4. 'replace_regex' - Replace using regular expressions. Structure: {type: "replace_regex", pattern: "...", replacement: "...", flags: "g"}
-5. 'patch' - Apply a unified diff patch. Structure: {type: "patch", diff: "..."}`,
+Action types:
+- 'overwrite': Replace entire file or create new file. Requires: content
+- 'insert': Insert content before the specified line (line=1 inserts at start). Requires: content, line
+- 'replace_str': Replace exact string match. Requires: oldContent, content. Optional: replaceAll
+- 'replace_regex': Replace regex match. Requires: oldContent (pattern), content (replacement). Optional: flags`,
     schema: z.object({
       targetFile: z.string().describe("The target file to edit"),
       explanation: z.string().describe(
         "One sentence explanation of the intended change",
       ),
-      action: z.discriminatedUnion("type", [
-        z.object({
-          type: z.literal("overwrite").describe(
-            "Action type for replacing entire file content or creating a new file",
-          ),
-          content: z.string().describe(
-            "The complete new file content to write",
-          ),
-        }),
-        z.object({
-          type: z.literal("insert").describe(
-            "Action type for inserting content at a specific line",
-          ),
-          content: z.string().describe("The content to insert"),
-          line: z.number().int().min(1).describe(
-            "1-based line number where content will be inserted BEFORE this line (e.g., line=1 inserts at the beginning)",
-          ),
-        }),
-        z.object({
-          type: z.literal("replace_str").describe(
-            "Action type for replacing exact string matches",
-          ),
-          oldContent: z.string().describe(
-            "The exact string to search for and replace (must match exactly)",
-          ),
-          newContent: z.string().describe("The replacement string"),
-          replaceAll: z.boolean().default(false).describe(
-            "If true, replace all occurrences; if false, replace only the first occurrence",
-          ),
-        }),
-        z.object({
-          type: z.literal("replace_regex").describe(
-            "Action type for replacing using regular expression pattern matching",
-          ),
-          pattern: z.string().describe(
-            "The regular expression pattern to match (without surrounding slashes)",
-          ),
-          replacement: z.string().describe(
-            "The replacement string (can include capture groups like $1, $2)",
-          ),
-          flags: z.string().default("g").describe(
-            "RegExp flags (e.g., 'g' for global, 'i' for case-insensitive, 'gi' for both)",
-          ),
-        }),
-        z.object({
-          type: z.literal("patch").describe(
-            "Action type for applying a unified diff patch",
-          ),
-          diff: z.string().describe(
-            "The unified diff string to apply (standard patch format)",
-          ),
-        }),
-      ]),
+      type: z.enum(["overwrite", "insert", "replace_str", "replace_regex"])
+        .describe("The type of edit action"),
+      content: z.string().describe(
+        "New content: full file (overwrite), text to insert (insert), replacement text (replace_str/replace_regex)",
+      ),
+      oldContent: z.string().optional().describe(
+        "Content to find: exact string (replace_str) or regex pattern (replace_regex)",
+      ),
+      line: z.number().int().min(1).optional().describe(
+        "1-based line number where content will be inserted BEFORE this line (insert only)",
+      ),
+      replaceAll: z.boolean().optional().describe(
+        "Replace all occurrences instead of just the first (replace_str only)",
+      ),
+      flags: z.string().optional().describe(
+        "Regex flags like 'g', 'i', 'gi' (replace_regex only, defaults to 'g')",
+      ),
     }),
 
     execute: async (
@@ -110,34 +81,32 @@ Available action types:
           target,
           join(resolvedBackupDir, `${fileName}.bak`),
         );
-      } else if (params.action.type !== "overwrite") {
+      } else if (params.type !== "overwrite") {
         throw new Error(
-          `Target file ${target} does not exist, required for action ${params.action.type}.`,
+          `Target file ${target} does not exist, required for action ${params.type}.`,
         );
       }
 
-      switch (params.action.type) {
+      switch (params.type) {
         case "overwrite": {
           const parent = dirname(target);
           if (parent) await ensureDir(parent);
 
-          await Deno.writeTextFile(target, params.action.content);
+          await Deno.writeTextFile(target, params.content);
           return "File overwritten successfully";
         }
 
         case "insert": {
-          if (params.action.line < 1) {
-            throw new Error(
-              `Invalid line value: ${params.action.line}. Must be greater than 0.`,
-            );
+          if (params.line === undefined) {
+            throw new Error("'line' is required for insert action");
           }
 
           const original = await Deno.readTextFile(target);
           const originalLines = original.split("\n");
-          const insertedLines = params.action.content.split("\n");
+          const insertedLines = params.content.split("\n");
 
           // convert 1-based line number to 0-based index
-          const insertAt = params.action.line - 1;
+          const insertAt = params.line - 1;
           originalLines.splice(insertAt, 0, ...insertedLines);
           const output = originalLines.join("\n");
 
@@ -146,19 +115,18 @@ Available action types:
         }
 
         case "replace_str": {
-          const original = await Deno.readTextFile(target);
-          const output = params.action.replaceAll
-            ? original.replaceAll(
-              params.action.oldContent,
-              params.action.newContent,
-            )
-            : original.replace(
-              params.action.oldContent,
-              params.action.newContent,
+          if (!params.oldContent) {
+            throw new Error(
+              "'oldContent' (string to find) is required for replace_str action",
             );
+          }
 
-          const occurrences = original.split(params.action.oldContent).length -
-            1;
+          const original = await Deno.readTextFile(target);
+          const output = params.replaceAll
+            ? original.replaceAll(params.oldContent, params.content)
+            : original.replace(params.oldContent, params.content);
+
+          const occurrences = original.split(params.oldContent).length - 1;
 
           if (occurrences > 0) {
             await Deno.writeTextFile(target, output);
@@ -169,31 +137,23 @@ Available action types:
         }
 
         case "replace_regex": {
+          if (!params.oldContent) {
+            throw new Error(
+              "'oldContent' (regex pattern) is required for replace_regex action",
+            );
+          }
+
           const original = await Deno.readTextFile(target);
-          const regex = new RegExp(
-            params.action.pattern,
-            params.action.flags,
-          );
+          const regex = new RegExp(params.oldContent, params.flags ?? "g");
           const matches = original.match(regex);
 
           if (matches) {
-            const output = original.replace(regex, params.action.replacement);
+            const output = original.replace(regex, params.content);
             await Deno.writeTextFile(target, output);
             return `Replaced ${matches.length} regex matches`;
           } else {
             return "No matches found for the regex pattern";
           }
-        }
-
-        case "patch": {
-          const original = await Deno.readTextFile(target);
-          const patched = applyPatch(original, params.action.diff);
-          if (patched === false) {
-            throw new Error("Incompatible patch");
-          }
-
-          await Deno.writeTextFile(target, patched);
-          return "File patched successfully";
         }
       }
     },
