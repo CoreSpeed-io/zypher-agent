@@ -7,8 +7,8 @@ import { CopyButton } from "./copy-button";
 
 export function HeroSection() {
   return (
-    <section className="mx-auto max-w-[1440px]">
-      <div className="desktop:px-0 desktop:flex desktop:items-center desktop:max-w-[1196px] desktop:mx-[122px] tablet:mx-20 mx-6 border-x border-outline-low">
+    <section className="mx-auto max-w-[1440px] desktop:border-x desktop:border-outline-med">
+      <div className="desktop:px-0 desktop:flex desktop:items-center desktop:max-w-[1196px] desktop:mx-[122px] tablet:mx-20 mx-6 border-x border-outline-med">
         <div>
           <div className="pt-6 pb-8 tablet:pt-12 px-6 desktop:px-12 border-b">
             <h1 className="text-4xl tablet:text-5xl font-semibold leading-[130%] tracking-[-0.036em] font-mono text-center tablet:text-left">

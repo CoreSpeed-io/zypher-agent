@@ -153,6 +153,10 @@ export function ZypherSection({
           </ul>
         </div>
       </div>
+
+      <div className="bg-bg-b2 border-y border-outline-med max-w-[1440px] mx-auto desktop:border-x">
+        <div className="h-12 mx-auto max-w-[1194px] desktop:border-x border-inherit" />
+      </div>
     </section>
   );
 }

@@ -7,7 +7,7 @@ import { Illustration } from "./illustration";
 export function CTASection() {
   return (
     <section className="bg-bg-b1">
-      <div className="border-outline-med desktop:border-x border-t mx-auto max-w-[1440px]">
+      <div className="border-outline-med desktop:border-x mx-auto max-w-[1440px]">
         <div
           className={cn(
             "mx-6 relative py-12 max-w-[1196px] desktop:mx-[122px] tablet:mx-20 desktop:py-0",
