@@ -3,9 +3,9 @@
  *
  * @example
  * ```typescript
- * import { createAGUIStream } from "./adapter.ts";
+ * import { createAguiStream } from "./adapter.ts";
  *
- * const stream = createAGUIStream(await request.json(), { agent });
+ * const stream = createAguiStream(await request.json(), { agent });
  * return new Response(stream, { headers: { "Content-Type": "text/event-stream" } });
  * ```
  */
@@ -16,7 +16,7 @@ import { eachValueFrom } from "rxjs-for-await";
 
 import type { ZypherAgent } from "@zypher/agent";
 import {
-  convertZypherMessagesToAGUI,
+  convertZypherMessagesToAgui,
   extractTaskDescription,
 } from "./messages.ts";
 import {
@@ -88,7 +88,7 @@ export function formatSSEMessage(event: BaseEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
 
-export interface CreateAGUIStreamOptions {
+export interface CreateAguiStreamOptions {
   agent: ZypherAgent;
   model?: string;
 }
@@ -100,9 +100,9 @@ export interface CreateAGUIStreamOptions {
  * @param options - Agent and optional model configuration
  * @returns SSE-encoded ReadableStream
  */
-export function createAGUIStream(
+export function createAguiStream(
   body: unknown,
-  options: CreateAGUIStreamOptions,
+  options: CreateAguiStreamOptions,
 ): ReadableStream<Uint8Array> {
   const parsed = typeof body === "string"
     ? parseRunAgentInput(JSON.parse(body))
@@ -111,7 +111,7 @@ export function createAGUIStream(
   const threadId = parsed.threadId ?? crypto.randomUUID();
   const runId = parsed.runId ?? crypto.randomUUID();
 
-  const adapter = new AGUIAdapter(
+  const adapter = new AguiAdapter(
     options.agent,
     parsed.messages as Message[],
     parsed.state,
@@ -122,7 +122,7 @@ export function createAGUIStream(
   return encodeSSEStream(adapter.runStream());
 }
 
-class AGUIAdapter {
+class AguiAdapter {
   readonly #agent: ZypherAgent;
   readonly #messages: Message[];
   readonly #state: Record<string, unknown> | undefined;
@@ -169,7 +169,7 @@ class AGUIAdapter {
         }
       }
 
-      const finalMessages = convertZypherMessagesToAGUI(this.#agent.messages);
+      const finalMessages = convertZypherMessagesToAgui(this.#agent.messages);
       yield createMessagesSnapshotEvent(finalMessages);
 
       if (state !== undefined) {

@@ -8,7 +8,7 @@ import type {
   ToolUseBlock,
 } from "@zypher/agent";
 
-export function convertAGUIMessagesToZypher(
+export function convertAguiMessagesToZypher(
   aguiMessages: Message[],
 ): ZypherMessage[] {
   const result: ZypherMessage[] = [];
@@ -159,7 +159,7 @@ export function extractTaskDescription(aguiMessages: Message[]): string {
   return "Continue the conversation";
 }
 
-export function convertZypherMessagesToAGUI(
+export function convertZypherMessagesToAgui(
   zypherMessages: ZypherMessage[],
 ): Message[] {
   const result: Message[] = [];
