@@ -2018,8 +2018,6 @@
       "examples/agui": {
         "dependencies": [
           "jsr:@std/dotenv@~0.225.5",
-          "jsr:@zypher/agent@0.7",
-          "jsr:@zypher/agui@0.7",
           "npm:zod@^4.2.0"
         ]
       },
@@ -2076,7 +2074,6 @@
       },
       "packages/agui": {
         "dependencies": [
-          "jsr:@zypher/agent@0.7",
           "npm:@ag-ui/core@^0.0.42",
           "npm:rxjs-for-await@1"
         ]

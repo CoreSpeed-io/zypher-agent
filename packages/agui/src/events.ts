@@ -33,10 +33,10 @@ export function convertTaskEvent(
     }
 
     case "tool_use": {
-      const toolCallId = crypto.randomUUID();
-      // Store by toolName - for same tool called multiple times, later calls overwrite
-      // but that's okay since tool_use_input/result come with toolUseId for disambiguation
-      context.toolCallIds.set(event.toolName, toolCallId);
+      // Use the toolUseId from the event instead of generating a new one
+      const toolCallId = event.toolUseId;
+      // Store by toolUseId for later lookup by tool_use_input/result events
+      context.toolCallIds.set(event.toolUseId, toolCallId);
 
       if (context.textMessageStarted) {
         events.push({
@@ -61,8 +61,8 @@ export function convertTaskEvent(
     }
 
     case "tool_use_input": {
-      // Look up by toolName (tool_use_input doesn't have toolUseId)
-      const toolCallId = context.toolCallIds.get(event.toolName);
+      // Look up by toolUseId
+      const toolCallId = context.toolCallIds.get(event.toolUseId);
       if (toolCallId) {
         events.push({
           type: EventType.TOOL_CALL_ARGS,
@@ -75,9 +75,8 @@ export function convertTaskEvent(
     }
 
     case "tool_use_result": {
-      // Look up by toolUseId first (preferred), then fall back to toolName
+      // Look up by toolUseId, fall back to event.toolUseId if not found
       const toolCallId = context.toolCallIds.get(event.toolUseId) ??
-        context.toolCallIds.get(event.toolName) ??
         event.toolUseId;
 
       events.push({
@@ -114,9 +113,8 @@ export function convertTaskEvent(
     }
 
     case "tool_use_error": {
-      // Look up by toolUseId first (preferred), then fall back to toolName
+      // Look up by toolUseId, fall back to event.toolUseId if not found
       const toolCallId = context.toolCallIds.get(event.toolUseId) ??
-        context.toolCallIds.get(event.toolName) ??
         event.toolUseId;
 
       events.push({

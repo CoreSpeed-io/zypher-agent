@@ -12,7 +12,7 @@ import {
   getSystemPrompt,
 } from "@zypher/agent";
 import { createTool } from "@zypher/agent/tools";
-import { createAGUIStream } from "@zypher/agui";
+import { createAguiStream } from "@zypher/agui";
 
 // Example: Weather tool
 const getWeatherTool = createTool({
@@ -65,7 +65,7 @@ Deno.serve({ port: 8000 }, async (request) => {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
-  const stream = createAGUIStream(await request.json(), { agent });
+  const stream = createAguiStream(await request.json(), { agent });
 
   return new Response(stream, {
     headers: { "Content-Type": "text/event-stream" },

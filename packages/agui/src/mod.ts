@@ -3,9 +3,9 @@
  *
  * @example
  * ```typescript
- * import { createAGUIStream } from "@zypher/agui";
+ * import { createAguiStream } from "@zypher/agui";
  *
- * const stream = createAGUIStream(await request.json(), { agent });
+ * const stream = createAguiStream(await request.json(), { agent });
  * return new Response(stream, { headers: { "Content-Type": "text/event-stream" } });
  * ```
  *
@@ -14,18 +14,18 @@
 
 // Core adapter, types, and SSE encoder
 export {
-  createAGUIStream,
+  createAguiStream,
   createEventContext,
   encodeSSEStream,
   formatSSEMessage,
   parseRunAgentInput,
 } from "./adapter.ts";
-export type { CreateAGUIStreamOptions, EventContext } from "./adapter.ts";
+export type { CreateAguiStreamOptions, EventContext } from "./adapter.ts";
 
 // Message conversion utilities
 export {
-  convertAGUIMessagesToZypher,
-  convertZypherMessagesToAGUI,
+  convertAguiMessagesToZypher,
+  convertZypherMessagesToAgui,
   extractTaskDescription,
 } from "./messages.ts";
 
