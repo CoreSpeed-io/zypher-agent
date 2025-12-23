@@ -2,7 +2,6 @@ import type { SVGProps } from "react";
 
 export function GithubIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    // biome-ignore lint/a11y/noSvgWithoutTitle: <explanation>
     <svg {...props} viewBox="0 0 1024 1024" fill="none">
       <path
         fillRule="evenodd"

@@ -2,7 +2,6 @@ import type { ComponentProps } from "react";
 
 export function ArrowRightIcon(props: ComponentProps<"svg">) {
   return (
-    // biome-ignore lint/a11y/noSvgWithoutTitle: <explanation>
     <svg
       viewBox="0 0 24 24"
       fill="none"

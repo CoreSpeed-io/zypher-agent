@@ -14,7 +14,6 @@ export function baseOptions(): BaseLayoutProps {
     },
     nav: {
       title: (
-        // biome-ignore lint/a11y/noSvgWithoutTitle: ignore
         <svg
           aria-label="Zypher Agent"
           width={140}

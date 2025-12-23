@@ -24,17 +24,25 @@ export function HeroSection() {
           </p>
 
           <div className="mt-8 flex flex-col items-center space-y-6">
-            <Button variant="secondary" className="uppercase w-[216px]">
-              Read Docs
-              <ArrowRightIcon className="size-6" />
-            </Button>
-            <Button
-              variant="plain"
-              className="uppercase w-[216px] border-outline-high border"
+            <Link href="/docs/quick-start">
+              <Button variant="secondary" className="uppercase w-[216px]">
+                Read Docs
+                <ArrowRightIcon className="size-6" />
+              </Button>
+            </Link>
+            <Link
+              href="https://github.com/corespeed-io/zypher-agent"
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              <GithubIcon className="size-6" />
-              Github
-            </Button>
+              <Button
+                variant="plain"
+                className="uppercase w-[216px] border-outline-high border"
+              >
+                <GithubIcon className="size-6" />
+                Github
+              </Button>
+            </Link>
           </div>
         </div>
 
