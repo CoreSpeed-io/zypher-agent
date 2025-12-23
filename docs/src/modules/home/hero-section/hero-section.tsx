@@ -54,7 +54,7 @@ export function HeroSection() {
               deno add jsr:@zypher/agent
             </div>
 
-            <div className="mt-9 border border-r-0 border-outline-med">
+            <div className="mt-9 border-l border-t border-outline-med">
               <div
                 className="py-4.5 flex items-center gap-14 pl-5.5 relative"
                 style={{
