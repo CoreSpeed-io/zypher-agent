@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { Button } from "@/components/button";
 import { ArrowRightIcon } from "@/components/icons/arrow-right";
+import { DenoIcon } from "@/components/icons/deno";
 import { GithubIcon } from "@/components/icons/github";
+import { CopyButton } from "./copy-button";
 
 export function HeroSection() {
   return (
     <section className="mx-auto max-w-[1440px]">
       <div className="desktop:px-0 desktop:max-w-[1196px] desktop:mx-[122px] tablet:mx-20 mx-6 border-x border-outline-low">
-        <div className="pt-6 pb-8 px-6 border-b">
-          <h1 className="text-4xl font-semibold leading-[130%] tracking-[-0.036em] font-mono text-center">
+        <div className="pt-6 pb-8 tablet:pt-12 px-6 border-b">
+          <h1 className="text-4xl tablet:text-5xl font-semibold leading-[130%] tracking-[-0.036em] font-mono text-center tablet:text-left">
             <div>Build your own</div>
             <div className="my-6.5">Claude Code</div>
             <div>
@@ -17,15 +19,18 @@ export function HeroSection() {
           </h1>
         </div>
 
-        <div className="px-6 pt-8 pb-12 border-b">
+        <div className="px-6 pt-8 pb-12 tablet:pb-[72px] border-b">
           <p className="text-text-base text-sm leading-[140%] font-mono text-pretty">
             A few lines of code to create powerful AI agents. Connect any MCP
             server, choose your LLM provider, and start building.
           </p>
 
-          <div className="mt-8 flex flex-col items-center space-y-6">
+          <div className="mt-8 flex flex-col items-center space-y-6 tablet:flex-row tablet:space-y-0 tablet:gap-8">
             <Link href="/docs/quick-start">
-              <Button variant="secondary" className="uppercase w-[216px]">
+              <Button
+                variant="secondary"
+                className="uppercase w-[216px] tablet:w-auto"
+              >
                 Read Docs
                 <ArrowRightIcon className="size-6" />
               </Button>
@@ -37,7 +42,7 @@ export function HeroSection() {
             >
               <Button
                 variant="plain"
-                className="uppercase w-[216px] border-outline-high border"
+                className="uppercase w-[216px] tablet:w-auto border-outline-high border"
               >
                 <GithubIcon className="size-6" />
                 Github
@@ -58,8 +63,10 @@ export function HeroSection() {
               <img src="https://jsr.io/badges/@zypher/agent" alt="JSR" />
             </Link>
 
-            <div className="mt-3.5 inline-block p-2 border border-brand-light-2 font-mono text-brand-base leading-[140%] bg-brand-lighter">
+            <div className="mt-3.5 inline-flex p-2 border items-center gap-2.5 border-brand-light-2 font-mono text-brand-base leading-[140%] bg-brand-lighter">
+              <DenoIcon className="size-6 text-static-black" />
               deno add jsr:@zypher/agent
+              <CopyButton />
             </div>
 
             <div className="mt-9 border-l border-t border-outline-med">
