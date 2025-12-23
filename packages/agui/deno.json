@@ -1,6 +1,6 @@
 {
   "name": "@zypher/agui",
-  "version": "0.7.0",
+  "version": "0.7.3",
   "license": "Apache-2.0",
   "exports": {
     ".": "./src/mod.ts"

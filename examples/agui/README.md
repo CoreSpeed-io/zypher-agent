@@ -1,84 +1,51 @@
 # AG-UI Example
 
 This example demonstrates how to run ZypherAgent as an AG-UI compatible server
-that can connect to AG-UI frontends like [CopilotKit](https://copilotkit.ai) or
-[AG-UI Dojo](https://github.com/ag-ui/ag-ui).
+that can connect to AG-UI frontends like [CopilotKit](https://copilotkit.ai).
 
 ## Quick Start
 
-1. Set your API key:
+1. Set your API key in a `.env` file:
 
 ```bash
-export ANTHROPIC_API_KEY=your_api_key
+ANTHROPIC_API_KEY=your_api_key
 ```
 
-2. Run the server:
+2. Install UI dependencies:
 
 ```bash
+cd ui
+pnpm install  # or npm install / yarn install / bun install
+```
+
+3. Start the agent server (in one terminal):
+
+```bash
+# From examples/agui directory
 deno run --env --allow-all ./server.ts
 ```
 
-3. The server will start on `http://localhost:8000`
-
-## Connecting to AG-UI Dojo
-
-AG-UI Dojo is a testing playground for AG-UI compatible agents. To connect
-Zypher Agent to Dojo:
-
-### Step 1: Clone and setup AG-UI Dojo
+4. Start the UI (in another terminal):
 
 ```bash
-git clone https://github.com/ag-ui/ag-ui
-cd ag-ui/apps/dojo
-pnpm install
-```
-
-### Step 2: Add Zypher integration
-
-Edit `src/menu.ts` to add Zypher to the integrations:
-
-```typescript
-// Add to menuIntegrations array
-{
-  id: "zypher",
-  name: "Zypher Agent",
-  features: [
-    "agentic_chat",
-    "backend_tool_rendering",
-  ],
-},
-```
-
-Edit `src/agents.ts` to add the Zypher agent:
-
-```typescript
-import { HttpAgent } from "@ag-ui/client";
-
-// Add to agentsIntegrations array
-{
-  id: "zypher",
-  agents: async () => {
-    const zypherUrl = process.env.ZYPHER_URL ?? "http://localhost:8000";
-    return {
-      agentic_chat: new HttpAgent({
-        url: zypherUrl,
-      }),
-      backend_tool_rendering: new HttpAgent({
-        url: zypherUrl,
-      }),
-    };
-  },
-},
-```
-
-### Step 3: Run Dojo
-
-```bash
+cd ui
 pnpm dev
 ```
 
-Then open `http://localhost:3000` and select "Zypher Agent" from the
-integrations dropdown.
+5. Open `http://localhost:3000` to use the CopilotKit chat interface
+
+## Project Structure
+
+```
+examples/agui/
+├── server.ts       # Zypher AG-UI server (port 8000)
+├── ui/             # CopilotKit frontend (port 3000)
+│   ├── src/
+│   │   ├── app/    # Next.js pages
+│   │   └── components/
+│   └── package.json
+└── README.md
+```
 
 ## Configuration
 
