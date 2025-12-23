@@ -1,3 +1,120 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+
+
+@theme inline {
+
+  --breakpoint-tablet:40rem;
+  --breakpoint-desktop:75rem;
+
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-berkeley);
+
+  /* Base Colors */
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* Static Colors */
+  --color-static-white: #ffffff;
+  --color-static-black: #000000;
+
+  /* Background Colors */
+  --color-bg-b0: #ffffff;
+  --color-bg-b1: #fafafa;
+  --color-bg-b2: #f5f5f5;
+  --color-bg-inverse-1: #171717;
+  --color-bg-inverse-2: #0a0a0a;
+
+  /* Box Colors */
+  --color-box-b0: #ffffff;
+  --color-box-b1: #e5e5e5;
+  --color-box-b2: #a1a1a1;
+  --color-box-b3: #525252;
+  --color-box-b4: #171717;
+
+  /* Brand Colors */
+  --color-brand-lighter: #fef4ee;
+  --color-brand-light: #fee5d6;
+  --color-brand-light-2: #fbc8ad;
+  --color-brand-base: #f2572b;
+  --color-brand-dark: #bc2412;
+  --color-brand-darker: #781d16;
+
+  /* Text & Icon Colors */
+  --color-text-high: #0a0a0a;
+  --color-text-base: #404040;
+  --color-text-med: #737373;
+  --color-text-low: #a1a1a1;
+  --color-text-high-inverse: #fafafa;
+  --color-text-base-inverse: #a1a1a1;
+  --color-text-med-inverse: #737373;
+  --color-text-low-inverse: #525252;
+  --color-text-white: #ffffff;
+  --color-text-black: #000000;
+  --color-text-brand: #f2572b;
+
+  /* Outline Colors */
+  --color-outline-high: #404040;
+  --color-outline-base: #a1a1a1;
+  --color-outline-med: #d4d4d4;
+  --color-outline-low: #e5e5e5;
+  --color-outline-high-inverse: #737373;
+  --color-outline-base-inverse: #404040;
+  --color-outline-med-inverse: #262626;
+  --color-outline-low-inverse: #171717;
+  --color-outline-white: #ffffff;
+  --color-outline-black: #000000;
+
+  /* Button Colors */
+  --color-btn-primary: #f2572b;
+  --color-btn-secondary: #0a0a0a;
+  --color-btn-tertiary: #fafafa;
+
+  /* Illustration Colors */
+  --color-illust-surface-high: #fafafa;
+  --color-illust-surface-med: #f5f5f5;
+  --color-illust-surface-low: #e5e5e5;
+  --color-illust-surface-lower: #d4d4d4;
+  --color-illust-surface-inverse: #171717;
+  --color-illust-outline-high: #262626;
+  --color-illust-outline-base: #a1a1a1;
+  --color-illust-outline-med: #d4d4d4;
+  --color-illust-outline-low: #e5e5e5;
+
+  /* Surface Colors */
+  --color-surface-s0: #fafafa;
+  --color-surface-s1: #f5f5f5;
+  --color-surface-s2: #e5e5e5;
+  --color-surface-s3: #d4d4d4;
+  --color-surface-s4: #a1a1a1;
+  --color-surface-s5: #737373;
+  --color-surface-s6: #525252;
+  --color-surface-s7: #404040;
+  --color-surface-s8: #262626;
+  --color-surface-s9: #171717;
+  --color-surface-s10: #0a0a0a;
+
+  /* State Colors - Yellow */
+  --color-state-yellow-base: #fe9a00;
+
+  /* State Colors - Red */
+  --color-state-red-base: #fb2c36;
+
+  /* State Colors - Green */
+  --color-state-green-lighter: #f7fee7;
+  --color-state-green-light: #ecfcca;
+  --color-state-green-base: #7ccf00;
+  --color-state-green-dark: #497d00;
+  --color-state-green-darker: #35530e;
+}
+
+body {
+  background: var(--color-bg-b0);
+  color: var(--color-text-high);
+  font-family: var(--font-berkeley), "Berkeley Mono", monospace;
+}
+
+* {
+  @apply selection:bg-brand-base selection:text-text-white;
+}
