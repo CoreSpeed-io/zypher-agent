@@ -88,14 +88,15 @@ export function ZypherSection({
   return (
     <section className={cn("bg-bg-b2", className)} {...props}>
       <div className="border-outline-med desktop:border-x border-t mx-auto max-w-[1440px]">
-        <div className="desktop:mx-[122px] tablet:mx-20 border-outline-med relative font-mono mx-6 max-w-[1196px] border-x px-6 py-12">
+        <div className="desktop:mx-[122px] tablet:mx-20 border-outline-med relative font-mono mx-6 desktop:max-w-[1196px] border-x px-6 py-12 desktop:px-12 desktop:py-[95px]">
           <h3 className="text-text-high text-2xl tablet:text-[28px] leading-[140%] font-semibold tracking-tight text-balance">
-            Everything you need to build{" "}
+            Everything you need to <br className="hidden desktop:block" /> build{" "}
             <span className="text-brand-base">AI agents</span>
           </h3>
           <p className="mt-6 text-text-med leading-[140%]">
-            A minimal yet powerful framework for creating AI agents with full
-            control over tools, providers, and execution flow.
+            A minimal yet powerful framework for creating AI agents with{" "}
+            <br className="hidden desktop:block" /> full control over tools,
+            providers, and execution flow.
           </p>
         </div>
       </div>
@@ -136,7 +137,7 @@ export function ZypherSection({
                   </div>
                 </div>
                 <div className="border-outline-med font-mono desktop:py-8 desktop:px-6 description space-y-2.5 border-t px-4 py-6">
-                  <h5 className="text-text-base text-lg font-semibold">
+                  <h5 className="text-text-base text-lg font-semibold group-hover:text-brand-base transition-colors">
                     {feature.title}
                   </h5>
                   <div className="text-text-med text-xs leading-[18px] tracking-[-0.01em]">
