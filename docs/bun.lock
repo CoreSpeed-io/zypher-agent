@@ -8,6 +8,7 @@
         "fumadocs-mdx": "14.2.2",
         "fumadocs-ui": "16.3.2",
         "lucide-react": "^0.562.0",
+        "motion": "^12.23.26",
         "next": "16.0.9",
         "react": "^19.2.3",
         "react-dom": "^19.2.3",
@@ -422,6 +423,8 @@
 
     "fdir": ["fdir@6.5.0", "", { "peerDependencies": { "picomatch": "^3 || ^4" }, "optionalPeers": ["picomatch"] }, "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg=="],
 
+    "framer-motion": ["framer-motion@12.23.26", "", { "dependencies": { "motion-dom": "^12.23.23", "motion-utils": "^12.23.6", "tslib": "^2.4.0" }, "peerDependencies": { "@emotion/is-prop-valid": "*", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/is-prop-valid", "react", "react-dom"] }, "sha512-cPcIhgR42xBn1Uj+PzOyheMtZ73H927+uWPDVhUMqxy8UHt6Okavb6xIz9J/phFUHUj0OncR6UvMfJTXoc/LKA=="],
+
     "fumadocs-core": ["fumadocs-core@16.3.2", "", { "dependencies": { "@formatjs/intl-localematcher": "^0.7.2", "@orama/orama": "^3.1.17", "@shikijs/rehype": "^3.20.0", "@shikijs/transformers": "^3.20.0", "estree-util-value-to-estree": "^3.5.0", "github-slugger": "^2.0.0", "hast-util-to-estree": "^3.1.3", "hast-util-to-jsx-runtime": "^2.3.6", "image-size": "^2.0.2", "negotiator": "^1.0.0", "npm-to-yarn": "^3.0.1", "path-to-regexp": "^8.3.0", "remark": "^15.0.1", "remark-gfm": "^4.0.1", "remark-rehype": "^11.1.2", "scroll-into-view-if-needed": "^3.1.0", "shiki": "^3.20.0", "unist-util-visit": "^5.0.0" }, "peerDependencies": { "@mixedbread/sdk": "^0.19.0", "@orama/core": "1.x.x", "@tanstack/react-router": "1.x.x", "@types/react": "*", "algoliasearch": "5.x.x", "lucide-react": "*", "next": "16.x.x", "react": "^19.2.0", "react-dom": "^19.2.0", "react-router": "7.x.x", "waku": "^0.26.0 || ^0.27.0", "zod": "*" }, "optionalPeers": ["@mixedbread/sdk", "@orama/core", "@tanstack/react-router", "@types/react", "algoliasearch", "lucide-react", "next", "react", "react-dom", "react-router", "waku", "zod"] }, "sha512-lpvW2qnH0C7c1CGCv6Ym1GrDTVyV+APb1h3hBuWcGiAamNN1vw7lldXQVJ5ENL/SJr6TQ6gJ+qHExNohsh/ynA=="],
 
     "fumadocs-mdx": ["fumadocs-mdx@14.2.2", "", { "dependencies": { "@mdx-js/mdx": "^3.1.1", "@standard-schema/spec": "^1.1.0", "chokidar": "^5.0.0", "esbuild": "^0.27.2", "estree-util-value-to-estree": "^3.5.0", "js-yaml": "^4.1.1", "mdast-util-to-markdown": "^2.1.2", "picocolors": "^1.1.1", "picomatch": "^4.0.3", "remark-mdx": "^3.1.1", "tinyexec": "^1.0.2", "tinyglobby": "^0.2.15", "unified": "^11.0.5", "unist-util-remove-position": "^5.0.0", "unist-util-visit": "^5.0.0", "vfile": "^6.0.3", "zod": "^4.2.1" }, "peerDependencies": { "@fumadocs/mdx-remote": "^1.4.0", "@types/react": "*", "fumadocs-core": "^15.0.0 || ^16.0.0", "next": "^15.3.0 || ^16.0.0", "react": "*", "vite": "6.x.x || 7.x.x" }, "optionalPeers": ["@fumadocs/mdx-remote", "@types/react", "next", "react", "vite"], "bin": { "fumadocs-mdx": "dist/bin.js" } }, "sha512-ClRjZd5WloWhbNHcUgA0PvbiTFuVKjv+qmrfF4aAeHzae6jeZtm1dvSYZ6iKoEHjFz6bt3UqiCgLHAUuXS8ifg=="],
@@ -601,6 +604,12 @@
     "micromark-util-symbol": ["micromark-util-symbol@2.0.1", "", {}, "sha512-vs5t8Apaud9N28kgCrRUdEed4UJ+wWNvicHLPxCa9ENlYuAY31M0ETy5y1vA33YoNPDFTghEbnh6efaE8h4x0Q=="],
 
     "micromark-util-types": ["micromark-util-types@2.0.2", "", {}, "sha512-Yw0ECSpJoViF1qTU4DC6NwtC4aWGt1EkzaQB8KPPyCRR8z9TWeV0HbEFGTO+ZY1wB22zmxnJqhPyTpOVCpeHTA=="],
+
+    "motion": ["motion@12.23.26", "", { "dependencies": { "framer-motion": "^12.23.26", "tslib": "^2.4.0" }, "peerDependencies": { "@emotion/is-prop-valid": "*", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/is-prop-valid", "react", "react-dom"] }, "sha512-Ll8XhVxY8LXMVYTCfme27WH2GjBrCIzY4+ndr5QKxsK+YwCtOi2B/oBi5jcIbik5doXuWT/4KKDOVAZJkeY5VQ=="],
+
+    "motion-dom": ["motion-dom@12.23.23", "", { "dependencies": { "motion-utils": "^12.23.6" } }, "sha512-n5yolOs0TQQBRUFImrRfs/+6X4p3Q4n1dUEqt/H58Vx7OW6RF+foWEgmTVDhIWJIMXOuNNL0apKH2S16en9eiA=="],
+
+    "motion-utils": ["motion-utils@12.23.6", "", {}, "sha512-eAWoPgr4eFEOFfg2WjIsMoqJTW6Z8MTUCgn/GZ3VRpClWBdnbjryiA3ZSNLyxCTmCQx4RmYX6jX1iWHbenUPNQ=="],
 
     "ms": ["ms@2.1.3", "", {}, "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="],
 
