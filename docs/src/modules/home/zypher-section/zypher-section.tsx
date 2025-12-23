@@ -1,7 +1,4 @@
-"use client";
-
-import { motion } from "motion/react";
-import Link from "next/link";
+import * as motion from "motion/react-client";
 import type { ComponentProps } from "react";
 import { CrossIcon } from "@/components/icons/cross";
 import { cn } from "@/lib/cn";
@@ -92,11 +89,11 @@ export function ZypherSection({
     <section className={cn("bg-bg-b2", className)} {...props}>
       <div className="border-outline-med desktop:border-x border-t mx-auto max-w-[1440px]">
         <div className="desktop:mx-[122px] tablet:mx-20 border-outline-med relative font-mono mx-6 max-w-[1196px] border-x px-6 py-12">
-          <h3 className="text-text-high text-2xl leading-[140%] font-semibold tracking-tight text-balance">
+          <h3 className="text-text-high text-2xl tablet:text-[28px] leading-[140%] font-semibold tracking-tight text-balance">
             Everything you need to build{" "}
             <span className="text-brand-base">AI agents</span>
           </h3>
-          <p className="mt-6 text-text-med">
+          <p className="mt-6 text-text-med leading-[140%]">
             A minimal yet powerful framework for creating AI agents with full
             control over tools, providers, and execution flow.
           </p>
@@ -133,7 +130,7 @@ export function ZypherSection({
               >
                 <div className="group relative">
                   <HoverIndicator />
-                  <div className="absolute inset-0 bg-[radial-gradient(#D9D9D9_1px,transparent_0)] bg-size-[12px_12px] opacity-80" />
+                  <div className="absolute inset-0 bg-[radial-gradient(#D9D9D9_1px,transparent_0)] bg-size-[12px_12px] opacity-80 tablet:opacity-50" />
                   <div className="relative z-10">
                     {feature.illustrationRenderer?.()}
                   </div>

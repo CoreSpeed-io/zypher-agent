@@ -12,7 +12,7 @@ export function CTASection() {
           <div className="border-y border-outline-low px-6">
             <h3
               className={cn(
-                "text-text-high text-2xl leading-[140%] font-semibold tracking-tight text-center",
+                "text-text-high text-2xl text-[32px] leading-[140%] font-semibold tracking-tight text-center",
                 "p-2 border-x border-outline-low relative",
               )}
               style={{
@@ -44,7 +44,7 @@ export function CTASection() {
           </div>
 
           <div
-            className="border-t border-outline-low py-[50px]"
+            className="border-t border-outline-low py-[50px] grid place-items-center overflow-hidden"
             style={{
               backgroundImage: `
                 linear-gradient(0deg, transparent 24%, rgba(114, 114, 114, 0.1) 25%, rgba(114, 114, 114, 0.1) 26%, transparent 27%, transparent 74%, rgba(114, 114, 114, 0.1) 75%, rgba(114, 114, 114, 0.1) 76%, transparent 77%, transparent),
@@ -53,7 +53,7 @@ export function CTASection() {
               backgroundSize: "22px 22px",
             }}
           >
-            <Illustration />
+            <Illustration className="tablet:w-[70vw]" />
           </div>
         </div>
       </div>
