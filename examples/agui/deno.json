@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "dev": "deno run --env --allow-all ./server.ts"
+  },
+  "imports": {
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
+    "zod": "npm:zod@^4.2.0"
+  }
+}
