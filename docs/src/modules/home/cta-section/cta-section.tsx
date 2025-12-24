@@ -54,7 +54,7 @@ export function CTASection() {
             </div>
           </div>
           <div
-            className="border-t flex-1 border-outline-low py-[50px] relative grid place-items-center overflow-hidden"
+            className="border-t flex-1 border-outline-low desktop:border-t-0 py-[50px] relative grid place-items-center overflow-hidden"
             style={{
               backgroundImage: `
                 linear-gradient(0deg, transparent 24%, rgba(114, 114, 114, 0.1) 25%, rgba(114, 114, 114, 0.1) 26%, transparent 27%, transparent 74%, rgba(114, 114, 114, 0.1) 75%, rgba(114, 114, 114, 0.1) 76%, transparent 77%, transparent),
