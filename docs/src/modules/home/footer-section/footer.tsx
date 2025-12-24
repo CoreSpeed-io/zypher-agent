@@ -69,7 +69,10 @@ export function FooterSection() {
             )}
           >
             <div className="text-text-high-inverse flex items-center gap-6">
-              <Link href="https://github.com/corespeed-io" target="_blank">
+              <Link
+                href="https://github.com/corespeed-io/zypher-agent"
+                target="_blank"
+              >
                 <GithubIcon className="size-5" />
               </Link>
               <Link
