@@ -3,7 +3,7 @@ import { Button } from "@/components/button";
 import { ArrowRightIcon } from "@/components/icons/arrow-right";
 import { DenoIcon } from "@/components/icons/deno";
 import { GithubIcon } from "@/components/icons/github";
-import { AnimatedText } from "./animated-text";
+import { ToolsBlock } from "./animated-text";
 import { CodeBlock } from "./code-block";
 import { CopyButton } from "./copy-button";
 
@@ -39,7 +39,7 @@ export function HeroSection() {
               <div className="ml-6 text-center desktop:ml-0">
                 Build your own
               </div>
-              <AnimatedText className="my-6.5" />
+              <ToolsBlock className="my-6.5" />
               <div className="ml-6 text-center desktop:ml-0">
                 with <span className="text-brand-base">Zypher</span>
               </div>
