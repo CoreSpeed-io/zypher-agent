@@ -21,7 +21,7 @@ export function Header() {
           </Link>
           <div className="flex h-full items-center">
             <div className="desktop:flex hidden h-full">
-              <nav className="border-outline-high-inverse flex h-full items-center gap-12 border-l px-4 font-mono text-sm">
+              <nav className="border-outline-high-inverse flex h-full items-center gap-8 border-l px-4 font-mono text-sm">
                 {/* TODO load data from baseOptions */}
                 <Link
                   href="https://jsr.io/@zypher/agent/doc"
