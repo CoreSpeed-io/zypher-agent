@@ -3,6 +3,7 @@ import { Button } from "@/components/button";
 import { ArrowRightIcon } from "@/components/icons/arrow-right";
 import { DenoIcon } from "@/components/icons/deno";
 import { GithubIcon } from "@/components/icons/github";
+import { cn } from "@/lib/cn";
 import { CodeBlock } from "./code-block";
 import { CopyButton } from "./copy-button";
 import { ToolsBlock } from "./tools-block";
@@ -35,12 +36,16 @@ export function HeroSection() {
       <div className="desktop:px-0 desktop:flex desktop:items-center desktop:max-w-[1196px] overflow-hidden desktop:mx-[122px] tablet:mx-20 mx-6 border-x border-outline-med">
         <div>
           <div className="pt-6 pb-8 tablet:pt-12 border-b">
-            <h1 className="text-4xl tablet:text-5xl font-semibold leading-[130%] tracking-[-0.036em] font-mono text-center tablet:text-left">
-              <div className="ml-6 text-center desktop:ml-0">
+            <h1
+              className={cn(
+                "text-4xl tablet:text-5xl font-semibold leading-[130%] tracking-[-0.036em] font-mono text-center",
+              )}
+            >
+              <div className="ml-6 text-center desktop:text-left tablet:ml-12">
                 Build your own
               </div>
               <ToolsBlock className="my-6.5" />
-              <div className="ml-6 text-center desktop:ml-0">
+              <div className="ml-6 text-center desktop:text-left tablet:ml-12">
                 with <span className="text-brand-base">Zypher</span>
               </div>
             </h1>

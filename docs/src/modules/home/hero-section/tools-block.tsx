@@ -9,12 +9,12 @@ export function ToolsBlock({ className, ...props }: ComponentProps<"div">) {
   return (
     <div className={cn("", className)} {...props}>
       <motion.div
-        className="border-y border-outline-low px-6 tablet:flex justify-center"
+        className="border-y border-outline-low px-6 tablet:flex justify-center desktop:justify-start desktop:pl-12"
         layout="size"
       >
         <div
           className={cn(
-            "text-text-high inline-block leading-[140%] font-semibold tracking-tight text-center",
+            "text-text-high inline-block leading-[140%] font-semibold tracking-tight",
             "p-2 border-x border-outline-low relative",
           )}
           style={{
