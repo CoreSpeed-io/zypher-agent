@@ -4,7 +4,6 @@ import { Popover } from "@base-ui/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/button";
 import { DiscordIcon } from "@/components/icons/discord";
 import { LinkedinIcon } from "@/components/icons/linkedin";
 import { XIcon } from "@/components/icons/x";
@@ -55,6 +54,12 @@ export function HeaderDropdown({ children }: { children: ReactNode }) {
               setOpen(false);
             }}
           >
+            <Link
+              href="/docs"
+              className="border-outline-base block border-b-[0.5px] p-6"
+            >
+              Docs
+            </Link>
             <Link
               href="https://jsr.io/@zypher/agent/doc"
               className="border-outline-base block border-b-[0.5px] p-6"
