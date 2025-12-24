@@ -28,7 +28,11 @@ export function ToolsBlock({ className, ...props }: ComponentProps<"div">) {
                 `,
           }}
         >
-          <AnimatedText texts={tools} interval={2500} />
+          <AnimatedText
+            className="text-text-med"
+            texts={tools}
+            interval={2500}
+          />
           <div className="bg-brand-base absolute size-[5px] left-0 top-0 -translate-x-1/2 -translate-y-1/2" />
           <div className="bg-brand-base absolute size-[5px] right-0 top-0 translate-x-1/2 -translate-y-1/2" />
           <div className="bg-brand-base absolute size-[5px] right-0 bottom-0 translate-x-1/2 translate-y-1/2" />

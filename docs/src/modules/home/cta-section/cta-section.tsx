@@ -19,8 +19,9 @@ export function CTASection() {
             <div className="border-y border-outline-low px-6 tablet:flex justify-center">
               <h3
                 className={cn(
-                  "text-text-high inline-block text-[32px] leading-[140%] font-semibold tracking-tight text-center",
+                  "text-text-high inline-block text-[32px] leading-[140%] font-semibold tracking-tight",
                   "p-2 border-x border-outline-low relative",
+                  "text-center desktop:text-left desktop:px-6",
                 )}
                 style={{
                   backgroundImage: `

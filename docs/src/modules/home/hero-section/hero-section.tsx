@@ -84,13 +84,13 @@ export function HeroSection() {
               href="https://jsr.io/@zypher/agent"
               target="_blank"
               rel="noopener noreferrer"
-              className="mb-4 md:mb-8 w-fit"
+              className="mb-4"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="https://jsr.io/badges/@zypher/agent" alt="JSR" />
             </Link>
 
-            <div className="mt-3.5 inline-flex p-2 border items-center gap-2.5 border-brand-light-2 font-mono text-brand-base leading-[140%] bg-brand-lighter">
+            <div className="mt-3.5 inline-flex desktop:mt-0 p-2 border items-center gap-2.5 border-brand-light-2 font-mono text-brand-base leading-[140%] bg-brand-lighter">
               <DenoIcon className="size-6 text-static-black" />
               deno add jsr:@zypher/agent
               <CopyButton />
