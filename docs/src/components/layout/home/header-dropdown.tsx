@@ -55,32 +55,14 @@ export function HeaderDropdown({ children }: { children: ReactNode }) {
               setOpen(false);
             }}
           >
-            {/* <div className='border-outline-base border-b-[0.5px] p-6'>PRODUCTS</div> */}
             <Link
-              href="https://zypher.corespeed.io/docs/quick-start"
+              href="https://jsr.io/@zypher/agent/doc"
               className="border-outline-base block border-b-[0.5px] p-6"
             >
-              DOCS
+              API Reference
             </Link>
-            <Link
-              href="/blog"
-              className="border-outline-base block border-b-[0.5px] p-6"
-              scroll={false}
-            >
-              BLOG
-            </Link>
-            {/* <Link href='/about' className='border-outline-base block border-b-[0.5px] p-6'>
-              ABOUT
-            </Link> */}
 
             <div className="border-outline-base tablet:border-b-0 flex items-center border-b-[0.5px] px-6 py-4 text-base">
-              {/* <Link
-                className='flex flex-1 items-center justify-center gap-2 py-4'
-                href='https://x.com/CoreSpeed_Inc'
-                target='_blank'
-              >
-                <GithubIcon className='size-4' /> GITHUB
-              </Link> */}
               <Link
                 className="flex flex-1 items-center justify-center gap-2 py-4"
                 href="https://discord.gg/9CVxeWvsp9"
@@ -103,13 +85,6 @@ export function HeaderDropdown({ children }: { children: ReactNode }) {
                 target="_blank"
               >
                 <LinkedinIcon className="size-4" />
-              </Link>
-            </div>
-            <div className="tablet:hidden px-6 pt-10">
-              <Link href="https://dash.corespeed.io" target="_blank">
-                <Button variant="plain" className="w-full">
-                  LOGIN
-                </Button>
               </Link>
             </div>
           </Popover.Popup>
