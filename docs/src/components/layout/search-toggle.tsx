@@ -60,7 +60,7 @@ export function LargeSearchToggle({
       }}
     >
       <Search className="size-4" />
-      {text.search}
+      <div className="min-w-[88px] text-left">{text.search}</div>
       <div className="ms-auto inline-flex gap-2">
         {hotKey.map((k, i) => (
           <kbd

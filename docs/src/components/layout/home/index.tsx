@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import { cn } from "../../../lib/cn";
 import type { BaseLayoutProps, NavOptions } from "../shared";
-import { Header } from "./client";
+import { Header } from "./header";
 
 export interface HomeLayoutProps extends BaseLayoutProps {
   nav?: Partial<
@@ -14,16 +14,8 @@ export interface HomeLayoutProps extends BaseLayoutProps {
   >;
 }
 
-export function HomeLayout(props: HomeLayoutProps & ComponentProps<"main">) {
-  const {
-    nav = {},
-    links,
-    githubUrl,
-    i18n,
-    themeSwitch = {},
-    searchToggle,
-    ...rest
-  } = props;
+export function HomeLayout(props: ComponentProps<"main">) {
+  const { ...rest } = props;
 
   return (
     <main
@@ -34,17 +26,7 @@ export function HomeLayout(props: HomeLayoutProps & ComponentProps<"main">) {
         rest.className,
       )}
     >
-      {nav.enabled !== false &&
-        (nav.component ?? (
-          <Header
-            links={links}
-            nav={nav}
-            themeSwitch={themeSwitch}
-            searchToggle={searchToggle}
-            i18n={i18n}
-            githubUrl={githubUrl}
-          />
-        ))}
+      <Header />
       {props.children}
     </main>
   );
