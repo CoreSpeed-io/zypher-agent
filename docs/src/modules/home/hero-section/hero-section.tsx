@@ -3,9 +3,9 @@ import { Button } from "@/components/button";
 import { ArrowRightIcon } from "@/components/icons/arrow-right";
 import { DenoIcon } from "@/components/icons/deno";
 import { GithubIcon } from "@/components/icons/github";
-import { ToolsBlock } from "./animated-text";
 import { CodeBlock } from "./code-block";
 import { CopyButton } from "./copy-button";
+import { ToolsBlock } from "./tools-block";
 
 const codeExample = `import { AnthropicModelProvider, createZypherAgent } from "@zypher/agent";
 import { createFileSystemTools } from "@zypher/agent/tools";
