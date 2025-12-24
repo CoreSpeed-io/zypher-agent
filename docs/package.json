@@ -11,6 +11,7 @@
     "format": "biome format --write"
   },
   "dependencies": {
+    "@base-ui/react": "^1.0.0",
     "foxact": "^0.2.49",
     "fumadocs-core": "16.3.2",
     "fumadocs-mdx": "14.2.2",
