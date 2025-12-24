@@ -3,12 +3,35 @@ import { Button } from "@/components/button";
 import { ArrowRightIcon } from "@/components/icons/arrow-right";
 import { DenoIcon } from "@/components/icons/deno";
 import { GithubIcon } from "@/components/icons/github";
+import { CodeBlock } from "./code-block";
 import { CopyButton } from "./copy-button";
+
+const codeExample = `import { AnthropicModelProvider, createZypherAgent } from "@zypher/agent";
+import { createFileSystemTools } from "@zypher/agent/tools";
+import { eachValueFrom } from "rxjs-for-await";
+
+const agent = await createZypherAgent({
+  modelProvider: new AnthropicModelProvider({
+    apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
+  }),
+  tools: [...createFileSystemTools()],
+  mcpServers: ["@modelcontextprotocol/sequentialthinking-server"],
+});
+
+// Run task with streaming
+const taskEvents = agent.runTask(
+  "Implement authentication middleware",
+  "claude-sonnet-4-20250514",
+);
+
+for await (const event of eachValueFrom(taskEvents)) {
+  console.log(event);
+}`;
 
 export function HeroSection() {
   return (
     <section className="mx-auto max-w-[1440px] desktop:border-x desktop:border-outline-med">
-      <div className="desktop:px-0 desktop:flex desktop:items-center desktop:max-w-[1196px] desktop:mx-[122px] tablet:mx-20 mx-6 border-x border-outline-med">
+      <div className="desktop:px-0 desktop:flex desktop:items-center desktop:max-w-[1196px] overflow-hidden desktop:mx-[122px] tablet:mx-20 mx-6 border-x border-outline-med">
         <div>
           <div className="pt-6 pb-8 tablet:pt-12 px-6 desktop:px-12 border-b">
             <h1 className="text-4xl tablet:text-5xl font-semibold leading-[130%] tracking-[-0.036em] font-mono text-center tablet:text-left">
@@ -53,7 +76,7 @@ export function HeroSection() {
           </div>
         </div>
         <div className="desktop:w-[606px] shrink-0 desktop:border-l desktop:border-outline-low self-stretch">
-          <div className="pt-5.5 pl-6 desktop:pt-[83px]">
+          <div className="pt-5.5 pl-6 desktop:pt-[83px] h-full flex flex-col items-start">
             <Link
               href="https://jsr.io/@zypher/agent"
               target="_blank"
@@ -70,26 +93,12 @@ export function HeroSection() {
               <CopyButton />
             </div>
 
-            <div className="mt-9 border-l border-t border-outline-med">
-              <div
-                className="py-4.5 flex items-center gap-14 pl-5.5 relative"
-                style={{
-                  backgroundImage: `
-                repeating-linear-gradient(315deg, 
-                  #E5E5E5 0px, 
-                  #E5E5E5 0.5px, 
-                  transparent 1px, 
-                  transparent 6px
-                )
-              `,
-                }}
-              >
-                <ul className="flex items-center gap-4">
-                  <li className="size-4 bg-state-red-base rounded-full" />
-                  <li className="size-4 bg-state-yellow-base rounded-full" />
-                  <li className="size-4 bg-state-green-base rounded-full" />
-                </ul>
-                <div className="text-text-high font-mono text-xl">main.ts</div>
+            <div className="mt-9 bg-bg-inverse-1 pl-1 rounded-tl-xl">
+              <div className="py-3 text-text-high-inverse pl-3 text-xs">
+                /main.ts
+              </div>
+              <div className="bg-surface-s8 pt-6 pl-4 rounded-tl-xl border-[#3e3e3e] border">
+                <CodeBlock lang="typescript">{codeExample}</CodeBlock>
               </div>
             </div>
           </div>
