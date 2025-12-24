@@ -78,7 +78,16 @@ export function HeroSection() {
             </div>
           </div>
         </div>
-        <div className="desktop:w-[606px] shrink-0 desktop:border-l desktop:border-outline-low self-stretch">
+        <div
+          className="desktop:w-[606px] shrink-0 desktop:border-l desktop:border-outline-low self-stretch"
+          style={{
+            backgroundImage: `
+                linear-gradient(0deg, transparent 24%, rgba(114, 114, 114, 0.1) 25%, rgba(114, 114, 114, 0.1) 26%, transparent 27%, transparent 74%, rgba(114, 114, 114, 0.1) 75%, rgba(114, 114, 114, 0.1) 76%, transparent 77%, transparent),
+                linear-gradient(90deg, transparent 24%, rgba(114, 114, 114, 0.1) 25%, rgba(114, 114, 114, 0.1) 26%, transparent 27%, transparent 74%, rgba(114, 114, 114, 0.1) 75%, rgba(114, 114, 114, 0.1) 76%, transparent 77%, transparent)
+              `,
+            backgroundSize: "22px 22px",
+          }}
+        >
           <div className="pt-5.5 pl-6 desktop:pt-[83px] h-full flex flex-col items-start">
             <Link
               href="https://jsr.io/@zypher/agent"
