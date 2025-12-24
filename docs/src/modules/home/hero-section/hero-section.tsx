@@ -3,6 +3,7 @@ import { Button } from "@/components/button";
 import { ArrowRightIcon } from "@/components/icons/arrow-right";
 import { DenoIcon } from "@/components/icons/deno";
 import { GithubIcon } from "@/components/icons/github";
+import { AnimatedText } from "./animated-text";
 import { CodeBlock } from "./code-block";
 import { CopyButton } from "./copy-button";
 
@@ -33,11 +34,13 @@ export function HeroSection() {
     <section className="mx-auto max-w-[1440px] desktop:border-x desktop:border-outline-med">
       <div className="desktop:px-0 desktop:flex desktop:items-center desktop:max-w-[1196px] overflow-hidden desktop:mx-[122px] tablet:mx-20 mx-6 border-x border-outline-med">
         <div>
-          <div className="pt-6 pb-8 tablet:pt-12 px-6 desktop:px-12 border-b">
+          <div className="pt-6 pb-8 tablet:pt-12 border-b">
             <h1 className="text-4xl tablet:text-5xl font-semibold leading-[130%] tracking-[-0.036em] font-mono text-center tablet:text-left">
-              <div>Build your own</div>
-              <div className="my-6.5">Claude Code</div>
-              <div>
+              <div className="ml-6 text-center desktop:ml-0">
+                Build your own
+              </div>
+              <AnimatedText className="my-6.5" />
+              <div className="ml-6 text-center desktop:ml-0">
                 with <span className="text-brand-base">Zypher</span>
               </div>
             </h1>
