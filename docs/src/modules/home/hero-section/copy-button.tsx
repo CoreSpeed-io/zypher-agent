@@ -48,7 +48,7 @@ export function CopyButton() {
   }, []);
 
   return (
-    <button type="button" onClick={handleCopy}>
+    <button className="cursor-pointer" type="button" onClick={handleCopy}>
       <svg
         width="14"
         height="14"

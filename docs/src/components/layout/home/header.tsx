@@ -35,7 +35,7 @@ export function Header() {
 
             <div className="h-full">
               <SearchToggle className="p-2 text-white px-4 border-x h-full rounded-none border-outline-high-inverse tablet:hidden" />
-              <LargeSearchToggle className="text-sm h-full max-w-[240px] hidden tablet:inline-flex px-4 desktop:border-r" />
+              <LargeSearchToggle className="text-sm h-full max-w-[240px] hidden tablet:inline-flex px-4 desktop:border-r cursor-pointer" />
             </div>
 
             <HeaderDropdown>
