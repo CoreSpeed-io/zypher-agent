@@ -3,6 +3,7 @@ import type { ComponentProps } from "react";
 import { CrossIcon } from "@/components/icons/cross";
 import { cn } from "@/lib/cn";
 import { AgentIllustration } from "./agent-illustration";
+import { CoreSpeedIllustration } from "./corespeed-illustration";
 import { HoverIndicator } from "./hover-indicator";
 import { MCPIllustration } from "./mcp-illustration";
 import { MultiAgentIllustration } from "./multi-agent-illustration";
@@ -98,6 +99,7 @@ export function ZypherSection({
             <br className="hidden desktop:block" /> full control over tools,
             providers, and execution flow.
           </p>
+          <CoreSpeedIllustration className="absolute bottom-0 right-0 hidden desktop:block" />
         </div>
       </div>
 
