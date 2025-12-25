@@ -1,12 +1,13 @@
 import { createRelativeLink } from "fumadocs-ui/mdx";
+
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import {
   DocsBody,
   DocsDescription,
   DocsPage,
   DocsTitle,
-} from "fumadocs-ui/page";
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+} from "@/components/layout/docs/page";
 import { source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
 
@@ -18,7 +19,7 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const MDXContent = page.data.body;
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
+    <DocsPage toc={page.data.toc}>
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
