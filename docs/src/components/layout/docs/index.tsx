@@ -1,6 +1,13 @@
 import type * as PageTree from "fumadocs-core/page-tree";
 import { TreeContextProvider } from "fumadocs-ui/contexts/tree";
-import { Languages, Sidebar as SidebarIcon } from "lucide-react";
+import {
+  ArrowUpRight,
+  BoxIcon,
+  ExternalLink,
+  Languages,
+  Sidebar as SidebarIcon,
+} from "lucide-react";
+import Link from "next/link";
 import {
   type ComponentProps,
   type HTMLAttributes,
@@ -11,7 +18,7 @@ import { cn } from "../../../lib/cn";
 import { buttonVariants } from "../../ui/button";
 import { LanguageToggle, LanguageToggleText } from "../language-toggle";
 import { LinkItem } from "../link-item";
-import { LargeSearchToggle, SearchToggle } from "../search-toggle";
+import { SearchToggle } from "../search-toggle";
 import {
   type BaseLayoutProps,
   renderTitleNav,
@@ -123,15 +130,20 @@ export function DocsLayout({
     const iconLinks = links.filter((item) => item.type === "icon");
     const viewport = (
       <SidebarViewport>
-        {links
-          .filter((v) => v.type !== "icon")
-          .map((item, i, list) => (
-            <SidebarLinkItem
-              key={i}
-              item={item}
-              className={cn(i === list.length - 1 && "mb-4")}
-            />
-          ))}
+        <div className="py-2 px-3 bg-box-b0 border border-outline-med cursor-pointer rounded-md font-mono text-sm mb-6">
+          <Link
+            className="flex items-center justify-between hover:font-medium"
+            href="https://jsr.io/@zypher/agent/doc"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <div className="flex items-center gap-2">
+              <BoxIcon className="size-4" />
+              API Reference
+            </div>
+            <ArrowUpRight className="size-4" />
+          </Link>
+        </div>
         <SidebarPageTree {...components} />
       </SidebarViewport>
     );
