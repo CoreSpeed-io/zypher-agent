@@ -2,7 +2,7 @@
 import defaultMdxComponents from "fumadocs-ui/mdx";
 
 import type { MDXComponents } from "mdx/types";
-
+import { cn } from "./lib/cn";
 import {
   CodeBlock,
   CodeBlockTab,
@@ -98,8 +98,11 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     a: (props) => {
       return (
         <a
-          className="text-sm font-medium text-[#006bff] no-underline hover:text-[#006bff]! hover:underline"
           {...props}
+          className={cn(
+            "text-sm font-medium text-[#006bff] no-underline hover:text-[#006bff]! hover:underline",
+            props.className,
+          )}
         />
       );
     },
@@ -156,6 +159,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
         />
       );
     },
+
     ...components,
   };
 }
