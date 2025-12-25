@@ -42,7 +42,6 @@ import {
   SidebarCollapseTrigger,
   SidebarContent,
   SidebarDrawer,
-  SidebarLinkItem,
   SidebarPageTree,
   SidebarTrigger,
   SidebarViewport,
@@ -286,7 +285,10 @@ export function DocsLayout({
                   <div className="flex-1">{nav.children}</div>
                   {searchToggle.enabled !== false &&
                     (searchToggle.components?.sm ?? (
-                      <SearchToggle className="p-2" hideIfDisabled />
+                      <SearchToggle
+                        className="p-2 text-text-high"
+                        hideIfDisabled
+                      />
                     ))}
                   {sidebarEnabled && (
                     <SidebarTrigger

@@ -4,7 +4,7 @@ import { useSearchContext } from "fumadocs-ui/contexts/search";
 import { Search } from "lucide-react";
 import type { ComponentProps } from "react";
 import { cn } from "../../lib/cn";
-import { type ButtonProps, buttonVariants } from "../ui/button";
+import type { ButtonProps } from "../ui/button";
 
 interface SearchToggleProps
   extends Omit<ComponentProps<"button">, "color">,
@@ -24,14 +24,14 @@ export function SearchToggle({
   return (
     <button
       type="button"
-      className={cn("cursor-pointer", props.className)}
+      className={cn("cursor-pointer text-static-white", props.className)}
       data-search=""
       aria-label="Open Search"
       onClick={() => {
         setOpenSearch(true);
       }}
     >
-      <Search className="size-4 text-static-white" />
+      <Search className="size-4" />
     </button>
   );
 }
