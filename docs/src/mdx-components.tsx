@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/a11y/useHeadingContent: <explanation> */
 import defaultMdxComponents from "fumadocs-ui/mdx";
 
 import type { MDXComponents } from "mdx/types";
@@ -135,8 +136,10 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     },
     img: (props) => {
       return (
-        // eslint-disable-next-line next/no-img-element
+        // biome-ignore lint/a11y/useAltText: ignore
+        // biome-ignore lint/performance/noImgElement: ignore
         <img
+          alt={props.alt}
           className="rounded-md shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),0px_1px_0px_0px_rgba(25,28,33,0.02),0px_0px_0px_1px_rgba(25,28,33,0.08)]"
           {...props}
         />

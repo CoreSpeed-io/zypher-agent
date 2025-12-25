@@ -21,8 +21,9 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
     <DocsPage toc={page.data.toc} full={page.data.full}>
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
-      <DocsBody className="prose">
+      <DocsBody>
         <MDXContent
+          className="prose prose-sm"
           components={getMDXComponents({
             // this allows you to link to other pages with relative file paths
             a: createRelativeLink(source, page),
