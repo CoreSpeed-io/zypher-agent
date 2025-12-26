@@ -10,6 +10,7 @@ import {
 } from "@/components/layout/docs/page";
 import { source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
+import { A } from "@/modules/mdx-components/a";
 
 export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const params = await props.params;
@@ -27,7 +28,7 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
           className="prose prose-sm"
           components={getMDXComponents({
             // this allows you to link to other pages with relative file paths
-            a: createRelativeLink(source, page),
+            a: createRelativeLink(source, page, A),
           })}
         />
       </DocsBody>

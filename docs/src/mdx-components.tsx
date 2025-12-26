@@ -3,6 +3,7 @@ import defaultMdxComponents from "fumadocs-ui/mdx";
 
 import type { MDXComponents } from "mdx/types";
 import { cn } from "./lib/cn";
+import { A } from "./modules/mdx-components/a";
 import {
   CodeBlock,
   CodeBlockTab,
@@ -95,17 +96,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
         />
       );
     },
-    a: (props) => {
-      return (
-        <a
-          {...props}
-          className={cn(
-            "text-sm font-medium text-[#006bff] no-underline hover:text-[#006bff]! hover:underline",
-            props.className,
-          )}
-        />
-      );
-    },
+    a: A,
     code: (props) => {
       // code block
       if (typeof props.children !== "string") {

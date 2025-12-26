@@ -5,13 +5,12 @@ import { type ComponentProps, useRef } from "react";
 import { cn } from "../../../lib/cn";
 import { mergeRefs } from "../../../lib/merge-refs";
 import { buttonVariants } from "../../ui/button";
-import { SearchToggle } from "../search-toggle";
 import * as Base from "../sidebar/base";
 import { createLinkItemRenderer } from "../sidebar/link-item";
 import { createPageTreeRenderer } from "../sidebar/page-tree";
 
 const itemVariants = cva(
-  "relative flex flex-row tracking-[-0.01em] text-[13px] items-center gap-2 leading-[140%] rounded-md px-2 py-3 text-start text-text-high font-mono wrap-anywhere [&_svg]:size-4 [&_svg]:shrink-0",
+  "relative flex flex-row tracking-[-0.02em] text-[13px] items-center gap-2 leading-[140%] rounded-md px-2 py-3 text-start text-text-high font-mono wrap-anywhere [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {

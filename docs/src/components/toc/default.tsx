@@ -27,7 +27,7 @@ export function TOCItems({ ref, className, ...props }: ComponentProps<"div">) {
       <div
         ref={mergeRefs(ref, containerRef)}
         className={cn(
-          "flex flex-col border-s border-fd-foreground/10",
+          "flex flex-col border-s space-y-0.5 border-outline-low",
           className,
         )}
         {...props}
@@ -45,7 +45,7 @@ function TOCItem({ item }: { item: Primitive.TOCItemType }) {
     <Primitive.TOCItem
       href={item.url}
       className={cn(
-        "prose py-1.5 text-sm font-mono font-light text-text-med transition-colors wrap-anywhere first:pt-0 last:pb-0 data-[active=true]:text-brand-base",
+        "prose py-1.5 tracking-[-0.01em] text-sm font-mono text-text-med transition-colors wrap-anywhere first:pt-0 last:pb-0 data-[active=true]:text-brand-base",
         item.depth <= 2 && "ps-3",
         item.depth === 3 && "ps-6",
         item.depth >= 4 && "ps-8",
