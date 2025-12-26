@@ -7,6 +7,10 @@ import { cn } from "@/lib/cn";
 
 const inter = Inter({
   subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+  preload: true,
+  adjustFontFallback: true,
 });
 
 const berkeley = localFont({
@@ -14,6 +18,8 @@ const berkeley = localFont({
   variable: "--font-berkeley",
   weight: "100 900",
   display: "swap",
+  preload: true,
+  adjustFontFallback: false,
 });
 
 export default function Layout({ children }: LayoutProps<"/">) {
