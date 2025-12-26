@@ -10,7 +10,7 @@ import FooterDots from "./footer-dots.png";
 
 export function FooterSection() {
   return (
-    <footer className="overflow-hidden">
+    <footer className="overflow-hidden font-mono">
       <div className="bg-bg-inverse-1 border-outline-base-inverse relative border-y">
         <div className="mx-auto max-w-[1440px]">
           <Image
@@ -22,7 +22,7 @@ export function FooterSection() {
           />
           <div
             className={cn(
-              "relative z-10",
+              "relative z-10 font-mono",
               "desktop:px-0 desktop:mx-[122px] tablet:mx-20 mx-6 py-12",
               "max-w-[1196px]",
               "desktop:flex-row desktop:justify-between flex flex-col",
