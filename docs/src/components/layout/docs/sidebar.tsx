@@ -100,7 +100,6 @@ export function SidebarContent({
             >
               <SidebarIcon />
             </Base.SidebarCollapseTrigger>
-            <SearchToggle className="rounded-lg" hideIfDisabled />
           </div>
         </>
       )}
