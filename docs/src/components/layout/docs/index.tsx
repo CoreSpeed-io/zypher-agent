@@ -13,6 +13,7 @@ import {
   type ReactNode,
   useMemo,
 } from "react";
+import { ZypherIcon } from "@/components/icons/zypher";
 import { cn } from "../../../lib/cn";
 import { buttonVariants } from "../../ui/button";
 import { LanguageToggle, LanguageToggleText } from "../language-toggle";
@@ -151,10 +152,12 @@ export function DocsLayout({
         <SidebarContent {...rest}>
           <div className="flex flex-col gap-3 p-4 pb-2">
             <div className="flex">
-              {renderTitleNav(nav, {
-                className:
-                  "inline-flex text-[0.9375rem] items-center gap-2.5 font-medium me-auto",
-              })}
+              <Link
+                href={"/"}
+                className="inline-flex text-[0.9375rem] items-center gap-2.5 font-medium me-auto"
+              >
+                <ZypherIcon />
+              </Link>
               {nav.children}
               {collapsible && (
                 <SidebarCollapseTrigger
