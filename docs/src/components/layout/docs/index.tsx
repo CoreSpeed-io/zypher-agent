@@ -203,13 +203,6 @@ export function DocsLayout({
                     {item.icon}
                   </LinkItem>
                 ))}
-                {themeSwitch.enabled !== false &&
-                  (themeSwitch.component ?? (
-                    <ThemeToggle
-                      className="ms-auto p-0"
-                      mode={themeSwitch.mode}
-                    />
-                  ))}
               </div>
               {footer}
             </div>
@@ -242,10 +235,7 @@ export function DocsLayout({
                   <LanguageToggleText />
                 </LanguageToggle>
               )}
-              {themeSwitch.enabled !== false &&
-                (themeSwitch.component ?? (
-                  <ThemeToggle className="p-0" mode={themeSwitch.mode} />
-                ))}
+
               <SidebarTrigger
                 className={cn(
                   buttonVariants({
