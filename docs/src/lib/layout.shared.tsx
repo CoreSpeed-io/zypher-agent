@@ -1,4 +1,5 @@
-import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
+import { ZypherIcon } from "@/components/icons/zypher";
 
 /**
  * Shared layout configurations
@@ -9,26 +10,17 @@ import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
  */
 export function baseOptions(): BaseLayoutProps {
   return {
+    themeSwitch: {
+      enabled: false,
+    },
     nav: {
-      title: (
-        <>
-          <svg
-            width="24"
-            height="24"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-label="Logo"
-          >
-            <circle cx={12} cy={12} r={12} fill="currentColor" />
-          </svg>
-          Zypher Agent
-        </>
-      ),
+      title: <ZypherIcon className="text-black" />,
     },
     // see https://fumadocs.dev/docs/ui/navigation/links
     links: [
       {
-        text: 'API Reference',
-        url: 'https://jsr.io/@zypher/agent/doc',
+        text: "API Reference",
+        url: "https://jsr.io/@zypher/agent/doc",
         external: true,
       },
     ],
