@@ -3,7 +3,6 @@ import { TreeContextProvider } from "fumadocs-ui/contexts/tree";
 import {
   ArrowUpRight,
   BoxIcon,
-  ExternalLink,
   Languages,
   Sidebar as SidebarIcon,
 } from "lucide-react";
