@@ -25,7 +25,7 @@ export default function Layout({ children }: LayoutProps<"/">) {
         />
       </head>
       <body className={cn("flex flex-col min-h-screen", inter.className)}>
-        <RootProvider>{children}</RootProvider>
+        <RootProvider theme={{ enabled: false }}>{children}</RootProvider>
       </body>
     </html>
   );
