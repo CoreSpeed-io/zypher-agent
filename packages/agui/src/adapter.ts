@@ -88,6 +88,8 @@ export function formatSSEMessage(event: BaseEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
 
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+
 export interface CreateAguiStreamOptions {
   agent: ZypherAgent;
   model?: string;
@@ -108,81 +110,61 @@ export function createAguiStream(
     ? parseRunAgentInput(JSON.parse(body))
     : parseRunAgentInput(body);
 
-  const threadId = parsed.threadId ?? crypto.randomUUID();
-  const runId = parsed.runId ?? crypto.randomUUID();
-
-  const adapter = new AguiAdapter(
-    options.agent,
-    parsed.messages as Message[],
-    parsed.state,
-    threadId,
-    runId,
-    options.model,
+  return encodeSSEStream(
+    runStream({
+      agent: options.agent,
+      messages: parsed.messages as Message[],
+      state: parsed.state,
+      threadId: parsed.threadId ?? crypto.randomUUID(),
+      runId: parsed.runId ?? crypto.randomUUID(),
+      model: options.model ?? Deno.env.get("ZYPHER_MODEL") ?? DEFAULT_MODEL,
+    }),
   );
-  return encodeSSEStream(adapter.runStream());
 }
 
-class AguiAdapter {
-  readonly #agent: ZypherAgent;
-  readonly #messages: Message[];
-  readonly #state: Record<string, unknown> | undefined;
-  readonly #threadId: string;
-  readonly #runId: string;
-  readonly #model: string;
+interface RunStreamOptions {
+  agent: ZypherAgent;
+  messages: Message[];
+  state?: Record<string, unknown>;
+  threadId: string;
+  runId: string;
+  model: string;
+}
 
-  constructor(
-    agent: ZypherAgent,
-    messages: Message[],
-    state: Record<string, unknown> | undefined,
-    threadId: string,
-    runId: string,
-    model?: string,
-  ) {
-    this.#agent = agent;
-    this.#messages = messages;
-    this.#state = state;
-    this.#threadId = threadId;
-    this.#runId = runId;
-    this.#model = model ?? Deno.env.get("ZYPHER_MODEL") ??
-      "claude-sonnet-4-20250514";
-  }
+async function* runStream(
+  options: RunStreamOptions,
+): AsyncGenerator<BaseEvent> {
+  const { agent, messages, state, threadId, runId, model } = options;
 
-  async *runStream(): AsyncGenerator<BaseEvent> {
-    const messages = this.#messages;
-    const state = this.#state;
-    const threadId = this.#threadId;
-    const runId = this.#runId;
+  yield createRunStartedEvent(threadId, runId);
 
-    yield createRunStartedEvent(threadId, runId);
+  const eventContext = createEventContext(threadId, runId);
 
-    const eventContext = createEventContext(threadId, runId);
+  try {
+    // TODO: Use converted messages for context preservation
+    // const zypherMessages = convertAGUIMessagesToZypher(messages);
+    const taskDescription = extractTaskDescription(messages);
+    const observable = agent.runTask(taskDescription, model);
 
-    try {
-      // TODO: Use converted messages for context preservation
-      // const zypherMessages = convertAGUIMessagesToZypher(messages);
-      const taskDescription = extractTaskDescription(messages);
-      const observable = this.#agent.runTask(taskDescription, this.#model);
-
-      for await (const event of eachValueFrom(observable)) {
-        for (const aguiEvent of convertTaskEvent(event, eventContext)) {
-          yield aguiEvent;
-        }
+    for await (const event of eachValueFrom(observable)) {
+      for (const aguiEvent of convertTaskEvent(event, eventContext)) {
+        yield aguiEvent;
       }
-
-      const finalMessages = convertZypherMessagesToAgui(this.#agent.messages);
-      yield createMessagesSnapshotEvent(finalMessages);
-
-      if (state !== undefined) {
-        yield createStateSnapshotEvent({
-          messageCount: this.#agent.messages.length,
-        });
-      }
-
-      yield createRunFinishedEvent(threadId, runId);
-    } catch (error) {
-      yield createRunErrorEvent(
-        error instanceof Error ? error.message : String(error),
-      );
     }
+
+    const finalMessages = convertZypherMessagesToAgui(agent.messages);
+    yield createMessagesSnapshotEvent(finalMessages);
+
+    if (state !== undefined) {
+      yield createStateSnapshotEvent({
+        messageCount: agent.messages.length,
+      });
+    }
+
+    yield createRunFinishedEvent(threadId, runId);
+  } catch (error) {
+    yield createRunErrorEvent(
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
