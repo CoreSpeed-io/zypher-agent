@@ -3,12 +3,20 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
+@font-face {
+  font-family: 'Berkeley Mono';
+  src: url('https://static.corespeed.io/fonts/berkeley-mono.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 @theme inline {
 
   --breakpoint-tablet:40rem;
   --breakpoint-desktop:75rem;
 
+  --font-berkeley: 'Berkeley Mono';
   --font-sans: var(--font-inter);
   --font-mono: var(--font-berkeley);
 
@@ -113,7 +121,7 @@
 body {
   background: var(--color-bg-b0);
   color: var(--color-text-high);
-  font-family: var(--font-berkeley), "Berkeley Mono", monospace;
+  font-family: var(--font-berkeley), monospace;
 }
 
 * {
