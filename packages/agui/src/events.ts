@@ -1,5 +1,21 @@
 import { EventType } from "@ag-ui/core";
-import type { BaseEvent, Message } from "@ag-ui/core";
+import type {
+  BaseEvent,
+  CustomEvent,
+  Message,
+  MessagesSnapshotEvent,
+  RunErrorEvent,
+  RunFinishedEvent,
+  RunStartedEvent,
+  StateSnapshotEvent,
+  TextMessageContentEvent,
+  TextMessageEndEvent,
+  TextMessageStartEvent,
+  ToolCallArgsEvent,
+  ToolCallEndEvent,
+  ToolCallResultEvent,
+  ToolCallStartEvent,
+} from "@ag-ui/core";
 import type { TaskEvent } from "@zypher/agent";
 import type { EventContext } from "./adapter.ts";
 
@@ -16,19 +32,21 @@ export function convertTaskEvent(
         // Generate new messageId for each new text message to avoid duplicate React keys
         context.messageId = crypto.randomUUID();
         context.textMessageStarted = true;
-        events.push({
+        const startEvent = {
           type: EventType.TEXT_MESSAGE_START,
           messageId: context.messageId,
           role: "assistant",
           timestamp,
-        } as BaseEvent);
+        } satisfies TextMessageStartEvent;
+        events.push(startEvent);
       }
-      events.push({
+      const contentEvent = {
         type: EventType.TEXT_MESSAGE_CONTENT,
         messageId: context.messageId,
         delta: event.content,
         timestamp,
-      } as BaseEvent);
+      } satisfies TextMessageContentEvent;
+      events.push(contentEvent);
       break;
     }
 
@@ -39,24 +57,26 @@ export function convertTaskEvent(
       context.toolCallIds.set(event.toolUseId, toolCallId);
 
       if (context.textMessageStarted) {
-        events.push({
+        const endEvent = {
           type: EventType.TEXT_MESSAGE_END,
           messageId: context.messageId,
           timestamp,
-        } as BaseEvent);
+        } satisfies TextMessageEndEvent;
+        events.push(endEvent);
         context.textMessageStarted = false;
       }
 
       // Generate a new messageId for each tool call to avoid duplicate React keys
       context.messageId = crypto.randomUUID();
 
-      events.push({
+      const toolStartEvent = {
         type: EventType.TOOL_CALL_START,
         toolCallId,
         toolCallName: event.toolName,
         parentMessageId: context.messageId,
         timestamp,
-      } as BaseEvent);
+      } satisfies ToolCallStartEvent;
+      events.push(toolStartEvent);
       break;
     }
 
@@ -64,12 +84,13 @@ export function convertTaskEvent(
       // Look up by toolUseId
       const toolCallId = context.toolCallIds.get(event.toolUseId);
       if (toolCallId) {
-        events.push({
+        const argsEvent = {
           type: EventType.TOOL_CALL_ARGS,
           toolCallId,
           delta: event.partialInput,
           timestamp,
-        } as BaseEvent);
+        } satisfies ToolCallArgsEvent;
+        events.push(argsEvent);
       }
       break;
     }
@@ -79,11 +100,12 @@ export function convertTaskEvent(
       const toolCallId = context.toolCallIds.get(event.toolUseId) ??
         event.toolUseId;
 
-      events.push({
+      const toolEndEvent = {
         type: EventType.TOOL_CALL_END,
         toolCallId,
         timestamp,
-      } as BaseEvent);
+      } satisfies ToolCallEndEvent;
+      events.push(toolEndEvent);
 
       let resultContent: string;
       if (typeof event.result === "string") {
@@ -102,13 +124,14 @@ export function convertTaskEvent(
 
       // Tool result message needs its own unique messageId
       const toolResultMessageId = crypto.randomUUID();
-      events.push({
+      const toolResultEvent = {
         type: EventType.TOOL_CALL_RESULT,
         toolCallId,
         messageId: toolResultMessageId,
         content: resultContent,
         timestamp,
-      } as BaseEvent);
+      } satisfies ToolCallResultEvent;
+      events.push(toolResultEvent);
       break;
     }
 
@@ -117,31 +140,34 @@ export function convertTaskEvent(
       const toolCallId = context.toolCallIds.get(event.toolUseId) ??
         event.toolUseId;
 
-      events.push({
+      const toolEndEvent = {
         type: EventType.TOOL_CALL_END,
         toolCallId,
         timestamp,
-      } as BaseEvent);
+      } satisfies ToolCallEndEvent;
+      events.push(toolEndEvent);
 
       // Tool error message needs its own unique messageId
       const toolErrorMessageId = crypto.randomUUID();
-      events.push({
+      const toolErrorEvent = {
         type: EventType.TOOL_CALL_RESULT,
         toolCallId,
         messageId: toolErrorMessageId,
         content: `Error: ${String(event.error)}`,
         timestamp,
-      } as BaseEvent);
+      } satisfies ToolCallResultEvent;
+      events.push(toolErrorEvent);
       break;
     }
 
     case "completed": {
       if (context.textMessageStarted) {
-        events.push({
+        const endEvent = {
           type: EventType.TEXT_MESSAGE_END,
           messageId: context.messageId,
           timestamp,
-        } as BaseEvent);
+        } satisfies TextMessageEndEvent;
+        events.push(endEvent);
         context.textMessageStarted = false;
       }
       break;
@@ -149,24 +175,26 @@ export function convertTaskEvent(
 
     case "cancelled": {
       if (context.textMessageStarted) {
-        events.push({
+        const endEvent = {
           type: EventType.TEXT_MESSAGE_END,
           messageId: context.messageId,
           timestamp,
-        } as BaseEvent);
+        } satisfies TextMessageEndEvent;
+        events.push(endEvent);
         context.textMessageStarted = false;
       }
-      events.push({
+      const errorEvent = {
         type: EventType.RUN_ERROR,
         message: `Task cancelled: ${event.reason}`,
         code: "CANCELLED",
         timestamp,
-      } as BaseEvent);
+      } satisfies RunErrorEvent;
+      events.push(errorEvent);
       break;
     }
 
     case "usage": {
-      events.push({
+      const customEvent = {
         type: EventType.CUSTOM,
         name: "usage",
         value: {
@@ -174,7 +202,8 @@ export function convertTaskEvent(
           cumulativeUsage: event.cumulativeUsage,
         },
         timestamp,
-      } as BaseEvent);
+      } satisfies CustomEvent;
+      events.push(customEvent);
       break;
     }
 
@@ -190,52 +219,57 @@ export function convertTaskEvent(
 }
 
 export function createRunStartedEvent(
-  threadId?: string,
-  runId?: string,
+  threadId: string,
+  runId: string,
 ): BaseEvent {
-  return {
+  const event = {
     type: EventType.RUN_STARTED,
     threadId,
     runId,
     timestamp: Date.now(),
-  } as BaseEvent;
+  } satisfies RunStartedEvent;
+  return event;
 }
 
 export function createRunFinishedEvent(
-  threadId?: string,
-  runId?: string,
+  threadId: string,
+  runId: string,
 ): BaseEvent {
-  return {
+  const event = {
     type: EventType.RUN_FINISHED,
     threadId,
     runId,
     timestamp: Date.now(),
-  } as BaseEvent;
+  } satisfies RunFinishedEvent;
+  return event;
 }
 
 export function createRunErrorEvent(message: string, code?: string): BaseEvent {
-  return {
+  const event = {
     type: EventType.RUN_ERROR,
     message,
     code,
     timestamp: Date.now(),
-  } as BaseEvent;
+  } satisfies RunErrorEvent;
+  return event;
 }
 
 export function createMessagesSnapshotEvent(messages: Message[]): BaseEvent {
-  return {
+  const event = {
     type: EventType.MESSAGES_SNAPSHOT,
     messages,
     timestamp: Date.now(),
-  } as BaseEvent;
+  } satisfies MessagesSnapshotEvent;
+  return event;
 }
 
 export function createStateSnapshotEvent(
   snapshot: Record<string, unknown>,
 ): BaseEvent {
-  return {
+  const event = {
     type: EventType.STATE_SNAPSHOT,
     snapshot,
     timestamp: Date.now(),
-  } as BaseEvent;
+  } satisfies StateSnapshotEvent;
+  return event;
 }
