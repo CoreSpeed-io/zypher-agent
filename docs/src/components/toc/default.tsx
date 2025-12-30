@@ -13,7 +13,7 @@ export function TOCItems({ ref, className, ...props }: ComponentProps<"div">) {
 
   if (items.length === 0)
     return (
-      <div className="rounded-lg border bg-fd-card p-3 text-xs text-fd-muted-foreground">
+      <div className="rounded-lg border bg-fd-card p-3 text-xs text-text-med">
         {text.tocNoHeadings}
       </div>
     );
@@ -45,7 +45,7 @@ function TOCItem({ item }: { item: Primitive.TOCItemType }) {
     <Primitive.TOCItem
       href={item.url}
       className={cn(
-        "prose py-1.5 tracking-[-0.01em] text-sm font-mono text-text-med transition-colors wrap-anywhere first:pt-0 last:pb-0 data-[active=true]:text-brand-base",
+        "prose py-1.5 tracking-[-0.02em] text-xs font-normal font-mono text-text-med transition-colors wrap-anywhere first:pt-0 last:pb-0 data-[active=true]:text-brand-base",
         item.depth <= 2 && "ps-3",
         item.depth === 3 && "ps-6",
         item.depth >= 4 && "ps-8",
