@@ -64,6 +64,7 @@ export function LargeSearchToggle({
       <div className="ms-auto inline-flex gap-2">
         {hotKey.map((k, i) => (
           <kbd
+            // biome-ignore lint/suspicious/noArrayIndexKey: ignore
             key={i}
             className="text-text-high-inverse relative text-sm font-mono grid bg-box-b3 size-4 shrink-0"
           >

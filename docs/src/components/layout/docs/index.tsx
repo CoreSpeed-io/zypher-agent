@@ -1,11 +1,6 @@
 import type * as PageTree from "fumadocs-core/page-tree";
 import { TreeContextProvider } from "fumadocs-ui/contexts/tree";
-import {
-  ArrowUpRight,
-  BoxIcon,
-  Languages,
-  Sidebar as SidebarIcon,
-} from "lucide-react";
+import { ArrowUpRight, BoxIcon, Sidebar as SidebarIcon } from "lucide-react";
 import Link from "next/link";
 import {
   type ComponentProps,
@@ -16,21 +11,14 @@ import {
 import { ZypherIcon } from "@/components/icons/zypher";
 import { cn } from "../../../lib/cn";
 import { buttonVariants } from "../../ui/button";
-import { LanguageToggle, LanguageToggleText } from "../language-toggle";
-import { LinkItem } from "../link-item";
 import { SearchToggle } from "../search-toggle";
-import {
-  type BaseLayoutProps,
-  renderTitleNav,
-  resolveLinkItems,
-} from "../shared";
+import { type BaseLayoutProps, renderTitleNav } from "../shared";
 import type { SidebarPageTreeComponents } from "../sidebar/page-tree";
 import { type GetSidebarTabsOptions, getSidebarTabs } from "../sidebar/tabs";
 import {
   SidebarTabsDropdown,
   type SidebarTabWithProps,
 } from "../sidebar/tabs/dropdown";
-import { ThemeToggle } from "../theme-toggle";
 import {
   LayoutBody,
   LayoutContextProvider,
@@ -41,7 +29,6 @@ import {
   Sidebar,
   SidebarCollapseTrigger,
   SidebarContent,
-  SidebarDrawer,
   SidebarPageTree,
   SidebarTrigger,
   SidebarViewport,
@@ -113,11 +100,9 @@ export function DocsLayout({
     }
     return [];
   }, [tree, sidebarTabs]);
-  const links = resolveLinkItems(props);
 
   function sidebar() {
     const {
-      footer,
       banner,
       collapsible = true,
       component,
@@ -126,137 +111,32 @@ export function DocsLayout({
     } = sidebarProps;
     if (component) return component;
 
-    const iconLinks = links.filter((item) => item.type === "icon");
     const viewport = (
       <SidebarViewport>
-        <div className="py-2 px-3 bg-box-b0 border border-outline-med cursor-pointer rounded-md font-mono text-sm mb-6">
-          <Link
-            className="flex items-center justify-between hover:font-medium"
-            href="https://jsr.io/@zypher/agent/doc"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <div className="flex items-center gap-2">
-              <BoxIcon className="size-4" />
-              API Reference
-            </div>
-            <ArrowUpRight className="size-4" />
-          </Link>
-        </div>
         <SidebarPageTree {...components} />
       </SidebarViewport>
     );
 
     return (
-      <>
-        <SidebarContent {...rest}>
-          <div className="flex flex-col gap-3 p-4 pb-2">
-            <div className="flex">
-              <Link
-                href={"/"}
-                className="inline-flex text-[0.9375rem] items-center gap-2.5 font-medium me-auto"
-              >
-                <ZypherIcon />
-              </Link>
-              {nav.children}
-              {collapsible && (
-                <SidebarCollapseTrigger
-                  className={cn(
-                    buttonVariants({
-                      color: "ghost",
-                      size: "icon-sm",
-                      className: "mb-auto text-fd-muted-foreground",
-                    }),
-                  )}
-                >
-                  <SidebarIcon />
-                </SidebarCollapseTrigger>
-              )}
-            </div>
-            {<SidebarSearch />}
-            {tabs.length > 0 && tabMode === "auto" && (
-              <SidebarTabsDropdown options={tabs} />
-            )}
-            {banner}
+      <SidebarContent {...rest}>
+        <div className="flex flex-col px-0 pt-4">
+          <div className="flex px-4 pb-4 border-outline-low">
+            <Link
+              href={"/"}
+              className="inline-flex text-[0.9375rem] items-center gap-2.5 font-medium me-auto"
+            >
+              <ZypherIcon />
+            </Link>
+            {nav.children}
           </div>
-          {viewport}
-          {(i18n ||
-            iconLinks.length > 0 ||
-            themeSwitch?.enabled !== false ||
-            footer) && (
-            <div className="flex flex-col border-t p-4 pt-2 empty:hidden">
-              <div className="flex text-fd-muted-foreground items-center empty:hidden">
-                {i18n && (
-                  <LanguageToggle>
-                    <Languages className="size-4.5" />
-                  </LanguageToggle>
-                )}
-                {iconLinks.map((item, i) => (
-                  <LinkItem
-                    key={i}
-                    item={item}
-                    className={cn(
-                      buttonVariants({ size: "icon-sm", color: "ghost" }),
-                    )}
-                    aria-label={item.label}
-                  >
-                    {item.icon}
-                  </LinkItem>
-                ))}
-              </div>
-              {footer}
-            </div>
+          <SidebarSearch />
+          {tabs.length > 0 && tabMode === "auto" && (
+            <SidebarTabsDropdown options={tabs} />
           )}
-        </SidebarContent>
-        <SidebarDrawer>
-          <div className="flex flex-col gap-3 p-4 pb-2">
-            <div className="flex text-fd-muted-foreground items-center gap-1.5">
-              <div className="flex flex-1">
-                {iconLinks.map((item, i) => (
-                  <LinkItem
-                    key={i}
-                    item={item}
-                    className={cn(
-                      buttonVariants({
-                        size: "icon-sm",
-                        color: "ghost",
-                        className: "p-2",
-                      }),
-                    )}
-                    aria-label={item.label}
-                  >
-                    {item.icon}
-                  </LinkItem>
-                ))}
-              </div>
-              {i18n && (
-                <LanguageToggle>
-                  <Languages className="size-4.5" />
-                  <LanguageToggleText />
-                </LanguageToggle>
-              )}
-
-              <SidebarTrigger
-                className={cn(
-                  buttonVariants({
-                    color: "ghost",
-                    size: "icon-sm",
-                    className: "p-2",
-                  }),
-                )}
-              >
-                <SidebarIcon />
-              </SidebarTrigger>
-            </div>
-            {tabs.length > 0 && <SidebarTabsDropdown options={tabs} />}
-            {banner}
-          </div>
-          {viewport}
-          <div className="flex flex-col border-t p-4 pt-2 empty:hidden">
-            {footer}
-          </div>
-        </SidebarDrawer>
-      </>
+          {banner}
+        </div>
+        {viewport}
+      </SidebarContent>
     );
   }
 
