@@ -299,20 +299,20 @@ function FooterItem({ item, index }: { item: Item; index: 0 | 1 }) {
     <Link
       href={item.url}
       className={cn(
-        "flex flex-col gap-2 rounded-lg border p-4 text-sm transition-colors hover:bg-fd-accent/80 hover:text-fd-accent-foreground @max-lg:col-span-full",
+        "flex flex-col gap-2 rounded-sm border p-4 text-sm transition-colors hover:bg-surface-s0 hover:text-text-high @max-lg:col-span-full",
         index === 1 && "text-end",
       )}
     >
       <div
         className={cn(
-          "inline-flex items-center gap-1.5 font-medium",
+          "inline-flex items-center gap-1.5 ",
           index === 1 && "flex-row-reverse",
         )}
       >
         <Icon className="-mx-1 size-4 shrink-0 rtl:rotate-180" />
-        <p>{item.name}</p>
+        <p className="font-mono tracking-[-0.01em]">{item.name}</p>
       </div>
-      <p className="text-fd-muted-foreground truncate">
+      <p className="text-text-med font-normal text-sm truncate">
         {item.description ?? (index === 0 ? text.previousPage : text.nextPage)}
       </p>
     </Link>
