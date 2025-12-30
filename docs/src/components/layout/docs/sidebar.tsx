@@ -62,7 +62,7 @@ export function SidebarContent({
               data-collapsed={collapsed}
               data-hovered={collapsed && hovered}
               className={cn(
-                "absolute flex flex-col w-full start-0 inset-y-0 items-end bg-bg-b1 text-sm border-e duration-250 *:w-(--fd-sidebar-width)",
+                "absolute flex flex-col w-full start-0 inset-y-0 items-end border-outline-low bg-bg-b1 text-sm border-e duration-250 *:w-(--fd-sidebar-width)",
                 collapsed && [
                   "inset-y-2 rounded-xl transition-transform border w-(--fd-sidebar-width)",
                   hovered
@@ -116,7 +116,7 @@ export function SidebarDrawer({
       <Base.SidebarDrawerOverlay className="fixed z-40 inset-0 data-[state=open]:animate-fd-fade-in data-[state=closed]:animate-fd-fade-out" />
       <Base.SidebarDrawerContent
         className={cn(
-          "fixed text-[0.9375rem] flex flex-col shadow-lg border-s end-0 inset-y-0 w-[85%] max-w-[380px] z-40 bg-bg-b1 data-[state=open]:animate-fd-sidebar-in data-[state=closed]:animate-fd-sidebar-out",
+          "fixed text-[0.9375rem] flex flex-col end-0 inset-y-0 w-[85%] max-w-[380px] z-40 bg-bg-b1 data-[state=open]:animate-fd-sidebar-in data-[state=closed]:animate-fd-sidebar-out",
           className,
         )}
         {...props}

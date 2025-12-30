@@ -85,7 +85,7 @@ export function PageTOCPopover({
         <header
           ref={ref}
           className={cn(
-            "border-b transition-colors",
+            "border-b transition-colors border-outline-low",
             (!isNavTransparent || open) && "bg-bg-b1",
             open && "shadow-xs",
           )}

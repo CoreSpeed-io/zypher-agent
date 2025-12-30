@@ -121,12 +121,9 @@ export function DocsLayout({
     return (
       <>
         <SidebarContent {...rest}>
-          <div className="flex flex-col">
+          <div className="flex flex-col border-l border-outline-low">
             <div className="flex px-4 border-b py-6 border-outline-low">
-              <Link
-                href={"/"}
-                className="inline-flex text-[0.9375rem] items-center gap-2.5 font-medium me-auto"
-              >
+              <Link href={"/"} className="text-[0.9375rem] me-auto">
                 <ZypherIcon />
               </Link>
               {nav.children}
@@ -140,7 +137,7 @@ export function DocsLayout({
           {viewport}
         </SidebarContent>
         <SidebarDrawer>
-          <div className="flex flex-col gap-3 pl-2 pt-4 border-b border-outline-low">
+          <div className="flex h-(--fd-header-height) flex-col gap-3 pl-2 pt-4 border-b border-outline-low border-s">
             <div className="flex text-text-high items-center gap-1.5">
               <SidebarTrigger
                 className={cn(
@@ -172,7 +169,7 @@ export function DocsLayout({
               (nav.component ?? (
                 <LayoutHeader
                   id="nd-subnav"
-                  className="[grid-area:header] sticky top-(--fd-docs-row-1) z-30 flex items-center ps-4 pe-2.5 border-b transition-colors backdrop-blur-sm h-(--fd-header-height) md:hidden max-md:layout:[--fd-header-height:--spacing(14)] data-[transparent=false]:bg-fd-background/80"
+                  className="[grid-area:header] sticky top-(--fd-docs-row-1) z-30 flex items-center ps-4  border-b transition-colors border-outline-low h-(--fd-header-height) md:hidden max-md:layout:[--fd-header-height:--spacing(14)] data-[transparent=false]:bg-bg-b1"
                 >
                   <Link href="/">
                     <ZypherIcon />
