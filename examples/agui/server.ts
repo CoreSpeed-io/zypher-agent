@@ -1,6 +1,9 @@
 /**
  * AG-UI Server Example
  *
+ * Demonstrates how to use the transport-agnostic createAguiEventStream API
+ * with SSE transport in Deno.
+ *
  * Run: deno run --env --allow-all ./server.ts
  */
 
@@ -12,7 +15,9 @@ import {
   getSystemPrompt,
 } from "@zypher/agent";
 import { createTool } from "@zypher/agent/tools";
-import { createAguiStream } from "@zypher/agui";
+import { createAguiEventStream, parseRunAgentInput } from "@zypher/agui";
+import type { Message } from "@ag-ui/core";
+import { eachValueFrom } from "rxjs-for-await";
 
 // Example: Weather tool
 const getWeatherTool = createTool({
@@ -60,12 +65,41 @@ const agent = await createZypherAgent({
   },
 });
 
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+
 Deno.serve({ port: 8000 }, async (request) => {
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
-  const stream = createAguiStream(await request.json(), { agent });
+  // Parse the AG-UI request
+  const input = parseRunAgentInput(await request.json());
+
+  // Create the transport-agnostic event stream
+  const events$ = createAguiEventStream({
+    agent,
+    messages: input.messages as Message[],
+    state: input.state,
+    threadId: input.threadId ?? crypto.randomUUID(),
+    runId: input.runId ?? crypto.randomUUID(),
+    model: Deno.env.get("ZYPHER_MODEL") ?? DEFAULT_MODEL,
+  });
+
+  // Implement SSE encoding for Deno runtime
+  const stream = new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder();
+      try {
+        for await (const event of eachValueFrom(events$)) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+          );
+        }
+      } finally {
+        controller.close();
+      }
+    },
+  });
 
   return new Response(stream, {
     headers: { "Content-Type": "text/event-stream" },
