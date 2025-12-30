@@ -1,26 +1,18 @@
 /**
  * AG-UI Protocol Adapter for ZypherAgent
  *
- * @example
- * ```typescript
- * import { createAguiStream } from "@zypher/agui";
- *
- * const stream = createAguiStream(await request.json(), { agent });
- * return new Response(stream, { headers: { "Content-Type": "text/event-stream" } });
- * ```
+ * Transport-agnostic event streaming with RxJS Observable.
  *
  * @module
  */
 
-// Core adapter, types, and SSE encoder
+// Core adapter and types
 export {
-  createAguiStream,
+  createAguiEventStream,
   createEventContext,
-  encodeSSEStream,
-  formatSSEMessage,
   parseRunAgentInput,
 } from "./adapter.ts";
-export type { CreateAguiStreamOptions, EventContext } from "./adapter.ts";
+export type { AguiEventStreamOptions, EventContext } from "./adapter.ts";
 
 // Message conversion utilities
 export {

@@ -2018,6 +2018,8 @@
       "examples/agui": {
         "dependencies": [
           "jsr:@std/dotenv@~0.225.5",
+          "npm:@ag-ui/core@^0.0.42",
+          "npm:rxjs-for-await@1",
           "npm:zod@^4.2.0"
         ]
       },
@@ -2075,7 +2077,7 @@
       "packages/agui": {
         "dependencies": [
           "npm:@ag-ui/core@^0.0.42",
-          "npm:rxjs-for-await@1"
+          "npm:rxjs@^7.8.2"
         ]
       },
       "packages/cli": {
