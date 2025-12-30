@@ -235,15 +235,7 @@ export function SidebarDrawerContent({
 export function SidebarViewport(props: ScrollAreaProps) {
   return (
     <ScrollArea {...props} className={cn("min-h-0 flex-1", props.className)}>
-      <ScrollViewport
-        className="overscroll-contain"
-        style={
-          {
-            maskImage:
-              "linear-gradient(to bottom, transparent, white 12px, white calc(100% - 12px), transparent)",
-          } as object
-        }
-      >
+      <ScrollViewport className="overscroll-contain">
         {props.children}
       </ScrollViewport>
     </ScrollArea>

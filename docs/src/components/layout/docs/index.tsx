@@ -140,7 +140,7 @@ export function DocsLayout({
           {viewport}
         </SidebarContent>
         <SidebarDrawer>
-          <div className="flex flex-col gap-3 p-4 pb-2">
+          <div className="flex flex-col gap-3 pl-2 pt-4 border-b border-outline-low">
             <div className="flex text-text-high items-center gap-1.5">
               <SidebarTrigger
                 className={cn(

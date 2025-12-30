@@ -85,9 +85,9 @@ export function PageTOCPopover({
         <header
           ref={ref}
           className={cn(
-            "border-b backdrop-blur-sm transition-colors",
-            (!isNavTransparent || open) && "bg-fd-background/80",
-            open && "shadow-lg",
+            "border-b transition-colors",
+            (!isNavTransparent || open) && "bg-bg-b1",
+            open && "shadow-xs",
           )}
         >
           {children}
