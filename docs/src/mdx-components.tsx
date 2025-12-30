@@ -1,9 +1,9 @@
-/** biome-ignore-all lint/a11y/useHeadingContent: <explanation> */
+/** biome-ignore-all lint/a11y/useHeadingContent: ignore */
 import defaultMdxComponents from "fumadocs-ui/mdx";
 
 import type { MDXComponents } from "mdx/types";
-import { cn } from "./lib/cn";
 import { A } from "./modules/mdx-components/a";
+import { Card, Cards } from "./modules/mdx-components/cards";
 import {
   CodeBlock,
   CodeBlockTab,
@@ -130,7 +130,6 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     },
     img: (props) => {
       return (
-        // biome-ignore lint/a11y/useAltText: ignore
         // biome-ignore lint/performance/noImgElement: ignore
         <img
           alt={props.alt}
@@ -150,7 +149,8 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
         />
       );
     },
-
+    Cards,
+    Card,
     ...components,
   };
 }
