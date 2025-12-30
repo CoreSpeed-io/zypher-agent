@@ -24,14 +24,14 @@ export function SearchToggle({
   return (
     <button
       type="button"
-      className={cn("cursor-pointer", props.className)}
+      className={cn("cursor-pointer text-static-white", props.className)}
       data-search=""
       aria-label="Open Search"
       onClick={() => {
         setOpenSearch(true);
       }}
     >
-      <Search className="size-4 text-static-white" />
+      <Search className="size-4" />
     </button>
   );
 }

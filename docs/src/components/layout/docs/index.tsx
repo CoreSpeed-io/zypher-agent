@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   BoxIcon,
   Languages,
+  Menu,
   Sidebar as SidebarIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -30,7 +31,6 @@ import {
   SidebarTabsDropdown,
   type SidebarTabWithProps,
 } from "../sidebar/tabs/dropdown";
-import { ThemeToggle } from "../theme-toggle";
 import {
   LayoutBody,
   LayoutContextProvider,
@@ -126,23 +126,8 @@ export function DocsLayout({
     } = sidebarProps;
     if (component) return component;
 
-    const iconLinks = links.filter((item) => item.type === "icon");
     const viewport = (
       <SidebarViewport>
-        <div className="py-2 px-3 bg-box-b0 border border-outline-med cursor-pointer rounded-md font-mono text-sm mb-6">
-          <Link
-            className="flex items-center justify-between hover:font-medium"
-            href="https://jsr.io/@zypher/agent/doc"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <div className="flex items-center gap-2">
-              <BoxIcon className="size-4" />
-              API Reference
-            </div>
-            <ArrowUpRight className="size-4" />
-          </Link>
-        </div>
         <SidebarPageTree {...components} />
       </SidebarViewport>
     );
@@ -180,81 +165,26 @@ export function DocsLayout({
             {banner}
           </div>
           {viewport}
-          {(i18n ||
-            iconLinks.length > 0 ||
-            themeSwitch?.enabled !== false ||
-            footer) && (
-            <div className="flex flex-col border-t p-4 pt-2 empty:hidden">
-              <div className="flex text-fd-muted-foreground items-center empty:hidden">
-                {i18n && (
-                  <LanguageToggle>
-                    <Languages className="size-4.5" />
-                  </LanguageToggle>
-                )}
-                {iconLinks.map((item, i) => (
-                  <LinkItem
-                    key={i}
-                    item={item}
-                    className={cn(
-                      buttonVariants({ size: "icon-sm", color: "ghost" }),
-                    )}
-                    aria-label={item.label}
-                  >
-                    {item.icon}
-                  </LinkItem>
-                ))}
-              </div>
-              {footer}
-            </div>
-          )}
         </SidebarContent>
         <SidebarDrawer>
           <div className="flex flex-col gap-3 p-4 pb-2">
-            <div className="flex text-fd-muted-foreground items-center gap-1.5">
-              <div className="flex flex-1">
-                {iconLinks.map((item, i) => (
-                  <LinkItem
-                    key={i}
-                    item={item}
-                    className={cn(
-                      buttonVariants({
-                        size: "icon-sm",
-                        color: "ghost",
-                        className: "p-2",
-                      }),
-                    )}
-                    aria-label={item.label}
-                  >
-                    {item.icon}
-                  </LinkItem>
-                ))}
-              </div>
-              {i18n && (
-                <LanguageToggle>
-                  <Languages className="size-4.5" />
-                  <LanguageToggleText />
-                </LanguageToggle>
-              )}
-
+            <div className="flex text-text-high items-center gap-1.5">
               <SidebarTrigger
                 className={cn(
                   buttonVariants({
                     color: "ghost",
                     size: "icon-sm",
-                    className: "p-2",
+                    className: "p-2 hover:bg-transparent cursor-pointer",
                   }),
                 )}
               >
-                <SidebarIcon />
+                <Menu />
               </SidebarTrigger>
             </div>
             {tabs.length > 0 && <SidebarTabsDropdown options={tabs} />}
             {banner}
           </div>
           {viewport}
-          <div className="flex flex-col border-t p-4 pt-2 empty:hidden">
-            {footer}
-          </div>
         </SidebarDrawer>
       </>
     );
@@ -271,30 +201,22 @@ export function DocsLayout({
                   id="nd-subnav"
                   className="[grid-area:header] sticky top-(--fd-docs-row-1) z-30 flex items-center ps-4 pe-2.5 border-b transition-colors backdrop-blur-sm h-(--fd-header-height) md:hidden max-md:layout:[--fd-header-height:--spacing(14)] data-[transparent=false]:bg-fd-background/80"
                 >
-                  {renderTitleNav(nav, {
-                    className: "inline-flex items-center gap-2.5 font-semibold",
-                  })}
+                  <Link href="/">
+                    <ZypherIcon />
+                  </Link>
                   <div className="flex-1">{nav.children}</div>
-                  {searchToggle.enabled !== false &&
-                    (searchToggle.components?.sm ?? (
-                      <SearchToggle
-                        className="p-2 text-text-high"
-                        hideIfDisabled
-                      />
-                    ))}
-                  {sidebarEnabled && (
-                    <SidebarTrigger
-                      className={cn(
-                        buttonVariants({
-                          color: "ghost",
-                          size: "icon-sm",
-                          className: "p-2",
-                        }),
-                      )}
-                    >
-                      <SidebarIcon />
-                    </SidebarTrigger>
-                  )}
+                  <SearchToggle className="p-2 text-text-high" hideIfDisabled />
+                  <SidebarTrigger
+                    className={cn(
+                      buttonVariants({
+                        color: "ghost",
+                        size: "icon-sm",
+                        className: "p-2 hover:bg-transparent cursor-pointer",
+                      }),
+                    )}
+                  >
+                    <Menu />
+                  </SidebarTrigger>
                 </LayoutHeader>
               ))}
             {sidebarEnabled && sidebar()}
