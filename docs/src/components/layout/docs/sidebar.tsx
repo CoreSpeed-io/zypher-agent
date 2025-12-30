@@ -10,7 +10,7 @@ import { createLinkItemRenderer } from "../sidebar/link-item";
 import { createPageTreeRenderer } from "../sidebar/page-tree";
 
 const itemVariants = cva(
-  "relative flex flex-row tracking-[-0.02em] text-[13px] items-center gap-2 leading-[140%] rounded-md px-2 py-3 text-start text-text-high font-mono wrap-anywhere [&_svg]:size-4 [&_svg]:shrink-0",
+  "relative flex flex-row tracking-[-0.02em] cursor-pointer text-[13px] border-b broder-outline-low items-center gap-2 leading-[140%] px-4 py-3 text-start text-text-high font-mono wrap-anywhere [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -19,14 +19,14 @@ const itemVariants = cva(
           "transition-colors hover:text-text-high hover:bg-surface-s1 hover:transition-none",
       },
       highlight: {
-        true: "data-[active=true]:before:content-[''] data-[active=true]:before:bg-brand-base data-[active=true]:before:absolute data-[active=true]:before:w-px data-[active=true]:before:inset-y-2.5 data-[active=true]:before:start-2.5",
+        // true: "data-[active=true]:before:content-[''] data-[active=true]:before:bg-brand-base data-[active=true]:before:absolute data-[active=true]:before:w-px data-[active=true]:before:inset-y-2.5 data-[active=true]:before:start-2.5",
       },
     },
   },
 );
 
 function getItemOffset(depth: number) {
-  return `calc(${2 + 3 * depth} * var(--spacing))`;
+  return `calc(${4 + 3 * depth} * var(--spacing))`;
 }
 
 export {
@@ -229,14 +229,14 @@ export function SidebarFolderContent({
   children,
   ...props
 }: ComponentProps<typeof Base.SidebarFolderContent>) {
-  const depth = Base.useFolderDepth();
+  // const depth = Base.useFolderDepth();
 
   return (
     <Base.SidebarFolderContent
       className={cn(
         "relative",
-        depth === 1 &&
-          "before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5",
+        // depth === 1 &&
+        //   "before:content-[''] before:absolute before:w-px before:inset-y-1 before:bg-fd-border before:start-2.5",
         className,
       )}
       {...props}

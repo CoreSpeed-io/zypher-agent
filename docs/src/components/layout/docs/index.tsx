@@ -1,12 +1,6 @@
 import type * as PageTree from "fumadocs-core/page-tree";
 import { TreeContextProvider } from "fumadocs-ui/contexts/tree";
-import {
-  ArrowUpRight,
-  BoxIcon,
-  Languages,
-  Menu,
-  Sidebar as SidebarIcon,
-} from "lucide-react";
+import { Menu } from "lucide-react";
 import Link from "next/link";
 import {
   type ComponentProps,
@@ -17,14 +11,8 @@ import {
 import { ZypherIcon } from "@/components/icons/zypher";
 import { cn } from "../../../lib/cn";
 import { buttonVariants } from "../../ui/button";
-import { LanguageToggle, LanguageToggleText } from "../language-toggle";
-import { LinkItem } from "../link-item";
 import { SearchToggle } from "../search-toggle";
-import {
-  type BaseLayoutProps,
-  renderTitleNav,
-  resolveLinkItems,
-} from "../shared";
+import type { BaseLayoutProps } from "../shared";
 import type { SidebarPageTreeComponents } from "../sidebar/page-tree";
 import { type GetSidebarTabsOptions, getSidebarTabs } from "../sidebar/tabs";
 import {
@@ -39,7 +27,6 @@ import {
 } from "./client";
 import {
   Sidebar,
-  SidebarCollapseTrigger,
   SidebarContent,
   SidebarDrawer,
   SidebarPageTree,
@@ -113,7 +100,6 @@ export function DocsLayout({
     }
     return [];
   }, [tree, sidebarTabs]);
-  const links = resolveLinkItems(props);
 
   function sidebar() {
     const {
@@ -135,8 +121,8 @@ export function DocsLayout({
     return (
       <>
         <SidebarContent {...rest}>
-          <div className="flex flex-col gap-3 p-4 pb-2">
-            <div className="flex">
+          <div className="flex flex-col">
+            <div className="flex px-4 border-b py-6 border-outline-low">
               <Link
                 href={"/"}
                 className="inline-flex text-[0.9375rem] items-center gap-2.5 font-medium me-auto"
@@ -144,19 +130,6 @@ export function DocsLayout({
                 <ZypherIcon />
               </Link>
               {nav.children}
-              {collapsible && (
-                <SidebarCollapseTrigger
-                  className={cn(
-                    buttonVariants({
-                      color: "ghost",
-                      size: "icon-sm",
-                      className: "mb-auto text-fd-muted-foreground",
-                    }),
-                  )}
-                >
-                  <SidebarIcon />
-                </SidebarCollapseTrigger>
-              )}
             </div>
             {<SidebarSearch />}
             {tabs.length > 0 && tabMode === "auto" && (

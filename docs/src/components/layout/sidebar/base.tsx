@@ -1,5 +1,10 @@
-'use client';
-import { ChevronDown, ExternalLink } from 'lucide-react';
+"use client";
+import { Presence } from "@radix-ui/react-presence";
+import { usePathname } from "fumadocs-core/framework";
+import Link, { type LinkProps } from "fumadocs-core/link";
+import { useMediaQuery } from "fumadocs-core/utils/use-media-query";
+import { useOnChange } from "fumadocs-core/utils/use-on-change";
+import { ChevronDown, ExternalLink } from "lucide-react";
 import {
   type ComponentProps,
   createContext,
@@ -11,27 +16,22 @@ import {
   useMemo,
   useRef,
   useState,
-} from 'react';
-import Link, { type LinkProps } from 'fumadocs-core/link';
-import { useOnChange } from 'fumadocs-core/utils/use-on-change';
-import { cn } from '../../../lib/cn';
-import {
-  ScrollArea,
-  type ScrollAreaProps,
-  ScrollViewport,
-} from '../../ui/scroll-area';
-import { isActive } from '../../../lib/urls';
+} from "react";
+import scrollIntoView from "scroll-into-view-if-needed";
+import { cn } from "../../../lib/cn";
+import { isActive } from "../../../lib/urls";
 import {
   Collapsible,
   CollapsibleContent,
   type CollapsibleContentProps,
   CollapsibleTrigger,
   type CollapsibleTriggerProps,
-} from '../../ui/collapsible';
-import { useMediaQuery } from 'fumadocs-core/utils/use-media-query';
-import { Presence } from '@radix-ui/react-presence';
-import scrollIntoView from 'scroll-into-view-if-needed';
-import { usePathname } from 'fumadocs-core/framework';
+} from "../../ui/collapsible";
+import {
+  ScrollArea,
+  type ScrollAreaProps,
+  ScrollViewport,
+} from "../../ui/scroll-area";
 
 interface SidebarContext {
   open: boolean;
@@ -67,7 +67,7 @@ export interface SidebarProviderProps {
   children?: ReactNode;
 }
 
-type Mode = 'drawer' | 'full';
+type Mode = "drawer" | "full";
 
 const SidebarContext = createContext<SidebarContext | null>(null);
 
@@ -87,7 +87,7 @@ export function SidebarProvider({
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
-  const mode: Mode = useMediaQuery('(width < 768px)') ? 'drawer' : 'full';
+  const mode: Mode = useMediaQuery("(width < 768px)") ? "drawer" : "full";
 
   useOnChange(pathname, () => {
     if (closeOnRedirect.current) {
@@ -121,7 +121,7 @@ export function useSidebar(): SidebarContext {
   const ctx = use(SidebarContext);
   if (!ctx)
     throw new Error(
-      'Missing SidebarContext, make sure you have wrapped the component in <DocsLayout /> and the context is available.',
+      "Missing SidebarContext, make sure you have wrapped the component in <DocsLayout /> and the context is available.",
     );
 
   return ctx;
@@ -155,7 +155,7 @@ export function SidebarContent({
     if (collapsed) setHover(false);
   });
 
-  if (mode !== 'full') return;
+  if (mode !== "full") return;
 
   function shouldIgnoreHover(e: PointerEvent): boolean {
     const element = ref.current;
@@ -163,7 +163,7 @@ export function SidebarContent({
 
     return (
       !collapsed ||
-      e.pointerType === 'touch' ||
+      e.pointerType === "touch" ||
       element.getAnimations().length > 0
     );
   }
@@ -192,14 +192,14 @@ export function SidebarContent({
   });
 }
 
-export function SidebarDrawerOverlay(props: ComponentProps<'div'>) {
+export function SidebarDrawerOverlay(props: ComponentProps<"div">) {
   const { open, setOpen, mode } = useSidebar();
 
-  if (mode !== 'drawer') return;
+  if (mode !== "drawer") return;
   return (
     <Presence present={open}>
       <div
-        data-state={open ? 'open' : 'closed'}
+        data-state={open ? "open" : "closed"}
         onClick={() => setOpen(false)}
         {...props}
       />
@@ -211,18 +211,18 @@ export function SidebarDrawerContent({
   className,
   children,
   ...props
-}: ComponentProps<'aside'>) {
+}: ComponentProps<"aside">) {
   const { open, mode } = useSidebar();
-  const state = open ? 'open' : 'closed';
+  const state = open ? "open" : "closed";
 
-  if (mode !== 'drawer') return;
+  if (mode !== "drawer") return;
   return (
     <Presence present={open}>
       {({ present }) => (
         <aside
           id="nd-sidebar-mobile"
           data-state={state}
-          className={cn(!present && 'invisible', className)}
+          className={cn(!present && "invisible", className)}
           {...props}
         >
           {children}
@@ -234,13 +234,13 @@ export function SidebarDrawerContent({
 
 export function SidebarViewport(props: ScrollAreaProps) {
   return (
-    <ScrollArea {...props} className={cn('min-h-0 flex-1', props.className)}>
+    <ScrollArea {...props} className={cn("min-h-0 flex-1", props.className)}>
       <ScrollViewport
-        className="p-4 overscroll-contain"
+        className="overscroll-contain"
         style={
           {
             maskImage:
-              'linear-gradient(to bottom, transparent, white 12px, white calc(100% - 12px), transparent)',
+              "linear-gradient(to bottom, transparent, white 12px, white calc(100% - 12px), transparent)",
           } as object
         }
       >
@@ -250,14 +250,14 @@ export function SidebarViewport(props: ScrollAreaProps) {
   );
 }
 
-export function SidebarSeparator(props: ComponentProps<'p'>) {
+export function SidebarSeparator(props: ComponentProps<"p">) {
   const depth = useFolderDepth();
   return (
     <p
       {...props}
       className={cn(
-        'inline-flex items-center gap-2 mb-1.5 px-2 mt-6 empty:mb-0',
-        depth === 0 && 'first:mt-0',
+        "inline-flex items-center gap-2 mb-1.5 px-2 mt-6 empty:mb-0",
+        depth === 0 && "first:mt-0",
         props.className,
       )}
     >
@@ -295,7 +295,7 @@ export function SidebarFolder({
   active = false,
   children,
   ...props
-}: ComponentProps<'div'> & {
+}: ComponentProps<"div"> & {
   active?: boolean;
   defaultOpen?: boolean;
   collapsible?: boolean;
@@ -343,13 +343,13 @@ export function SidebarFolderTrigger({
         {children}
         <ChevronDown
           data-icon
-          className={cn('ms-auto transition-transform', !open && '-rotate-90')}
+          className={cn("ms-auto transition-transform", !open && "-rotate-90")}
         />
       </CollapsibleTrigger>
     );
   }
 
-  return <div {...(props as ComponentProps<'div'>)}>{children}</div>;
+  return <div {...(props as ComponentProps<"div">)}>{children}</div>;
 }
 
 export function SidebarFolderLink({ children, ...props }: LinkProps) {
@@ -371,7 +371,7 @@ export function SidebarFolderLink({ children, ...props }: LinkProps) {
 
         if (
           e.target instanceof Element &&
-          e.target.matches('[data-icon], [data-icon] *')
+          e.target.matches("[data-icon], [data-icon] *")
         ) {
           setOpen(!open);
           e.preventDefault();
@@ -386,7 +386,7 @@ export function SidebarFolderLink({ children, ...props }: LinkProps) {
       {collapsible && (
         <ChevronDown
           data-icon
-          className={cn('ms-auto transition-transform', !open && '-rotate-90')}
+          className={cn("ms-auto transition-transform", !open && "-rotate-90")}
         />
       )}
     </Link>
@@ -400,7 +400,7 @@ export function SidebarFolderContent(props: CollapsibleContentProps) {
 export function SidebarTrigger({
   children,
   ...props
-}: ComponentProps<'button'>) {
+}: ComponentProps<"button">) {
   const { setOpen } = useSidebar();
 
   return (
@@ -414,7 +414,7 @@ export function SidebarTrigger({
   );
 }
 
-export function SidebarCollapseTrigger(props: ComponentProps<'button'>) {
+export function SidebarCollapseTrigger(props: ComponentProps<"button">) {
   const { collapsed, setCollapsed } = useSidebar();
 
   return (
@@ -442,9 +442,9 @@ function useAutoScroll(
     if (active && ref.current) {
       scrollIntoView(ref.current, {
         boundary: document.getElementById(
-          mode === 'drawer' ? 'nd-sidebar-mobile' : 'nd-sidebar',
+          mode === "drawer" ? "nd-sidebar-mobile" : "nd-sidebar",
         ),
-        scrollMode: 'if-needed',
+        scrollMode: "if-needed",
       });
     }
   }, [active, mode, ref]);
