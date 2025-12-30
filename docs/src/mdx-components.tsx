@@ -3,6 +3,8 @@ import defaultMdxComponents from "fumadocs-ui/mdx";
 
 import type { MDXComponents } from "mdx/types";
 import { A } from "./modules/mdx-components/a";
+import { Accordion, Accordions } from "./modules/mdx-components/accordion";
+import { Callout } from "./modules/mdx-components/callout";
 import { Card, Cards } from "./modules/mdx-components/cards";
 import {
   CodeBlock,
@@ -18,10 +20,7 @@ import { Heading } from "./modules/mdx-components/heading";
 export function getMDXComponents(components?: MDXComponents): MDXComponents {
   return {
     ...defaultMdxComponents,
-    CodeBlockTab,
-    CodeBlockTabs,
-    CodeBlockTabsList,
-    CodeBlockTabsTrigger,
+
     pre: ({ children, ...props }) => {
       return (
         <CodeBlock {...props}>
@@ -149,8 +148,15 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
         />
       );
     },
+    CodeBlockTab,
+    CodeBlockTabs,
+    CodeBlockTabsList,
+    CodeBlockTabsTrigger,
     Cards,
     Card,
+    Accordions,
+    Accordion,
+    Callout,
     ...components,
   };
 }

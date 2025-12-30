@@ -41,7 +41,7 @@ export function Card({ icon, title, description, ...props }: CardProps) {
           {icon}
         </div>
       ) : null}
-      <h3 className="not-prose flex items-start justify-between text-sm font-normal  text-text-high">
+      <h3 className="not-prose flex items-start justify-between text-sm font-mono text-text-high">
         {title}
       </h3>
       {description ? (
