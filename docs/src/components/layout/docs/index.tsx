@@ -145,8 +145,8 @@ export function DocsLayout({
           {viewport}
         </SidebarContent>
         <SidebarDrawer>
-          <div className="flex h-(--fd-header-height) flex-col gap-3 pl-2 pt-4 border-b border-outline-low border-s">
-            <div className="flex text-text-high items-center gap-1.5">
+          <div className="h-(--fd-header-height) gap-3 pl-2 py-2 border-b border-outline-low border-s">
+            <div className="flex text-text-high items-center">
               <SidebarTrigger
                 className={cn(
                   buttonVariants({
