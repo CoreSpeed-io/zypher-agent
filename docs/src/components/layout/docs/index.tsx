@@ -1,6 +1,6 @@
 import type * as PageTree from "fumadocs-core/page-tree";
 import { TreeContextProvider } from "fumadocs-ui/contexts/tree";
-import { Sidebar as SidebarIcon } from "lucide-react";
+import { Menu, Sidebar as SidebarIcon } from "lucide-react";
 import Link from "next/link";
 import {
   type ComponentProps,
@@ -12,7 +12,7 @@ import { ZypherIcon } from "@/components/icons/zypher";
 import { cn } from "../../../lib/cn";
 import { buttonVariants } from "../../ui/button";
 import { SearchToggle } from "../search-toggle";
-import { type BaseLayoutProps, renderTitleNav } from "../shared";
+import { type BaseLayoutProps, LinkItem, renderTitleNav } from "../shared";
 import type { SidebarPageTreeComponents } from "../sidebar/page-tree";
 import { type GetSidebarTabsOptions, getSidebarTabs } from "../sidebar/tabs";
 import {
@@ -28,6 +28,7 @@ import {
 import {
   Sidebar,
   SidebarContent,
+  SidebarDrawer,
   SidebarPageTree,
   SidebarTrigger,
   SidebarViewport,
@@ -135,6 +136,26 @@ export function DocsLayout({
           {banner}
         </div>
         {viewport}
+        <SidebarDrawer>
+          <div className="flex flex-col gap-3 p-4 pb-2">
+            <div className="flex text-fd-muted-foreground items-center gap-1.5">
+              <SidebarTrigger
+                className={cn(
+                  buttonVariants({
+                    color: "ghost",
+                    size: "icon-sm",
+                    className: "p-2",
+                  }),
+                )}
+              >
+                <SidebarIcon />
+              </SidebarTrigger>
+            </div>
+            {tabs.length > 0 && <SidebarTabsDropdown options={tabs} />}
+            {banner}
+          </div>
+          {viewport}
+        </SidebarDrawer>
       </SidebarContent>
     );
   }
@@ -148,35 +169,27 @@ export function DocsLayout({
               (nav.component ?? (
                 <LayoutHeader
                   id="nd-subnav"
-                  className="[grid-area:header] sticky top-(--fd-docs-row-1) z-30 flex items-center ps-4 pe-2.5 border-b transition-colors backdrop-blur-sm h-(--fd-header-height) md:hidden max-md:layout:[--fd-header-height:--spacing(14)] data-[transparent=false]:bg-fd-background/80"
+                  className="[grid-area:header] sticky top-(--fd-docs-row-1) z-30 flex items-center ps-4 pe-2.5 border-b border-outline-low transition-colors h-(--fd-header-height) md:hidden max-md:layout:[--fd-header-height:--spacing(14)] data-[transparent=false]:bg-fd-background/80"
                 >
-                  {renderTitleNav(nav, {
-                    className: "inline-flex items-center gap-2.5 font-semibold",
-                  })}
+                  <Link href="/">
+                    <ZypherIcon />
+                  </Link>
                   <div className="flex-1">{nav.children}</div>
-                  {searchToggle.enabled !== false &&
-                    (searchToggle.components?.sm ?? (
-                      <SearchToggle
-                        className="p-2 text-text-high"
-                        hideIfDisabled
-                      />
-                    ))}
-                  {sidebarEnabled && (
-                    <SidebarTrigger
-                      className={cn(
-                        buttonVariants({
-                          color: "ghost",
-                          size: "icon-sm",
-                          className: "p-2",
-                        }),
-                      )}
-                    >
-                      <SidebarIcon />
-                    </SidebarTrigger>
-                  )}
+                  <SearchToggle className="p-2 text-text-high" hideIfDisabled />
+                  <SidebarTrigger
+                    className={cn(
+                      buttonVariants({
+                        color: "ghost",
+                        size: "icon-sm",
+                        className: "p-2 cursor-pointer hover:bg-transparent",
+                      }),
+                    )}
+                  >
+                    <Menu />
+                  </SidebarTrigger>
                 </LayoutHeader>
               ))}
-            {sidebarEnabled && sidebar()}
+            {sidebar()}
             {tabMode === "top" && tabs.length > 0 && (
               <LayoutTabs
                 options={tabs}

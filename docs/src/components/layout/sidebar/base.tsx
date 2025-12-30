@@ -406,7 +406,9 @@ export function SidebarTrigger({
   return (
     <button
       aria-label="Open Sidebar"
-      onClick={() => setOpen((prev) => !prev)}
+      onClick={() => {
+        setOpen((prev) => !prev);
+      }}
       {...props}
     >
       {children}
