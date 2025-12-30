@@ -1,6 +1,6 @@
 import type * as PageTree from "fumadocs-core/page-tree";
 import { TreeContextProvider } from "fumadocs-ui/contexts/tree";
-import { ArrowUpRight, BoxIcon, Sidebar as SidebarIcon } from "lucide-react";
+import { Sidebar as SidebarIcon } from "lucide-react";
 import Link from "next/link";
 import {
   type ComponentProps,
@@ -27,7 +27,6 @@ import {
 } from "./client";
 import {
   Sidebar,
-  SidebarCollapseTrigger,
   SidebarContent,
   SidebarPageTree,
   SidebarTrigger,
@@ -112,15 +111,15 @@ export function DocsLayout({
     if (component) return component;
 
     const viewport = (
-      <SidebarViewport>
+      <SidebarViewport className="border-l border-outline-low">
         <SidebarPageTree {...components} />
       </SidebarViewport>
     );
 
     return (
       <SidebarContent {...rest}>
-        <div className="flex flex-col px-0 pt-4">
-          <div className="flex px-4 pb-4 border-outline-low">
+        <div className="flex flex-col px-0 pt-6 border-l border-outline-low">
+          <div className="flex px-4 pb-6 border-outline-low">
             <Link
               href={"/"}
               className="inline-flex text-[0.9375rem] items-center gap-2.5 font-medium me-auto"
