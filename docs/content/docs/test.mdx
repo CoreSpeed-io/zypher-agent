@@ -3,6 +3,9 @@ title: Components
 description: Components
 ---
 
+import { Accordion, Accordions } from '@/modules/mdx-components/accordion';
+
+
 ## Code Block
 
 ```js
@@ -12,6 +15,14 @@ console.log('Hello World');
 ## Cards
 
 <Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.vercel.app" />
+  <Card title="Quick Start" href="/docs/quick-start" />
+  <Card title="Core Concepts" href="/docs/core-concepts" />
+  <Card title="Examples" href="/docs/examples" />
 </Cards>
+
+## Accordions
+
+<Accordions type="multiple">
+  <Accordion title="My Title 1" id="1">My Content</Accordion>
+  <Accordion title="My Title 2" id="2">My Content</Accordion>
+</Accordions>
