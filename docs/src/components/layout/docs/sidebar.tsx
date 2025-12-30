@@ -160,6 +160,7 @@ export function SidebarItem({
   return (
     <Base.SidebarItem
       className={cn(
+        // @ts-expect-error the type of highlight is incorrect
         itemVariants({ variant: "link", highlight: depth >= 1 }),
         className,
       )}
@@ -209,6 +210,7 @@ export function SidebarFolderLink({
   return (
     <Base.SidebarFolderLink
       className={cn(
+        // @ts-expect-error the type of highlight is incorrect
         itemVariants({ variant: "link", highlight: depth > 1 }),
         "w-full",
         className,

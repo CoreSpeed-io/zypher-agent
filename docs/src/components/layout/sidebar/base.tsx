@@ -198,6 +198,8 @@ export function SidebarDrawerOverlay(props: ComponentProps<"div">) {
   if (mode !== "drawer") return;
   return (
     <Presence present={open}>
+      {/** biome-ignore lint/a11y/noStaticElementInteractions: ignore */}
+      {/** biome-ignore lint/a11y/useKeyWithClickEvents: ignore */}
       <div
         data-state={open ? "open" : "closed"}
         onClick={() => setOpen(false)}

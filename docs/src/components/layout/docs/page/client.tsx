@@ -64,6 +64,7 @@ export function PageTOCPopover({
 
   return (
     <TocPopoverContext
+      // biome-ignore lint/correctness/useExhaustiveDependencies: ignore
       value={useMemo(
         () => ({
           open,
@@ -354,6 +355,7 @@ export function PageBreadcrumb({
         );
 
         return (
+          // biome-ignore lint/suspicious/noArrayIndexKey: ignore
           <Fragment key={i}>
             {i !== 0 && <ChevronRight className="size-3.5 shrink-0" />}
             {item.url ? (
