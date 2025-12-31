@@ -16,7 +16,7 @@ export type CalloutType =
   | "warning"
   | "idea";
 
-const iconClass = "size-5 -me-0.5 fill-(--callout-color) text-fd-card";
+const iconClass = "size-5 -me-0.5 fill-(--callout-color) text-text-white";
 
 export function Callout({
   children,
