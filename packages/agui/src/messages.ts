@@ -31,11 +31,14 @@ export function convertAguiMessagesToZypher(
       systemContext = "";
       result.push({ role: "user", content, timestamp: new Date() });
     } else if (msg.role === "assistant") {
-      result.push({
-        role: "assistant",
-        content: convertAssistantContent(msg),
-        timestamp: new Date(),
-      });
+      const content = convertAssistantContent(msg);
+      if (content.length > 0) {
+        result.push({
+          role: "assistant",
+          content,
+          timestamp: new Date(),
+        });
+      }
     } else if (msg.role === "tool") {
       result.push({
         role: "user",
@@ -194,10 +197,12 @@ export function convertZypherMessagesToAgui(
         } as Message);
       }
     } else if (msg.role === "assistant") {
-      const textContent = msg.content
-        .filter((b): b is TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("\n");
+      const textBlocks = msg.content.filter(
+        (b): b is TextBlock => b.type === "text",
+      );
+      const textContent = textBlocks.length > 0
+        ? textBlocks.map((b) => b.text).join("\n")
+        : undefined;
 
       const toolUses = msg.content.filter(
         (b): b is ToolUseBlock => b.type === "tool_use",
@@ -206,7 +211,7 @@ export function convertZypherMessagesToAgui(
       const aguiMsg: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: textContent || undefined,
+        content: textContent,
       } as Message;
 
       if (toolUses.length > 0) {
