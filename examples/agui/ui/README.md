@@ -10,16 +10,16 @@ See the [parent README](../README.md) for full setup instructions.
 Quick start:
 
 ```bash
-pnpm install
-pnpm dev        # Starts the Next.js UI
+bun install
+bun dev        # Starts the Next.js UI
 ```
 
 ## Available Scripts
 
-- `pnpm dev` - Start the Next.js UI (port 3000)
-- `pnpm build` - Build for production
-- `pnpm start` - Start the production server
-- `pnpm lint` - Run ESLint
+- `bun dev` - Start the Next.js UI (port 3000)
+- `bun build` - Build for production
+- `bun start` - Start the production server
+- `bun lint` - Run ESLint
 
 ## Customization
 
