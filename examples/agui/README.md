@@ -15,7 +15,7 @@ ANTHROPIC_API_KEY=your_api_key
 
 ```bash
 cd ui
-pnpm install  # or npm install / yarn install / bun install
+bun install
 ```
 
 3. Start the agent server (in one terminal):
@@ -29,7 +29,7 @@ deno run --env --allow-all ./server.ts
 
 ```bash
 cd ui
-pnpm dev
+bun dev
 ```
 
 5. Open `http://localhost:3000` to use the CopilotKit chat interface
