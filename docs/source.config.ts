@@ -18,6 +18,15 @@ export const docs = defineDocs({
 
 export default defineConfig({
   mdxOptions: {
-    // MDX options
+    rehypeCodeOptions: {
+      themes: {
+        light: "vesper",
+        dark: "vesper",
+      },
+      colorReplacements: {
+        "#99ffe4": "#ff5e4f",
+        "#ffc799": "#FFF",
+      },
+    },
   },
 });

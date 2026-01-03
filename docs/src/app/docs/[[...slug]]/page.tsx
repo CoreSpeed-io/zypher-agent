@@ -1,16 +1,18 @@
-import { source } from '@/lib/source';
+import { createRelativeLink } from "fumadocs-ui/mdx";
+
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import {
   DocsBody,
   DocsDescription,
   DocsPage,
   DocsTitle,
-} from 'fumadocs-ui/page';
-import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { createRelativeLink } from 'fumadocs-ui/mdx';
-import { getMDXComponents } from '@/mdx-components';
+} from "@/components/layout/docs/page";
+import { source } from "@/lib/source";
+import { getMDXComponents } from "@/mdx-components";
+import { A } from "@/modules/mdx-components/a";
 
-export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
+export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const params = await props.params;
   const page = source.getPage(params.slug);
   if (!page) notFound();
@@ -18,14 +20,17 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const MDXContent = page.data.body;
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
+    <DocsPage toc={page.data.toc}>
+      <DocsTitle className="font-mono">{page.data.title}</DocsTitle>
+      <DocsDescription className="text-sm text-text-med">
+        {page.data.description}
+      </DocsDescription>
       <DocsBody>
         <MDXContent
+          className="prose prose-sm"
           components={getMDXComponents({
             // this allows you to link to other pages with relative file paths
-            a: createRelativeLink(source, page),
+            a: createRelativeLink(source, page, A),
           })}
         />
       </DocsBody>
@@ -38,7 +43,7 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata(
-  props: PageProps<'/docs/[[...slug]]'>,
+  props: PageProps<"/docs/[[...slug]]">,
 ): Promise<Metadata> {
   const params = await props.params;
   const page = source.getPage(params.slug);
