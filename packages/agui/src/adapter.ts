@@ -26,7 +26,7 @@ import { RunAgentInputSchema } from "@ag-ui/core";
 import type { BaseEvent, Message, RunAgentInput } from "@ag-ui/core";
 import { concatMap, from, Observable } from "rxjs";
 
-import type { ZypherAgent } from "@zypher/agent";
+import { formatError, type ZypherAgent } from "@zypher/agent";
 import {
   convertZypherMessagesToAgui,
   extractTaskDescription,
@@ -105,11 +105,7 @@ export function createAguiEventStream(
       .subscribe({
         next: (event) => subscriber.next(event),
         error: (error) => {
-          subscriber.next(
-            createRunErrorEvent(
-              error instanceof Error ? error.message : String(error),
-            ),
-          );
+          subscriber.next(createRunErrorEvent(formatError(error)));
           subscriber.complete();
         },
         complete: () => {
