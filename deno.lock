@@ -26,12 +26,14 @@
     "jsr:@std/streams@^1.0.14": "1.0.14",
     "jsr:@std/testing@^1.0.16": "1.0.16",
     "jsr:@std/text@~1.0.7": "1.0.16",
+    "npm:@ag-ui/core@^0.0.42": "0.0.42",
     "npm:@agentclientprotocol/sdk@0.12": "0.12.0_zod@4.2.1",
     "npm:@anthropic-ai/sdk@~0.71.2": "0.71.2_zod@4.2.1",
     "npm:@aws-sdk/client-s3@^3.952.0": "3.953.0",
     "npm:@aws-sdk/s3-request-presigner@^3.952.0": "3.953.0",
     "npm:@modelcontextprotocol/sdk@^1.25.0": "1.25.1_zod@4.2.1_ajv@8.17.1_express@5.2.1",
     "npm:@modelcontextprotocol/sdk@^1.25.1": "1.25.1_zod@4.2.1_ajv@8.17.1_express@5.2.1",
+    "npm:@types/node@*": "24.2.0",
     "npm:@types/react@^19.2.7": "19.2.7",
     "npm:chalk@^5.6.2": "5.6.2",
     "npm:diff@8.0.2": "8.0.2",
@@ -148,10 +150,17 @@
     }
   },
   "npm": {
+    "@ag-ui/core@0.0.42": {
+      "integrity": "sha512-C2hMg4Gs5oiUDgK9cA2RsTwSSmFZdIsqPklDrFw/Ue+quH6EU3vKp5YoOq7nuaQYO4pO8Em+Z+l5/M5PpcvP1g==",
+      "dependencies": [
+        "rxjs@7.8.1",
+        "zod@3.25.76"
+      ]
+    },
     "@agentclientprotocol/sdk@0.12.0_zod@4.2.1": {
       "integrity": "sha512-V8uH/KK1t7utqyJmTA7y7DzKu6+jKFIXM+ZVouz8E55j8Ej2RV42rEvPKn3/PpBJlliI5crcGk1qQhZ7VwaepA==",
       "dependencies": [
-        "zod"
+        "zod@4.2.1"
       ]
     },
     "@alcalzone/ansi-tokenize@0.2.2": {
@@ -165,10 +174,10 @@
       "integrity": "sha512-TGNDEUuEstk/DKu0/TflXAEt+p+p/WhTlFzEnoosvbaDU2LTjm42igSdlL0VijrKpWejtOKxX0b8A7uc+XiSAQ==",
       "dependencies": [
         "json-schema-to-ts",
-        "zod"
+        "zod@4.2.1"
       ],
       "optionalPeers": [
-        "zod"
+        "zod@4.2.1"
       ],
       "bin": true
     },
@@ -760,7 +769,7 @@
         "json-schema-typed",
         "pkce-challenge",
         "raw-body",
-        "zod",
+        "zod@4.2.1",
         "zod-to-json-schema"
       ]
     },
@@ -1208,6 +1217,12 @@
       "integrity": "sha512-4aUIteuyxtBUhVdiQqcDhKFitwfd9hqoSDYY2KRXiWtgoWJ9Bmise+KfEPDiVHWeJepvF8xJO9/9+WDIciMFFw==",
       "dependencies": [
         "tslib"
+      ]
+    },
+    "@types/node@24.2.0": {
+      "integrity": "sha512-3xyG3pMCq3oYCNg7/ZP+E1ooTaGB4cG8JWRsqqOYQdbWNY4zbaV0Ennrd7stjiJEFZCaybcIgpTjJWHRfBSIDw==",
+      "dependencies": [
+        "undici-types"
       ]
     },
     "@types/react@19.2.7": {
@@ -1696,10 +1711,10 @@
     "openai@6.9.1_zod@4.2.1": {
       "integrity": "sha512-vQ5Rlt0ZgB3/BNmTa7bIijYFhz3YBceAA3Z4JuoMSBftBF9YqFHIEhZakSs+O/Ad7EaoEimZvHxD5ylRjN11Lg==",
       "dependencies": [
-        "zod"
+        "zod@4.2.1"
       ],
       "optionalPeers": [
-        "zod"
+        "zod@4.2.1"
       ],
       "bin": true
     },
@@ -1783,7 +1798,13 @@
     "rxjs-for-await@1.0.0_rxjs@7.8.2": {
       "integrity": "sha512-MJhvf1vtQaljd5wlzsasvOjcohVogzkHkUI0gFE9nGhZ15/fT2vR1CjkLEh37oRqWwpv11vHo5D+sLM+Aw9Y8g==",
       "dependencies": [
-        "rxjs"
+        "rxjs@7.8.2"
+      ]
+    },
+    "rxjs@7.8.1": {
+      "integrity": "sha512-AA3TVj+0A2iuIoQkWEK/tqFjBq2j+6PO6Y0zJcvzLAFhEFIO3HL0vls9hWLncZbAAbK0mar7oZ4V079I/qPMxg==",
+      "dependencies": [
+        "tslib"
       ]
     },
     "rxjs@7.8.2": {
@@ -1937,6 +1958,9 @@
         "mime-types"
       ]
     },
+    "undici-types@7.10.0": {
+      "integrity": "sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag=="
+    },
     "unpipe@1.0.0": {
       "integrity": "sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ=="
     },
@@ -1979,8 +2003,11 @@
     "zod-to-json-schema@3.25.0_zod@4.2.1": {
       "integrity": "sha512-HvWtU2UG41LALjajJrML6uQejQhNJx+JBO9IflpSja4R03iNWfKXrj6W2h7ljuLyc1nKS+9yDyL/9tD1U/yBnQ==",
       "dependencies": [
-        "zod"
+        "zod@4.2.1"
       ]
+    },
+    "zod@3.25.76": {
+      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="
     },
     "zod@4.2.1": {
       "integrity": "sha512-0wZ1IRqGGhMP76gLqz8EyfBXKk0J2qo2+H3fi4mcUP/KtTocoX08nmIAHl1Z2kJIZbZee8KOpBCSNPRgauucjw=="
@@ -1988,6 +2015,14 @@
   },
   "workspace": {
     "members": {
+      "examples/agui": {
+        "dependencies": [
+          "jsr:@std/dotenv@~0.225.5",
+          "npm:@ag-ui/core@^0.0.42",
+          "npm:rxjs-for-await@1",
+          "npm:zod@^4.2.0"
+        ]
+      },
       "examples/mcp": {
         "dependencies": [
           "jsr:@cliffy/command@^1.0.0-rc.8",
@@ -2037,6 +2072,12 @@
           "npm:rxjs@^7.8.2",
           "npm:xstate@^5.25.0",
           "npm:zod@^4.2.0"
+        ]
+      },
+      "packages/agui": {
+        "dependencies": [
+          "npm:@ag-ui/core@^0.0.42",
+          "npm:rxjs@^7.8.2"
         ]
       },
       "packages/cli": {

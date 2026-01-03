@@ -1,9 +1,11 @@
 {
   "workspace": [
     "packages/agent",
+    "packages/agui",
     "packages/cli",
     "packages/acp",
     "examples/mcp",
+    "examples/agui",
     "examples/ptc"
   ],
   "tasks": {
@@ -17,5 +19,8 @@
       "tags": ["recommended", "jsr"]
     }
   },
-  "exclude": ["dist/", "node_modules/", "npm/", "docs/"]
+  "exclude": [
+    "docs/",
+    "examples/agui/ui"
+  ]
 }
