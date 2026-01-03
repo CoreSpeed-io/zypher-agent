@@ -9,11 +9,7 @@
 
 import "@std/dotenv/load";
 import { z } from "zod";
-import {
-  AnthropicModelProvider,
-  createZypherAgent,
-  getSystemPrompt,
-} from "@zypher/agent";
+import { AnthropicModelProvider, createZypherAgent } from "@zypher/agent";
 import { createTool } from "@zypher/agent/tools";
 import { createAguiEventStream, parseRunAgentInput } from "@zypher/agui";
 import type { Message } from "@ag-ui/core";
@@ -57,12 +53,6 @@ const agent = await createZypherAgent({
     apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
   }),
   tools: [getWeatherTool],
-  overrides: {
-    // Don't load custom rules (like CLAUDE.md) which may contain XML tool-calling
-    // instructions that conflict with native tool use
-    systemPromptLoader: () =>
-      getSystemPrompt(Deno.cwd(), { customInstructions: "" }),
-  },
 });
 
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
