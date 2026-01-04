@@ -30,14 +30,7 @@ function isSupportedImageType(
   );
 }
 
-export interface AnthropicModelProviderOptions
-  extends Omit<ModelProviderOptions, "apiKey"> {
-  /**
-   * API key for Anthropic authentication.
-   * Optional when using custom authentication via `anthropicClientOptions.defaultHeaders`
-   * (e.g., Cloudflare AI Gateway with `Authorization: Bearer {cf_api_token}`).
-   */
-  apiKey?: string;
+export interface AnthropicModelProviderOptions extends ModelProviderOptions {
   enablePromptCaching?: boolean;
   /**
    * The budget for thinking in tokens.
