@@ -9,7 +9,13 @@ import type {
 } from "../TaskEvents.ts";
 
 export interface ModelProviderOptions {
-  apiKey: string;
+  /**
+   * API key for authentication.
+   * Optional when using an API proxy (e.g., Cloudflare AI Gateway) that handles
+   * authentication separately, or when using custom headers via provider-specific
+   * client options.
+   */
+  apiKey?: string;
   baseUrl?: string;
 }
 
