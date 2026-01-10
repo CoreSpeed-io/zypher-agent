@@ -79,13 +79,22 @@ export class AnthropicModelProvider implements ModelProvider {
     fileAttachmentCacheMap?: FileAttachmentCacheMap,
   ): ModelStream {
     // Convert our internal Message[] to Anthropic's MessageParam[]
-    const anthropicMessages = params.messages.map((msg, index) =>
-      this.#formatMessageForApi(
-        msg,
-        index === params.messages.length - 1,
-        fileAttachmentCacheMap,
+    // Filter out empty assistant messages (except the final one) to avoid API error:
+    // "all messages must have non-empty content except for the optional final assistant message"
+    const anthropicMessages = params.messages
+      .map((msg, index) =>
+        this.#formatMessageForApi(
+          msg,
+          index === params.messages.length - 1,
+          fileAttachmentCacheMap,
+        )
       )
-    );
+      .filter((msg, index, arr) => {
+        const isLastMessage = index === arr.length - 1;
+        const isEmpty = Array.isArray(msg.content) && msg.content.length === 0;
+        // Filter out non-final empty assistant messages
+        return !(isEmpty && msg.role === "assistant" && !isLastMessage);
+      });
 
     // Convert our internal Tool[] to Anthropic's Tool[]
     const anthropicTools = params.tools?.map((
