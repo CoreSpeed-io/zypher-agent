@@ -9,7 +9,7 @@ import {
   RunTerminalCmdTool,
 } from "@zypher/agent/tools";
 import { Command, EnumType } from "@cliffy/command";
-import { createZypherHandler } from "./mod.ts";
+import { createZypherHandler } from "./handler.ts";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
