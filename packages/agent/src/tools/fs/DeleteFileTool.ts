@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { createTool, type Tool, type ToolExecutionContext } from "../mod.ts";
-import * as path from "@std/path";
 
 export const DeleteFileTool: Tool<{
   targetFile: string;
@@ -22,8 +21,7 @@ export const DeleteFileTool: Tool<{
       ),
   }),
   execute: async ({ targetFile }, ctx: ToolExecutionContext) => {
-    const resolved = path.resolve(ctx.workingDirectory, targetFile);
-    await Deno.remove(resolved);
-    return `Successfully deleted file: ${resolved}`;
+    await ctx.fileSystemAdapter.remove(targetFile);
+    return `Successfully deleted file: ${targetFile}`;
   },
 });

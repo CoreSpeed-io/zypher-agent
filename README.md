@@ -2,6 +2,15 @@
 
 **Production-ready AI agents that live in your applications**
 
+> [!IMPORTANT]
+> **Sandbox Support (WIP)**: The `experiment/sandbox-adapters` branch adds
+> `FileSystemAdapter` and `Shell` abstractions to support sandbox environments
+> (CoreSpeed Sandbox, E2B, Cloudflare Workers, etc.). This enables running
+> Zypher Agent in remote sandboxes by injecting custom adapters for filesystem
+> and command execution. Note: Command-based MCP servers (stdio) are not yet
+> abstracted and only work in local environments - use remote HTTP/SSE MCP
+> servers for sandboxes.
+
 [![Build](https://github.com/corespeed-io/zypher-agent/actions/workflows/build.yml/badge.svg)](https://github.com/corespeed-io/zypher-agent/actions/workflows/build.yml)
 [![JSR](https://jsr.io/badges/@zypher/agent)](https://jsr.io/badges/@zypher/agent)
 

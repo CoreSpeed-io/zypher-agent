@@ -9,6 +9,7 @@ export * from "./message.ts";
 export * from "./TaskEvents.ts";
 
 // Modules
+export * from "./command/mod.ts";
 export * from "./llm/mod.ts";
 export * from "./loopInterceptors/mod.ts";
 export * from "./mcp/mod.ts";

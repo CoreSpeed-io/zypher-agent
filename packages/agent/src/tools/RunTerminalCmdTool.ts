@@ -31,20 +31,22 @@ export const RunTerminalCmdTool: Tool<{
     { command, isBackground },
     ctx: ToolExecutionContext,
   ) => {
+    const workingDirectory = ctx.fileSystemAdapter.workingDirectory;
+
     if (isBackground) {
       // For background processes, use spawn
       const child = spawn(command, [], {
         shell: true,
         detached: true,
         stdio: "ignore",
-        cwd: ctx.workingDirectory,
+        cwd: workingDirectory,
       });
       child.unref();
       return `Started background command: ${command}`;
     }
 
     const { stdout, stderr } = await execAsync(command, {
-      cwd: ctx.workingDirectory,
+      cwd: workingDirectory,
     });
     if (stderr) {
       return `Command executed with warnings:\n${stderr}\nOutput:\n${stdout}`;

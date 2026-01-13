@@ -1,7 +1,6 @@
 import * as path from "@std/path";
-import { ensureDir } from "@std/fs";
-import { runCommand } from "./utils/mod.ts";
 import type { ZypherContext } from "./ZypherAgent.ts";
+import type { CommandOutput } from "./command/mod.ts";
 
 /**
  * Checkpoint information
@@ -38,54 +37,55 @@ export class CheckpointManager {
   readonly #checkpointsDir: string;
 
   constructor(readonly context: ZypherContext) {
+    const adapter = this.context.fileSystemAdapter;
     this.#checkpointsDir = path.join(
-      this.context.workspaceDataDir,
+      adapter.workspaceDataDir,
       "checkpoints",
     );
     this.#gitEnv = {
       GIT_DIR: this.#checkpointsDir,
-      GIT_WORK_TREE: this.context.workingDirectory,
+      GIT_WORK_TREE: adapter.workingDirectory,
     };
+  }
+
+  /**
+   * Helper method to run git commands using the shell abstraction.
+   * Throws an error if the command fails.
+   */
+  async #runGit(args: string[]): Promise<CommandOutput> {
+    const result = await this.context.shell.execute("git", {
+      args,
+      env: this.#gitEnv,
+    });
+    if (!result.success) {
+      throw new Error(`Git command failed with exit code ${result.code}: git ${args.join(" ")}`);
+    }
+    return result;
   }
 
   /**
    * Initialize the checkpoint repository if it doesn't exist
    */
   async #initCheckpointRepo(): Promise<void> {
-    await ensureDir(this.#checkpointsDir);
+    await this.context.fileSystemAdapter.ensureDir(this.#checkpointsDir);
 
     // Check if Git repository already exists and is valid
     try {
-      await runCommand("git", {
-        args: ["status"],
-        env: this.#gitEnv,
-      });
+      await this.#runGit(["status"]);
       return; // It's a valid Git repository, so we're done
     } catch {
       // Not a valid Git repository or doesn't exist, continue with initialization
     }
 
     // Initialize a new git repository (non-bare)
-    await runCommand("git", {
-      args: ["init"],
-      env: this.#gitEnv,
-    });
+    await this.#runGit(["init"]);
 
     // Configure the repository
-    await runCommand("git", {
-      args: ["config", "user.name", "ZypherAgent"],
-      env: this.#gitEnv,
-    });
-    await runCommand("git", {
-      args: ["config", "user.email", "zypher@corespeed.io"],
-      env: this.#gitEnv,
-    });
+    await this.#runGit(["config", "user.name", "ZypherAgent"]);
+    await this.#runGit(["config", "user.email", "zypher@corespeed.io"]);
 
     // Create an initial empty commit
-    await runCommand("git", {
-      args: ["commit", "--allow-empty", "-m", "Initial checkpoint repository"],
-      env: this.#gitEnv,
-    });
+    await this.#runGit(["commit", "--allow-empty", "-m", "Initial checkpoint repository"]);
   }
 
   /**
@@ -100,16 +100,10 @@ export class CheckpointManager {
       await this.#initCheckpointRepo();
 
       // Add all files to the index
-      await runCommand("git", {
-        args: ["add", "-A"],
-        env: this.#gitEnv,
-      });
+      await this.#runGit(["add", "-A"]);
 
       // Check if there are any changes
-      const { stdout: status } = await runCommand("git", {
-        args: ["status", "--porcelain"],
-        env: this.#gitEnv,
-      });
+      const { stdout: status } = await this.#runGit(["status", "--porcelain"]);
       const hasChanges = new TextDecoder().decode(status).trim().length > 0;
 
       // Create checkpoint commit with appropriate message
@@ -119,16 +113,10 @@ export class CheckpointManager {
       }
 
       // Create the commit (using --allow-empty to handle cases with no changes)
-      await runCommand("git", {
-        args: ["commit", "--allow-empty", "-m", commitMessage],
-        env: this.#gitEnv,
-      });
+      await this.#runGit(["commit", "--allow-empty", "-m", commitMessage]);
 
       // Get the commit hash
-      const { stdout: commitHash } = await runCommand("git", {
-        args: ["rev-parse", "HEAD"],
-        env: this.#gitEnv,
-      });
+      const { stdout: commitHash } = await this.#runGit(["rev-parse", "HEAD"]);
 
       const checkpointId = new TextDecoder().decode(commitHash).trim();
       if (!checkpointId) {
@@ -151,10 +139,12 @@ export class CheckpointManager {
   async getCheckpointDetails(checkpointId: string): Promise<Checkpoint> {
     try {
       // Get commit details
-      const { stdout: commitInfo } = await runCommand("git", {
-        args: ["show", "--no-patch", "--format=%H%n%B%n%aI", checkpointId],
-        env: this.#gitEnv,
-      });
+      const { stdout: commitInfo } = await this.#runGit([
+        "show",
+        "--no-patch",
+        "--format=%H%n%B%n%aI",
+        checkpointId,
+      ]);
 
       const lines = new TextDecoder().decode(commitInfo).trim().split("\n");
       if (lines.length < 2) {
@@ -193,16 +183,13 @@ export class CheckpointManager {
       }
 
       // Get files changed in this commit
-      const { stdout: filesChanged } = await runCommand("git", {
-        args: [
-          "diff-tree",
-          "--no-commit-id",
-          "--name-only",
-          "-r",
-          checkpointId,
-        ],
-        env: this.#gitEnv,
-      });
+      const { stdout: filesChanged } = await this.#runGit([
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        checkpointId,
+      ]);
 
       const files = new TextDecoder().decode(filesChanged).trim().split("\n")
         .filter(Boolean);
@@ -232,10 +219,10 @@ export class CheckpointManager {
 
       // Get all checkpoint commits with a custom delimiter between commits
       // Using a unique delimiter "###COMMIT###" that won't appear in commit messages
-      const { stdout } = await runCommand("git", {
-        args: ["log", "--pretty=format:###COMMIT###%n%H%n%aI%n%s"],
-        env: this.#gitEnv,
-      });
+      const { stdout } = await this.#runGit([
+        "log",
+        "--pretty=format:###COMMIT###%n%H%n%aI%n%s",
+      ]);
 
       if (!new TextDecoder().decode(stdout).trim()) {
         throw new Error("Failed to list checkpoints: no checkpoints found.");
@@ -282,10 +269,13 @@ export class CheckpointManager {
           : subject;
 
         // Get files for this checkpoint
-        const { stdout: filesChanged } = await runCommand("git", {
-          args: ["diff-tree", "--no-commit-id", "--name-only", "-r", id],
-          env: this.#gitEnv,
-        });
+        const { stdout: filesChanged } = await this.#runGit([
+          "diff-tree",
+          "--no-commit-id",
+          "--name-only",
+          "-r",
+          id,
+        ]);
 
         const files = new TextDecoder().decode(filesChanged).trim().split("\n")
           .filter(Boolean);
@@ -314,10 +304,7 @@ export class CheckpointManager {
 
   async applyCheckpoint(checkpointId: string): Promise<void> {
     try {
-      await runCommand("git", {
-        args: ["cat-file", "-e", checkpointId],
-        env: this.#gitEnv,
-      });
+      await this.#runGit(["cat-file", "-e", checkpointId]);
 
       // Get checkpoint details
       const checkpoint = await this.getCheckpointDetails(checkpointId);
@@ -338,10 +325,7 @@ export class CheckpointManager {
 
       // Reset the working directory to the checkpoint state
       // Use checkout to avoid changing the HEAD
-      await runCommand("git", {
-        args: ["checkout", checkpointId, "--", "."],
-        env: this.#gitEnv,
-      });
+      await this.#runGit(["checkout", checkpointId, "--", "."]);
     } catch (error) {
       throw new Error("Failed to apply checkpoint.", { cause: error });
     }

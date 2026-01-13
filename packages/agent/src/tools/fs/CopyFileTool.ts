@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { createTool, type Tool, type ToolExecutionContext } from "../mod.ts";
 import * as path from "@std/path";
-import { fileExists } from "../../utils/mod.ts";
-import { ensureDir } from "@std/fs";
 
 export const CopyFileTool: Tool<{
   sourceFile: string;
@@ -37,28 +35,27 @@ export const CopyFileTool: Tool<{
     { sourceFile, destinationFile, overwrite },
     ctx: ToolExecutionContext,
   ) => {
-    const srcResolved = path.resolve(ctx.workingDirectory, sourceFile);
-    const dstResolved = path.resolve(ctx.workingDirectory, destinationFile);
+    const adapter = ctx.fileSystemAdapter;
 
     // Check if source file exists
-    if (!(await fileExists(srcResolved))) {
-      throw new Error(`Source file not found: ${srcResolved}`);
+    if (!(await adapter.exists(sourceFile))) {
+      throw new Error(`Source file not found: ${sourceFile}`);
     }
 
     // Check if destination file already exists
-    const destinationExists = await fileExists(dstResolved);
+    const destinationExists = await adapter.exists(destinationFile);
     if (destinationExists && !overwrite) {
       throw new Error(
-        `Destination file already exists: ${dstResolved}. Use overwrite=true to replace it.`,
+        `Destination file already exists: ${destinationFile}. Use overwrite=true to replace it.`,
       );
     }
 
     // Create destination directory if needed
-    await ensureDir(path.dirname(dstResolved));
+    await adapter.ensureDir(path.dirname(destinationFile));
 
     // Copy the file
-    await Deno.copyFile(srcResolved, dstResolved);
-    return `Successfully copied file from ${srcResolved} to ${dstResolved}${
+    await adapter.copyFile(sourceFile, destinationFile);
+    return `Successfully copied file from ${sourceFile} to ${destinationFile}${
       destinationExists ? " (overwritten)" : ""
     }.`;
   },

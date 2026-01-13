@@ -29,14 +29,15 @@ export async function loadMessageHistory(
   context: ZypherContext,
 ): Promise<Message[]> {
   try {
-    const historyPath = path.join(context.workspaceDataDir, "history.json");
+    const adapter = context.fileSystemAdapter;
+    const historyPath = path.join(adapter.workspaceDataDir, "history.json");
 
     // Check if file exists before trying to read it
-    if (!(await fileExists(historyPath))) {
+    if (!(await adapter.exists(historyPath))) {
       return [];
     }
 
-    const content = await Deno.readTextFile(historyPath);
+    const content = await adapter.readTextFile(historyPath);
     const parsedData: unknown = JSON.parse(content);
 
     // Validate that parsedData is an array
@@ -79,6 +80,7 @@ export async function saveMessageHistory(
   messages: Message[],
   context: ZypherContext,
 ): Promise<void> {
-  const historyPath = path.join(context.workspaceDataDir, "history.json");
-  await Deno.writeTextFile(historyPath, JSON.stringify(messages, null, 2));
+  const adapter = context.fileSystemAdapter;
+  const historyPath = path.join(adapter.workspaceDataDir, "history.json");
+  await adapter.writeTextFile(historyPath, JSON.stringify(messages, null, 2));
 }

@@ -1,3 +1,5 @@
+import type { ZypherContext } from "../../ZypherAgent.ts";
+
 /**
  * Interface for error detectors.
  * Each detector is responsible for checking a specific type of error.
@@ -11,15 +13,15 @@ export interface ErrorDetector {
 
   /**
    * Check if this detector is applicable for the current project
-   * @param workingDirectory The directory to check in
+   * @param context The Zypher context containing adapters and working directory
    * @returns Promise<boolean> True if this detector should be run
    */
-  isApplicable(workingDirectory: string): Promise<boolean>;
+  isApplicable(context: ZypherContext): Promise<boolean>;
 
   /**
    * Run the error detection
-   * @param workingDirectory The directory to run detection in
+   * @param context The Zypher context containing adapters and working directory
    * @returns Promise<string | null> Error message if errors found, null otherwise
    */
-  detect(workingDirectory: string): Promise<string | null>;
+  detect(context: ZypherContext): Promise<string | null>;
 }

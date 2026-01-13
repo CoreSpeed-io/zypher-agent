@@ -7,16 +7,20 @@ import type {
   McpServerManagerEvent,
   ZypherContext,
 } from "@zypher/mod.ts";
-import { McpServerManager } from "@zypher/mod.ts";
+import { LocalShell, McpServerManager } from "@zypher/mod.ts";
+import { LocalFileSystemAdapter } from "@zypher/tools/fs/mod.ts";
 
 describe("McpServerManager", () => {
   let manager: McpServerManager;
 
   const mockContext: ZypherContext = {
-    workingDirectory: "/tmp/test-workspace",
-    zypherDir: "/tmp/.zypher",
-    workspaceDataDir: "/tmp/.zypher/test-workspace",
-    fileAttachmentCacheDir: "/tmp/.zypher/cache/files",
+    fileSystemAdapter: new LocalFileSystemAdapter({
+      workingDirectory: "/tmp/test-workspace",
+      zypherDir: "/tmp/.zypher",
+      workspaceDataDir: "/tmp/.zypher/test-workspace",
+      fileAttachmentCacheDir: "/tmp/.zypher/cache/files",
+    }),
+    shell: new LocalShell(),
   };
 
   // Helper to create a server endpoint for testing.

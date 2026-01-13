@@ -322,7 +322,7 @@ export class McpClient {
     try {
       // Connect using appropriate transport
       this.#transport = await connectToServer(
-        this.#context.workingDirectory,
+        this.#context.fileSystemAdapter.workingDirectory,
         this.#client,
         this.#serverEndpoint,
         { signal, oauth: wrappedOAuthOptions },

@@ -26,6 +26,8 @@ import {
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
 import type { Tool } from "./tools/mod.ts";
+import type { FileSystemAdapter } from "./tools/fs/FileSystemAdapter.ts";
+import type { Shell } from "./command/Shell.ts";
 
 /**
  * Function that loads the system prompt for the agent.
@@ -40,19 +42,26 @@ export type SystemPromptLoader = () => Promise<string>;
  * This is fundamentally different from {@link ZypherAgentConfig}:
  * - {@link ZypherContext} defines WHERE the agent operates (workspace/filesystem management)
  * - {@link ZypherAgentConfig} defines HOW the agent behaves (behavioral configuration)
+ *
+ * The adapters (fileSystemAdapter, shell) provide abstraction over filesystem and command
+ * execution, enabling the agent to work in various environments (local, E2B, Cloudflare, etc.)
  */
 export interface ZypherContext {
-  /** Working directory where the agent performs file operations and executes tasks */
-  workingDirectory: string;
-  /** Base zypher directory for all agent data storage (Defaults to ~/.zypher) */
-  zypherDir: string;
-  /** Workspace-specific data directory for isolated storage (Defaults to ~/.zypher/encoded_working_directory_path)
-   * Used for message history, checkpoints, and other workspace-specific data */
-  workspaceDataDir: string;
   /** Unique identifier for tracking user-specific usage history */
   userId?: string;
-  /** Directory to cache file attachments (Defaults to ~/.zypher/cache/files) */
-  fileAttachmentCacheDir: string;
+
+  /**
+   * Filesystem adapter for file operations.
+   * Provides access to path properties (workingDirectory, zypherDir, etc.)
+   * and file operations (read, write, stat, etc.)
+   */
+  fileSystemAdapter: FileSystemAdapter;
+
+  /**
+   * Shell for command execution.
+   * Used by tools that need to run external commands (git, rg, fd, etc.)
+   */
+  shell: Shell;
 }
 
 export interface ZypherAgentConfig {
@@ -117,7 +126,7 @@ export class ZypherAgent {
     this.#modelProvider = modelProvider;
     this.#context = context;
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
-      (() => getSystemPrompt(context.workingDirectory));
+      (() => getSystemPrompt(context.fileSystemAdapter.workingDirectory));
     this.#config = {
       maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -138,7 +147,7 @@ export class ZypherAgent {
     if (this.#storageService) {
       this.#fileAttachmentManager = new FileAttachmentManager(
         this.#storageService,
-        context.fileAttachmentCacheDir,
+        context.fileSystemAdapter.fileAttachmentCacheDir,
       );
     }
 

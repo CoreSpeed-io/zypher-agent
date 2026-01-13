@@ -5,9 +5,7 @@ import {
   type ToolExecutionContext,
   type ToolResult,
 } from "../mod.ts";
-import { fileExists } from "../../utils/data.ts";
-import { basename, dirname, join, resolve } from "@std/path";
-import { ensureDir } from "@std/fs";
+import { basename, dirname, join } from "@std/path";
 
 /**
  * Create file editing tools with an optional backup directory
@@ -65,34 +63,32 @@ Action types:
       params,
       ctx: ToolExecutionContext,
     ): Promise<ToolResult> => {
-      const target = resolve(ctx.workingDirectory, params.targetFile);
+      const adapter = ctx.fileSystemAdapter;
 
-      // Use provided backupDir (resolved relative to workingDirectory) or default to workspaceDataDir/backup
-      const resolvedBackupDir = backupDir
-        ? resolve(ctx.workingDirectory, backupDir)
-        : join(ctx.workspaceDataDir, "backup");
-      await ensureDir(resolvedBackupDir);
+      // Use provided backupDir or default to workspaceDataDir/backup
+      const resolvedBackupDir = backupDir ?? join(adapter.workspaceDataDir, "backup");
+      await adapter.ensureDir(resolvedBackupDir);
 
       // Check if file exists and create backup if needed
-      if (await fileExists(target)) {
-        const fileName = basename(target);
+      if (await adapter.exists(params.targetFile)) {
+        const fileName = basename(params.targetFile);
         // Backup original file
-        await Deno.copyFile(
-          target,
+        await adapter.copyFile(
+          params.targetFile,
           join(resolvedBackupDir, `${fileName}.bak`),
         );
       } else if (params.type !== "overwrite") {
         throw new Error(
-          `Target file ${target} does not exist, required for action ${params.type}.`,
+          `Target file ${params.targetFile} does not exist, required for action ${params.type}.`,
         );
       }
 
       switch (params.type) {
         case "overwrite": {
-          const parent = dirname(target);
-          if (parent) await ensureDir(parent);
+          const parent = dirname(params.targetFile);
+          if (parent) await adapter.ensureDir(parent);
 
-          await Deno.writeTextFile(target, params.content);
+          await adapter.writeTextFile(params.targetFile, params.content);
           return "File overwritten successfully";
         }
 
@@ -101,7 +97,7 @@ Action types:
             throw new Error("'line' is required for insert action");
           }
 
-          const original = await Deno.readTextFile(target);
+          const original = await adapter.readTextFile(params.targetFile);
           const originalLines = original.split("\n");
           const insertedLines = params.content.split("\n");
 
@@ -110,7 +106,7 @@ Action types:
           originalLines.splice(insertAt, 0, ...insertedLines);
           const output = originalLines.join("\n");
 
-          await Deno.writeTextFile(target, output);
+          await adapter.writeTextFile(params.targetFile, output);
           return `Inserted ${insertedLines.length} lines.`;
         }
 
@@ -121,7 +117,7 @@ Action types:
             );
           }
 
-          const original = await Deno.readTextFile(target);
+          const original = await adapter.readTextFile(params.targetFile);
           const output = params.replaceAll
             ? original.replaceAll(params.oldContent, params.content)
             : original.replace(params.oldContent, params.content);
@@ -129,7 +125,7 @@ Action types:
           const occurrences = original.split(params.oldContent).length - 1;
 
           if (occurrences > 0) {
-            await Deno.writeTextFile(target, output);
+            await adapter.writeTextFile(params.targetFile, output);
             return `Replaced ${occurrences} occurrences`;
           } else {
             return "No occurrences found to replace";
@@ -143,13 +139,13 @@ Action types:
             );
           }
 
-          const original = await Deno.readTextFile(target);
+          const original = await adapter.readTextFile(params.targetFile);
           const regex = new RegExp(params.oldContent, params.flags ?? "g");
           const matches = original.match(regex);
 
           if (matches) {
             const output = original.replace(regex, params.content);
-            await Deno.writeTextFile(target, output);
+            await adapter.writeTextFile(params.targetFile, output);
             return `Replaced ${matches.length} regex matches`;
           } else {
             return "No matches found for the regex pattern";
@@ -170,19 +166,15 @@ Action types:
     }),
 
     execute: async (params, ctx: ToolExecutionContext): Promise<ToolResult> => {
-      const targetResolved = resolve(ctx.workingDirectory, params.targetFile);
-      // Use provided backupDir (resolved relative to workingDirectory) or default to workspaceDataDir/backup
-      const backupResolvedDir = backupDir
-        ? resolve(ctx.workingDirectory, backupDir)
-        : join(ctx.workspaceDataDir, "backup");
+      const adapter = ctx.fileSystemAdapter;
+      // Use provided backupDir or default to workspaceDataDir/backup
+      const backupResolvedDir = backupDir ?? join(adapter.workspaceDataDir, "backup");
 
-      const fileName = basename(targetResolved);
-
-      // const backupFile = `${backupDir}/${fileName}.bak`;
+      const fileName = basename(params.targetFile);
       const backupFile = join(backupResolvedDir, `${fileName}.bak`);
-      const backupExists = await fileExists(backupFile);
-      if (backupExists) {
-        await Deno.copyFile(backupFile, targetResolved);
+
+      if (await adapter.exists(backupFile)) {
+        await adapter.copyFile(backupFile, params.targetFile);
       } else {
         throw new Error("No backup file exists");
       }

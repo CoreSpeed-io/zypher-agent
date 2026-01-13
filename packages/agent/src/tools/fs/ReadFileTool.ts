@@ -7,6 +7,7 @@ import {
 } from "../mod.ts";
 import * as path from "@std/path";
 import { encodeBase64 } from "@std/encoding/base64";
+import type { FileSystemAdapter } from "./FileSystemAdapter.ts";
 
 // Supported image types that can be displayed as rich content
 const SUPPORTED_IMAGE_TYPES = [
@@ -44,15 +45,18 @@ function isSupportedImageType(
  * while binary files (executables, images, archives, etc.) often do.
  * Not 100% accurate but catches most common binary formats.
  */
-async function isLikelyBinaryFile(filePath: string): Promise<boolean> {
-  const file = await Deno.open(filePath, { read: true });
+async function isLikelyBinaryFile(
+  adapter: FileSystemAdapter,
+  filePath: string,
+): Promise<boolean> {
+  const fileHandle = await adapter.open(filePath, { read: true });
   const buffer = new Uint8Array(1024); // Sample first 1KB
 
   let bytesRead: number | null = null;
   try {
-    bytesRead = await file.read(buffer);
+    bytesRead = await fileHandle.read(buffer);
   } finally {
-    file.close();
+    fileHandle.close();
   }
 
   if (bytesRead === null || bytesRead === 0) {
@@ -120,12 +124,12 @@ Specifically, each time you call this command you should:
     },
     ctx: ToolExecutionContext,
   ): Promise<ToolResult> => {
-    const resolvedPath = path.resolve(ctx.workingDirectory, filePath);
+    const adapter = ctx.fileSystemAdapter;
     const mimeType = getMimeTypeFromPath(filePath);
 
     // Handle images
     if (mimeType && isSupportedImageType(mimeType)) {
-      const fileBytes = await Deno.readFile(resolvedPath);
+      const fileBytes = await adapter.readFile(filePath);
       const base64Data = encodeBase64(fileBytes);
 
       return {
@@ -144,9 +148,9 @@ Specifically, each time you call this command you should:
     }
 
     // Check if file is binary before attempting to read as text
-    const isLikelyBinary = await isLikelyBinaryFile(resolvedPath);
+    const isLikelyBinary = await isLikelyBinaryFile(adapter, filePath);
     if (isLikelyBinary) {
-      const fileStats = await Deno.stat(resolvedPath);
+      const fileStats = await adapter.stat(filePath);
       return {
         content: [{
           type: "text",
@@ -162,7 +166,7 @@ Specifically, each time you call this command you should:
       };
     }
 
-    const content = await Deno.readTextFile(resolvedPath);
+    const content = await adapter.readTextFile(filePath);
 
     // If no line range specified, return entire file
     if (startLine === undefined || endLine === undefined) {

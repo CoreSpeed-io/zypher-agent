@@ -10,7 +10,7 @@ describe("McpClient Integration Tests", () => {
   let context: ZypherContext;
 
   beforeAll(async () => {
-    context = await createZypherContext(Deno.cwd());
+    context = await createZypherContext({ workingDirectory: Deno.cwd() });
   });
 
   afterEach(async () => {

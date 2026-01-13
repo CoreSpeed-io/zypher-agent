@@ -3,9 +3,11 @@ import type { McpServerEndpoint } from "./mcp/mod.ts";
 import {
   ZypherAgent,
   type ZypherAgentOptions,
-  type ZypherContext,
 } from "./ZypherAgent.ts";
-import { createZypherContext } from "./utils/context.ts";
+import {
+  createZypherContext,
+  type CreateZypherContextOptions,
+} from "./utils/context.ts";
 
 /**
  * Options for creating a ZypherAgent using the simplified factory function.
@@ -33,9 +35,9 @@ export interface CreateZypherAgentOptions extends ZypherAgentOptions {
   mcpServers?: (string | McpServerEndpoint)[];
 
   /**
-   * Override context settings (userId, custom directories).
+   * Override context settings (userId, custom adapters).
    */
-  context?: Partial<Omit<ZypherContext, "workingDirectory">>;
+  context?: Partial<Omit<CreateZypherContextOptions, "workingDirectory">>;
 }
 
 /**
@@ -64,10 +66,10 @@ export async function createZypherAgent(
 ): Promise<ZypherAgent> {
   // 1. Create context
   const workingDirectory = options.workingDirectory ?? Deno.cwd();
-  const zypherContext = await createZypherContext(
+  const zypherContext = await createZypherContext({
     workingDirectory,
-    options.context,
-  );
+    ...options.context,
+  });
 
   // 2. Create agent with tools
   const agent = new ZypherAgent(zypherContext, options.modelProvider, {

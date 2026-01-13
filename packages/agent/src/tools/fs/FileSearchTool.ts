@@ -18,15 +18,14 @@ export const FileSearchTool: Tool<{
   }),
   execute: async ({ query }, ctx: ToolExecutionContext) => {
     // Using fd (modern alternative to find) with fuzzy matching
-    const command = new Deno.Command("fd", {
+    const result = await ctx.shell.execute("fd", {
       args: ["-t", "f", "-d", "10", "-l", query],
-      cwd: ctx.workingDirectory,
+      cwd: ctx.fileSystemAdapter.workingDirectory,
     });
 
-    const { stdout, stderr } = await command.output();
     const textDecoder = new TextDecoder();
-    const stdoutText = textDecoder.decode(stdout);
-    const stderrText = textDecoder.decode(stderr);
+    const stdoutText = textDecoder.decode(result.stdout);
+    const stderrText = textDecoder.decode(result.stderr);
 
     if (!stdoutText && !stderrText) {
       return "No matching files found.";

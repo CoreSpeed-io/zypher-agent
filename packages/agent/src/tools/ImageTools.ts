@@ -152,13 +152,14 @@ export function createImageTools(openaiApiKey: string): Tool[] {
       },
       ctx: ToolExecutionContext,
     ): Promise<string> => {
+      const adapter = ctx.fileSystemAdapter;
       const resolvedDestination = path.resolve(
-        ctx.workingDirectory,
+        adapter.workingDirectory,
         destinationPath,
       );
       // Create parent directory if it doesn't exist
       const parentDir = path.dirname(resolvedDestination);
-      await ensureDir(parentDir);
+      await adapter.ensureDir(parentDir);
 
       // Generate image using gpt-image-1
       const response = await openai.images.generate({
@@ -241,9 +242,10 @@ export function createImageTools(openaiApiKey: string): Tool[] {
       },
       ctx: ToolExecutionContext,
     ): Promise<string> => {
-      const resolvedSource = path.resolve(ctx.workingDirectory, sourcePath);
+      const adapter = ctx.fileSystemAdapter;
+      const resolvedSource = path.resolve(adapter.workingDirectory, sourcePath);
       const resolvedDestination = path.resolve(
-        ctx.workingDirectory,
+        adapter.workingDirectory,
         destinationPath,
       );
 

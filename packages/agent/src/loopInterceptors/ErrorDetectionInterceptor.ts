@@ -73,7 +73,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
     }
 
     const errors = await this.detectErrors(
-      context.zypherContext.workingDirectory,
+      context.zypherContext,
       { signal: context.signal },
     );
 
@@ -102,12 +102,12 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
 
   /**
    * Run error detection using registered detectors
-   * @param workingDirectory The directory to run detection in
+   * @param zypherContext The Zypher context containing adapters
    * @param options Options including abort signal
    * @returns Promise<string | null> Combined error messages if errors found, null otherwise
    */
   private async detectErrors(
-    workingDirectory: string,
+    zypherContext: import("../ZypherAgent.ts").ZypherContext,
     options: { signal?: AbortSignal },
   ): Promise<string | null> {
     const applicableDetectors = [];
@@ -119,7 +119,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       }
 
       try {
-        if (await detector.isApplicable(workingDirectory)) {
+        if (await detector.isApplicable(zypherContext)) {
           applicableDetectors.push(detector);
         }
       } catch (error) {
@@ -143,7 +143,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       }
 
       try {
-        const result = await detector.detect(workingDirectory);
+        const result = await detector.detect(zypherContext);
         if (result) {
           errorMessages.push(result);
         }

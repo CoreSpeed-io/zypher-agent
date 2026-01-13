@@ -21,11 +21,11 @@ export const ListDirTool: Tool<{
       ),
   }),
   execute: async ({ targetPath }, ctx: ToolExecutionContext) => {
+    const adapter = ctx.fileSystemAdapter;
     const entries: string[] = [];
-    const basePath = path.resolve(ctx.workingDirectory, targetPath);
-    for await (const entry of Deno.readDir(basePath)) {
-      const fullPath = path.join(basePath, entry.name);
-      const fileInfo = await Deno.stat(fullPath);
+    for await (const entry of adapter.readDir(targetPath)) {
+      const fullPath = path.join(targetPath, entry.name);
+      const fileInfo = await adapter.stat(fullPath);
       const type = entry.isDirectory ? "directory" : "file";
       const size = fileInfo.size;
       entries.push(`[${type}] ${entry.name} (${size} bytes)`);

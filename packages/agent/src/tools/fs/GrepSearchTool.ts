@@ -59,16 +59,15 @@ export const GrepSearchTool: Tool<{
     // Add the search query
     args.push(query);
 
-    // Execute the command
-    const command = new Deno.Command("rg", {
-      args: args,
-      cwd: ctx.workingDirectory,
+    // Execute the command using Shell abstraction
+    const result = await ctx.shell.execute("rg", {
+      args,
+      cwd: ctx.fileSystemAdapter.workingDirectory,
     });
 
-    const { stdout, stderr } = await command.output();
     const textDecoder = new TextDecoder();
-    const stdoutText = textDecoder.decode(stdout);
-    const stderrText = textDecoder.decode(stderr);
+    const stdoutText = textDecoder.decode(result.stdout);
+    const stderrText = textDecoder.decode(result.stderr);
 
     if (!stdoutText && !stderrText) {
       return "No matches found.";

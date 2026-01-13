@@ -7,6 +7,17 @@ import { FileSearchTool } from "./FileSearchTool.ts";
 import { CopyFileTool } from "./CopyFileTool.ts";
 import { DeleteFileTool } from "./DeleteFileTool.ts";
 
+// Export filesystem adapter types
+export type {
+  DirEntry,
+  FileHandle,
+  FileInfo,
+  FileOpenOptions,
+  FileSystemAdapter,
+} from "./FileSystemAdapter.ts";
+export { LocalFileSystemAdapter } from "./LocalFileSystemAdapter.ts";
+export type { LocalFileSystemAdapterOptions } from "./LocalFileSystemAdapter.ts";
+
 export {
   CopyFileTool,
   createEditFileTools,

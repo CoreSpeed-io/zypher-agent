@@ -1,7 +1,8 @@
 import type { ErrorDetector } from "./interface.ts";
 import { extractErrorOutput } from "./utils.ts";
-import { fileExists } from "../../utils/mod.ts";
 import * as path from "@std/path";
+import type { ZypherContext } from "../../ZypherAgent.ts";
+import type { FileSystemAdapter } from "../../tools/fs/FileSystemAdapter.ts";
 
 // Reuse a single TextDecoder instance for efficiency
 const decoder = new TextDecoder();
@@ -13,9 +14,10 @@ export class ESLintErrorDetector implements ErrorDetector {
   name = "ESLint";
   description = "Detects code style and potential issues using ESLint";
 
-  async isApplicable(workingDirectory: string): Promise<boolean> {
+  async isApplicable(context: ZypherContext): Promise<boolean> {
     try {
-      const packageJson = await readPackageJson(workingDirectory);
+      const adapter = context.fileSystemAdapter;
+      const packageJson = await readPackageJson(adapter);
 
       // Check if eslint is in dependencies or devDependencies
       const hasEslint = hasDependency(packageJson, "eslint");
@@ -31,16 +33,19 @@ export class ESLintErrorDetector implements ErrorDetector {
     }
   }
 
-  async detect(workingDirectory: string): Promise<string | null> {
+  async detect(context: ZypherContext): Promise<string | null> {
     try {
-      // Determine the command to run
-      const commandConfig = await this.determineCommand(workingDirectory);
+      const adapter = context.fileSystemAdapter;
+      const shell = context.shell;
 
-      // Execute the command
-      const result = await new Deno.Command(commandConfig.cmd, {
+      // Determine the command to run
+      const commandConfig = await this.determineCommand(adapter);
+
+      // Execute the command using Shell abstraction
+      const result = await shell.execute(commandConfig.cmd, {
         args: commandConfig.args,
-        cwd: workingDirectory,
-      }).output();
+        cwd: adapter.workingDirectory,
+      });
 
       // Check if the command failed (non-zero exit code)
       if (!result.success) {
@@ -68,14 +73,14 @@ export class ESLintErrorDetector implements ErrorDetector {
   /**
    * Determines the command to run for ESLint
    *
-   * @param {string} workingDirectory - The working directory to determine the command for
+   * @param adapter - The filesystem adapter
    * @returns {Promise<CommandConfig>} The command configuration to execute
    * @private
    */
   private async determineCommand(
-    workingDirectory: string,
+    adapter: FileSystemAdapter,
   ): Promise<CommandConfig> {
-    const packageJson = await readPackageJson(workingDirectory);
+    const packageJson = await readPackageJson(adapter);
 
     // If package.json has a lint script, use it
     if (packageJson?.scripts) {
@@ -91,14 +96,14 @@ export class ESLintErrorDetector implements ErrorDetector {
       }
 
       if (scriptName) {
-        return await getRunCommand(workingDirectory, [scriptName]);
+        return await getRunCommand(adapter, [scriptName]);
       }
     }
 
     // For direct commands, we'll use the eslint binary directly
     // but still respect the package manager via getRunCommand
     return await getRunCommand(
-      workingDirectory,
+      adapter,
       ["eslint", ".", "--ext", ".js,.jsx,.ts,.tsx"],
     );
   }
@@ -135,10 +140,12 @@ export class TypeScriptErrorDetector implements ErrorDetector {
   name = "TypeScript";
   description = "Detects type errors using the TypeScript compiler";
 
-  async isApplicable(workingDirectory: string): Promise<boolean> {
+  async isApplicable(context: ZypherContext): Promise<boolean> {
     try {
+      const adapter = context.fileSystemAdapter;
+
       // Check package.json first
-      const packageJson = await readPackageJson(workingDirectory);
+      const packageJson = await readPackageJson(adapter);
       if (packageJson) {
         // Check if typescript is in dependencies
         const hasTypeScript = hasDependency(packageJson, "typescript");
@@ -156,22 +163,25 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       }
 
       // Fallback to checking for tsconfig.json
-      return await fileExists(path.join(workingDirectory, "tsconfig.json"));
+      return await adapter.exists(path.join(adapter.workingDirectory, "tsconfig.json"));
     } catch {
       return false;
     }
   }
 
-  async detect(workingDirectory: string): Promise<string | null> {
+  async detect(context: ZypherContext): Promise<string | null> {
     try {
-      // Determine the command to run
-      const commandConfig = await this.determineCommand(workingDirectory);
+      const adapter = context.fileSystemAdapter;
+      const shell = context.shell;
 
-      // Execute the command
-      const result = await new Deno.Command(commandConfig.cmd, {
+      // Determine the command to run
+      const commandConfig = await this.determineCommand(adapter);
+
+      // Execute the command using Shell abstraction
+      const result = await shell.execute(commandConfig.cmd, {
         args: commandConfig.args,
-        cwd: workingDirectory,
-      }).output();
+        cwd: adapter.workingDirectory,
+      });
 
       // Check if the command failed (non-zero exit code)
       if (!result.success) {
@@ -199,14 +209,14 @@ export class TypeScriptErrorDetector implements ErrorDetector {
   /**
    * Determines the command to run for TypeScript
    *
-   * @param {string} workingDirectory - The current working directory
+   * @param adapter - The filesystem adapter
    * @returns {Promise<CommandConfig>} The command configuration to execute
    * @private
    */
   private async determineCommand(
-    workingDirectory: string,
+    adapter: FileSystemAdapter,
   ): Promise<CommandConfig> {
-    const packageJson = await readPackageJson(workingDirectory);
+    const packageJson = await readPackageJson(adapter);
 
     // If package.json has a type-check script, use it
     if (packageJson?.scripts) {
@@ -225,13 +235,13 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       }
 
       if (scriptName) {
-        return await getRunCommand(workingDirectory, [scriptName]);
+        return await getRunCommand(adapter, [scriptName]);
       }
     }
 
     // For direct commands, we'll use the tsc binary directly
     // but still respect the package manager via getRunCommand
-    return await getRunCommand(workingDirectory, ["tsc", "--noEmit"]);
+    return await getRunCommand(adapter, ["tsc", "--noEmit"]);
   }
 
   /**
@@ -282,25 +292,27 @@ export interface CommandConfig {
 /**
  * Detects the preferred package manager for a Node.js project.
  *
- * @param {string} workingDirectory - The working directory to detect the package manager for
+ * @param adapter - The filesystem adapter
  * @returns {Promise<'npm' | 'yarn' | 'pnpm' | 'bun'>} The detected package manager
  */
-export async function detectPackageManager(workingDirectory: string): Promise<
+export async function detectPackageManager(adapter: FileSystemAdapter): Promise<
   "npm" | "yarn" | "pnpm" | "bun"
 > {
+  const workingDirectory = adapter.workingDirectory;
+
   // Check for lockfiles to determine package manager
   if (
-    (await fileExists(path.join(workingDirectory, "bun.lock"))) ||
-    (await fileExists(path.join(workingDirectory, "bun.lockb")))
+    (await adapter.exists(path.join(workingDirectory, "bun.lock"))) ||
+    (await adapter.exists(path.join(workingDirectory, "bun.lockb")))
   ) {
     return "bun";
   }
 
-  if (await fileExists(path.join(workingDirectory, "pnpm-lock.yaml"))) {
+  if (await adapter.exists(path.join(workingDirectory, "pnpm-lock.yaml"))) {
     return "pnpm";
   }
 
-  if (await fileExists(path.join(workingDirectory, "yarn.lock"))) {
+  if (await adapter.exists(path.join(workingDirectory, "yarn.lock"))) {
     return "yarn";
   }
 
@@ -311,15 +323,15 @@ export async function detectPackageManager(workingDirectory: string): Promise<
 /**
  * Gets the run command for the detected package manager.
  *
- * @param {string} workingDirectory - The working directory to get the run command for
+ * @param adapter - The filesystem adapter
  * @param {string} script - The script name to run
  * @returns {Promise<CommandConfig>} The command configuration to execute
  */
 export async function getRunCommand(
-  workingDirectory: string,
+  adapter: FileSystemAdapter,
   script: string[],
 ): Promise<CommandConfig> {
-  const packageManager = await detectPackageManager(workingDirectory);
+  const packageManager = await detectPackageManager(adapter);
 
   switch (packageManager) {
     case "yarn":
@@ -336,16 +348,14 @@ export async function getRunCommand(
 /**
  * Reads and parses the package.json file.
  *
- * @param {string} workingDirectory - The working directory to read the package.json from
+ * @param adapter - The filesystem adapter
  * @returns {Promise<PackageJson | null>} The parsed package.json or null if not found/invalid
  */
 export async function readPackageJson(
-  workingDirectory: string,
+  adapter: FileSystemAdapter,
 ): Promise<PackageJson | null> {
   try {
-    const content = await Deno.readTextFile(
-      path.join(workingDirectory, "package.json"),
-    );
+    const content = await adapter.readTextFile("package.json");
     return JSON.parse(content) as PackageJson;
   } catch {
     return null;
