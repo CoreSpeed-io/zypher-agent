@@ -1,0 +1,263 @@
+---
+title: Tools & MCP Integration
+description: Understanding how Zypher Agents use tools through the Model Context Protocol and built-in capabilities
+---
+
+# Tools & MCP Integration
+
+Tools are what make Zypher Agents powerful - they're the hands and eyes that let your agent interact with the real world. The `McpServerManager` handles both built-in tools and external MCP servers seamlessly.
+
+## What are Tools?
+
+Tools give your agent capabilities beyond just generating text:
+
+- **Read and write files** - Access your filesystem
+- **Run terminal commands** - Execute system operations  
+- **Crawl websites** - Gather information from the internet
+- **Query databases** - Access and manipulate data
+- **Interact with APIs** - Connect to any service
+- **Process images** - Analyze visual content
+
+Your agent automatically decides which tools to use based on the task you give it.
+
+## The McpServerManager
+
+The `McpServerManager` is your one-stop shop for managing all agent capabilities. When you create a ZypherAgent, it automatically creates an empty McpServerManager, which you can access via `agent.mcp`:
+
+```typescript
+import { ZypherAgent, AnthropicModelProvider } from '@zypher/agent';
+
+const agent = new ZypherAgent(
+  new AnthropicModelProvider({ apiKey: "your-key" })
+);
+
+// Register built-in tools and MCP servers as needed
+agent.mcp.registerServer({
+  id: "firecrawl",
+  type: "command",
+  command: {
+    command: "npx",
+    args: ["-y", "firecrawl-mcp"],
+    env: {
+      FIRECRAWL_API_KEY: Deno.env.get("FIRECRAWL_API_KEY"),
+    },
+  },
+});
+```
+
+## Built-in Tools
+
+Zypher Agent comes with essential tools that provide core functionality:
+
+```typescript
+// Your agent can automatically:
+await agent.runTask("Read my package.json and update the version to 2.0.0")
+await agent.runTask("Find all TypeScript files and count the total lines of code")
+await agent.runTask("Install dependencies and run the test suite")
+await agent.runTask("Find all TODO comments in the codebase")
+```
+
+**Core tool categories:**
+- **[File System Tools](/docs/core-concepts/tools-and-mcp/built-in-tools#file-system-tools)** - Read, edit, search, and manage files
+- **[Terminal Tools](/docs/core-concepts/tools-and-mcp/built-in-tools#terminal-tools)** - Execute shell commands and scripts
+- **[Search Tools](/docs/core-concepts/tools-and-mcp/built-in-tools#search-tools)** - Find content across your codebase
+- **[Image Tools](/docs/core-concepts/tools-and-mcp/built-in-tools#image-tools)** - Process and analyze images (when configured)
+
+For detailed documentation and examples, see the [Built-in Tools](/docs/core-concepts/tools-and-mcp/built-in-tools) reference.
+
+## Model Context Protocol (MCP)
+
+MCP is an open standard that lets AI agents connect to external tools and data sources. **Zypher Agent acts as an MCP client**, connecting to MCP servers that provide additional tools and capabilities. Think of MCP servers as "plugins" for your agent. For more information, see the [official MCP documentation](https://modelcontextprotocol.io/docs/getting-started/intro).
+
+### How MCP Works
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Zypher Agent   │───▶│ MCP Server      │───▶│ External Service│
+│  (MCP Client)   │    │ (Firecrawl)     │    │ (Website)       │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+1. **Zypher Agent (MCP Client)** decides it needs to crawl a website
+2. **MCP Server** receives the request and handles the web crawling
+3. **External Service** (the website) is accessed safely
+4. **Results** flow back through the MCP server to the Zypher Agent
+
+### Benefits of MCP
+
+**Standardization** - One protocol for all external tools
+**Security** - Controlled access to external resources
+**Reliability** - Built-in error handling and retries  
+**Extensibility** - Easy to add new capabilities
+**Community** - Growing ecosystem of MCP servers
+
+## Registering MCP Servers
+
+### Command-based Servers
+
+Most MCP servers run as separate processes:
+
+```typescript
+agent.mcp.registerServer({
+  id: "firecrawl",
+  displayName: "Firecrawl Web Crawler",
+  type: "command",
+  command: {
+    command: "npx",           // How to start the server
+    args: ["-y", "firecrawl-mcp"],
+    env: {                    // Environment variables
+      FIRECRAWL_API_KEY: Deno.env.get("FIRECRAWL_API_KEY"),
+    },
+  },
+});
+```
+
+### Remote Servers
+
+For external HTTP/SSE connections:
+
+```typescript
+agent.mcp.registerServer({
+  id: "database-service",
+  displayName: "Database Service",
+  type: "remote",
+  remote: {
+    url: "https://api.example.com/mcp",
+    headers: {
+      "Authorization": `Bearer ${Deno.env.get("DB_TOKEN")}`,
+    },
+  },
+});
+```
+
+### Local Script Servers
+
+Run your own Deno/Node scripts as MCP servers:
+
+```typescript
+agent.mcp.registerServer({
+  id: "custom-tools",
+  type: "command",
+  command: {
+    command: "deno",
+    args: ["run", "-A", "./mcp-servers/custom-tools.ts"],
+    env: {
+      API_KEY: Deno.env.get("CUSTOM_API_KEY"),
+    },
+  },
+});
+```
+
+## Popular MCP Servers
+
+Discover and install MCP servers from the [CoreSpeed MCP Store](https://mcp.corespeed.io), which provides a curated collection of high-quality MCP servers for various use cases:
+
+- **Web & Content** - Web scraping, browser automation, RSS feeds
+- **Development** - GitHub, GitLab, Docker, CI/CD tools
+- **Data & Storage** - Database connections, file storage, caching
+- **Productivity** - Slack, email, calendar, documentation tools
+- **AI & ML** - Machine learning models, data processing
+- **Custom Solutions** - Domain-specific tools and integrations
+
+The MCP Store includes installation instructions, configuration examples, and compatibility information for each server.
+
+## Tool Discovery and Usage
+
+### Automatic Tool Discovery
+
+Your agent automatically discovers available tools:
+
+```typescript
+// Agent sees these tools are available:
+// - Built-in: read_file, edit_file, run_terminal_cmd, grep_search
+// - Firecrawl: crawl_url, search_web, extract_content  
+// - GitHub: list_repos, create_issue, get_pr_diff
+
+await agent.runTask("Find my latest commit and create a GitHub issue if there are any TODOs");
+
+// Agent automatically:
+// 1. Uses run_terminal_cmd to check git log
+// 2. Uses grep_search to find TODOs in changed files  
+// 3. Uses GitHub MCP to create an issue if TODOs found
+```
+
+### Tool Selection Logic
+
+Agents intelligently choose the right tools:
+
+```typescript
+await agent.runTask("Research React 19 features and update our docs");
+
+// Agent reasoning:
+// 1. "Research" → Need web access → Use Firecrawl to crawl React docs
+// 2. "Update docs" → Need file access → Use edit_file to update documentation
+// 3. Might also use grep_search to find existing React references
+```
+
+## Direct Tool Registration
+
+You can also register tools directly with the McpServerManager:
+
+```typescript
+import { defineTool } from '@zypher/agent/tools';
+import { z } from 'zod';
+
+// Create a custom tool
+const customTool = defineTool({
+  name: "calculate_fibonacci",
+  description: "Calculate the nth Fibonacci number",
+  parameters: z.object({
+    n: z.number().describe("The position in the Fibonacci sequence"),
+  }),
+  execute: async ({ n }) => {
+    if (n <= 1) return n.toString();
+    let a = 0, b = 1;
+    for (let i = 2; i <= n; i++) {
+      [a, b] = [b, a + b];
+    }
+    return b.toString();
+  },
+});
+
+// Register the tool directly
+agent.mcp.registerTool(customTool);
+```
+
+## Getting Tools Information
+
+You can inspect available tools at runtime:
+
+```typescript
+// Get all available tools
+const allTools = agent.mcp.getAllTools();
+console.log(`Available tools: ${Array.from(allTools.keys()).join(', ')}`);
+
+// Get a specific tool
+const fileTool = agent.mcp.getTool('read_file');
+if (fileTool) {
+  console.log(`Tool: ${fileTool.name}`);
+  console.log(`Description: ${fileTool.description}`);
+  console.log(`Parameters:`, fileTool.parameters);
+}
+
+// Debug server state
+agent.mcp.debugLogState();
+```
+
+## Tool Management
+
+```typescript
+// Enable/disable servers
+agent.mcp.updateServer('firecrawl', { enabled: false });
+agent.mcp.updateServer('firecrawl', { enabled: true });
+
+// Deregister a server
+agent.mcp.deregisterServer('unused-server');
+
+// Clean up all connections
+agent.mcp.cleanup();
+```
+
+---
+
+Tools are the foundation of your agent's capabilities. For comprehensive details on all available built-in tools, see the [Built-in Tools reference](/docs/core-concepts/tools-and-mcp/built-in-tools). Next, learn about [Checkpoints](/docs/core-concepts/checkpoints) to save and restore agent state.

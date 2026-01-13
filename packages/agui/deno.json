@@ -1,0 +1,12 @@
+{
+  "name": "@zypher/agui",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "imports": {
+    "@ag-ui/core": "npm:@ag-ui/core@^0.0.42",
+    "rxjs": "npm:rxjs@^7.8.2"
+  }
+}

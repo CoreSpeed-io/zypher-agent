@@ -1,0 +1,198 @@
+---
+title: Built-in Interceptors
+description: Pre-built interceptors for common agent control patterns including token continuation, error detection, and tool execution
+---
+
+# Built-in Interceptors
+
+Zypher Agent comes with several pre-built interceptors for common control patterns. These interceptors handle the most frequent needs in agent development and can be used immediately without custom implementation.
+
+## MaxTokensInterceptor
+
+Automatically continues conversations when responses are truncated due to token limits:
+
+```typescript
+import { MaxTokensInterceptor } from '@zypher/agent';
+
+const tokenInterceptor = new MaxTokensInterceptor({
+  // Enable automatic continuation
+  enabled: true,
+  
+  // Custom message to send when continuing  
+  continueMessage: "Please continue",
+  
+  // Maximum number of continuations to prevent loops
+  maxContinuations: 5,
+});
+
+loopInterceptorManager.register(tokenInterceptor);
+```
+
+**How it works:**
+- Monitors the `stopReason` from LLM responses
+- When `stopReason` is `"max_tokens"`, automatically adds a continuation message
+- Prevents infinite loops by limiting maximum continuations
+- Uses a simple "Continue" message by default to prompt the agent to resume
+
+**Common use cases:**
+- **Long responses** - Automatically continue when agent responses are cut off
+- **Complex tasks** - Allow agents to complete multi-step processes without manual intervention
+- **Detailed explanations** - Ensure comprehensive responses aren't truncated
+
+### Configuration Options
+
+```typescript
+interface MaxTokensInterceptorOptions {
+  enabled?: boolean;           // Enable/disable the interceptor
+  continueMessage?: string;    // Custom continuation message
+  maxContinuations?: number;   // Limit to prevent infinite loops
+}
+```
+
+## ErrorDetectionInterceptor
+
+Detects and handles code errors using configurable error detectors:
+
+```typescript
+import { 
+  ErrorDetectionInterceptor,
+  TypeScriptErrorDetector,
+  ESLintErrorDetector 
+} from '@zypher/agent';
+
+const errorInterceptor = new ErrorDetectionInterceptor(true);
+
+// Register built-in error detectors
+errorInterceptor.registerDetector(new TypeScriptErrorDetector());
+errorInterceptor.registerDetector(new ESLintErrorDetector());
+
+// Register custom error detector
+errorInterceptor.registerDetector({
+  name: 'jest-tests',
+  description: 'Detects failing Jest tests',
+  
+  async isApplicable(): Promise<boolean> {
+    try {
+      const packageJson = JSON.parse(await Deno.readTextFile('./package.json'));
+      return !!(packageJson.scripts?.test || packageJson.devDependencies?.jest);
+    } catch {
+      return false;
+    }
+  },
+  
+  async detect(): Promise<string | null> {
+    try {
+      const cmd = new Deno.Command('npm', { args: ['test', '--', '--passWithNoTests'] });
+      await cmd.output();
+      return null; // Tests passed
+    } catch (error) {
+      return `Test failures detected:\n${error.message}`;
+    }
+  }
+});
+
+loopInterceptorManager.register(errorInterceptor);
+```
+
+**Built-in error detectors:**
+- **TypeScriptErrorDetector** - Detects TypeScript compilation errors using `tsc --noEmit`
+- **ESLintErrorDetector** - Detects code style and quality issues using ESLint
+
+**Custom error detector interface:**
+1. **name** - Unique identifier for the detector
+2. **description** - Human-readable description of what it detects
+3. **isApplicable()** - Check if detector should run (e.g., project has TypeScript config)
+4. **detect()** - Run detection and return error message or null if no errors
+
+### Managing Error Detectors
+
+```typescript
+// Register multiple detectors
+errorInterceptor.registerDetector(typescriptDetector);
+errorInterceptor.registerDetector(eslintDetector);
+errorInterceptor.registerDetector(testDetector);
+
+// View registered detectors
+console.log(errorInterceptor.registeredDetectors);
+// ['typescript', 'eslint', 'test']
+
+// Remove specific detector
+errorInterceptor.unregisterDetector('eslint');
+
+// Clear all detectors
+errorInterceptor.clearDetectors();
+
+// Enable/disable entire interceptor
+errorInterceptor.enabled = false;
+```
+
+## ToolExecutionInterceptor
+
+Handles tool execution when the LLM requests tool calls:
+
+```typescript
+import { ToolExecutionInterceptor } from '@zypher/agent';
+
+const toolInterceptor = new ToolExecutionInterceptor(
+  mcpServerManager,
+  async (name, args, options) => {
+    // Optional approval handler
+    console.log(`Agent wants to use tool: ${name}`);
+    console.log('Arguments:', args);
+    
+    // Auto-approve safe tools
+    const safelist = ['read_file', 'list_directory', 'search'];
+    if (safelist.includes(name)) {
+      return true;
+    }
+    
+    // Require approval for potentially dangerous tools
+    const dangerous = ['run_command', 'write_file', 'delete'];
+    if (dangerous.includes(name)) {
+      return await promptForApproval(`Allow ${name}?`);
+    }
+    
+    return true; // Allow by default
+  }
+);
+
+loopInterceptorManager.register(toolInterceptor);
+```
+
+**Key features:**
+- **Automatic execution** - Runs tool calls requested by the LLM
+- **Approval workflow** - Optional human-in-the-loop for sensitive operations
+- **Error handling** - Graceful handling of tool failures
+- **Result forwarding** - Adds tool results back to conversation context
+
+### Tool Approval Patterns
+
+```typescript
+// Always approve (default behavior)
+const autoApprove: ToolApprovalHandler = () => Promise.resolve(true);
+
+// Interactive approval
+const interactiveApproval: ToolApprovalHandler = async (name, args) => {
+  const response = prompt(`Approve tool ${name}? (y/n)`);
+  return response?.toLowerCase() === 'y';
+};
+
+// Policy-based approval
+const policyBasedApproval: ToolApprovalHandler = async (name, args) => {
+  // Check against security policy
+  if (name === 'run_command') {
+    const command = args.command as string;
+    const bannedCommands = ['rm', 'del', 'format', 'sudo'];
+    
+    return !bannedCommands.some(banned => 
+      command.toLowerCase().includes(banned)
+    );
+  }
+  
+  return true;
+};
+```
+
+---
+
+Built-in interceptors provide a solid foundation for agent control. For more advanced scenarios, learn about [creating custom interceptors](/docs/core-concepts/loop-interceptors#custom-interceptors).

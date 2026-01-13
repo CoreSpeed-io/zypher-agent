@@ -1,0 +1,280 @@
+---
+title: Git-based Checkpoints
+description: Save and restore working directory state using Git for version control of agent-modified files
+---
+
+# Git-based Checkpoints
+
+Zypher Agent includes a Git-based checkpoint system that allows you to save and restore the working directory state during agent operations. This provides a simple way to track file system changes and revert to previous states when needed.
+
+## What are Checkpoints?
+
+Checkpoints in Zypher Agent capture:
+
+- **Working directory files** - Files in the current working directory (`Deno.cwd()`)
+- **Conversation history** - Agent messages and context up to the checkpoint point
+- **Git commits** - Each checkpoint creates a Git commit with file changes
+
+### Important Limitations
+
+Checkpoints do NOT save:
+- ❌ **External system state** - Databases, APIs, remote files, etc.
+- ❌ **Files outside working directory** - Only current directory and subdirectories
+- ❌ **Network state** - No external connections or remote data
+- ❌ **Process state** - Running services, environment variables, etc.
+
+Checkpoints provide Git snapshots of your project files plus agent conversation state restoration.
+
+## How It Works
+
+The checkpoint system uses Git to track working directory changes:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Working Dir     │───▶│  Git Commit     │───▶│   Checkpoint    │
+│ + Conversation  │    │  + Message Ref  │    │   ID (Hash)     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+1. **Agent modifies files** in the working directory
+2. **Checkpoint created** by committing all changes (`git add -A && git commit`) and saving conversation state
+3. **Checkpoint ID returned** - the Git commit hash for later restoration
+
+## How Checkpoints Are Created
+
+### Automatic Creation
+
+Zypher Agent automatically creates checkpoints before each task when checkpointing is enabled (which it is by default):
+
+```typescript
+import { ZypherAgent } from '@zypher/agent';
+
+const agent = new ZypherAgent(/* ... */);
+
+// Automatically creates checkpoint "Before task: Refactor the auth system..."
+await agent.runTask("Refactor the auth system to use JWT tokens");
+
+// Each task gets its own checkpoint automatically
+await agent.runTask("Add error handling to the API endpoints");
+await agent.runTask("Update documentation with new examples");
+```
+
+### Manual Creation (Advanced)
+
+For advanced use cases, you can create manual checkpoints:
+
+```typescript
+import { createCheckpoint } from '@zypher/agent';
+
+// Create a checkpoint with a descriptive name
+const checkpointId = await createCheckpoint("before-experimental-changes");
+console.log(`Checkpoint created: ${checkpointId}`);
+```
+
+### What Gets Saved
+
+```typescript
+// Files and state that are checkpointed:
+// ✅ ./src/main.ts (modified by agent)
+// ✅ ./package.json (updated dependencies) 
+// ✅ ./docs/README.md (created by agent)
+// ✅ ./config/settings.json (changed configuration)
+// ✅ Agent conversation history with tool results up to checkpoint point
+
+// Files/state that are NOT checkpointed:
+// ❌ /tmp/external-file.txt (outside working directory)
+// ❌ Database changes made by agent
+// ❌ Remote API calls or their results
+```
+
+## Restoring Checkpoints
+
+### Applying a Checkpoint
+
+```typescript
+import { applyCheckpoint, createCheckpoint } from '@zypher/agent';
+
+// Create a backup before applying checkpoint
+const backupId = await createCheckpoint("current-state-backup");
+
+// Restore to a previous checkpoint
+await applyCheckpoint("a1b2c3d4e5f6..."); 
+
+// This restores files in working directory and agent conversation history
+// External systems, databases, etc. are NOT restored
+```
+
+### What Gets Restored
+
+```typescript
+// When applying checkpoint "before-refactor":
+
+// ✅ Working directory files are restored to checkpoint state
+// ✅ File contents, permissions, structure are reverted
+// ✅ Agent conversation history is restored to checkpoint point
+// ✅ Agent "remembers" conversation including tool results up to checkpoint
+
+// ❌ External systems remain in current state
+// ❌ Database changes are NOT reverted
+// ❌ Remote files/APIs remain unchanged
+```
+
+## Listing and Inspecting Checkpoints
+
+### View Available Checkpoints
+
+```typescript
+import { listCheckpoints, getCheckpointDetails } from '@zypher/agent';
+
+// Get all checkpoints
+const checkpoints = await listCheckpoints();
+console.log('Available checkpoints:');
+checkpoints.forEach(checkpoint => {
+  console.log(`- ${checkpoint.id}: ${checkpoint.name}`);
+  console.log(`  Created: ${checkpoint.timestamp}`);
+  console.log(`  Files: ${checkpoint.files?.length || 0} changed`);
+});
+
+// Get details about a specific checkpoint  
+const details = await getCheckpointDetails("a1b2c3d4e5f6...");
+console.log(`Checkpoint: ${details.name}`);
+console.log(`Files changed: ${details.files?.join(', ')}`);
+```
+
+## Practical Use Cases
+
+### Development Iterations
+
+Use automatic checkpoints to compare different approaches:
+
+```typescript
+// First approach - gets automatic checkpoint
+await agent.runTask("Implement user authentication with sessions");
+
+// See the results, then restore and try different approach
+const checkpoints = await listCheckpoints();
+const beforeAuth = checkpoints[0]; // Most recent checkpoint
+
+// Second approach - restore and try again
+await agent.applyCheckpoint(beforeAuth.id);
+await agent.runTask("Implement user authentication with JWT tokens");
+
+// Compare results and choose the better implementation
+```
+
+### Milestone Tracking
+
+Automatic checkpoints provide natural milestone tracking:
+
+```typescript
+// Each task creates a natural milestone
+await agent.runTask("Set up basic project structure");
+await agent.runTask("Add core functionality");  
+await agent.runTask("Add documentation and tests");
+
+// View your progress through checkpoints
+const checkpoints = await listCheckpoints();
+checkpoints.forEach(checkpoint => {
+  console.log(`${checkpoint.timestamp}: ${checkpoint.name}`);
+});
+```
+
+### Recovery from Failed Tasks
+
+Since checkpoints are automatic, recovery is straightforward:
+
+```typescript
+try {
+  await agent.runTask("Complex refactoring task that might fail");
+} catch (error) {
+  console.log(`Task failed: ${error.message}`);
+  
+  // Restore to the automatic checkpoint created before the task
+  const checkpoints = await listCheckpoints();
+  const lastCheckpoint = checkpoints[0]; // Most recent
+  
+  if (lastCheckpoint) {
+    await agent.applyCheckpoint(lastCheckpoint.id);
+    console.log(`Restored to: ${lastCheckpoint.name}`);
+  }
+}
+```
+
+## Configuration and Setup
+
+### Enabling/Disabling Checkpoints
+
+Checkpoints are enabled by default, but you can control this:
+
+```typescript
+// Enable or disable automatic checkpointing
+const agentWithCheckpoints = new ZypherAgent(
+  modelProvider,
+  mcpServerManager,
+  loopInterceptorManager,
+  {
+    enableCheckpointing: true, // Enable automatic checkpoints (default)
+    // ... other config
+  }
+);
+```
+
+### Git Repository Setup
+
+The checkpoint system automatically initializes a Git repository for each workspace:
+
+```bash
+# Checkpoints are stored in workspace-specific directories:
+# ~/.zypher/[workspace-hash]/checkpoints/
+# Where workspace-hash is base64 encoded current working directory
+
+# Working tree is: current working directory (Deno.cwd())
+# Each workspace gets its own separate checkpoint history
+
+# Git config is automatically set:
+# user.name: "ZypherAgent" 
+# user.email: "zypher@corespeed.io"
+```
+
+## Storage and Performance Considerations
+
+### Storage Considerations
+
+Checkpoints consume disk space:
+- **Each checkpoint is a full Git commit** - Complete snapshots of changed files
+- **Large files can accumulate over time** - Especially with frequent checkpoints
+- **Consider periodic cleanup** - Remove old checkpoints that are no longer needed
+
+Use `.gitignore` to exclude unnecessary files from checkpoints:
+
+```bash
+echo "node_modules/" >> .gitignore  
+echo ".tmp/" >> .gitignore
+echo "*.log" >> .gitignore
+```
+
+### Performance Impact
+
+- **Checkpoint creation** - Fast for small changes, slower for large file sets
+- **Restoration** - Fast Git checkout operation
+- **Listing** - Requires Git log parsing, scales with number of checkpoints
+
+## Troubleshooting
+
+**"Git not found" errors**
+- Ensure Git is installed and available in PATH
+- Check that the checkpoint directory is accessible
+
+**"Failed to create checkpoint" errors**  
+- Verify write permissions in the workspace
+- Check available disk space
+- Ensure the working directory exists
+
+**Restoration doesn't work as expected**
+- Remember: files and conversation history are restored, but not external systems
+- Check that the checkpoint ID exists with `listCheckpoints()`
+- Verify you're in the correct working directory
+
+---
+
+Checkpoints provide file and conversation state management for agent operations. For more advanced state management, consider external backup solutions for databases, configuration systems, and other stateful resources that agents might modify.

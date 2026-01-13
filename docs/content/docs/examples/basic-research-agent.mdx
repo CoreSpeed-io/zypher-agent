@@ -1,0 +1,269 @@
+---
+title: Basic Research Agent
+description: Complete example showing a research agent with MCP integration and web crawling capabilities
+---
+
+# Building a Research Agent
+
+**Problem**: Manually researching topics online is time-consuming and requires visiting multiple websites, reading through content, and synthesizing information.
+
+**Solution**: An AI agent that can automatically search the web, crawl relevant pages, analyze content, and provide comprehensive summaries.
+
+**What we'll build**: A research agent that takes any topic, finds current information online, and delivers structured insights - all automatically.
+
+## How It Works
+
+To build this research agent, we need two key components:
+
+1. **AI Brain (LLM)** - Claude or GPT to understand requests and analyze content
+2. **Web Access Tools** - A way for the agent to actually crawl websites and extract content
+
+### Why We Need MCP Servers
+
+Zypher Agent uses the Model Context Protocol (MCP) to connect with external tools. Think of MCP servers as "plugins" that give your agent new capabilities:
+
+- **Firecrawl MCP** - Crawls websites and extracts clean content
+- **GitHub MCP** - Interact with repositories and issues  
+- **Database MCP** - Query and update databases
+- **File System MCP** - Read and write local files
+
+For our research agent, we'll use **Firecrawl** because it's specifically designed to:
+- Handle modern websites (JavaScript, dynamic content)
+- Extract clean, readable text from web pages
+- Respect robots.txt and rate limits
+- Return structured data that AI models can easily process
+
+## Prerequisites
+
+- Complete the [Quick Start](/docs/getting-started/quick-start) first
+- Get a Firecrawl API key ([here](https://firecrawl.dev))
+
+## Environment Setup
+
+Update your `.env` file:
+
+```bash
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+FIRECRAWL_API_KEY=your_firecrawl_api_key_here
+```
+
+## The Agent
+
+Create `research-agent.ts`:
+
+```typescript
+import {
+  ZypherAgent,
+  AnthropicModelProvider
+} from '@zypher/agent';
+import { eachValueFrom } from 'rxjs-for-await';
+
+// Load environment variables
+const getRequiredEnv = (key: string): string => {
+  const value = Deno.env.get(key);
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return value;
+};
+
+// Create the agent
+const agent = new ZypherAgent(
+  new AnthropicModelProvider({
+    apiKey: getRequiredEnv("ANTHROPIC_API_KEY"),
+  })
+);
+
+// Set up MCP server for web crawling
+await agent.mcpServerManager.registerServer({
+  id: "firecrawl",
+  type: "command",
+  command: {
+    command: "npx",
+    args: ["-y", "firecrawl-mcp"],
+    env: {
+      FIRECRAWL_API_KEY: getRequiredEnv("FIRECRAWL_API_KEY"),
+    },
+  },
+});
+
+// Initialize the agent
+await agent.init();
+
+// Run a research task
+const event$ = agent.runTask(
+  `Research the latest developments in AI coding assistants and summarize the top 3 trends with examples`,
+  "claude-sonnet-4-20250514",
+);
+
+// Process the results with detailed logging
+console.log("🚀 Starting research task...\n");
+
+for await (const event of eachValueFrom(event$)) {
+  switch (event.type) {
+    case 'text':
+      console.log('💬 Agent response:');
+      console.log(event.content.text);
+      console.log('');
+      break;
+      
+    case 'tool_use':
+      console.log(`🔧 Using tool: ${event.content.name}`);
+      if (event.content.input) {
+        console.log('   Input:', JSON.stringify(event.content.input, null, 2));
+      }
+      break;
+      
+    case 'tool_result':
+      console.log('📊 Tool result received');
+      break;
+      
+    default:
+      console.log(`📦 Event: ${event.type}`);
+  }
+}
+
+console.log("✅ Research completed!");
+```
+
+## Run the Example
+
+Execute the research agent:
+
+```bash
+deno run -A research-agent.ts
+```
+
+## What You'll See
+
+The agent will:
+
+1. **Plan the research** - Decide what information to search for
+2. **Use web crawling** - Crawl relevant websites using Firecrawl
+3. **Analyze content** - Process the information it finds
+4. **Synthesize results** - Create a comprehensive summary
+
+Example output:
+
+```
+🚀 Starting research task...
+
+💬 Agent response:
+I'll help you research the latest developments in AI coding assistants. Let me search for current information.
+
+🔧 Using tool: firecrawl_crawl
+   Input: {
+     "url": "https://github.blog/tag/ai/",
+     "options": {
+       "crawlOptions": {
+         "limit": 5
+       }
+     }
+   }
+
+📊 Tool result received
+
+🔧 Using tool: firecrawl_crawl
+   Input: {
+     "url": "https://openai.com/blog/tag/coding/",
+     "options": {
+       "crawlOptions": {
+         "limit": 3
+       }
+     }
+   }
+
+📊 Tool result received
+
+💬 Agent response:
+Based on my research, here are the top 3 trends in AI coding assistants:
+
+1. **Enhanced Code Completion with Context**
+   GitHub Copilot has evolved beyond simple autocomplete to understand entire codebases...
+
+2. **Conversational Code Review**
+   Tools like Claude Code now offer interactive code review capabilities...
+
+3. **Multi-Modal Code Understanding**
+   New assistants can process screenshots, diagrams, and documentation...
+
+✅ Research completed!
+```
+
+## Key Features Demonstrated
+
+### MCP Integration
+The agent automatically connects to external tools (Firecrawl) without you having to manually integrate APIs.
+
+### Intelligent Tool Usage
+The agent decides which websites to crawl and how many pages to process based on the task requirements.
+
+### Event Streaming
+You can monitor exactly what the agent is doing in real-time through the event stream.
+
+### Error Handling
+The ToolExecutionInterceptor automatically handles tool timeouts and failures.
+
+## Try Different Research Tasks
+
+Modify the task to research different topics:
+
+```typescript
+// Technology trends
+agent.runTask("Research the latest trends in TypeScript and summarize key features")
+
+// Business analysis  
+agent.runTask("Find recent startup funding news in AI and list the top 3 deals")
+
+// Educational content
+agent.runTask("Research best practices for API design and create a beginner's guide")
+```
+
+## Adding More MCP Servers
+
+You can register multiple MCP servers for different capabilities:
+
+```typescript
+// Add GitHub integration
+agent.mcpServerManager.registerServer({
+  id: "github",
+  type: "command",
+  command: {
+    command: "npx",
+    args: ["-y", "github-mcp"],
+    env: {
+      GITHUB_TOKEN: getRequiredEnv("GITHUB_TOKEN"),
+    },
+  },
+});
+
+// Add database access
+agent.mcpServerManager.registerServer({
+  id: "postgres",
+  type: "command",
+  command: {
+    command: "deno",
+    args: ["run", "-A", "./mcp-postgres-server.ts"],
+    env: {
+      DATABASE_URL: getRequiredEnv("DATABASE_URL"),
+    },
+  },
+});
+```
+
+## Next Steps
+
+This example shows the power of combining:
+- **LLM reasoning** (Claude/GPT deciding what to do)
+- **Tool integration** (MCP servers providing capabilities) 
+- **Real-time monitoring** (Event streaming for transparency)
+
+From here you can:
+- Build specialized agents for your domain
+- Create custom MCP servers for proprietary tools
+- Add more sophisticated error handling and retry logic
+- Deploy agents to production environments
+
+---
+
+**Ready to build more?** Check out the [MCP Integration guide](/docs/guides/mcp-integration) or explore [Advanced Workflows](/docs/examples/advanced-workflows).

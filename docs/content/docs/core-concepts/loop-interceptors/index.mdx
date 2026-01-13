@@ -1,0 +1,325 @@
+---
+title: Loop Interceptors
+description: Control agent execution flow with interceptors for error detection, token limits, and custom logic
+---
+
+# Loop Interceptors
+
+Loop interceptors provide powerful control mechanisms for agent execution. They monitor agent behavior, detect problems, and can modify or halt execution when needed.
+
+## What is the Agent Loop?
+
+The core of agentic behavior is the **agent loop** - a continuous cycle where the agent:
+
+1. **Receives/reviews messages** (user input, tool results, previous context)
+2. **Reasons and generates a response** using the LLM
+3. **Executes any tool calls** requested in the response
+4. **Checks if the task is complete** or needs another iteration
+5. **Repeats** until the task is finished or max iterations reached
+
+This loop is what enables agents to think, act, observe results, and adapt their approach - the fundamental pattern of autonomous behavior.
+
+## What are Loop Interceptors?
+
+Loop interceptors are middleware components that run after each agent response to decide whether the loop should continue:
+
+```
+Task Request ──▶ ┌─────────────┐ ── Agent Response ──▶ ┌─────────────────┐ ── Task Completed ──▶
+                 │ Agent Loop  │                       │ LoopInterceptor │
+                 └─────────────┘                       │    Pipeline     │
+                       ▲                               └─────────────────┘
+                       │                                        │
+                       │                                   Continue
+                       │                              (Inject more context)
+                       │                                        │
+                       └────────────────────────────────────────┘
+```
+
+Think of them as "decision gates" that:
+- **Monitor** agent responses and behavior patterns
+- **Detect** when intervention is needed (errors, security issues, token limits)
+- **Inject feedback** by adding messages to guide the agent
+- **Control flow** by deciding whether to continue the loop or finish the task
+- **Enable complex behaviors** like tool execution, error handling, and validation
+
+## The LoopInterceptorManager
+
+All interceptors are managed through a central manager:
+
+```typescript
+import { 
+  LoopInterceptorManager,
+  MaxTokensInterceptor,
+  ErrorDetectionInterceptor,
+  ToolExecutionInterceptor 
+} from '@zypher/agent';
+
+const loopInterceptorManager = new LoopInterceptorManager();
+
+// Register interceptors in order of execution
+loopInterceptorManager.register(new MaxTokensInterceptor());
+loopInterceptorManager.register(new ErrorDetectionInterceptor());
+loopInterceptorManager.register(new ToolExecutionInterceptor(mcpServerManager));
+```
+
+## Built-in Interceptors
+
+Zypher Agent provides several pre-built interceptors for common control patterns:
+
+- **[MaxTokensInterceptor](/docs/core-concepts/loop-interceptors/built-in-interceptors#maxtokensinterceptor)** - Automatically continues conversations when responses are truncated
+- **[ErrorDetectionInterceptor](/docs/core-concepts/loop-interceptors/built-in-interceptors#errordetectioninterceptor)** - Detects and handles code errors using configurable detectors  
+- **[ToolExecutionInterceptor](/docs/core-concepts/loop-interceptors/built-in-interceptors#toolexecutioninterceptor)** - Handles tool execution with optional approval workflows
+
+```typescript
+import { 
+  LoopInterceptorManager,
+  MaxTokensInterceptor,
+  ErrorDetectionInterceptor,
+  ToolExecutionInterceptor 
+} from '@zypher/agent';
+
+const loopInterceptorManager = new LoopInterceptorManager();
+
+// Register built-in interceptors
+loopInterceptorManager.register(new MaxTokensInterceptor());
+loopInterceptorManager.register(new ErrorDetectionInterceptor());
+loopInterceptorManager.register(new ToolExecutionInterceptor(mcpServerManager));
+```
+
+For detailed configuration and examples, see the [Built-in Interceptors](/docs/core-concepts/loop-interceptors/built-in-interceptors) guide.
+
+## How Interceptors Work
+
+Interceptors run in registration order and each interceptor in the chain gets to examine the context and decide whether the agent should make another LLM request or finish the task.
+
+**Key behaviors:**
+- Interceptors are executed sequentially in registration order  
+- Each interceptor can return either `CONTINUE` or `COMPLETE`
+- **If any interceptor returns `CONTINUE`, execution stops immediately and the agent sends another LLM request**
+- Subsequent interceptors in the chain are **not executed** when an earlier interceptor returns `CONTINUE`  
+- Only if all interceptors return `COMPLETE` does the task finish
+- Interceptors that return `CONTINUE` can add messages to modify the conversation context before the next LLM request
+
+**What "continue" means:**
+When an interceptor returns `CONTINUE`, the agent will make another call to the LLM with the current message history (including any messages the interceptor added). This allows interceptors to inject feedback, corrections, or additional context that the agent can respond to.
+
+**Critical considerations:**
+- **Tool execution interceptors** (like `ToolExecutionInterceptor`) should generally come early in the chain since they execute tools and add results to the conversation
+- **Security and validation interceptors** must come before tool execution interceptors to prevent unwanted tool calls
+- **Monitoring interceptors** can be placed anywhere as they typically just observe without changing the flow
+
+### Interceptor Chain Behavior
+
+```typescript
+// If any interceptor returns CONTINUE, chain stops and agent makes new LLM request
+SecurityInterceptor: CONTINUE → Chain stops, new LLM request (ComplianceInterceptor never runs)
+
+// If interceptor returns COMPLETE, chain continues to next interceptor
+SecurityInterceptor: COMPLETE → ComplianceInterceptor: COMPLETE → Task finishes
+
+// First CONTINUE wins, subsequent interceptors are skipped
+SecurityInterceptor: COMPLETE → ComplianceInterceptor: CONTINUE → New LLM request (MaxTokensInterceptor skipped)
+```
+
+## Custom Interceptors
+
+### Creating Your Own Interceptor
+
+Build interceptors for domain-specific requirements:
+
+```typescript
+import { 
+  LoopInterceptor, 
+  InterceptorContext, 
+  InterceptorResult, 
+  LoopDecision 
+} from '@zypher/agent';
+
+class SecurityInterceptor implements LoopInterceptor {
+  readonly name = "security";
+  readonly description = "Blocks potentially dangerous commands";
+  
+  private suspiciousPatterns = [
+    /rm -rf/,
+    /DROP TABLE/,
+    /DELETE FROM.*WHERE.*=/,
+    /sudo/,
+  ];
+
+  async intercept(context: InterceptorContext): Promise<InterceptorResult> {
+    // Check the last assistant message for tool calls
+    const lastMessage = context.messages[context.messages.length - 1];
+    if (!lastMessage || lastMessage.role !== "assistant") {
+      return { decision: LoopDecision.COMPLETE };
+    }
+
+    // Look for tool_use blocks in the message
+    const toolBlocks = lastMessage.content.filter(block => block.type === "tool_use");
+    
+    for (const block of toolBlocks) {
+      if (block.type === "tool_use" && block.name === "runCommand") {
+        const command = (block.input as any).command;
+        
+        for (const pattern of this.suspiciousPatterns) {
+          if (pattern.test(command)) {
+            // Add warning message to context
+            context.messages.push({
+              role: "user",
+              content: [{
+                type: "text",
+                text: `🚨 Security Warning: Command "${command}" was blocked as potentially dangerous. Please use a safer alternative.`,
+              }],
+              timestamp: new Date(),
+            });
+
+            return {
+              decision: LoopDecision.CONTINUE,
+              reasoning: `Blocked dangerous command: ${command}`,
+            };
+          }
+        }
+      }
+    }
+    
+    return { decision: LoopDecision.COMPLETE };
+  }
+}
+
+// IMPORTANT: Register security interceptor BEFORE ToolExecutionInterceptor
+// Otherwise ToolExecutionInterceptor will execute tools first and security won't intercept
+loopInterceptorManager.register(new SecurityInterceptor());
+```
+
+<Callout type="warning" title="Critical Ordering Requirement">
+This interceptor must be registered before `ToolExecutionInterceptor`, otherwise tool execution will happen before security checks. See [Interceptor Execution Order](#interceptor-execution-order) for details.
+</Callout>
+
+### Business Logic Interceptor
+
+Implement custom business rules:
+
+```typescript
+class ComplianceInterceptor implements LoopInterceptor {
+  readonly name = "compliance";
+  readonly description = "Redacts PII data for compliance";
+
+  async intercept(context: InterceptorContext): Promise<InterceptorResult> {
+    // Check agent's latest response for PII
+    const lastResponse = context.lastResponse;
+    
+    // Check for potential PII patterns
+    const piiPatterns = [
+      { pattern: /\b\d{3}-\d{2}-\d{4}\b/g, type: 'SSN' },
+      { pattern: /\b\d{16}\b/g, type: 'Credit Card' },
+      { pattern: /[\w.-]+@[\w.-]+\.\w+/g, type: 'Email' },
+    ];
+    
+    let foundPII = false;
+    let redactedResponse = lastResponse;
+    
+    for (const { pattern, type } of piiPatterns) {
+      if (pattern.test(lastResponse)) {
+        foundPII = true;
+        redactedResponse = redactedResponse.replace(pattern, `[REDACTED ${type}]`);
+      }
+    }
+    
+    if (foundPII) {
+      // Add a message explaining the redaction
+      context.messages.push({
+        role: "user",
+        content: [{
+          type: "text",
+          text: `⚠️ Compliance Notice: Potential PII was detected and redacted from your response. Please provide the information again without sensitive details.`,
+        }],
+        timestamp: new Date(),
+      });
+
+      return {
+        decision: LoopDecision.CONTINUE,
+        reasoning: 'Redacted potential PII for compliance',
+      };
+    }
+    
+    return { decision: LoopDecision.COMPLETE };
+  }
+}
+```
+
+### Performance Monitoring Interceptor
+
+Track and optimize agent performance:
+
+```typescript
+class PerformanceInterceptor implements LoopInterceptor {
+  readonly name = "performance";
+  readonly description = "Tracks agent performance metrics";
+  
+  private metrics = {
+    interceptorCalls: 0,
+    toolCallsDetected: 0,
+    startTime: Date.now(),
+  };
+
+  async intercept(context: InterceptorContext): Promise<InterceptorResult> {
+    this.metrics.interceptorCalls++;
+    
+    // Count tool calls in the latest message
+    const lastMessage = context.messages[context.messages.length - 1];
+    if (lastMessage && lastMessage.role === "assistant") {
+      const toolBlocks = lastMessage.content.filter(block => block.type === "tool_use");
+      if (toolBlocks.length > 0) {
+        this.metrics.toolCallsDetected += toolBlocks.length;
+      }
+    }
+    
+    // Log metrics every 10 intercepts
+    if (this.metrics.interceptorCalls % 10 === 0) {
+      this.logMetrics();
+    }
+    
+    return { decision: LoopDecision.COMPLETE };
+  }
+  
+  private logMetrics() {
+    const duration = Date.now() - this.metrics.startTime;
+    console.log('Agent Performance Metrics:', {
+      interceptorCalls: this.metrics.interceptorCalls,
+      toolCallsDetected: this.metrics.toolCallsDetected,
+      runtime: `${duration}ms`,
+      avgToolCallsPerIntercept: this.metrics.toolCallsDetected / this.metrics.interceptorCalls,
+    });
+  }
+}
+```
+
+## Best Practices
+
+### Interceptor Design
+
+**Keep interceptors focused** - One responsibility per interceptor
+```typescript
+// Good: Focused on security
+class SecurityInterceptor extends LoopInterceptor { /* ... */ }
+
+// Bad: Mixed responsibilities  
+class SecurityAndPerformanceInterceptor extends LoopInterceptor { /* ... */ }
+```
+
+**Make interceptors configurable**
+```typescript
+class RateLimitInterceptor extends LoopInterceptor {
+  constructor(private config: RateLimitConfig) {
+    super();
+  }
+  
+  // Allow runtime configuration updates
+  updateConfig(newConfig: Partial<RateLimitConfig>) {
+    this.config = { ...this.config, ...newConfig };
+  }
+}
+```
+
+---
+
+Loop interceptors provide powerful control over agent behavior. Next, explore [advanced deployment patterns](/docs/guides/deployment) or learn about [creating custom tools](/docs/guides/creating-custom-tools).

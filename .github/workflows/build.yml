@@ -20,7 +20,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.5.1
+          deno-version: v2.6.0
 
       - name: Install dependencies
         run: deno install --frozen=true
@@ -35,10 +35,75 @@ jobs:
         run: deno check .
 
       - name: Run unit tests
-        run: deno test --ignore=**/*.integration.test.ts
+        # --allow-env required for MCP SDK transitive dependencies
+        # --allow-read required for executeCode and codeExecution worker tests
+        # (cross-spawn/which reads OSTYPE at module load)
+        run: deno test --allow-env --allow-read --ignore=**/*.integration.test.ts
 
       - name: JSR publish dry run
-        run: deno publish --dry-run --allow-slow-types
+        run: deno publish --dry-run
 
-      - name: Build npm package
-        run: deno task build:npm
+  detect-changes:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      has-changes: ${{ steps.detect.outputs.has-changes }}
+      packages: ${{ steps.detect.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect version changes
+        id: detect
+        run: |
+          CHANGED_PACKAGES="[]"
+
+          for pkg_dir in packages/*/; do
+            PKG_JSON="${pkg_dir}deno.json"
+
+            if [ -f "$PKG_JSON" ]; then
+              NAME=$(jq -r '.name // empty' "$PKG_JSON")
+
+              # Skip packages without a name (not publishable)
+              if [ -z "$NAME" ]; then
+                echo "Skipping $pkg_dir (no name field)"
+                continue
+              fi
+
+              NEW_VERSION=$(jq -r '.version // "0.0.0"' "$PKG_JSON")
+              OLD_VERSION=$(git show HEAD~1:"$PKG_JSON" 2>/dev/null | jq -r '.version // "0.0.0"' 2>/dev/null || echo "0.0.0")
+
+              if [ "$NEW_VERSION" != "$OLD_VERSION" ]; then
+                SHORT_NAME=$(basename "$pkg_dir")
+                CHANGED_PACKAGES=$(echo "$CHANGED_PACKAGES" | jq -c \
+                  --arg name "$NAME" \
+                  --arg version "$NEW_VERSION" \
+                  --arg path "packages/$SHORT_NAME" \
+                  --arg short_name "$SHORT_NAME" \
+                  --arg old_version "$OLD_VERSION" \
+                  '. + [{name: $name, version: $version, path: $path, short_name: $short_name, old_version: $old_version}]')
+                echo "🚀 Version change: $NAME $OLD_VERSION → $NEW_VERSION"
+              fi
+            fi
+          done
+
+          if [ "$CHANGED_PACKAGES" = "[]" ]; then
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "No version changes detected"
+          else
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+            echo "packages=$CHANGED_PACKAGES" >> $GITHUB_OUTPUT
+            echo "Changed packages: $CHANGED_PACKAGES"
+          fi
+
+  release:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      packages: ${{ needs.detect-changes.outputs.packages }}
+    permissions:
+      contents: write
+      id-token: write # Required for publish.yml to authenticate with JSR

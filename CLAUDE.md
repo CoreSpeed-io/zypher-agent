@@ -5,99 +5,89 @@ code in this repository.
 
 ## Development Commands
 
-- **Start CLI**: `deno task start` - Launches the interactive CLI interface
-- **Build**: `deno task compile` - Compiles the CLI to a binary at `dist/cli`
-- **Test**: `deno task test` - Runs all tests with leak tracing
-- **Test Watch**: `deno task test:watch` - Runs tests in watch mode
-- **Type Check**: `deno check .` - Type checks the entire codebase
-- **Lint**: `deno lint` - Lints the codebase
-- **Format**: `deno fmt` - Formats the codebase
-- **Check All**: `deno task checkall` - Runs format, lint, and type check in
-  sequence
-- **Build NPM**: `deno task build:npm` - Builds NPM distribution
+Root workspace commands (run from repo root):
+
+- **Run CLI**: `deno task cli` - Runs the CLI from packages/cli
+- **Test all**: `deno task test` - Runs all tests with leak tracing
+- **Test watch**: `deno task test:watch` - Runs tests in watch mode
+- **Check all**: `deno task checkall` - Runs format, lint, and type check
+
+### Code quality
+
+- **Type check**: `deno check .`
+- **Lint**: `deno lint`
+- **Format**: `deno fmt`
 
 ## Architecture Overview
 
-Zypher Agent is a Deno-based framework for building production-ready AI agents
-with the following core components:
+Zypher Agent is a TypeScript SDK for building production-ready AI agents.
+Published as `@zypher/agent` on JSR.
 
-### Core Components
+### Monorepo Structure
 
-- **ZypherAgent** (`src/ZypherAgent.ts`): Main agent implementation with
-  streaming task execution, checkpoint system, and event handling
-- **ModelProvider** (`src/llm/`): Abstraction layer supporting Anthropic and
-  OpenAI models
-- **Loop Interceptors** (`src/loopInterceptors/`): Extensible post-inference
-  interceptor system for customizing agent loop behavior
-- **Tool System** (`src/tools/`): Built-in tools for file operations, terminal
-  commands, and search
-- **MCP Integration** (`src/mcp/`): Model Context Protocol client and server
-  management with OAuth support
-- **Storage Services** (`src/storage/`): File attachment management with S3
-  support
-- **Checkpoint System** (`src/checkpoints.ts`): Git-based state management for
-  tracking and reverting changes
+```
+packages/
+├── agent/          # Core SDK (@zypher/agent)
+│   ├── src/        # Source code
+│   └── tests/      # Tests
+├── cli/            # CLI tool (@zypher/cli)
+examples/
+└── ptc/            # Programmatic Tool Calling example
+```
 
-### Key Architecture Patterns
+### Core Components (packages/agent/src/)
 
-- **Event-driven**: Uses RxJS observables for streaming task events
-- **Dependency injection**: Core managers (MCP, interceptors) passed to
-  constructor
-- **Chain of responsibility**: Loop interceptors process responses until one
-  continues the loop
-- **Tool-based**: Extensible tool system with Zod schema validation
-- **MCP Protocol**: Native support for Model Context Protocol servers
-- **Storage abstraction**: Pluggable storage services for file attachments
+- **ZypherAgent.ts**: Main agent class with reactive task execution loop. Uses
+  RxJS Observable to stream TaskEvents. Manages message history, checkpoints,
+  and coordinates with McpServerManager and LoopInterceptorManager.
 
-### Directory Structure
+- **factory.ts**: `createZypherAgent()` - simplified factory that creates
+  context, registers tools, and connects MCP servers in one call.
 
-- `src/` - Core TypeScript source code
-  - `src/loopInterceptors/` - Loop interceptor system and built-in interceptors
-- `bin/cli.ts` - CLI entry point
-- `tests/` - Integration and unit tests
-- `npm/` - Generated NPM distribution
-- `scripts/` - Build and utility scripts
+- **llm/**: Model provider abstraction (`ModelProvider` interface) with
+  implementations for Anthropic and OpenAI. Handles streaming chat completions
+  and token usage tracking.
 
-### Configuration
+- **loopInterceptors/**: Chain of responsibility pattern for post-inference
+  processing. Each interceptor can return `LoopDecision.CONTINUE` to continue
+  the agent loop or `LoopDecision.COMPLETE` to finish.
+  - `ToolExecutionInterceptor`: Executes tool calls from LLM responses
+  - `MaxTokensInterceptor`: Auto-continues when response hits token limit
+  - `ErrorDetectionInterceptor`: Detects errors and prompts for fixes
 
-- `deno.json` - Deno configuration with tasks and import map
-- `mcp.json` - MCP server configuration (currently empty)
+- **mcp/**: Model Context Protocol integration
+  - `McpServerManager`: Manages MCP server lifecycle, tool registration, and
+    tool execution with optional approval handlers
+  - `McpClient`: Individual server connection with status observable
+  - Supports CoreSpeed MCP Store registry for server discovery
+
+- **tools/**: Extensible tool system using Zod schemas
+  - `fs/`: File system tools (ReadFile, ListDir, EditFile, GrepSearch, etc.)
+  - `codeExecutor/`: Programmatic Tool Calling (PTC) via `execute_code` tool
+  - Use `createTool()` helper to define custom tools
+
+- **CheckpointManager.ts**: Git-based workspace state snapshots. Creates a
+  separate git repository in workspaceDataDir to track file changes without
+  affecting the user's main repository.
+
+- **TaskEvents.ts**: Discriminated union of all events emitted during task
+  execution (text streaming, tool use, messages, usage, completion).
+
+### Key Patterns
+
+- **Event streaming**: `agent.runTask()` returns `Observable<TaskEvent>` for
+  real-time updates
+- **Tool approval**: Optional `ToolApprovalHandler` callback before tool
+  execution
+- **Context separation**: `ZypherContext` (workspace/directories) vs
+  `ZypherAgentConfig` (behavioral settings)
+- **MCP Server sources**: Registry (CoreSpeed MCP Store) or direct configuration
 
 ### Testing
 
-Uses Deno's built-in test runner with integration tests for MCP client and S3
-storage.
+Tests are in `packages/agent/tests/`. Integration tests require environment
+variables (API keys, S3 credentials). Run a single test:
 
-## Loop Interceptor System
-
-The Loop Interceptor system provides extensible post-inference processing to
-control agent loop behavior. Interceptors run after each LLM response and can:
-
-- Execute tool calls
-- Detect and handle errors
-- Continue on max tokens
-- Add custom loop logic
-
-### Built-in Interceptors
-
-- **ToolExecutionInterceptor**: Executes LLM-requested tool calls with optional
-  approval
-- **ErrorDetectionInterceptor**: Detects code errors and continues loop for
-  fixes
-- **MaxTokensInterceptor**: Auto-continues when response truncated by token
-  limits
-
-### Usage Pattern
-
-```typescript
-const agent = new ZypherAgent(
-  context,
-  modelProvider,
-);
+```bash
+deno test -A packages/agent/tests/McpServerManager.test.ts
 ```
-
-### Chain of Responsibility
-
-Interceptors execute sequentially until one returns `LoopDecision.CONTINUE`,
-which immediately stops the chain and continues the agent loop. This allows the
-first applicable interceptor to take control.

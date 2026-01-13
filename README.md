@@ -2,8 +2,8 @@
 
 **Production-ready AI agents that live in your applications**
 
-[![Build](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml/badge.svg)](https://github.com/CoreSpeed-io/zypher-agent/actions/workflows/build.yml)
-[![JSR](https://jsr.io/badges/@corespeed/zypher)](https://jsr.io/badges/@corespeed/zypher)
+[![Build](https://github.com/corespeed-io/zypher-agent/actions/workflows/build.yml/badge.svg)](https://github.com/corespeed-io/zypher-agent/actions/workflows/build.yml)
+[![JSR](https://jsr.io/badges/@zypher/agent)](https://jsr.io/badges/@zypher/agent)
 
 ## Features
 
@@ -32,33 +32,23 @@
 #### Using JSR
 
 ```bash
-# In your Deno project: 
-import { ZypherAgent } from "jsr:@corespeed/zypher@^0.4.2";
+deno add jsr:@zypher/agent
 ```
 
 ### SDK Usage
 
 ```typescript
-import {
-  AnthropicModelProvider,
-  createZypherContext,
-  EditFileTool,
-  ReadFileTool,
-  ZypherAgent,
-} from "@corespeed/zypher";
+import { AnthropicModelProvider, createZypherAgent } from "@zypher/agent";
+import { createFileSystemTools } from "@zypher/agent/tools";
+import { eachValueFrom } from "rxjs-for-await";
 
-// Initialize context and provider
-const context = await createZypherContext("/path/to/workspace");
-const provider = new AnthropicModelProvider({
-  apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
+const agent = await createZypherAgent({
+  modelProvider: new AnthropicModelProvider({
+    apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
+  }),
+  tools: [...createFileSystemTools()],
+  mcpServers: ["@modelcontextprotocol/sequentialthinking-server"],
 });
-
-// Create agent
-const agent = new ZypherAgent(context, provider);
-
-// Register tools
-agent.mcp.registerTool(ReadFileTool);
-agent.mcp.registerTool(EditFileTool);
 
 // Run task with streaming
 const taskEvents = agent.runTask(
@@ -66,10 +56,8 @@ const taskEvents = agent.runTask(
   "claude-sonnet-4-20250514",
 );
 
-for await (const event of taskEvents) {
-  if (event.type === "text") {
-    console.log(event.content);
-  }
+for await (const event of eachValueFrom(taskEvents)) {
+  console.log(event);
 }
 ```
 
@@ -84,8 +72,8 @@ details.
 ## Resources
 
 - [Documentation](https://zypher.corespeed.io/docs) and
-  [API Reference](https://jsr.io/@corespeed/zypher/doc)
-- [Issue Tracker](https://github.com/CoreSpeed-io/zypher-agent/issues)
+  [API Reference](https://jsr.io/@zypher/agent/doc)
+- [Issue Tracker](https://github.com/corespeed-io/zypher-agent/issues)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 
 ---

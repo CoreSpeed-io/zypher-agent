@@ -1,0 +1,220 @@
+---
+title: LLM Providers
+description: Configure and use different large language model providers with Zypher Agent
+---
+
+# LLM Providers
+
+Zypher Agent supports multiple large language model providers through a unified interface. This allows you to switch between different LLM providers while maintaining the same agent behavior and API.
+
+## What are LLM Providers?
+
+LLM providers are adapters that connect Zypher Agent to different large language model services like Anthropic's Claude or OpenAI's GPT models. They handle:
+
+- **Authentication** - API key management and authentication
+- **Request formatting** - Converting agent messages to provider-specific format
+- **Response parsing** - Processing streaming responses back to unified format
+- **Capabilities** - Exposing what features each provider supports
+- **Error handling** - Provider-specific error management
+
+## ModelProvider Interface
+
+All LLM providers implement the same `ModelProvider` interface:
+
+```typescript
+interface ModelProvider {
+  /** Get provider information and capabilities */
+  get info(): ProviderInfo;
+  
+  /** Request a streaming chat completion */
+  streamChat(params: StreamChatParams): ModelStream;
+}
+```
+
+**Key concepts:**
+- **Streaming by default** - All responses are streamed for real-time feedback
+- **Tool calling support** - Providers can execute tools as part of the conversation
+- **Vision capabilities** - Some providers support image inputs
+- **Prompt caching** - Advanced providers offer caching for better performance
+
+## Available Providers
+
+### Anthropic (Claude)
+
+Anthropic's Claude models with advanced reasoning and safety features. **Zypher Agent uses Anthropic's native API directly**, ensuring full compatibility with all Anthropic features and optimizations:
+
+```typescript
+import { AnthropicModelProvider } from '@zypher/agent';
+
+const anthropicProvider = new AnthropicModelProvider({
+  apiKey: Deno.env.get('ANTHROPIC_API_KEY')!,
+  
+  // Optional: Enable prompt caching for better performance
+  enablePromptCaching: true,
+  
+  // Optional: Set thinking budget for o1-like reasoning
+  thinkingBudget: 20000, // tokens
+  
+  // Optional: Custom Anthropic client options
+  anthropicClientOptions: {
+    maxRetries: 3,
+    timeout: 60000,
+  }
+});
+```
+
+**Supported models:**
+- `claude-sonnet-4-20250514` - Latest Claude Sonnet 4 (most capable)
+- `claude-3-7-sonnet-20250219` (or `claude-3-7-sonnet-latest`) - Advanced Sonnet 3.7
+- `claude-3-5-haiku-20241022` (or `claude-3-5-haiku-latest`) - Fast and efficient
+- `claude-3-haiku-20240307` - Previous generation Haiku
+- `claude-opus-4-1-20250805` - Latest Opus 4.1 (most powerful)
+- `claude-opus-4-20250514` - Claude Opus 4
+
+For the most up-to-date model list, see [Anthropic's model overview](https://docs.anthropic.com/en/docs/about-claude/models/overview).
+
+**Capabilities:**
+- ✅ Tool calling
+- ✅ Vision (image analysis)
+- ✅ Document processing
+- ✅ Prompt caching
+- ✅ Thinking (reasoning)
+
+### OpenAI (GPT)
+
+OpenAI's GPT models including reasoning models. **Currently uses OpenAI's Chat Completion API**, which provides broad compatibility with OpenAI-compatible model providers but has some limitations on document processing compared to newer APIs:
+
+```typescript
+import { OpenAIModelProvider } from '@zypher/agent';
+
+const openaiProvider = new OpenAIModelProvider({
+  apiKey: Deno.env.get('OPENAI_API_KEY')!,
+  
+  // Optional: Set reasoning effort for o1 models
+  reasoningEffort: 'medium', // 'low' | 'medium' | 'high'
+  
+  // Optional: Custom OpenAI client options
+  openaiClientOptions: {
+    maxRetries: 3,
+    timeout: 60000,
+  }
+});
+```
+
+**Supported models:**
+- `gpt-5` - Latest and most capable GPT model
+- `gpt-5-mini` - Smaller, faster variant of GPT-5
+- `gpt-4.1` - Advanced GPT-4.1 series
+- `gpt-4.1-mini` - Efficient GPT-4.1 variant
+- `gpt-4o` - Multimodal model with vision capabilities
+- `gpt-4o-mini` - Faster, more affordable multimodal option
+- `o3` - Latest reasoning-focused model
+- `o1` - Advanced reasoning model
+
+For the most up-to-date model list, see [OpenAI's models documentation](https://platform.openai.com/docs/models).
+
+**Capabilities:**
+- ✅ Tool calling
+- ✅ Vision (image analysis)
+- ✅ Caching
+- ✅ Thinking/reasoning (via `reasoningEffort` parameter)
+- ⚠️ Document processing (limited to supported image types due to Chat Completion API)
+- ✅ **OpenAI-compatible model support** (works with other providers using OpenAI API format)
+
+#### OpenAI-Compatible Providers
+
+The OpenAI provider works with any service that implements the OpenAI Chat Completion API:
+
+```typescript
+// Example: Using with a local model via Ollama
+const localProvider = new OpenAIModelProvider({
+  apiKey: 'not-needed', // Some providers require a dummy key
+  baseUrl: 'http://localhost:11434/v1', // Ollama's OpenAI-compatible endpoint
+});
+
+// Example: Using with Azure OpenAI
+const azureProvider = new OpenAIModelProvider({
+  apiKey: process.env.AZURE_OPENAI_API_KEY!,
+  baseUrl: 'https://your-resource.openai.azure.com',
+  openaiClientOptions: {
+    defaultHeaders: {
+      'api-version': '2024-02-15-preview',
+    },
+  },
+});
+
+// Example: Using with other cloud providers
+const customProvider = new OpenAIModelProvider({
+  apiKey: process.env.CUSTOM_API_KEY!,
+  baseUrl: 'https://api.yourprovider.com/v1',
+});
+```
+
+**Compatible providers include:**
+- Azure OpenAI Service
+- Google Gemini
+- Any service implementing OpenAI's Chat Completion API
+
+<Callout type="info" title="Future OpenAI Provider Enhancement">
+We plan to add a new OpenAI provider based on the new Response API that will support full document processing capabilities, while keeping the current Chat Completion-based provider for broader compatibility with OpenAI-compatible models.
+</Callout>
+
+## Using with ZypherAgent
+
+Configure your agent with a provider:
+
+```typescript
+import { ZypherAgent, AnthropicModelProvider } from '@zypher/agent';
+
+// Create provider
+const provider = new AnthropicModelProvider({
+  apiKey: Deno.env.get('ANTHROPIC_API_KEY')!,
+  enablePromptCaching: true,
+});
+
+// Create agent with provider
+const agent = new ZypherAgent(provider, {
+  maxTokens: 8192,
+  persistHistory: true,
+});
+
+// Run a task
+for await (const event of agent.run('Analyze this codebase and suggest improvements')) {
+  if (event.type === 'text') {
+    console.log(event.content);
+  }
+}
+```
+
+## Provider Capabilities
+
+Different providers support different features. Check capabilities before using advanced features:
+
+```typescript
+const info = provider.info;
+console.log(`Provider: ${info.name} v${info.version}`);
+console.log('Capabilities:', info.capabilities);
+
+if (info.capabilities.includes('vision')) {
+  // Safe to send images to this provider
+  await agent.run('Analyze this image', {
+    attachments: [{ path: './screenshot.png' }]
+  });
+}
+
+if (info.capabilities.includes('thinking')) {
+  // Provider supports reasoning/thinking
+  console.log('This provider can show its reasoning process');
+}
+```
+
+**Available capabilities:**
+- `tool_calling` - Can execute function calls
+- `vision` - Can analyze images and documents
+- `documents` - Can process document attachments
+- `caching` - Supports prompt caching for performance
+- `thinking` - Shows reasoning process (Claude reasoning, o1 models)
+
+---
+
+LLM providers are the foundation of your agent's intelligence. Choose the right provider and model for your specific use case, and configure them appropriately for your environment and performance requirements.

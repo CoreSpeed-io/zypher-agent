@@ -1,0 +1,72 @@
+---
+title: Introduction
+description: Understanding the core concepts and architecture of Zypher Agent framework
+---
+
+# What are Zypher Agents
+
+Zypher Agents are autonomous AI systems that can reason, plan, and execute complex tasks by combining Large Language Models (LLMs) with external tools and services.
+
+## Core Concept
+
+Think of a Zypher Agent as an AI assistant that can:
+- **Understand** complex requests in natural language
+- **Plan** multi-step approaches to solve problems  
+- **Execute** actions using external tools and APIs
+- **Learn** from results and adapt its approach
+- **Communicate** progress and results back to you
+
+Unlike traditional chatbots that just generate text, Zypher Agents can actually *do* things in the real world.
+
+## Agents vs Traditional Software
+
+Traditional software follows predetermined workflows - you write code that defines exactly what happens in each scenario. Zypher Agents are different:
+
+| Traditional Software | Zypher Agents |
+|---------------------|---------------|
+| **Fixed workflows** - Hard-coded logic for each task | **Dynamic reasoning** - LLM plans the approach based on context |
+| **Rigid execution** - Same steps every time | **Adaptive planning** - Adjusts strategy based on results |
+| **Manual integration** - Developer writes code for each tool | **Automatic tool usage** - Agent discovers and uses tools as needed |
+| **Explicit error handling** - Pre-written code for each failure case | **Intelligent recovery** - Reasons about problems and finds solutions |
+
+With Zypher Agents, you describe *what* you want accomplished, and the LLM brain figures out *how* to do it using available tools.
+
+## Quick Example
+
+```typescript
+import { ZypherAgent, AnthropicModelProvider } from '@zypher/agent';
+
+const agent = new ZypherAgent(
+  new AnthropicModelProvider({ apiKey: "your-key" })
+);
+
+await agent.init();
+
+// Agent can understand complex requests and execute them
+const result = await agent.runTask("Find the latest news about AI and summarize the top 3 articles");
+```
+
+## What Makes Zypher Agents Powerful
+
+### 🧠 **LLM-Powered Reasoning**
+Built on state-of-the-art language models like Claude and GPT-4, giving agents sophisticated reasoning capabilities.
+
+### 🛠️ **Tool Integration**
+Connect to any external service through the [Model Context Protocol (MCP)](/docs/core-concepts/tools-and-mcp) - from web scraping to database queries.
+
+### 🔄 **Loop Interceptors** 
+Control execution flow with [interceptors](/docs/core-concepts/loop-interceptors) for error handling, token management, and custom logic.
+
+### 📝 **Git Checkpoints**
+Track changes with [automatic checkpointing](/docs/core-concepts/checkpoints) - revert to previous states when needed.
+
+### ⚡ **Simple API**
+Just a few lines of code to create powerful agents. No complex configuration required.
+
+## Get Started
+
+<Cards>
+  <Card title="Quick Start" href="/docs/quick-start" />
+  <Card title="Core Concepts" href="/docs/core-concepts" />
+  <Card title="Examples" href="/docs/examples" />
+</Cards>
