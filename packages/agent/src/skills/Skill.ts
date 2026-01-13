@@ -17,16 +17,12 @@ export interface SkillMetadata {
 }
 
 /**
- * Skill with its metadata and paths
+ * Skill with its metadata and location
  */
 export interface Skill {
   /** Skill metadata */
   metadata: SkillMetadata;
-  /** Absolute path to the Skill directory */
-  skillPath: string;
-  /** Absolute path to the SKILL.md file */
-  skillMdPath: string;
-  /** Location path for the agent to use (relative for project skills, absolute for global) */
+  /** Path to SKILL.md file (relative for project skills, absolute for global/custom) */
   location: string;
 }
 

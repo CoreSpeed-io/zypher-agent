@@ -107,27 +107,26 @@ export class SkillManager {
           continue;
         }
 
-        const skillPath = join(skillsDir, entry.name);
-        const skillMdPath = join(skillPath, "SKILL.md");
+        const skillDir = join(skillsDir, entry.name);
+        const skillMdPath = join(skillDir, "SKILL.md");
+        const skillMdPathLower = join(skillDir, "skill.md");
 
-        if (!(await exists(skillMdPath))) {
-          // Also check for lowercase skill.md
-          const skillMdPathLower = join(skillPath, "skill.md");
-          if (!(await exists(skillMdPathLower))) {
-            console.warn(
-              `Skill directory ${entry.name} does not contain SKILL.md, skipping`,
-            );
-            continue;
-          }
+        // Check for SKILL.md (prefer uppercase)
+        let actualPath: string | null = null;
+        if (await exists(skillMdPath)) {
+          actualPath = skillMdPath;
+        } else if (await exists(skillMdPathLower)) {
+          actualPath = skillMdPathLower;
+        } else {
+          console.warn(
+            `Skill directory ${entry.name} does not contain SKILL.md, skipping`,
+          );
+          continue;
         }
 
         // Parse Skill metadata
         try {
-          const skill = await this.#loadSkillMetadata(
-            skillPath,
-            skillMdPath,
-            source,
-          );
+          const skill = await this.#loadSkill(actualPath, source);
           if (skill) {
             // Check for duplicate names (project skills override global)
             if (this.#skills.has(skill.metadata.name)) {
@@ -137,7 +136,7 @@ export class SkillManager {
                 this.#skills.set(skill.metadata.name, skill);
               } else {
                 console.warn(
-                  `Skill "${skill.metadata.name}" already exists from ${existing.skillPath}, skipping duplicate from ${skillPath}`,
+                  `Skill "${skill.metadata.name}" already exists at ${existing.location}, skipping duplicate from ${actualPath}`,
                 );
               }
             } else {
@@ -162,36 +161,24 @@ export class SkillManager {
   }
 
   /**
-   * Loads Skill metadata from SKILL.md
+   * Loads Skill from SKILL.md file
    */
-  async #loadSkillMetadata(
-    skillPath: string,
+  async #loadSkill(
     skillMdPath: string,
     source: "global" | "project" | "custom",
   ): Promise<Skill | null> {
-    // Check for uppercase first, then lowercase
-    let actualPath = skillMdPath;
-    if (!(await exists(skillMdPath))) {
-      const lowerPath = join(skillPath, "skill.md");
-      if (await exists(lowerPath)) {
-        actualPath = lowerPath;
-      } else {
-        return null;
-      }
-    }
-
-    const content = await Deno.readTextFile(actualPath);
+    const content = await Deno.readTextFile(skillMdPath);
     const metadata = this.#parseFrontmatter(content);
 
     if (!metadata) {
-      console.warn(`Failed to parse frontmatter from ${actualPath}`);
+      console.warn(`Failed to parse frontmatter from ${skillMdPath}`);
       return null;
     }
 
     const validation = validateSkillMetadata(metadata);
     if (!validation.valid) {
       console.warn(
-        `Invalid Skill metadata in ${actualPath}: ${
+        `Invalid Skill metadata in ${skillMdPath}: ${
           validation.errors.join(", ")
         }`,
       );
@@ -199,21 +186,11 @@ export class SkillManager {
     }
 
     // Determine location path based on source
-    let location: string;
-    if (source === "project") {
-      // Use relative path for project skills
-      location = relative(this.#context.workingDirectory, actualPath);
-    } else {
-      // Use absolute path for global and custom skills
-      location = actualPath;
-    }
+    const location = source === "project"
+      ? relative(this.#context.workingDirectory, skillMdPath)
+      : skillMdPath;
 
-    return {
-      metadata,
-      skillPath,
-      skillMdPath: actualPath,
-      location,
-    };
+    return { metadata, location };
   }
 
   /**
