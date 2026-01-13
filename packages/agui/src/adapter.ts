@@ -14,7 +14,6 @@
  *   messages: input.messages as Message[],
  *   threadId: input.threadId ?? crypto.randomUUID(),
  *   runId: input.runId ?? crypto.randomUUID(),
- *   model: "claude-sonnet-4-20250514",
  * });
  *
  * // Use with any transport (SSE, WebSocket, etc.)
@@ -72,7 +71,6 @@ export interface AguiEventStreamOptions {
   /** The ZypherAgent instance to use */
   agent: ZypherAgent;
   messages: Message[];
-  model: string;
   threadId: string;
   runId: string;
   state?: Record<string, unknown>;
@@ -87,7 +85,7 @@ export interface AguiEventStreamOptions {
 export function createAguiEventStream(
   options: AguiEventStreamOptions,
 ): Observable<BaseEvent> {
-  const { agent, messages, state, threadId, runId, model } = options;
+  const { agent, messages, state, threadId, runId } = options;
   const eventContext = createEventContext(threadId, runId);
 
   return new Observable<BaseEvent>((subscriber) => {
@@ -95,7 +93,7 @@ export function createAguiEventStream(
     subscriber.next(createRunStartedEvent(threadId, runId));
 
     const taskDescription = extractTaskDescription(messages);
-    const taskObservable = agent.runTask(taskDescription, model);
+    const taskObservable = agent.runTask(taskDescription);
 
     const subscription = taskObservable
       .pipe(

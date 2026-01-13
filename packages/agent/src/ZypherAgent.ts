@@ -240,7 +240,6 @@ export class ZypherAgent {
    * - Errors and code fixes are handled automatically
    *
    * @param taskDescription The text description of the task to perform
-   * @param streamHandler Handler for real-time content updates and complete messages
    * @param fileAttachments Optional array of file attachments
    * @param options Additional options:
    *   - maxIterations: Maximum number of iterations to run (default: 25)
@@ -250,7 +249,6 @@ export class ZypherAgent {
    */
   runTask(
     taskDescription: string,
-    model: string,
     fileAttachments?: FileAttachment[],
     options?: {
       maxIterations?: number;
@@ -264,7 +262,6 @@ export class ZypherAgent {
     this.#runTaskInternal(
       taskEventSubject,
       taskDescription,
-      model,
       fileAttachments,
       options,
     );
@@ -275,7 +272,6 @@ export class ZypherAgent {
   async #runTaskInternal(
     taskEventSubject: Subject<TaskEvent>,
     taskDescription: string,
-    model: string,
     fileAttachments?: FileAttachment[],
     options?: {
       maxIterations?: number;
@@ -383,7 +379,6 @@ export class ZypherAgent {
 
         const stream = this.#modelProvider.streamChat(
           {
-            model,
             maxTokens: this.#config.maxTokens,
             system: systemPrompt,
             messages: this.#messages,

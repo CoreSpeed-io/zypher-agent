@@ -20,7 +20,6 @@ export interface ModelProviderOptions {
 }
 
 export interface StreamChatParams {
-  model: string;
   maxTokens: number;
   system: string;
   messages: Message[];
@@ -50,14 +49,19 @@ export interface ProviderInfo {
 
 /**
  * Abstraction that a concrete large-language-model provider (Anthropic,
- * OpenAI, etc.) must implement.  At present only streaming chat completions
- * are required, but the interface can evolve as the code-base grows.
+ * OpenAI, etc.) must implement. A ModelProvider represents both a specific
+ * provider AND a specific model from that provider.
  */
 export interface ModelProvider {
   /**
    * Get provider information.
    */
   get info(): ProviderInfo;
+
+  /**
+   * Get the model identifier (e.g., "claude-sonnet-4-20250514", "gpt-4o").
+   */
+  get modelId(): string;
 
   /**
    * Request a streaming chat completion.  The returned object must satisfy the

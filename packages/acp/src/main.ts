@@ -29,29 +29,24 @@
  */
 
 import {
-  AnthropicModelProvider,
+  createModel,
   createZypherAgent,
   type ModelProvider,
-  OpenAIModelProvider,
 } from "@zypher/agent";
 import { createFileSystemTools, RunTerminalCmdTool } from "@zypher/agent/tools";
 import { type AcpClientConfig, runAcpServer } from "./server.ts";
 
-function extractModelProvider(): { provider: ModelProvider; model: string } {
+function extractModelProvider(): ModelProvider {
   const openaiKey = Deno.env.get("OPENAI_API_KEY");
   if (openaiKey) {
-    return {
-      provider: new OpenAIModelProvider({ apiKey: openaiKey }),
-      model: Deno.env.get("ZYPHER_MODEL") || "gpt-4o-2024-11-20",
-    };
+    const modelId = Deno.env.get("ZYPHER_MODEL") || "gpt-4o-2024-11-20";
+    return createModel(`openai/${modelId}`, { apiKey: openaiKey });
   }
 
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (anthropicKey) {
-    return {
-      provider: new AnthropicModelProvider({ apiKey: anthropicKey }),
-      model: Deno.env.get("ZYPHER_MODEL") || "claude-sonnet-4-20250514",
-    };
+    const modelId = Deno.env.get("ZYPHER_MODEL") || "claude-sonnet-4-20250514";
+    return createModel(`anthropic/${modelId}`, { apiKey: anthropicKey });
   }
 
   console.error(
@@ -61,7 +56,7 @@ function extractModelProvider(): { provider: ModelProvider; model: string } {
 }
 
 export async function main(): Promise<void> {
-  const { provider: modelProvider, model } = extractModelProvider();
+  const modelProvider = extractModelProvider();
 
   await runAcpServer(async (clientConfig: AcpClientConfig) => {
     return await createZypherAgent({
@@ -70,5 +65,5 @@ export async function main(): Promise<void> {
       workingDirectory: clientConfig.cwd,
       mcpServers: clientConfig.mcpServers,
     });
-  }, model);
+  });
 }

@@ -31,6 +31,10 @@ function isSupportedImageType(
 }
 
 export interface AnthropicModelProviderOptions extends ModelProviderOptions {
+  /**
+   * The model to use (e.g., "claude-sonnet-4-20250514").
+   */
+  model: string;
   enablePromptCaching?: boolean;
   /**
    * The budget for thinking in tokens.
@@ -41,11 +45,13 @@ export interface AnthropicModelProviderOptions extends ModelProviderOptions {
 }
 
 export class AnthropicModelProvider implements ModelProvider {
+  readonly #model: string;
   #client: Anthropic;
   #enablePromptCaching: boolean;
   #thinkingConfig: Anthropic.ThinkingConfigParam;
 
   constructor(options: AnthropicModelProviderOptions) {
+    this.#model = options.model;
     this.#client = new Anthropic({
       apiKey: options.apiKey,
       baseURL: options.baseUrl,
@@ -72,6 +78,10 @@ export class AnthropicModelProvider implements ModelProvider {
         "tool_calling",
       ],
     };
+  }
+
+  get modelId(): string {
+    return this.#model;
   }
 
   streamChat(
@@ -113,7 +123,7 @@ export class AnthropicModelProvider implements ModelProvider {
     }));
 
     const stream = this.#client.messages.stream({
-      model: params.model,
+      model: this.#model,
       max_tokens: params.maxTokens,
       system: [
         {

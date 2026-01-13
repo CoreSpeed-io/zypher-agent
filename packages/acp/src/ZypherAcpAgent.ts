@@ -96,16 +96,13 @@ export class ZypherAcpAgent implements acp.Agent {
   readonly #conn: acp.AgentSideConnection;
   readonly #builder: ZypherAgentBuilder;
   readonly #sessions = new Map<string, AcpSession>();
-  readonly #defaultModel: string;
 
   constructor(
     conn: acp.AgentSideConnection,
     builder: ZypherAgentBuilder,
-    model: string,
   ) {
     this.#conn = conn;
     this.#builder = builder;
-    this.#defaultModel = model;
   }
 
   initialize(_params: acp.InitializeRequest): Promise<acp.InitializeResponse> {
@@ -167,7 +164,6 @@ export class ZypherAcpAgent implements acp.Agent {
     try {
       const observable = session.agent.runTask(
         promptText,
-        this.#defaultModel,
         undefined,
         { signal: session.abort.signal },
       );

@@ -9,11 +9,13 @@
 
 import "@std/dotenv/load";
 import { z } from "zod";
-import { AnthropicModelProvider, createZypherAgent } from "@zypher/agent";
+import { createModel, createZypherAgent } from "@zypher/agent";
 import { createTool } from "@zypher/agent/tools";
 import { createAguiEventStream, parseRunAgentInput } from "@zypher/agui";
 import type { Message } from "@ag-ui/core";
 import { eachValueFrom } from "rxjs-for-await";
+
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 // Example: Weather tool
 const getWeatherTool = createTool({
@@ -48,14 +50,14 @@ const getWeatherTool = createTool({
   },
 });
 
+const modelId = Deno.env.get("ZYPHER_MODEL") ?? DEFAULT_MODEL;
+
 const agent = await createZypherAgent({
-  modelProvider: new AnthropicModelProvider({
+  modelProvider: createModel(`anthropic/${modelId}`, {
     apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
   }),
   tools: [getWeatherTool],
 });
-
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 Deno.serve({ port: 8000 }, async (request) => {
   if (request.method !== "POST") {
@@ -72,7 +74,6 @@ Deno.serve({ port: 8000 }, async (request) => {
     state: input.state,
     threadId: input.threadId ?? crypto.randomUUID(),
     runId: input.runId ?? crypto.randomUUID(),
-    model: Deno.env.get("ZYPHER_MODEL") ?? DEFAULT_MODEL,
   });
 
   // Implement SSE encoding for Deno runtime

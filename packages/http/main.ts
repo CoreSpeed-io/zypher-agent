@@ -1,8 +1,4 @@
-import {
-  AnthropicModelProvider,
-  createZypherAgent,
-  OpenAIModelProvider,
-} from "@zypher/agent";
+import { createModel, createZypherAgent } from "@zypher/agent";
 import {
   createFileSystemTools,
   createImageTools,
@@ -62,20 +58,15 @@ export async function main(): Promise<void> {
     .parse(Deno.args);
 
   const selectedProvider = inferProvider(cli.provider, cli.model);
-  const modelToUse = cli.model ??
+  const modelId = cli.model ??
     (selectedProvider === "openai"
       ? DEFAULT_OPENAI_MODEL
       : DEFAULT_ANTHROPIC_MODEL);
 
-  const providerInstance = selectedProvider === "openai"
-    ? new OpenAIModelProvider({
-      apiKey: cli.apiKey,
-      baseUrl: cli.baseUrl,
-    })
-    : new AnthropicModelProvider({
-      apiKey: cli.apiKey,
-      baseUrl: cli.baseUrl,
-    });
+  const modelProvider = createModel(`${selectedProvider}/${modelId}`, {
+    apiKey: cli.apiKey,
+    baseUrl: cli.baseUrl,
+  });
 
   const openaiApiKey = cli.provider === "openai"
     ? cli.apiKey
@@ -88,7 +79,7 @@ export async function main(): Promise<void> {
   ];
 
   const agent = await createZypherAgent({
-    modelProvider: providerInstance,
+    modelProvider,
     workingDirectory: cli.workDir,
     tools,
     context: { userId: cli.userId },
@@ -102,7 +93,7 @@ export async function main(): Promise<void> {
     onListen: ({ hostname, port }) => {
       console.log(`Zypher HTTP server listening on http://${hostname}:${port}`);
       console.log(`Provider: ${selectedProvider}`);
-      console.log(`Model: ${modelToUse}`);
+      console.log(`Model: ${modelId}`);
       if (cli.baseUrl) console.log(`Base URL: ${cli.baseUrl}`);
       if (cli.workDir) console.log(`Working directory: ${cli.workDir}`);
       if (cli.userId) console.log(`User ID: ${cli.userId}`);

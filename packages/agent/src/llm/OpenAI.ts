@@ -32,6 +32,10 @@ function isSupportedImageType(
 
 export interface OpenAIModelProviderOptions extends ModelProviderOptions {
   /**
+   * The model to use (e.g., "gpt-4o", "o1").
+   */
+  model: string;
+  /**
    * The reasoning effort to use.
    * @see https://platform.openai.com/docs/api-reference/chat/create#chat_create-reasoning_effort
    */
@@ -47,10 +51,12 @@ function isReasoningModel(model: string): boolean {
 }
 
 export class OpenAIModelProvider implements ModelProvider {
+  readonly #model: string;
   #client: OpenAI;
   #reasoningEffort: "low" | "medium" | "high";
 
   constructor(options: OpenAIModelProviderOptions) {
+    this.#model = options.model;
     this.#client = new OpenAI({
       apiKey: options.apiKey,
       baseURL: options.baseUrl,
@@ -70,6 +76,10 @@ export class OpenAIModelProvider implements ModelProvider {
         "tool_calling",
       ],
     };
+  }
+
+  get modelId(): string {
+    return this.#model;
   }
 
   streamChat(
@@ -92,7 +102,7 @@ export class OpenAIModelProvider implements ModelProvider {
     );
 
     const stream = this.#client.chat.completions.stream({
-      model: params.model,
+      model: this.#model,
       messages: [
         {
           role: "system",
@@ -102,7 +112,7 @@ export class OpenAIModelProvider implements ModelProvider {
       ],
       max_completion_tokens: params.maxTokens,
       tools: openaiTools,
-      ...(isReasoningModel(params.model) &&
+      ...(isReasoningModel(this.#model) &&
         { reasoning_effort: this.#reasoningEffort }),
       safety_identifier: params.userId,
     });

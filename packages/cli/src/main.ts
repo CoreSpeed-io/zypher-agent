@@ -1,10 +1,5 @@
 import "@std/dotenv/load";
-import {
-  AnthropicModelProvider,
-  createZypherAgent,
-  formatError,
-  OpenAIModelProvider,
-} from "@zypher/agent";
+import { createModel, createZypherAgent, formatError } from "@zypher/agent";
 import {
   createFileSystemTools,
   createImageTools,
@@ -79,22 +74,17 @@ export async function main(): Promise<void> {
     const selectedProvider = inferProvider(cli.provider, cli.model);
     console.log(`🤖 Using provider: ${chalk.magenta(selectedProvider)}`);
 
-    const modelToUse = cli.model ??
+    const modelId = cli.model ??
       (selectedProvider === "openai"
         ? DEFAULT_OPENAI_MODEL
         : DEFAULT_ANTHROPIC_MODEL);
-    console.log(`🧠 Using model: ${chalk.cyan(modelToUse)}`);
+    console.log(`🧠 Using model: ${chalk.cyan(modelId)}`);
 
-    // Initialize the agent with provided options
-    const providerInstance = selectedProvider === "openai"
-      ? new OpenAIModelProvider({
-        apiKey: cli.apiKey,
-        baseUrl: cli.baseUrl,
-      })
-      : new AnthropicModelProvider({
-        apiKey: cli.apiKey,
-        baseUrl: cli.baseUrl,
-      });
+    // Initialize the model provider with model
+    const modelProvider = createModel(`${selectedProvider}/${modelId}`, {
+      apiKey: cli.apiKey,
+      baseUrl: cli.baseUrl,
+    });
 
     // Build tools list
     const openaiApiKey = cli.provider === "openai"
@@ -108,7 +98,7 @@ export async function main(): Promise<void> {
     ];
 
     const agent = await createZypherAgent({
-      modelProvider: providerInstance,
+      modelProvider,
       workingDirectory: cli.workDir,
       tools,
       context: { userId: cli.userId },
@@ -125,7 +115,7 @@ export async function main(): Promise<void> {
       Deno.exit(0);
     });
 
-    await runAgentInTerminal(agent, modelToUse);
+    await runAgentInTerminal(agent);
   } catch (error) {
     console.error("Fatal Error:", formatError(error));
     Deno.exit(1);

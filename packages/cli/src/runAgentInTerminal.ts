@@ -1,18 +1,16 @@
 import type { ZypherAgent } from "@zypher/agent";
 import readline from "node:readline";
 import { stdin, stdout } from "node:process";
-import chalk from "chalk";
 import { formatError, printMessage } from "@zypher/agent";
+import chalk from "chalk";
 import { eachValueFrom } from "rxjs-for-await";
 
 /**
  * Run the agent in a terminal interface.
  * @param agent - The agent to run.
- * @param model - The model to use.
  */
-export async function runAgentInTerminal(agent: ZypherAgent, model: string) {
+export async function runAgentInTerminal(agent: ZypherAgent) {
   console.log("\n🤖 Welcome to Zypher Agent CLI!\n");
-  console.log(`🧠 Using model: ${chalk.cyan(model)}`);
   console.log(
     'Type your task or command below. Use "exit" or Ctrl+C to quit.\n',
   );
@@ -33,7 +31,7 @@ export async function runAgentInTerminal(agent: ZypherAgent, model: string) {
 
       console.log("\n🚀 Starting task execution...\n");
       try {
-        const taskEvents = await agent.runTask(task, model);
+        const taskEvents = await agent.runTask(task);
         let isFirstTextChunk = true;
         let cancelled = false;
 

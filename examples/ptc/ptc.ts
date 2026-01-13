@@ -14,7 +14,7 @@
 
 import "@std/dotenv/load";
 import {
-  AnthropicModelProvider,
+  anthropic,
   createZypherContext,
   McpServerManager,
   ZypherAgent,
@@ -129,7 +129,7 @@ mcpServerManager.registerTool(createExecuteCodeTool(mcpServerManager));
 // Create the agent with the custom MCP server manager
 const agent = new ZypherAgent(
   context,
-  new AnthropicModelProvider({ apiKey }),
+  anthropic("claude-sonnet-4-5-20250929", { apiKey }),
   {
     overrides: {
       mcpServerManager,
@@ -151,7 +151,6 @@ const events$ = agent.runTask(
 - lisbon
 
 get two cities with the most similar weather and the city with the highest temperature`,
-  "claude-sonnet-4-5-20250929",
 );
 
 const textEncoder = new TextEncoder();
