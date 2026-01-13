@@ -60,6 +60,11 @@ export async function main(): Promise<void> {
       "--openai-api-key <openaiApiKey:string>",
       "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
     )
+    .option(
+      "--skills-dir <skillsDir:string>",
+      "Additional custom skills directory (can be specified multiple times)",
+      { collect: true },
+    )
     .parse(Deno.args);
 
   try {
@@ -112,6 +117,11 @@ export async function main(): Promise<void> {
       workingDirectory: cli.workDir,
       tools,
       context: { userId: cli.userId },
+      config: {
+        skills: cli.skillsDir?.length
+          ? { customSkillsDirs: cli.skillsDir }
+          : undefined,
+      },
     });
 
     console.log(

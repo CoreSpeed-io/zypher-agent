@@ -1,67 +1,148 @@
-import { join, resolve } from "@std/path";
+import { join, relative, resolve } from "@std/path";
 import { exists } from "@std/fs";
 import type { Skill, SkillMetadata } from "./Skill.ts";
 import { validateSkillMetadata } from "./Skill.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
 
 /**
- * Manages Agent Skills discovery and loading
+ * Configuration options for SkillManager
+ */
+export interface SkillManagerOptions {
+  /** Global skills directory (default: ~/.zypher/skills) */
+  globalSkillsDir?: string;
+  /** Project skills directory relative to workingDirectory (default: .skills) */
+  projectSkillsDir?: string;
+  /** Additional custom skill directories (absolute paths) */
+  customSkillsDirs?: string[];
+}
+
+/**
+ * Escapes HTML special characters for safe XML output
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/**
+ * Manages Agent Skills discovery and loading from multiple directories
  */
 export class SkillManager {
   readonly #context: ZypherContext;
-  readonly #skillsDir: string;
+  readonly #globalSkillsDir: string;
+  readonly #projectSkillsDir: string;
+  readonly #customSkillsDirs: string[];
   #skills: Map<string, Skill> = new Map();
 
   constructor(
     context: ZypherContext,
-    skillsDir?: string,
+    options?: SkillManagerOptions,
   ) {
     this.#context = context;
-    // Default to ./.skills/ in the working directory
-    this.#skillsDir = resolve(
-      this.#context.workingDirectory,
-      skillsDir ?? "./.skills",
+
+    // Global skills: ~/.zypher/skills
+    this.#globalSkillsDir = options?.globalSkillsDir ??
+      join(context.zypherDir, "skills");
+
+    // Project skills: ./.skills in working directory
+    this.#projectSkillsDir = resolve(
+      context.workingDirectory,
+      options?.projectSkillsDir ?? ".skills",
     );
+
+    // Custom directories (absolute paths)
+    this.#customSkillsDirs = options?.customSkillsDirs ?? [];
   }
 
   /**
-   * Gets the Skills directory path
+   * Gets the global skills directory path
    */
-  get skillsDir(): string {
-    return this.#skillsDir;
+  get globalSkillsDir(): string {
+    return this.#globalSkillsDir;
   }
 
   /**
-   * Discovers all Skills from the Skills directory
+   * Gets the project skills directory path
+   */
+  get projectSkillsDir(): string {
+    return this.#projectSkillsDir;
+  }
+
+  /**
+   * Discovers all Skills from all configured directories
    */
   async discoverSkills(): Promise<void> {
     this.#skills.clear();
 
-    if (!(await exists(this.#skillsDir))) {
+    // Discover from global skills directory
+    await this.#discoverFromDirectory(this.#globalSkillsDir, "global");
+
+    // Discover from project skills directory
+    await this.#discoverFromDirectory(this.#projectSkillsDir, "project");
+
+    // Discover from custom directories
+    for (const customDir of this.#customSkillsDirs) {
+      await this.#discoverFromDirectory(customDir, "custom");
+    }
+  }
+
+  /**
+   * Discovers skills from a specific directory
+   */
+  async #discoverFromDirectory(
+    skillsDir: string,
+    source: "global" | "project" | "custom",
+  ): Promise<void> {
+    if (!(await exists(skillsDir))) {
       return;
     }
 
     try {
-      for await (const entry of Deno.readDir(this.#skillsDir)) {
+      for await (const entry of Deno.readDir(skillsDir)) {
         if (!entry.isDirectory) {
           continue;
         }
 
-        const skillPath = join(this.#skillsDir, entry.name);
+        const skillPath = join(skillsDir, entry.name);
         const skillMdPath = join(skillPath, "SKILL.md");
 
         if (!(await exists(skillMdPath))) {
-          console.warn(
-            `Skill directory ${entry.name} does not contain SKILL.md, skipping`,
-          );
-          continue;
+          // Also check for lowercase skill.md
+          const skillMdPathLower = join(skillPath, "skill.md");
+          if (!(await exists(skillMdPathLower))) {
+            console.warn(
+              `Skill directory ${entry.name} does not contain SKILL.md, skipping`,
+            );
+            continue;
+          }
         }
 
         // Parse Skill metadata
         try {
-          const skill = await this.#loadSkillMetadata(skillPath, skillMdPath);
+          const skill = await this.#loadSkillMetadata(
+            skillPath,
+            skillMdPath,
+            source,
+          );
           if (skill) {
-            this.#skills.set(skill.metadata.name, skill);
+            // Check for duplicate names (project skills override global)
+            if (this.#skills.has(skill.metadata.name)) {
+              const existing = this.#skills.get(skill.metadata.name)!;
+              // Project skills take precedence over global
+              if (source === "project") {
+                this.#skills.set(skill.metadata.name, skill);
+              } else {
+                console.warn(
+                  `Skill "${skill.metadata.name}" already exists from ${existing.skillPath}, skipping duplicate from ${skillPath}`,
+                );
+              }
+            } else {
+              this.#skills.set(skill.metadata.name, skill);
+            }
           }
         } catch (error) {
           console.warn(
@@ -73,7 +154,7 @@ export class SkillManager {
       }
     } catch (error) {
       console.warn(
-        `Failed to discover Skills from ${this.#skillsDir}: ${
+        `Failed to discover Skills from ${skillsDir}: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -81,34 +162,57 @@ export class SkillManager {
   }
 
   /**
-   * Loads Skill metadata
+   * Loads Skill metadata from SKILL.md
    */
   async #loadSkillMetadata(
     skillPath: string,
     skillMdPath: string,
+    source: "global" | "project" | "custom",
   ): Promise<Skill | null> {
-    const content = await Deno.readTextFile(skillMdPath);
+    // Check for uppercase first, then lowercase
+    let actualPath = skillMdPath;
+    if (!(await exists(skillMdPath))) {
+      const lowerPath = join(skillPath, "skill.md");
+      if (await exists(lowerPath)) {
+        actualPath = lowerPath;
+      } else {
+        return null;
+      }
+    }
+
+    const content = await Deno.readTextFile(actualPath);
     const metadata = this.#parseFrontmatter(content);
 
     if (!metadata) {
-      console.warn(`Failed to parse frontmatter from ${skillMdPath}`);
+      console.warn(`Failed to parse frontmatter from ${actualPath}`);
       return null;
     }
 
     const validation = validateSkillMetadata(metadata);
     if (!validation.valid) {
       console.warn(
-        `Invalid Skill metadata in ${skillMdPath}: ${
+        `Invalid Skill metadata in ${actualPath}: ${
           validation.errors.join(", ")
         }`,
       );
       return null;
     }
 
+    // Determine location path based on source
+    let location: string;
+    if (source === "project") {
+      // Use relative path for project skills
+      location = relative(this.#context.workingDirectory, actualPath);
+    } else {
+      // Use absolute path for global and custom skills
+      location = actualPath;
+    }
+
     return {
       metadata,
       skillPath,
-      skillMdPath,
+      skillMdPath: actualPath,
+      location,
     };
   }
 
@@ -118,28 +222,72 @@ export class SkillManager {
   #parseFrontmatter(content: string): SkillMetadata | null {
     // Try to match YAML frontmatter
     const frontmatter = content.match(
-      /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/,
+      /^---\s*\n([\s\S]*?)\n---/,
     );
 
-    if (frontmatter) {
-      const frontmatterText = frontmatter[1];
-      const nameMatch = frontmatterText.match(/^name:\s*(.+?)$/m);
-      const descriptionMatch = frontmatterText.match(/^description:\s*(.+?)$/m);
+    if (!frontmatter) {
+      return null;
+    }
 
-      if (!nameMatch || !descriptionMatch) {
-        return null;
-      }
+    const frontmatterText = frontmatter[1];
 
-      const name = nameMatch[1].trim().replace(/^["']|["']$/g, "");
-      const description = descriptionMatch[1].trim().replace(
+    // Extract required fields
+    const nameMatch = frontmatterText.match(/^name:\s*(.+?)$/m);
+    const descriptionMatch = frontmatterText.match(/^description:\s*(.+?)$/m);
+
+    if (!nameMatch || !descriptionMatch) {
+      return null;
+    }
+
+    const name = nameMatch[1].trim().replace(/^["']|["']$/g, "");
+    const description = descriptionMatch[1].trim().replace(
+      /^["']|["']$/g,
+      "",
+    );
+
+    // Extract optional fields
+    const licenseMatch = frontmatterText.match(/^license:\s*(.+?)$/m);
+    const compatibilityMatch = frontmatterText.match(
+      /^compatibility:\s*(.+?)$/m,
+    );
+    const allowedToolsMatch = frontmatterText.match(
+      /^allowed-tools:\s*(.+?)$/m,
+    );
+
+    const metadata: SkillMetadata = { name, description };
+
+    if (licenseMatch) {
+      metadata.license = licenseMatch[1].trim().replace(/^["']|["']$/g, "");
+    }
+    if (compatibilityMatch) {
+      metadata.compatibility = compatibilityMatch[1].trim().replace(
         /^["']|["']$/g,
         "",
       );
-
-      return { name, description };
+    }
+    if (allowedToolsMatch) {
+      metadata.allowedTools = allowedToolsMatch[1].trim().replace(
+        /^["']|["']$/g,
+        "",
+      );
     }
 
-    return null;
+    // Parse nested metadata block (simplified - only single-line key-value pairs)
+    const metadataBlockMatch = frontmatterText.match(
+      /^metadata:\s*\n((?:\s+\S+:\s*.+\n?)*)/m,
+    );
+    if (metadataBlockMatch) {
+      const metadataBlock = metadataBlockMatch[1];
+      const keyValuePairs = metadataBlock.matchAll(/^\s+(\S+):\s*(.+?)$/gm);
+      metadata.metadata = {};
+      for (const match of keyValuePairs) {
+        const key = match[1].trim();
+        const value = match[2].trim().replace(/^["']|["']$/g, "");
+        metadata.metadata[key] = value;
+      }
+    }
+
+    return metadata;
   }
 
   /**
@@ -157,91 +305,29 @@ export class SkillManager {
   }
 
   /**
-   * Gets Skill metadata formatted for system prompt inclusion
-   * The Agent will decide which Skills to use based on the metadata
+   * Gets Skill metadata formatted as XML for system prompt inclusion.
+   * Follows the agentskills reference format.
    */
   getSkillsMetadataForPrompt(): string {
     const skills = this.getAllSkills();
+
     if (skills.length === 0) {
-      return "";
+      return "<available_skills>\n</available_skills>";
     }
 
-    const skillDescriptions = skills.map(
-      (skill) => `- **${skill.metadata.name}**: ${skill.metadata.description}`,
-    ).join("\n");
+    const skillsXml = skills.map((skill) => {
+      const name = escapeHtml(skill.metadata.name);
+      const desc = escapeHtml(skill.metadata.description);
+      const location = escapeHtml(skill.location);
+      return `<skill>
+<name>${name}</name>
+<description>${desc}</description>
+<location>${location}</location>
+</skill>`;
+    }).join("\n");
 
-    return `
-<agent_skills>
-**MANDATORY TASK INITIATION STEP**: Before starting any task, you MUST check whether relevant Agent Skills are available. Agent Skills define reusable, domain-specific capabilities. If relevant Skills are listed below, you MUST load their instructions using the 'list_dir' tool and 'read_file' tool tool BEFORE doing anything else. This step is REQUIRED.
-
-**Here is a template skill definition for your reference**:
----
-name: template-skill
-description: Replace with description of the skill and when Claude should use it.
----
-
-# Insert instructions below
-Some instructions...
-
-**Available Agent Skills**:
-
-${skillDescriptions}
-
----
-
-**REQUIRED EXECUTION WORKFLOW — Apply this to EVERY task:**
-
-1. **IMMEDIATELY upon receiving a user request**: 
-   - Review the Skill descriptions above.
-
-2. **IF ANY Skill description matches or partially overlaps the task**:  
-   - You MUST call 'list_dir' tool and 'read_file' tool to load the Skill instructions BEFORE proceeding.
-
-3. **After loading Skill instructions**:
-   - Carefully review all provided guidance and the list of optional resources (scripts, markdown files, templates, etc.).
-
-4. **When a resource is mentioned or required** (e.g., “see REFERENCE.md”):  
-   - Use 'list_dir' tool and 'read_file' tool to load that specific file ON DEMAND — do not pre-load everything.
-
-5. **Follow the Skill’s instruction file** ('SKILL.md') and any loaded resources precisely to complete the task.
-
-6. **NEVER SKIP Skill loading or relevant resource reading**:  
-   - If a Skill applies, using it is mandatory — not optional.
-
----
-
-**ABOUT AGENT SKILLS:**
-- Skills are structured packages that contain:
-  - A main instruction file ('SKILL.md')
-  - Optional markdown guides, scripts, or resource files (loaded only when needed)
-- They enable Zypher to specialize in specific tasks while preserving context
-- Instructions are loaded in tiers:
-  - Level 1: Metadata (Skill name, description) — always loaded
-  - Level 2: Instructions (from 'SKILL.md') — load with 'list_dir' tool and 'read_file' tool
-  - Level 3: Resources — load with 'list_dir' tool and 'read_file' tool when needed
-
----
-
-**GUIDELINES FOR USING RESOURCES:**
-- Only load resources when they are required for understanding or completing the task (e.g., 'REFERENCE.md')
-
----
-
-**EXAMPLES OF SKILL USAGE:**
-- User requests PDF operations → Load "pdf-processing" Skill → If 'SKILL.md' mentions 'FORMS.md', load that too
-- User wants spreadsheet work → Load "excel-processing" → If there's a helper script, execute it when needed instead of loading upfront unless you need to read it
-- User asks for summarizing docs → Load "docx-summary" or related → Load markdown instructions if referenced
-- Any domain-specific match → Load that Skill, then required resources
-
----
-
-**REMEMBER**:
-- Skill use is **non-optional** when a match is found
-- Skill instructions MUST be reviewed before proceeding
-- Resources are **optional and contextual** — only load them as needed
-- This workflow ensures modular, efficient, and specialized task completion
-
-</agent_skills>
-`;
+    return `<available_skills>
+${skillsXml}
+</available_skills>`;
   }
 }

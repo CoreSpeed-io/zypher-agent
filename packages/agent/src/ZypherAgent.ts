@@ -25,7 +25,7 @@ import {
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
-import { SkillManager } from "./skills/mod.ts";
+import { SkillManager, type SkillManagerOptions } from "./skills/mod.ts";
 import type { Tool } from "./tools/mod.ts";
 
 /**
@@ -63,8 +63,8 @@ export interface ZypherAgentConfig {
   maxTokens: number;
   /** Maximum allowed time for a task in milliseconds before it's automatically cancelled. Default is 15 minutes (900000ms). Set to 0 to disable. */
   taskTimeoutMs: number;
-  /** Custom Skills directory path. Defaults to ./.skills/ in the working directory */
-  skillsDir?: string;
+  /** Skills configuration options */
+  skills?: SkillManagerOptions;
 }
 
 export interface ZypherAgentOptions {
@@ -91,8 +91,6 @@ export interface ZypherAgentOptions {
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MAX_ITERATIONS = 25;
 const DEFAULT_TASK_TIMEOUT_MS = 900000;
-
-const DEFAULT_SKILLS_DIR = "./.skills";
 
 export class ZypherAgent {
   readonly #modelProvider: ModelProvider;
@@ -127,10 +125,7 @@ export class ZypherAgent {
 
     // Initialize SkillManager
     this.#skillManager = options.overrides?.skillManager ??
-      new SkillManager(
-        context,
-        options.config?.skillsDir ?? DEFAULT_SKILLS_DIR,
-      );
+      new SkillManager(context, options.config?.skills);
 
     // Create system prompt loader that includes Skills
     // Skills will be discovered when the system prompt is first loaded

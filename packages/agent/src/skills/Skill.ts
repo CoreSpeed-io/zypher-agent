@@ -1,31 +1,41 @@
 /**
- * Skill metadata
+ * Skill metadata parsed from SKILL.md frontmatter
  */
 export interface SkillMetadata {
-  /** Skill name (max 64 chars, lowercase letters, numbers, hyphens only) */
+  /** Skill name in kebab-case (max 64 chars, lowercase letters, numbers, hyphens only) */
   name: string;
   /** Brief description of what the Skill does and when to use it (max 1024 chars) */
   description: string;
+  /** License for the skill (optional) */
+  license?: string;
+  /** Compatibility information for the skill (optional, max 500 chars) */
+  compatibility?: string;
+  /** Tool patterns the skill requires (optional, experimental) */
+  allowedTools?: string;
+  /** Key-value pairs for client-specific properties (optional) */
+  metadata?: Record<string, string>;
 }
 
 /**
- * Skill with its metadata and content
+ * Skill with its metadata and paths
  */
 export interface Skill {
   /** Skill metadata */
   metadata: SkillMetadata;
-  /** Path to the Skill directory */
+  /** Absolute path to the Skill directory */
   skillPath: string;
-  /** Path to the SKILL.md file */
+  /** Absolute path to the SKILL.md file */
   skillMdPath: string;
-  /** Full content of SKILL.md (instructions) */
-  instructions?: string;
+  /** Location path for the agent to use (relative for project skills, absolute for global) */
+  location: string;
 }
 
 /**
- * Validates Skill metadata according to Anthropic's requirements
+ * Validates Skill metadata according to the agentskills specification
  */
-export function validateSkillMetadata(metadata: SkillMetadata): {
+export function validateSkillMetadata(
+  metadata: SkillMetadata,
+): {
   valid: boolean;
   errors: string[];
 } {
@@ -43,15 +53,18 @@ export function validateSkillMetadata(metadata: SkillMetadata): {
         "Skill name must contain only lowercase letters, numbers, and hyphens",
       );
     }
+    if (metadata.name.startsWith("-") || metadata.name.endsWith("-")) {
+      errors.push("Skill name cannot start or end with a hyphen");
+    }
+    if (metadata.name.includes("--")) {
+      errors.push("Skill name cannot contain consecutive hyphens");
+    }
     if (
       metadata.name.includes("anthropic") || metadata.name.includes("claude")
     ) {
       errors.push(
         "Skill name cannot contain reserved words: 'anthropic' or 'claude'",
       );
-    }
-    if (metadata.name.includes("<") || metadata.name.includes(">")) {
-      errors.push("Skill name cannot contain XML tags");
     }
   }
 
@@ -62,11 +75,13 @@ export function validateSkillMetadata(metadata: SkillMetadata): {
     if (metadata.description.length > 1024) {
       errors.push("Skill description must be 1024 characters or less");
     }
-    if (
-      metadata.description.includes("<") || metadata.description.includes(">")
-    ) {
-      errors.push("Skill description cannot contain XML tags");
-    }
+  }
+
+  // Validate compatibility (optional)
+  if (
+    metadata.compatibility !== undefined && metadata.compatibility.length > 500
+  ) {
+    errors.push("Skill compatibility must be 500 characters or less");
   }
 
   return {
