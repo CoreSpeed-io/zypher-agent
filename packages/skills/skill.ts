@@ -217,3 +217,94 @@ export async function readSkill(skillDir: string): Promise<Skill | null> {
 
   return { metadata, location };
 }
+
+/**
+ * Options for skill discovery.
+ */
+export interface DiscoverOptions {
+  /** Called when a skill directory is missing SKILL.md */
+  onMissingSkillMd?: (dirName: string) => void;
+  /** Called when a skill fails to load */
+  onLoadError?: (dirName: string, error: Error) => void;
+  /** Called when a skill has invalid metadata */
+  onInvalidMetadata?: (path: string, errors: string[]) => void;
+}
+
+/**
+ * Discover all skills in a directory.
+ *
+ * Scans the given directory for subdirectories containing SKILL.md files,
+ * parses and validates each skill, and returns an array of valid skills.
+ *
+ * @param skillsDir Path to the directory containing skill subdirectories
+ * @param options Optional callbacks for handling errors
+ * @returns Array of discovered skills
+ */
+export async function discoverSkills(
+  skillsDir: string,
+  options?: DiscoverOptions,
+): Promise<Skill[]> {
+  const dir = resolve(skillsDir);
+
+  if (!await exists(dir)) {
+    return [];
+  }
+
+  const skills: Skill[] = [];
+
+  try {
+    for await (const entry of Deno.readDir(dir)) {
+      if (!entry.isDirectory) {
+        continue;
+      }
+
+      const skillDir = join(dir, entry.name);
+      const skillMdPath = await findSkillMd(skillDir);
+
+      if (!skillMdPath) {
+        options?.onMissingSkillMd?.(entry.name);
+        continue;
+      }
+
+      try {
+        const content = await Deno.readTextFile(skillMdPath);
+        const raw = parseFrontmatter(content);
+
+        if (!raw) {
+          options?.onInvalidMetadata?.(skillMdPath, [
+            "Invalid or missing YAML frontmatter",
+          ]);
+          continue;
+        }
+
+        const metadata = toSkillMetadata(raw);
+        if (!metadata) {
+          options?.onInvalidMetadata?.(skillMdPath, [
+            "Missing required fields: name, description",
+          ]);
+          continue;
+        }
+
+        // Import validateSkillMetadata inline to avoid circular dependency
+        const { validateSkillMetadata } = await import("./validator.ts");
+        const validation = validateSkillMetadata(metadata);
+        if (!validation.valid) {
+          options?.onInvalidMetadata?.(skillMdPath, validation.errors);
+          continue;
+        }
+
+        skills.push({ metadata, location: skillMdPath });
+      } catch (error) {
+        options?.onLoadError?.(
+          entry.name,
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      }
+    }
+  } catch {
+    // Directory read failed, return empty array
+    return [];
+  }
+
+  return skills;
+}

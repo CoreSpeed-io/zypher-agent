@@ -132,7 +132,7 @@ export class ZypherAgent {
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
       (async () => {
         // Ensure Skills are discovered before generating prompt
-        await this.#skillManager.discoverSkills();
+        await this.#skillManager.discover();
         return getSystemPrompt(context.workingDirectory, {
           skillManager: this.#skillManager,
         });

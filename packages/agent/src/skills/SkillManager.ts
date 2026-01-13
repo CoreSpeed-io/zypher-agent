@@ -1,13 +1,5 @@
 import { join, relative, resolve } from "@std/path";
-import { exists } from "@std/fs";
-import {
-  findSkillMd,
-  parseFrontmatter,
-  type Skill,
-  toPrompt,
-  toSkillMetadata,
-  validateSkillMetadata,
-} from "@zypher/skills";
+import { discoverSkills, type Skill, toPrompt } from "@zypher/skills";
 import type { ZypherContext } from "../ZypherAgent.ts";
 
 /**
@@ -69,7 +61,7 @@ export class SkillManager {
   /**
    * Discovers all Skills from all configured directories
    */
-  async discoverSkills(): Promise<void> {
+  async discover(): Promise<void> {
     this.#skills.clear();
 
     // Discover from global skills directory
@@ -85,106 +77,63 @@ export class SkillManager {
   }
 
   /**
-   * Discovers skills from a specific directory
+   * Discovers skills from a specific directory using @zypher/skills
    */
   async #discoverFromDirectory(
     skillsDir: string,
     source: "global" | "project" | "custom",
   ): Promise<void> {
-    if (!(await exists(skillsDir))) {
-      return;
-    }
+    const skills = await discoverSkills(skillsDir, {
+      onMissingSkillMd: (dirName: string) => {
+        console.warn(
+          `Skill directory ${dirName} does not contain SKILL.md, skipping`,
+        );
+      },
+      onLoadError: (dirName: string, error: Error) => {
+        console.warn(`Failed to load Skill ${dirName}: ${error.message}`);
+      },
+      onInvalidMetadata: (path: string, errors: string[]) => {
+        console.warn(`Invalid Skill metadata in ${path}: ${errors.join(", ")}`);
+      },
+    });
 
-    try {
-      for await (const entry of Deno.readDir(skillsDir)) {
-        if (!entry.isDirectory) {
-          continue;
-        }
-
-        const skillDir = join(skillsDir, entry.name);
-
-        // Use findSkillMd from @zypher/skills
-        const skillMdPath = await findSkillMd(skillDir);
-        if (!skillMdPath) {
+    for (const skill of skills) {
+      // Check for duplicate names (project skills override global)
+      if (this.#skills.has(skill.metadata.name)) {
+        const existing = this.#skills.get(skill.metadata.name)!;
+        // Project skills take precedence over global
+        if (source === "project") {
+          // Adjust location for project skills to be relative
+          const adjustedSkill = this.#adjustLocation(skill, source);
+          this.#skills.set(skill.metadata.name, adjustedSkill);
+        } else {
           console.warn(
-            `Skill directory ${entry.name} does not contain SKILL.md, skipping`,
-          );
-          continue;
-        }
-
-        // Parse Skill metadata
-        try {
-          const skill = await this.#loadSkill(skillMdPath, source);
-          if (skill) {
-            // Check for duplicate names (project skills override global)
-            if (this.#skills.has(skill.metadata.name)) {
-              const existing = this.#skills.get(skill.metadata.name)!;
-              // Project skills take precedence over global
-              if (source === "project") {
-                this.#skills.set(skill.metadata.name, skill);
-              } else {
-                console.warn(
-                  `Skill "${skill.metadata.name}" already exists at ${existing.location}, skipping duplicate from ${skillMdPath}`,
-                );
-              }
-            } else {
-              this.#skills.set(skill.metadata.name, skill);
-            }
-          }
-        } catch (error) {
-          console.warn(
-            `Failed to load Skill ${entry.name}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+            `Skill "${skill.metadata.name}" already exists at ${existing.location}, skipping duplicate from ${skill.location}`,
           );
         }
+      } else {
+        // Adjust location based on source
+        const adjustedSkill = this.#adjustLocation(skill, source);
+        this.#skills.set(skill.metadata.name, adjustedSkill);
       }
-    } catch (error) {
-      console.warn(
-        `Failed to discover Skills from ${skillsDir}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
     }
   }
 
   /**
-   * Loads Skill from SKILL.md file
+   * Adjusts skill location based on source type
+   * Project skills get relative paths, others get absolute
    */
-  async #loadSkill(
-    skillMdPath: string,
+  #adjustLocation(
+    skill: Skill,
     source: "global" | "project" | "custom",
-  ): Promise<Skill | null> {
-    const content = await Deno.readTextFile(skillMdPath);
-    const raw = parseFrontmatter(content);
-
-    if (!raw) {
-      console.warn(`Failed to parse frontmatter from ${skillMdPath}`);
-      return null;
+  ): Skill {
+    if (source === "project") {
+      return {
+        ...skill,
+        location: relative(this.#context.workingDirectory, skill.location),
+      };
     }
-
-    const metadata = toSkillMetadata(raw);
-    if (!metadata) {
-      console.warn(`Missing required fields in ${skillMdPath}`);
-      return null;
-    }
-
-    const validation = validateSkillMetadata(metadata);
-    if (!validation.valid) {
-      console.warn(
-        `Invalid Skill metadata in ${skillMdPath}: ${
-          validation.errors.join(", ")
-        }`,
-      );
-      return null;
-    }
-
-    // Determine location path based on source
-    const location = source === "project"
-      ? relative(this.#context.workingDirectory, skillMdPath)
-      : skillMdPath;
-
-    return { metadata, location };
+    return skill;
   }
 
   /**

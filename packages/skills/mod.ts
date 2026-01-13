@@ -1,5 +1,5 @@
 /**
- * @zypher/skills - Core skill parsing and validation library
+ * @zypher/skills - Core Agent Skills parsing and validation library
  *
  * This package provides utilities for working with Agent Skills:
  * - Parse SKILL.md frontmatter
@@ -10,6 +10,8 @@
  */
 
 export {
+  discoverSkills,
+  type DiscoverOptions,
   findSkillMd,
   parseFrontmatter,
   readSkill,

@@ -5,6 +5,7 @@
 
 // Re-export types and functions from @zypher/skills
 export type {
+  DiscoverOptions,
   RawFrontmatter,
   Skill,
   SkillMetadata,
@@ -12,6 +13,7 @@ export type {
 } from "@zypher/skills";
 
 export {
+  discoverSkills,
   escapeHtml,
   findSkillMd,
   parseFrontmatter,
