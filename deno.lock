@@ -6,6 +6,7 @@
     "jsr:@cliffy/internal@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/table@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@corespeed/mcp-store-client@^1.9.0": "1.9.0",
+    "jsr:@hono/hono@4": "4.11.3",
     "jsr:@std/assert@^1.0.14": "1.0.16",
     "jsr:@std/assert@^1.0.15": "1.0.16",
     "jsr:@std/assert@^1.0.16": "1.0.16",
@@ -77,6 +78,9 @@
     },
     "@corespeed/mcp-store-client@1.9.0": {
       "integrity": "cc1ee0325df7e75040e078d8e157772d2386a7b4166c672d8e80a8b86bbc6b47"
+    },
+    "@hono/hono@4.11.3": {
+      "integrity": "de7f245516a970c60c6f4bf5b0f1585efbee38ee4e01171994c2b9d69d035d70"
     },
     "@std/assert@1.0.16": {
       "integrity": "6a7272ed1eaa77defe76e5ff63ca705d9c495077e2d5fd0126d2b53fc5bd6532",
@@ -2086,6 +2090,16 @@
           "jsr:@std/dotenv@~0.225.5",
           "npm:chalk@^5.6.2",
           "npm:rxjs-for-await@1"
+        ]
+      },
+      "packages/http": {
+        "dependencies": [
+          "jsr:@cliffy/command@^1.0.0-rc.8",
+          "jsr:@hono/hono@4",
+          "jsr:@std/assert@^1.0.16",
+          "npm:rxjs-for-await@1",
+          "npm:rxjs@^7.8.2",
+          "npm:zod@^4.2.0"
         ]
       }
     }
