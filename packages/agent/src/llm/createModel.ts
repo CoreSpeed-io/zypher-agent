@@ -9,79 +9,159 @@ import {
 } from "./OpenAI.ts";
 
 /**
- * Options for creating a model provider via `createModel()`.
+ * Default models for each provider.
  */
-export interface CreateModelOptions extends ModelProviderOptions {
-  /** Anthropic-specific: enable prompt caching (default: true) */
-  enablePromptCaching?: boolean;
-  /** Anthropic-specific: thinking budget in tokens */
-  thinkingBudget?: number;
-  /** OpenAI-specific: reasoning effort level for reasoning models */
-  reasoningEffort?: "low" | "medium" | "high";
+export const DEFAULT_MODELS = {
+  anthropic: "claude-sonnet-4-5-20250929",
+  openai: "gpt-5.2",
+} as const;
+
+/**
+ * Supported provider names (only Anthropic and OpenAI are supported).
+ */
+export type ProviderName = keyof typeof DEFAULT_MODELS;
+
+/**
+ * Default base URLs for OpenAI-compatible providers.
+ * These are used when the model name matches a known pattern.
+ */
+const MODEL_BASE_URLS: Record<string, string> = {
+  gemini: "https://generativelanguage.googleapis.com/v1beta/openai",
+  deepseek: "https://api.deepseek.com/v1",
+  qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  grok: "https://api.x.ai/v1",
+};
+
+/**
+ * Infers the provider from well-known model name patterns.
+ * Only returns "anthropic" or "openai" since these are the only supported providers.
+ *
+ * - Anthropic: claude*, sonnet*, haiku*, opus*
+ * - OpenAI (default): Everything else, including OpenAI-compatible models
+ */
+function inferProvider(model: string): ProviderName {
+  const m = model.toLowerCase();
+
+  // Anthropic models
+  if (
+    m.includes("claude") || m.startsWith("sonnet") ||
+    m.startsWith("haiku") || m.startsWith("opus")
+  ) {
+    return "anthropic";
+  }
+
+  // Default to OpenAI for all other models (OpenAI-compatible is de facto standard)
+  return "openai";
+}
+
+/**
+ * Infers a default base URL for well-known OpenAI-compatible models.
+ * Returns undefined if the model doesn't match any known pattern.
+ */
+function inferBaseUrl(model: string): string | undefined {
+  const m = model.toLowerCase();
+
+  for (const [prefix, baseUrl] of Object.entries(MODEL_BASE_URLS)) {
+    if (m.startsWith(prefix)) {
+      return baseUrl;
+    }
+  }
+
+  return undefined;
 }
 
 /**
  * Create a ModelProvider from a string specification.
  *
+ * This is a simple helper for quickly creating providers with default settings.
+ * For provider-specific options (e.g., thinkingBudget, reasoningEffort),
+ * use the `anthropic()` or `openai()` helper functions instead.
+ *
+ * Supports two formats:
+ * - Explicit: "provider/model-id" (e.g., "anthropic/claude-sonnet-4-5-20250929")
+ * - Auto-inferred: "model-id" (e.g., "claude-sonnet-4-5-20250929" → anthropic)
+ *
+ * Provider is auto-inferred from well-known model name patterns:
+ * - Anthropic: claude*, sonnet*, haiku*, opus*
+ * - OpenAI (default): Everything else, including OpenAI-compatible models
+ *
+ * For OpenAI-compatible models, default base URLs are provided for:
+ * - gemini* → Google AI (generativelanguage.googleapis.com)
+ * - deepseek* → DeepSeek (api.deepseek.com)
+ * - qwen* → Alibaba DashScope (dashscope.aliyuncs.com)
+ * - grok* → xAI (api.x.ai)
+ *
  * @example
  * ```typescript
- * // Using string format "provider/model"
- * const model = createModel("anthropic/claude-sonnet-4-20250514");
- * const model = createModel("openai/gpt-4o");
+ * // Explicit provider/model format
+ * const model = createModel("anthropic/claude-sonnet-4-5-20250929");
+ * const model = createModel("openai/gpt-5.2");
  *
- * // With options
- * const model = createModel("anthropic/claude-sonnet-4-20250514", {
- *   apiKey: process.env.ANTHROPIC_API_KEY,
- *   enablePromptCaching: true,
- * });
+ * // Auto-inferred provider from model name
+ * const model = createModel("claude-sonnet-4-5-20250929"); // → anthropic
+ * const model = createModel("gpt-5.2");                    // → openai
+ * const model = createModel("gemini-2.0-flash");           // → openai (with Google base URL)
+ * const model = createModel("deepseek-chat");              // → openai (with DeepSeek base URL)
+ * const model = createModel("qwen-plus");                  // → openai (with DashScope base URL)
+ * const model = createModel("grok-2");                     // → openai (with xAI base URL)
+ * const model = createModel("llama-3.3-70b");              // → openai (no default URL, self-hosted)
+ *
+ * // With options (API key optional - falls back to env vars)
+ * const model = createModel("gpt-5.2", { apiKey: "..." });
+ *
+ * // For provider-specific options, use the dedicated helpers:
+ * const model = anthropic("claude-sonnet-4-5-20250929", { thinkingBudget: 10000 });
+ * const model = openai("o1", { reasoningEffort: "high" });
  * ```
  *
- * @param modelString - Model specification in "provider/model-id" format
- * @param options - Optional configuration for the provider
+ * @param modelString - Model specification: "provider/model-id" or just "model-id"
+ * @param options - Optional configuration (apiKey, baseUrl)
  * @returns A configured ModelProvider instance
  */
 export function createModel(
   modelString: string,
-  options: CreateModelOptions = {},
+  options: ModelProviderOptions = {},
 ): ModelProvider {
+  let provider: string;
+  let modelId: string;
+
   const slashIndex = modelString.indexOf("/");
-  if (slashIndex === -1) {
-    throw new Error(
-      `Invalid model string "${modelString}". Expected format: "provider/model-id" (e.g., "anthropic/claude-sonnet-4-20250514")`,
-    );
+  if (slashIndex !== -1) {
+    // Explicit format: "provider/model"
+    provider = modelString.slice(0, slashIndex);
+    modelId = modelString.slice(slashIndex + 1);
+
+    if (!modelId) {
+      throw new Error(
+        `Invalid model string "${modelString}". Model ID cannot be empty.`,
+      );
+    }
+  } else {
+    // Auto-detect provider from model name
+    provider = inferProvider(modelString);
+    modelId = modelString;
   }
 
-  const provider = modelString.slice(0, slashIndex);
-  const modelId = modelString.slice(slashIndex + 1);
+  const providerKey = provider.toLowerCase();
+  // Use explicit baseUrl if provided, otherwise infer from model name
+  const baseUrl = options.baseUrl ?? inferBaseUrl(modelId);
 
-  if (!modelId) {
-    throw new Error(
-      `Invalid model string "${modelString}". Model ID cannot be empty.`,
-    );
-  }
-
-  switch (provider.toLowerCase()) {
+  switch (providerKey) {
     case "anthropic":
       return new AnthropicModelProvider({
         model: modelId,
         apiKey: options.apiKey,
-        baseUrl: options.baseUrl,
-        enablePromptCaching: options.enablePromptCaching,
-        thinkingBudget: options.thinkingBudget,
+        baseUrl,
       });
 
     case "openai":
+    default:
+      // OpenAI and all OpenAI-compatible providers
       return new OpenAIModelProvider({
         model: modelId,
         apiKey: options.apiKey,
-        baseUrl: options.baseUrl,
-        reasoningEffort: options.reasoningEffort,
+        baseUrl,
       });
-
-    default:
-      throw new Error(
-        `Unsupported provider "${provider}". Supported providers: anthropic, openai`,
-      );
   }
 }
 

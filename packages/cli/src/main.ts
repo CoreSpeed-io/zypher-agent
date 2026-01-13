@@ -1,5 +1,10 @@
 import "@std/dotenv/load";
-import { createModel, createZypherAgent, formatError } from "@zypher/agent";
+import {
+  createModel,
+  createZypherAgent,
+  DEFAULT_MODELS,
+  formatError,
+} from "@zypher/agent";
 import {
   createFileSystemTools,
   createImageTools,
@@ -9,27 +14,7 @@ import { Command, EnumType } from "@cliffy/command";
 import chalk from "chalk";
 import { runAgentInTerminal } from "./runAgentInTerminal.ts";
 
-const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
-const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
-
 const providerType = new EnumType(["anthropic", "openai"]);
-
-function inferProvider(
-  provider?: string,
-  model?: string,
-): "anthropic" | "openai" {
-  const p = provider?.toLowerCase();
-  if (p === "openai" || p === "anthropic") return p;
-  if (!model) return "anthropic";
-  const m = model.toLowerCase();
-  if (
-    m.includes("claude") || m.startsWith("sonnet") || m.startsWith("haiku") ||
-    m.startsWith("opus")
-  ) {
-    return "anthropic";
-  }
-  return "openai"; // fallback to OpenAI-compatible models
-}
 
 export async function main(): Promise<void> {
   // Parse command line arguments using Cliffy
@@ -37,13 +22,14 @@ export async function main(): Promise<void> {
     .name("zypher")
     .description("Zypher Agent CLI")
     .type("provider", providerType)
-    .option("-k, --api-key <apiKey:string>", "Model provider API key", {
-      required: true,
-    })
+    .option(
+      "-k, --api-key <apiKey:string>",
+      "Model provider API key (uses env var if not provided)",
+    )
     .option("-m, --model <model:string>", "Model name")
     .option(
       "-p, --provider <provider:provider>",
-      "Model provider",
+      "Model provider (auto-detected from model name if not specified)",
     )
     .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
     .option(
@@ -71,23 +57,22 @@ export async function main(): Promise<void> {
       console.log(`💻 Using working directory: ${cli.workDir}`);
     }
 
-    const selectedProvider = inferProvider(cli.provider, cli.model);
-    console.log(`🤖 Using provider: ${chalk.magenta(selectedProvider)}`);
+    // Build model string: explicit provider/model or just model (auto-inferred)
+    const modelString = cli.provider && cli.model
+      ? `${cli.provider}/${cli.model}`
+      : cli.model ?? DEFAULT_MODELS.openai;
 
-    const modelId = cli.model ??
-      (selectedProvider === "openai"
-        ? DEFAULT_OPENAI_MODEL
-        : DEFAULT_ANTHROPIC_MODEL);
-    console.log(`🧠 Using model: ${chalk.cyan(modelId)}`);
-
-    // Initialize the model provider with model
-    const modelProvider = createModel(`${selectedProvider}/${modelId}`, {
+    // Initialize the model provider
+    const modelProvider = createModel(modelString, {
       apiKey: cli.apiKey,
       baseUrl: cli.baseUrl,
     });
 
-    // Build tools list
-    const openaiApiKey = cli.provider === "openai"
+    console.log(`🤖 Using provider: ${chalk.magenta(modelProvider.info.name)}`);
+    console.log(`🧠 Using model: ${chalk.cyan(modelProvider.modelId)}`);
+
+    // Build tools list - use OpenAI key for image tools
+    const openaiApiKey = modelProvider.info.name === "openai"
       ? cli.apiKey
       : cli.openaiApiKey;
 
