@@ -1,7 +1,13 @@
 import { join, relative, resolve } from "@std/path";
 import { exists } from "@std/fs";
-import type { Skill, SkillMetadata } from "./Skill.ts";
-import { validateSkillMetadata } from "./Skill.ts";
+import {
+  findSkillMd,
+  parseFrontmatter,
+  type Skill,
+  toPrompt,
+  toSkillMetadata,
+  validateSkillMetadata,
+} from "@zypher/skills";
 import type { ZypherContext } from "../ZypherAgent.ts";
 
 /**
@@ -14,18 +20,6 @@ export interface SkillManagerOptions {
   projectSkillsDir?: string;
   /** Additional custom skill directories (absolute paths) */
   customSkillsDirs?: string[];
-}
-
-/**
- * Escapes HTML special characters for safe XML output
- */
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 /**
@@ -108,16 +102,10 @@ export class SkillManager {
         }
 
         const skillDir = join(skillsDir, entry.name);
-        const skillMdPath = join(skillDir, "SKILL.md");
-        const skillMdPathLower = join(skillDir, "skill.md");
 
-        // Check for SKILL.md (prefer uppercase)
-        let actualPath: string | null = null;
-        if (await exists(skillMdPath)) {
-          actualPath = skillMdPath;
-        } else if (await exists(skillMdPathLower)) {
-          actualPath = skillMdPathLower;
-        } else {
+        // Use findSkillMd from @zypher/skills
+        const skillMdPath = await findSkillMd(skillDir);
+        if (!skillMdPath) {
           console.warn(
             `Skill directory ${entry.name} does not contain SKILL.md, skipping`,
           );
@@ -126,7 +114,7 @@ export class SkillManager {
 
         // Parse Skill metadata
         try {
-          const skill = await this.#loadSkill(actualPath, source);
+          const skill = await this.#loadSkill(skillMdPath, source);
           if (skill) {
             // Check for duplicate names (project skills override global)
             if (this.#skills.has(skill.metadata.name)) {
@@ -136,7 +124,7 @@ export class SkillManager {
                 this.#skills.set(skill.metadata.name, skill);
               } else {
                 console.warn(
-                  `Skill "${skill.metadata.name}" already exists at ${existing.location}, skipping duplicate from ${actualPath}`,
+                  `Skill "${skill.metadata.name}" already exists at ${existing.location}, skipping duplicate from ${skillMdPath}`,
                 );
               }
             } else {
@@ -168,10 +156,16 @@ export class SkillManager {
     source: "global" | "project" | "custom",
   ): Promise<Skill | null> {
     const content = await Deno.readTextFile(skillMdPath);
-    const metadata = this.#parseFrontmatter(content);
+    const raw = parseFrontmatter(content);
 
-    if (!metadata) {
+    if (!raw) {
       console.warn(`Failed to parse frontmatter from ${skillMdPath}`);
+      return null;
+    }
+
+    const metadata = toSkillMetadata(raw);
+    if (!metadata) {
+      console.warn(`Missing required fields in ${skillMdPath}`);
       return null;
     }
 
@@ -194,80 +188,6 @@ export class SkillManager {
   }
 
   /**
-   * Parses YAML frontmatter from SKILL.md
-   */
-  #parseFrontmatter(content: string): SkillMetadata | null {
-    // Try to match YAML frontmatter
-    const frontmatter = content.match(
-      /^---\s*\n([\s\S]*?)\n---/,
-    );
-
-    if (!frontmatter) {
-      return null;
-    }
-
-    const frontmatterText = frontmatter[1];
-
-    // Extract required fields
-    const nameMatch = frontmatterText.match(/^name:\s*(.+?)$/m);
-    const descriptionMatch = frontmatterText.match(/^description:\s*(.+?)$/m);
-
-    if (!nameMatch || !descriptionMatch) {
-      return null;
-    }
-
-    const name = nameMatch[1].trim().replace(/^["']|["']$/g, "");
-    const description = descriptionMatch[1].trim().replace(
-      /^["']|["']$/g,
-      "",
-    );
-
-    // Extract optional fields
-    const licenseMatch = frontmatterText.match(/^license:\s*(.+?)$/m);
-    const compatibilityMatch = frontmatterText.match(
-      /^compatibility:\s*(.+?)$/m,
-    );
-    const allowedToolsMatch = frontmatterText.match(
-      /^allowed-tools:\s*(.+?)$/m,
-    );
-
-    const metadata: SkillMetadata = { name, description };
-
-    if (licenseMatch) {
-      metadata.license = licenseMatch[1].trim().replace(/^["']|["']$/g, "");
-    }
-    if (compatibilityMatch) {
-      metadata.compatibility = compatibilityMatch[1].trim().replace(
-        /^["']|["']$/g,
-        "",
-      );
-    }
-    if (allowedToolsMatch) {
-      metadata.allowedTools = allowedToolsMatch[1].trim().replace(
-        /^["']|["']$/g,
-        "",
-      );
-    }
-
-    // Parse nested metadata block (simplified - only single-line key-value pairs)
-    const metadataBlockMatch = frontmatterText.match(
-      /^metadata:\s*\n((?:\s+\S+:\s*.+\n?)*)/m,
-    );
-    if (metadataBlockMatch) {
-      const metadataBlock = metadataBlockMatch[1];
-      const keyValuePairs = metadataBlock.matchAll(/^\s+(\S+):\s*(.+?)$/gm);
-      metadata.metadata = {};
-      for (const match of keyValuePairs) {
-        const key = match[1].trim();
-        const value = match[2].trim().replace(/^["']|["']$/g, "");
-        metadata.metadata[key] = value;
-      }
-    }
-
-    return metadata;
-  }
-
-  /**
    * Gets all discovered Skills
    */
   getAllSkills(): Skill[] {
@@ -283,28 +203,9 @@ export class SkillManager {
 
   /**
    * Gets Skill metadata formatted as XML for system prompt inclusion.
-   * Follows the agentskills reference format.
+   * Uses the toPrompt function from @zypher/skills package.
    */
   getSkillsMetadataForPrompt(): string {
-    const skills = this.getAllSkills();
-
-    if (skills.length === 0) {
-      return "<available_skills>\n</available_skills>";
-    }
-
-    const skillsXml = skills.map((skill) => {
-      const name = escapeHtml(skill.metadata.name);
-      const desc = escapeHtml(skill.metadata.description);
-      const location = escapeHtml(skill.location);
-      return `<skill>
-<name>${name}</name>
-<description>${desc}</description>
-<location>${location}</location>
-</skill>`;
-    }).join("\n");
-
-    return `<available_skills>
-${skillsXml}
-</available_skills>`;
+    return toPrompt(this.getAllSkills());
   }
 }

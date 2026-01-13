@@ -5,6 +5,7 @@
     "packages/cli",
     "packages/acp",
     "packages/http",
+    "packages/skills",
     "examples/mcp",
     "examples/agui",
     "examples/ptc"
