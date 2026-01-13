@@ -4,6 +4,7 @@
     "packages/agui",
     "packages/cli",
     "packages/acp",
+    "packages/http",
     "examples/mcp",
     "examples/agui",
     "examples/ptc"
