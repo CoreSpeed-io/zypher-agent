@@ -9,9 +9,9 @@ import {
   createEmittingMessageArray,
   getSystemPrompt,
 } from "./utils/mod.ts";
-import type { TokenUsage } from "./llm/mod.ts";
+import type { ModelProvider, TokenUsage } from "./llm/mod.ts";
+import { createModel } from "./llm/mod.ts";
 import { AbortError, isAbortError, TaskConcurrencyError } from "./error.ts";
-import type { ModelProvider } from "./llm/mod.ts";
 import { filter, type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
 import {
@@ -105,16 +105,19 @@ export class ZypherAgent {
   /**
    * Creates a new ZypherAgent instance
    *
-   * @param modelProvider The AI model provider to use for chat completions
    * @param context Workspace and filesystem environment configuration
+   * @param modelProvider The AI model provider to use for chat completions.
+   *   Can be a ModelProvider instance or a model string (e.g., "claude-sonnet-4-5-20250929", "gpt-5.2").
    * @param options Configuration options for the agent
    */
   constructor(
     context: ZypherContext,
-    modelProvider: ModelProvider,
+    modelProvider: ModelProvider | string,
     options: ZypherAgentOptions = {},
   ) {
-    this.#modelProvider = modelProvider;
+    this.#modelProvider = typeof modelProvider === "string"
+      ? createModel(modelProvider)
+      : modelProvider;
     this.#context = context;
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
       (() => getSystemPrompt(context.workingDirectory));

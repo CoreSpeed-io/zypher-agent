@@ -14,9 +14,12 @@ import { createZypherContext } from "./utils/context.ts";
 export interface CreateZypherAgentOptions extends ZypherAgentOptions {
   /**
    * The AI model provider to use (Anthropic or OpenAI).
+   * Can be a ModelProvider instance or a model string (e.g., "claude-sonnet-4-5-20250929", "gpt-5.2").
    * @example new AnthropicModelProvider({ apiKey: "..." })
+   * @example "claude-sonnet-4-5-20250929"
+   * @example "gpt-5.2"
    */
-  modelProvider: ModelProvider;
+  modelProvider: ModelProvider | string;
 
   /**
    * Working directory for the agent. Defaults to Deno.cwd().
@@ -46,13 +49,20 @@ export interface CreateZypherAgentOptions extends ZypherAgentOptions {
  *
  * @example
  * ```typescript
+ * // Using a model string (recommended for most cases)
  * const agent = await createZypherAgent({
- *   modelProvider: new AnthropicModelProvider({ apiKey }),
+ *   modelProvider: "claude-sonnet-4-5-20250929",
+ *   tools: [ReadFileTool, ListDirTool],
+ * });
+ *
+ * // Using a ModelProvider instance (for provider-specific options)
+ * const agent = await createZypherAgent({
+ *   modelProvider: anthropic("claude-sonnet-4-5-20250929", { thinkingBudget: 10000 }),
  *   tools: [ReadFileTool, ListDirTool],
  *   mcpServers: ["@firecrawl/firecrawl"],
  * });
  *
- * const events$ = agent.runTask("Find latest AI news", "claude-sonnet-4-20250514");
+ * const events$ = agent.runTask("Find latest AI news");
  * ```
  *
  * @param options Configuration options for agent creation
