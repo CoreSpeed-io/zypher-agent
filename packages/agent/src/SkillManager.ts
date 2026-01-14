@@ -1,5 +1,10 @@
 import { relative, resolve } from "@std/path";
-import { discoverSkills, type Skill, toPrompt } from "@zypher/skills";
+import {
+  discoverSkills,
+  type DiscoverOptions,
+  type Skill,
+  toPrompt,
+} from "@zypher/skills";
 import type { ZypherContext } from "./ZypherAgent.ts";
 
 /**
@@ -10,6 +15,8 @@ export interface SkillManagerOptions {
   projectSkillsDir?: string;
   /** Additional custom skill directories (resolved relative to workingDirectory if not absolute) */
   customSkillsDirs?: string[];
+  /** Callbacks for handling discovery errors */
+  discoverOptions?: DiscoverOptions;
 }
 
 /**
@@ -31,6 +38,7 @@ export class SkillManager {
   readonly #context: ZypherContext;
   readonly #projectSkillsDir: string;
   readonly #customSkillsDirs: string[];
+  readonly #options: SkillManagerOptions;
   readonly #skills: Map<string, Skill> = new Map();
 
   constructor(
@@ -38,6 +46,7 @@ export class SkillManager {
     options?: SkillManagerOptions,
   ) {
     this.#context = context;
+    this.#options = options ?? {};
 
     // Project skills: ./.skills in working directory
     this.#projectSkillsDir = resolve(
@@ -92,19 +101,7 @@ export class SkillManager {
    * Later calls override earlier ones for duplicate skill names.
    */
   async #discoverFromDirectory(skillsDir: string): Promise<void> {
-    const skills = await discoverSkills(skillsDir, {
-      onMissingSkillMd: (dirName: string) => {
-        console.warn(
-          `Skill directory ${dirName} does not contain SKILL.md, skipping`,
-        );
-      },
-      onLoadError: (dirName: string, error: Error) => {
-        console.warn(`Failed to load Skill ${dirName}: ${error.message}`);
-      },
-      onInvalidMetadata: (path: string, errors: string[]) => {
-        console.warn(`Invalid Skill metadata in ${path}: ${errors.join(", ")}`);
-      },
-    });
+    const skills = await discoverSkills(skillsDir, this.#options.discoverOptions);
 
     for (const skill of skills) {
       const adjustedSkill = this.#adjustLocation(skill);
