@@ -1,6 +1,5 @@
 /**
  * Skill validation functions following the Agent Skills specification.
- * @module
  */
 
 import type { SkillMetadata } from "./skill.ts";

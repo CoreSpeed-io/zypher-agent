@@ -1,6 +1,5 @@
 /**
  * Generate XML prompt blocks for agent skills.
- * @module
  */
 
 import type { Skill } from "./skill.ts";

@@ -1,6 +1,5 @@
 /**
  * Skill discovery functions.
- * @module
  */
 
 import { exists } from "@std/fs";

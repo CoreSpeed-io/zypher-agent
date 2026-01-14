@@ -1,6 +1,5 @@
 /**
  * Core skill types and parsing functions.
- * @module
  */
 
 import { extractYaml } from "@std/front-matter";
