@@ -53,6 +53,8 @@ export interface DiscoverOptions {
  * Scans the given directory for subdirectories containing SKILL.md files,
  * parses and validates each skill, and returns an array of valid skills.
  *
+ * Returns an empty array if the directory does not exist.
+ *
  * @param skillsDir Path to the directory containing skill subdirectories
  * @param options Optional callbacks for handling errors
  * @returns Array of discovered skills
