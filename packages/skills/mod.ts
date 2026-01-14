@@ -2,7 +2,7 @@
  * @zypher/skills - Core Agent Skills parsing and validation library
  *
  * This package provides utilities for working with Agent Skills:
- * - Parse SKILL.md frontmatter
+ * - Discover and load skills from directories
  * - Validate skill metadata and directories
  * - Generate XML prompt blocks for agents
  *
@@ -13,18 +13,13 @@ export {
   type DiscoverOptions,
   discoverSkills,
   findSkillMd,
-  parseFrontmatter,
-  type RawFrontmatter,
+  parseSkill,
   readSkill,
   type Skill,
   type SkillMetadata,
   toSkillMetadata,
 } from "./skill.ts";
 
-export {
-  validateSkillDir,
-  validateSkillMetadata,
-  type ValidationResult,
-} from "./validator.ts";
+export { validateSkillMetadata, type ValidationResult } from "./validator.ts";
 
 export { escapeHtml, toPrompt } from "./prompt.ts";

@@ -3,14 +3,7 @@
  * @module
  */
 
-import { exists } from "@std/fs";
-import { basename, resolve } from "@std/path";
-import {
-  findSkillMd,
-  parseFrontmatter,
-  type RawFrontmatter,
-  type SkillMetadata,
-} from "./skill.ts";
+import type { SkillMetadata } from "./skill.ts";
 
 /** Maximum length for skill name */
 const MAX_NAME_LENGTH = 64;
@@ -18,16 +11,6 @@ const MAX_NAME_LENGTH = 64;
 const MAX_DESCRIPTION_LENGTH = 1024;
 /** Maximum length for compatibility field */
 const MAX_COMPATIBILITY_LENGTH = 500;
-
-/** Allowed fields in SKILL.md frontmatter */
-const ALLOWED_FIELDS = new Set([
-  "name",
-  "description",
-  "license",
-  "compatibility",
-  "allowed-tools",
-  "metadata",
-]);
 
 /**
  * Result of validating skill metadata.
@@ -130,121 +113,6 @@ function validateName(name: string): string[] {
       "Name contains invalid characters (only letters, numbers, and hyphens allowed)",
     );
   }
-
-  return errors;
-}
-
-/**
- * Check for unexpected fields in frontmatter.
- *
- * @param raw Raw frontmatter data
- * @returns Array of unexpected field names
- */
-function getUnexpectedFields(raw: RawFrontmatter): string[] {
-  const unexpected: string[] = [];
-  for (const key of Object.keys(raw)) {
-    if (!ALLOWED_FIELDS.has(key)) {
-      unexpected.push(key);
-    }
-  }
-  return unexpected;
-}
-
-/**
- * Validate a skill directory.
- *
- * This is the main entry point for full validation. It checks:
- * - Directory exists
- * - SKILL.md file exists
- * - Valid YAML frontmatter
- * - Required fields present
- * - No unexpected fields
- * - Name matches directory name
- * - All metadata validation rules
- *
- * @param skillDir Path to the skill directory
- * @returns Array of error messages (empty if valid)
- */
-export async function validateSkillDir(skillDir: string): Promise<string[]> {
-  const errors: string[] = [];
-  const dir = resolve(skillDir);
-
-  // Check directory exists
-  if (!await exists(dir)) {
-    return [`Path does not exist: ${dir}`];
-  }
-
-  // Check it's a directory
-  const stat = await Deno.stat(dir);
-  if (!stat.isDirectory) {
-    return [`Not a directory: ${dir}`];
-  }
-
-  // Find SKILL.md
-  const skillMdPath = await findSkillMd(dir);
-  if (!skillMdPath) {
-    return [`Missing required file: SKILL.md`];
-  }
-
-  // Parse frontmatter
-  const content = await Deno.readTextFile(skillMdPath);
-  const raw = parseFrontmatter(content);
-  if (!raw) {
-    return [`Invalid or missing YAML frontmatter in SKILL.md`];
-  }
-
-  // Check required fields
-  if (!raw.name || typeof raw.name !== "string" || !raw.name.trim()) {
-    errors.push("Missing required field: name");
-  }
-  if (
-    !raw.description || typeof raw.description !== "string" ||
-    !raw.description.trim()
-  ) {
-    errors.push("Missing required field: description");
-  }
-
-  // Check for unexpected fields
-  const unexpected = getUnexpectedFields(raw);
-  if (unexpected.length > 0) {
-    errors.push(`Unexpected fields in frontmatter: ${unexpected.join(", ")}`);
-  }
-
-  // If we have errors from missing fields, return early
-  if (errors.length > 0) {
-    return errors;
-  }
-
-  // Validate name matches directory (with NFKC normalization)
-  const dirName = basename(dir).normalize("NFKC");
-  const skillName = (raw.name as string).trim().normalize("NFKC");
-  if (dirName !== skillName) {
-    errors.push(
-      `Directory name "${dirName}" must match skill name "${skillName}"`,
-    );
-  }
-
-  // Validate metadata fields
-  const metadata: SkillMetadata = {
-    name: (raw.name as string).trim(),
-    description: (raw.description as string).trim(),
-  };
-
-  if (typeof raw.license === "string") {
-    metadata.license = raw.license.trim();
-  }
-  if (typeof raw.compatibility === "string") {
-    metadata.compatibility = raw.compatibility.trim();
-  }
-  if (typeof raw["allowed-tools"] === "string") {
-    metadata.allowedTools = raw["allowed-tools"].trim();
-  }
-  if (raw.metadata && typeof raw.metadata === "object") {
-    metadata.metadata = raw.metadata as Record<string, string>;
-  }
-
-  const result = validateSkillMetadata(metadata);
-  errors.push(...result.errors);
 
   return errors;
 }

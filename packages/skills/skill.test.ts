@@ -1,95 +1,47 @@
 /**
  * Unit tests for skill parsing functions.
  * These tests do not require filesystem access.
+ *
+ * Note: Frontmatter parsing is handled by @std/front-matter and not tested here.
  */
 
 import { assertEquals, assertExists } from "@std/assert";
-import { expect } from "@std/expect";
-import { parseFrontmatter, toSkillMetadata } from "./skill.ts";
+import { parseSkill, toSkillMetadata } from "./skill.ts";
 
-// parseFrontmatter tests
+// parseSkill tests
 
-Deno.test("parseFrontmatter - valid YAML with required fields", () => {
-  const content = `---
-name: my-skill
-description: A test skill
----
-# My Skill
-
-Body content here.
-`;
-
-  const result = parseFrontmatter(content);
-  assertExists(result);
-  assertEquals(result.name, "my-skill");
-  assertEquals(result.description, "A test skill");
-});
-
-Deno.test("parseFrontmatter - all optional fields", () => {
+Deno.test("parseSkill - valid content", () => {
   const content = `---
 name: my-skill
 description: A test skill
 license: MIT
-compatibility: Requires Python 3.11+
-allowed-tools: Bash(jq:*) Bash(git:*)
 ---
-Body
+# My Skill
+
+Instructions here.
 `;
 
-  const result = parseFrontmatter(content);
+  const result = parseSkill(content);
   assertExists(result);
   assertEquals(result.name, "my-skill");
   assertEquals(result.description, "A test skill");
   assertEquals(result.license, "MIT");
-  assertEquals(result.compatibility, "Requires Python 3.11+");
-  assertEquals(result["allowed-tools"], "Bash(jq:*) Bash(git:*)");
 });
 
-Deno.test("parseFrontmatter - nested metadata object", () => {
-  const content = `---
-name: my-skill
-description: A test skill
-metadata:
-  author: Test User
-  version: 1.0.0
----
-Body
-`;
-
-  const result = parseFrontmatter(content);
-  assertExists(result);
-  assertEquals(result.name, "my-skill");
-  assertExists(result.metadata);
-  expect(result.metadata).toEqual({ author: "Test User", version: "1.0.0" });
-});
-
-Deno.test("parseFrontmatter - no frontmatter returns undefined", () => {
-  const content = `# My Skill
-
-No frontmatter here.
-`;
-
-  const result = parseFrontmatter(content);
+Deno.test("parseSkill - invalid frontmatter returns undefined", () => {
+  const content = `No frontmatter here`;
+  const result = parseSkill(content);
   assertEquals(result, undefined);
 });
 
-Deno.test("parseFrontmatter - unclosed frontmatter returns undefined", () => {
+Deno.test("parseSkill - missing required fields returns undefined", () => {
   const content = `---
 name: my-skill
-description: A test skill
-`;
-
-  const result = parseFrontmatter(content);
-  assertEquals(result, undefined);
-});
-
-Deno.test("parseFrontmatter - empty frontmatter returns undefined", () => {
-  const content = `---
 ---
-Body
+Missing description.
 `;
 
-  const result = parseFrontmatter(content);
+  const result = parseSkill(content);
   assertEquals(result, undefined);
 });
 

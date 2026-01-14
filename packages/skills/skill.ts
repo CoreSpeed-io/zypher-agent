@@ -1,10 +1,12 @@
 /**
- * Core skill types and frontmatter parsing functions.
+ * Core skill types and parsing functions.
  * @module
  */
 
 import { exists } from "@std/fs";
+import { extractYaml } from "@std/front-matter";
 import { join, resolve } from "@std/path";
+import { validateSkillMetadata } from "./validator.ts";
 
 /**
  * Skill metadata parsed from SKILL.md frontmatter.
@@ -28,104 +30,6 @@ export interface Skill {
 }
 
 /**
- * Raw frontmatter data before validation.
- * Used internally for parsing.
- */
-export interface RawFrontmatter {
-  name?: unknown;
-  description?: unknown;
-  license?: unknown;
-  compatibility?: unknown;
-  "allowed-tools"?: unknown;
-  metadata?: unknown;
-  [key: string]: unknown;
-}
-
-/**
- * Parse YAML frontmatter from SKILL.md content.
- *
- * Uses a simple YAML parser that handles the common frontmatter format.
- * Returns undefined if no valid frontmatter is found.
- *
- * @param content Raw content of SKILL.md file
- * @returns Parsed frontmatter data or undefined if invalid
- */
-export function parseFrontmatter(content: string): RawFrontmatter | undefined {
-  if (!content.startsWith("---")) {
-    return undefined;
-  }
-
-  const parts = content.split("---");
-  if (parts.length < 3) {
-    return undefined;
-  }
-
-  // parts[0] is empty (before first ---)
-  // parts[1] is the frontmatter YAML
-  // parts[2+] is the body content
-  const yamlContent = parts[1].trim();
-  if (!yamlContent) {
-    return undefined;
-  }
-
-  return parseSimpleYaml(yamlContent);
-}
-
-/**
- * Simple YAML parser for frontmatter.
- * Handles basic key-value pairs and nested objects.
- */
-function parseSimpleYaml(yaml: string): RawFrontmatter {
-  const result: RawFrontmatter = {};
-  const lines = yaml.split("\n");
-  let currentKey: string | undefined = undefined;
-  let currentIndent = 0;
-  let nestedObject: Record<string, string> | undefined = undefined;
-
-  for (const line of lines) {
-    // Skip empty lines
-    if (!line.trim()) continue;
-
-    // Count leading spaces
-    const indent = line.length - line.trimStart().length;
-    const trimmed = line.trim();
-
-    // Check if this is a nested line
-    if (indent > currentIndent && currentKey && nestedObject !== undefined) {
-      // Parse nested key-value
-      const colonIdx = trimmed.indexOf(":");
-      if (colonIdx > 0) {
-        const key = trimmed.slice(0, colonIdx).trim();
-        const value = trimmed.slice(colonIdx + 1).trim();
-        nestedObject[key] = value;
-      }
-      continue;
-    }
-
-    // Parse top-level key-value
-    const colonIdx = trimmed.indexOf(":");
-    if (colonIdx > 0) {
-      const key = trimmed.slice(0, colonIdx).trim();
-      const value = trimmed.slice(colonIdx + 1).trim();
-
-      // If value is empty, this might be start of nested object
-      if (!value) {
-        currentKey = key;
-        currentIndent = indent;
-        nestedObject = {};
-        result[key] = nestedObject;
-      } else {
-        result[key] = value;
-        currentKey = undefined;
-        nestedObject = undefined;
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
  * Convert raw frontmatter to SkillMetadata.
  * Returns undefined if required fields are missing or invalid.
  *
@@ -133,7 +37,7 @@ function parseSimpleYaml(yaml: string): RawFrontmatter {
  * @returns SkillMetadata or undefined if invalid
  */
 export function toSkillMetadata(
-  raw: RawFrontmatter,
+  raw: Record<string, unknown>,
 ): SkillMetadata | undefined {
   if (typeof raw.name !== "string" || !raw.name.trim()) {
     return undefined;
@@ -161,8 +65,16 @@ export function toSkillMetadata(
     metadata.allowedTools = raw["allowed-tools"].trim();
   }
 
-  if (raw.metadata && typeof raw.metadata === "object") {
-    metadata.metadata = raw.metadata as Record<string, string>;
+  if (
+    raw.metadata && typeof raw.metadata === "object" &&
+    !Array.isArray(raw.metadata)
+  ) {
+    const entries = Object.entries(raw.metadata).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    );
+    if (entries.length > 0) {
+      metadata.metadata = Object.fromEntries(entries);
+    }
   }
 
   return metadata;
@@ -197,6 +109,21 @@ export async function findSkillMd(
 }
 
 /**
+ * Parse SKILL.md content and return metadata.
+ *
+ * @param content SKILL.md file content with YAML frontmatter
+ * @returns SkillMetadata or undefined if invalid
+ */
+export function parseSkill(content: string): SkillMetadata | undefined {
+  try {
+    const { attrs } = extractYaml<Record<string, unknown>>(content);
+    return toSkillMetadata(attrs);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Read and parse a skill from a directory.
  *
  * @param skillDir Path to the skill directory
@@ -208,18 +135,16 @@ export async function readSkill(skillDir: string): Promise<Skill | undefined> {
     return undefined;
   }
 
-  const content = await Deno.readTextFile(location);
-  const raw = parseFrontmatter(content);
-  if (!raw) {
+  try {
+    const content = await Deno.readTextFile(location);
+    const metadata = parseSkill(content);
+    if (!metadata) {
+      return undefined;
+    }
+    return { metadata, location };
+  } catch {
     return undefined;
   }
-
-  const metadata = toSkillMetadata(raw);
-  if (!metadata) {
-    return undefined;
-  }
-
-  return { metadata, location };
 }
 
 /**
@@ -272,16 +197,7 @@ export async function discoverSkills(
 
       try {
         const content = await Deno.readTextFile(skillMdPath);
-        const raw = parseFrontmatter(content);
-
-        if (!raw) {
-          options?.onInvalidMetadata?.(skillMdPath, [
-            "Invalid or missing YAML frontmatter",
-          ]);
-          continue;
-        }
-
-        const metadata = toSkillMetadata(raw);
+        const metadata = parseSkill(content);
         if (!metadata) {
           options?.onInvalidMetadata?.(skillMdPath, [
             "Missing required fields: name, description",
@@ -289,8 +205,6 @@ export async function discoverSkills(
           continue;
         }
 
-        // Import validateSkillMetadata inline to avoid circular dependency
-        const { validateSkillMetadata } = await import("./validator.ts");
         const validation = validateSkillMetadata(metadata);
         if (!validation.valid) {
           options?.onInvalidMetadata?.(skillMdPath, validation.errors);
