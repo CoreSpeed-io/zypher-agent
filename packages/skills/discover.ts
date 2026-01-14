@@ -70,47 +70,42 @@ export async function discoverSkills(
 
   const skills: Skill[] = [];
 
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (!entry.isDirectory) {
-        continue;
-      }
-
-      const skillDir = join(dir, entry.name);
-      const skillMdPath = await findSkillMd(skillDir);
-
-      if (!skillMdPath) {
-        options?.onMissingSkillMd?.(entry.name);
-        continue;
-      }
-
-      try {
-        const content = await Deno.readTextFile(skillMdPath);
-        const metadata = parseSkill(content);
-        if (!metadata) {
-          options?.onInvalidMetadata?.(skillMdPath, [
-            "Missing required fields: name, description",
-          ]);
-          continue;
-        }
-
-        const validation = validateSkillMetadata(metadata);
-        if (!validation.valid) {
-          options?.onInvalidMetadata?.(skillMdPath, validation.errors);
-          continue;
-        }
-
-        skills.push({ metadata, location: skillMdPath });
-      } catch (error) {
-        options?.onLoadError?.(
-          entry.name,
-          error instanceof Error ? error : new Error(String(error)),
-        );
-      }
+  for await (const entry of Deno.readDir(dir)) {
+    if (!entry.isDirectory) {
+      continue;
     }
-  } catch {
-    // Directory read failed, return empty array
-    return [];
+
+    const skillDir = join(dir, entry.name);
+    const skillMdPath = await findSkillMd(skillDir);
+
+    if (!skillMdPath) {
+      options?.onMissingSkillMd?.(entry.name);
+      continue;
+    }
+
+    try {
+      const content = await Deno.readTextFile(skillMdPath);
+      const metadata = parseSkill(content);
+      if (!metadata) {
+        options?.onInvalidMetadata?.(skillMdPath, [
+          "Missing required fields: name, description",
+        ]);
+        continue;
+      }
+
+      const validation = validateSkillMetadata(metadata);
+      if (!validation.valid) {
+        options?.onInvalidMetadata?.(skillMdPath, validation.errors);
+        continue;
+      }
+
+      skills.push({ metadata, location: skillMdPath });
+    } catch (error) {
+      options?.onLoadError?.(
+        entry.name,
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    }
   }
 
   return skills;
