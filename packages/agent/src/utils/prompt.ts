@@ -73,6 +73,7 @@ export async function getCustomRules(): Promise<string | null> {
  * @param options.customInstructions Additional instructions to append to the system prompt.
  *  If not provided, defaults to {@link getCustomRules}(workingDirectory) which loads from supported rule files in the working directory.
  * @param options.skillManager Optional SkillManager instance to include Skill metadata in the prompt.
+ *  If provided, skills will be automatically discovered before generating the prompt.
  * @returns The complete system prompt string including custom rules if found
  */
 export async function getSystemPrompt(
@@ -179,9 +180,11 @@ ${customRules}
 `
     : "";
 
-  const skillsBlock = options?.skillManager
-    ? options.skillManager.getSkillsMetadataForPrompt()
-    : "";
+  let skillsBlock = "";
+  if (options?.skillManager) {
+    await options.skillManager.discover();
+    skillsBlock = options.skillManager.skillsPrompt;
+  }
 
   return `${systemPrompt}
 ${skillsBlock}

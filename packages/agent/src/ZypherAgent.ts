@@ -96,11 +96,11 @@ export class ZypherAgent {
   readonly #modelProvider: ModelProvider;
   readonly #mcpServerManager: McpServerManager;
   readonly #loopInterceptorManager: LoopInterceptorManager;
+  readonly #skillManager: SkillManager;
   readonly #checkpointManager?: CheckpointManager;
   readonly #systemPromptLoader: SystemPromptLoader;
   readonly #storageService?: StorageService;
   readonly #fileAttachmentManager?: FileAttachmentManager;
-  readonly #skillManager: SkillManager;
 
   readonly #context: ZypherContext;
   readonly #config: ZypherAgentConfig;
@@ -128,15 +128,12 @@ export class ZypherAgent {
       new SkillManager(context, options.config?.skills);
 
     // Create system prompt loader that includes Skills
-    // Skills will be discovered when the system prompt is first loaded
+    // Skills are automatically discovered within getSystemPrompt when skillManager is provided
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
-      (async () => {
-        // Ensure Skills are discovered before generating prompt
-        await this.#skillManager.discover();
-        return getSystemPrompt(context.workingDirectory, {
+      (() =>
+        getSystemPrompt(context.workingDirectory, {
           skillManager: this.#skillManager,
-        });
-      });
+        }));
 
     this.#config = {
       maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,

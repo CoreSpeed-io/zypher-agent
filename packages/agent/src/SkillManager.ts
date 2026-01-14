@@ -22,7 +22,7 @@ export class SkillManager {
   readonly #globalSkillsDir: string;
   readonly #projectSkillsDir: string;
   readonly #customSkillsDirs: string[];
-  #skills: Map<string, Skill> = new Map();
+  readonly #skills: Map<string, Skill> = new Map();
 
   constructor(
     context: ZypherContext,
@@ -139,7 +139,7 @@ export class SkillManager {
   /**
    * Gets all discovered Skills
    */
-  getAllSkills(): Skill[] {
+  get skills(): Skill[] {
     return Array.from(this.#skills.values());
   }
 
@@ -154,7 +154,7 @@ export class SkillManager {
    * Gets Skill metadata formatted as XML for system prompt inclusion.
    * Uses the toPrompt function from @zypher/skills package.
    */
-  getSkillsMetadataForPrompt(): string {
-    return toPrompt(this.getAllSkills());
+  get skillsPrompt(): string {
+    return toPrompt(this.skills);
   }
 }
