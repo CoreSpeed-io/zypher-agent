@@ -50,10 +50,12 @@ export interface ZypherContext {
   /** Workspace-specific data directory for isolated storage (Defaults to ~/.zypher/encoded_working_directory_path)
    * Used for message history, checkpoints, and other workspace-specific data */
   workspaceDataDir: string;
-  /** Unique identifier for tracking user-specific usage history */
-  userId?: string;
   /** Directory to cache file attachments (Defaults to ~/.zypher/cache/files) */
   fileAttachmentCacheDir: string;
+  /** Global skills directory (Defaults to ~/.zypher/skills) */
+  skillsDir: string;
+  /** Unique identifier for tracking user-specific usage history */
+  userId?: string;
 }
 
 export interface ZypherAgentConfig {
