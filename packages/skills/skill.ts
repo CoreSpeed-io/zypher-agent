@@ -65,8 +65,8 @@ export function toSkillMetadata(
     raw.metadata && typeof raw.metadata === "object" &&
     !Array.isArray(raw.metadata)
   ) {
-    const entries = Object.entries(raw.metadata).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string",
+    const entries = Object.entries(raw.metadata).map(
+      ([k, v]) => [String(k), String(v)],
     );
     if (entries.length > 0) {
       metadata.metadata = Object.fromEntries(entries);

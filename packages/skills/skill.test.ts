@@ -45,6 +45,23 @@ Missing description.
   assertEquals(result, undefined);
 });
 
+Deno.test("parseSkill - with metadata field", () => {
+  const content = `---
+name: my-skill
+description: A test skill
+metadata:
+  author: test-author
+  version: "1.0.0"
+---
+Instructions here.
+`;
+
+  const result = parseSkill(content);
+  assertExists(result);
+  assertEquals(result.name, "my-skill");
+  assertEquals(result.metadata, { author: "test-author", version: "1.0.0" });
+});
+
 // toSkillMetadata tests
 
 Deno.test("toSkillMetadata - valid data", () => {
@@ -99,4 +116,63 @@ Deno.test("toSkillMetadata - allowed-tools converted to allowedTools", () => {
   const result = toSkillMetadata(raw);
   assertExists(result);
   assertEquals(result.allowedTools, "Bash(git:*)");
+});
+
+Deno.test("toSkillMetadata - metadata field with string values", () => {
+  const raw = {
+    name: "my-skill",
+    description: "A test skill",
+    metadata: {
+      author: "test-author",
+      version: "1.0.0",
+    },
+  };
+
+  const result = toSkillMetadata(raw);
+  assertExists(result);
+  assertEquals(result.metadata, { author: "test-author", version: "1.0.0" });
+});
+
+Deno.test("toSkillMetadata - metadata field converts values to strings", () => {
+  const raw = {
+    name: "my-skill",
+    description: "A test skill",
+    metadata: {
+      author: "test-author",
+      count: 42,
+      enabled: true,
+    },
+  };
+
+  const result = toSkillMetadata(raw);
+  assertExists(result);
+  assertEquals(result.metadata, {
+    author: "test-author",
+    count: "42",
+    enabled: "true",
+  });
+});
+
+Deno.test("toSkillMetadata - metadata field ignored if not object", () => {
+  const raw = {
+    name: "my-skill",
+    description: "A test skill",
+    metadata: "not-an-object",
+  };
+
+  const result = toSkillMetadata(raw);
+  assertExists(result);
+  assertEquals(result.metadata, undefined);
+});
+
+Deno.test("toSkillMetadata - metadata field ignored if array", () => {
+  const raw = {
+    name: "my-skill",
+    description: "A test skill",
+    metadata: ["item1", "item2"],
+  };
+
+  const result = toSkillMetadata(raw);
+  assertExists(result);
+  assertEquals(result.metadata, undefined);
 });
