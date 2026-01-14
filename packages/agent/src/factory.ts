@@ -85,6 +85,7 @@ export async function createZypherAgent(
     storageService: options.storageService,
     checkpointManager: options.checkpointManager,
     tools: options.tools,
+    initialMessages: options.initialMessages,
     config: options.config,
     overrides: options.overrides,
   });

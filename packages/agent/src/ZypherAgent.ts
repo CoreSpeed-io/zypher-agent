@@ -71,6 +71,12 @@ export interface ZypherAgentOptions {
   checkpointManager?: CheckpointManager;
   /** Tools to register with the agent. */
   tools?: Tool[];
+  /**
+   * Initial messages to seed the conversation history.
+   * Useful for model switching - allows preserving conversation context
+   * when creating a new agent with a different model.
+   */
+  initialMessages?: Message[];
   /** Override default implementations of core components */
   overrides?: {
     /** Function that loads the system prompt for the agent. Defaults to {@link getSystemPrompt}. */
@@ -126,7 +132,7 @@ export class ZypherAgent {
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
       taskTimeoutMs: options.config?.taskTimeoutMs ?? DEFAULT_TASK_TIMEOUT_MS, // Default is 15 minutes
     };
-    this.#messages = [];
+    this.#messages = options.initialMessages ? [...options.initialMessages] : [];
 
     // Services and interceptors
     this.#mcpServerManager = options.overrides?.mcpServerManager ??
