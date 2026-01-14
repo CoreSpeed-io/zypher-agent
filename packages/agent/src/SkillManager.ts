@@ -1,7 +1,7 @@
 import { relative, resolve } from "@std/path";
 import {
-  discoverSkills,
   type DiscoverOptions,
+  discoverSkills,
   type Skill,
   toPrompt,
 } from "@zypher/skills";
@@ -101,7 +101,10 @@ export class SkillManager {
    * Later calls override earlier ones for duplicate skill names.
    */
   async #discoverFromDirectory(skillsDir: string): Promise<void> {
-    const skills = await discoverSkills(skillsDir, this.#options.discoverOptions);
+    const skills = await discoverSkills(
+      skillsDir,
+      this.#options.discoverOptions,
+    );
 
     for (const skill of skills) {
       const adjustedSkill = this.#adjustLocation(skill);
