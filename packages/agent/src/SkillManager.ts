@@ -1,6 +1,6 @@
 import { join, relative, resolve } from "@std/path";
 import { discoverSkills, type Skill, toPrompt } from "@zypher/skills";
-import type { ZypherContext } from "../ZypherAgent.ts";
+import type { ZypherContext } from "./ZypherAgent.ts";
 
 /**
  * Configuration options for SkillManager

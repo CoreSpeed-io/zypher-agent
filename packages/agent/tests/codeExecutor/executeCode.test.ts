@@ -6,10 +6,10 @@
 import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
 import { expect } from "@std/expect";
 import z from "zod";
-import type { Tool } from "@zypher/tools/mod.ts";
-import type { ZypherContext } from "@zypher/mod.ts";
-import { McpServerManager } from "@zypher/mod.ts";
-import { executeCode } from "@zypher/tools/codeExecutor/executeCode.ts";
+import type { Tool } from "../../src/tools/mod.ts";
+import type { ZypherContext } from "../../src/mod.ts";
+import { McpServerManager } from "../../src/mod.ts";
+import { executeCode } from "../../src/tools/codeExecutor/executeCode.ts";
 
 describe("executeCode", () => {
   let manager: McpServerManager;

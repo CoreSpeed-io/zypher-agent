@@ -25,7 +25,7 @@ import {
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
-import { SkillManager, type SkillManagerOptions } from "./skills/mod.ts";
+import { SkillManager, type SkillManagerOptions } from "./SkillManager.ts";
 import type { Tool } from "./tools/mod.ts";
 
 /**

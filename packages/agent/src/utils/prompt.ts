@@ -1,5 +1,5 @@
 import { fileExists } from "./data.ts";
-import type { SkillManager } from "../skills/mod.ts";
+import type { SkillManager } from "../SkillManager.ts";
 
 /**
  * Information about the user's system environment.

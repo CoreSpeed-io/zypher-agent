@@ -4,8 +4,8 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { Completer } from "@zypher/utils/mod.ts";
-import type { CodeExecutionResult } from "@zypher/tools/codeExecutor/protocol.ts";
+import { Completer } from "../../src/utils/mod.ts";
+import type { CodeExecutionResult } from "../../src/tools/codeExecutor/protocol.ts";
 
 Deno.test("worker - builds tools proxy correctly", async () => {
   const toolCalls: Array<{ toolName: string; input: unknown }> = [];
