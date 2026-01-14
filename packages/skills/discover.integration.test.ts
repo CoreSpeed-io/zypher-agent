@@ -6,7 +6,7 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { expect } from "@std/expect";
 import { join } from "@std/path";
-import { discoverSkills, findSkillMd, readSkill } from "./discover.ts";
+import { discoverSkills, findSkillMd } from "./discover.ts";
 
 // findSkillMd tests
 
@@ -44,58 +44,6 @@ Deno.test("findSkillMd - returns undefined when not found", async () => {
   const tmpDir = await Deno.makeTempDir();
   try {
     const result = await findSkillMd(tmpDir);
-    assertEquals(result, undefined);
-  } finally {
-    await Deno.remove(tmpDir, { recursive: true });
-  }
-});
-
-// readSkill tests
-
-Deno.test("readSkill - valid skill directory", async () => {
-  const tmpDir = await Deno.makeTempDir();
-  try {
-    await Deno.writeTextFile(
-      join(tmpDir, "SKILL.md"),
-      `---
-name: test-skill
-description: A test skill
-license: MIT
----
-# Test Skill
-`,
-    );
-
-    const result = await readSkill(tmpDir);
-    assertExists(result);
-    assertEquals(result.metadata.name, "test-skill");
-    assertEquals(result.metadata.description, "A test skill");
-    assertEquals(result.metadata.license, "MIT");
-    expect(result.location).toContain("SKILL.md");
-  } finally {
-    await Deno.remove(tmpDir, { recursive: true });
-  }
-});
-
-Deno.test("readSkill - returns undefined for missing SKILL.md", async () => {
-  const tmpDir = await Deno.makeTempDir();
-  try {
-    const result = await readSkill(tmpDir);
-    assertEquals(result, undefined);
-  } finally {
-    await Deno.remove(tmpDir, { recursive: true });
-  }
-});
-
-Deno.test("readSkill - returns undefined for invalid frontmatter", async () => {
-  const tmpDir = await Deno.makeTempDir();
-  try {
-    await Deno.writeTextFile(
-      join(tmpDir, "SKILL.md"),
-      `# No frontmatter here`,
-    );
-
-    const result = await readSkill(tmpDir);
     assertEquals(result, undefined);
   } finally {
     await Deno.remove(tmpDir, { recursive: true });

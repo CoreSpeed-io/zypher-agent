@@ -37,30 +37,6 @@ export async function findSkillMd(
 }
 
 /**
- * Read and parse a skill from a directory.
- *
- * @param skillDir Path to the skill directory
- * @returns Skill object or undefined if invalid
- */
-export async function readSkill(skillDir: string): Promise<Skill | undefined> {
-  const location = await findSkillMd(skillDir);
-  if (!location) {
-    return undefined;
-  }
-
-  try {
-    const content = await Deno.readTextFile(location);
-    const metadata = parseSkill(content);
-    if (!metadata) {
-      return undefined;
-    }
-    return { metadata, location };
-  } catch {
-    return undefined;
-  }
-}
-
-/**
  * Options for skill discovery.
  */
 export interface DiscoverOptions {

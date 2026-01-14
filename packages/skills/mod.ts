@@ -20,7 +20,6 @@ export {
   type DiscoverOptions,
   discoverSkills,
   findSkillMd,
-  readSkill,
 } from "./discover.ts";
 
 export { validateSkillMetadata, type ValidationResult } from "./validator.ts";
