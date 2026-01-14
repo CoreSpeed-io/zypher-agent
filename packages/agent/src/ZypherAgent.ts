@@ -132,7 +132,9 @@ export class ZypherAgent {
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
       taskTimeoutMs: options.config?.taskTimeoutMs ?? DEFAULT_TASK_TIMEOUT_MS, // Default is 15 minutes
     };
-    this.#messages = options.initialMessages ? [...options.initialMessages] : [];
+    this.#messages = options.initialMessages
+      ? [...options.initialMessages]
+      : [];
 
     // Services and interceptors
     this.#mcpServerManager = options.overrides?.mcpServerManager ??

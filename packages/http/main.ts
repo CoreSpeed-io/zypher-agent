@@ -1,4 +1,8 @@
-import { createModelProvider, createZypherAgent, DEFAULT_MODELS } from "@zypher/agent";
+import {
+  createModelProvider,
+  createZypherAgent,
+  DEFAULT_MODELS,
+} from "@zypher/agent";
 import {
   createFileSystemTools,
   createImageTools,
