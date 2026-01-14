@@ -10,15 +10,18 @@
  */
 
 export {
-  type DiscoverOptions,
-  discoverSkills,
-  findSkillMd,
   parseSkill,
-  readSkill,
   type Skill,
   type SkillMetadata,
   toSkillMetadata,
 } from "./skill.ts";
+
+export {
+  type DiscoverOptions,
+  discoverSkills,
+  findSkillMd,
+  readSkill,
+} from "./discover.ts";
 
 export { validateSkillMetadata, type ValidationResult } from "./validator.ts";
 

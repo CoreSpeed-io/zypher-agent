@@ -6,7 +6,7 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { expect } from "@std/expect";
 import { join } from "@std/path";
-import { discoverSkills, findSkillMd, readSkill } from "./skill.ts";
+import { discoverSkills, findSkillMd, readSkill } from "./discover.ts";
 
 // findSkillMd tests
 
