@@ -45,19 +45,19 @@ export interface RawFrontmatter {
  * Parse YAML frontmatter from SKILL.md content.
  *
  * Uses a simple YAML parser that handles the common frontmatter format.
- * Returns null if no valid frontmatter is found.
+ * Returns undefined if no valid frontmatter is found.
  *
  * @param content Raw content of SKILL.md file
- * @returns Parsed frontmatter data or null if invalid
+ * @returns Parsed frontmatter data or undefined if invalid
  */
-export function parseFrontmatter(content: string): RawFrontmatter | null {
+export function parseFrontmatter(content: string): RawFrontmatter | undefined {
   if (!content.startsWith("---")) {
-    return null;
+    return undefined;
   }
 
   const parts = content.split("---");
   if (parts.length < 3) {
-    return null;
+    return undefined;
   }
 
   // parts[0] is empty (before first ---)
@@ -65,7 +65,7 @@ export function parseFrontmatter(content: string): RawFrontmatter | null {
   // parts[2+] is the body content
   const yamlContent = parts[1].trim();
   if (!yamlContent) {
-    return null;
+    return undefined;
   }
 
   return parseSimpleYaml(yamlContent);
@@ -78,9 +78,9 @@ export function parseFrontmatter(content: string): RawFrontmatter | null {
 function parseSimpleYaml(yaml: string): RawFrontmatter {
   const result: RawFrontmatter = {};
   const lines = yaml.split("\n");
-  let currentKey: string | null = null;
+  let currentKey: string | undefined = undefined;
   let currentIndent = 0;
-  let nestedObject: Record<string, string> | null = null;
+  let nestedObject: Record<string, string> | undefined = undefined;
 
   for (const line of lines) {
     // Skip empty lines
@@ -91,7 +91,7 @@ function parseSimpleYaml(yaml: string): RawFrontmatter {
     const trimmed = line.trim();
 
     // Check if this is a nested line
-    if (indent > currentIndent && currentKey && nestedObject !== null) {
+    if (indent > currentIndent && currentKey && nestedObject !== undefined) {
       // Parse nested key-value
       const colonIdx = trimmed.indexOf(":");
       if (colonIdx > 0) {
@@ -116,8 +116,8 @@ function parseSimpleYaml(yaml: string): RawFrontmatter {
         result[key] = nestedObject;
       } else {
         result[key] = value;
-        currentKey = null;
-        nestedObject = null;
+        currentKey = undefined;
+        nestedObject = undefined;
       }
     }
   }
@@ -127,17 +127,19 @@ function parseSimpleYaml(yaml: string): RawFrontmatter {
 
 /**
  * Convert raw frontmatter to SkillMetadata.
- * Returns null if required fields are missing or invalid.
+ * Returns undefined if required fields are missing or invalid.
  *
  * @param raw Raw parsed frontmatter
- * @returns SkillMetadata or null if invalid
+ * @returns SkillMetadata or undefined if invalid
  */
-export function toSkillMetadata(raw: RawFrontmatter): SkillMetadata | null {
+export function toSkillMetadata(
+  raw: RawFrontmatter,
+): SkillMetadata | undefined {
   if (typeof raw.name !== "string" || !raw.name.trim()) {
-    return null;
+    return undefined;
   }
   if (typeof raw.description !== "string" || !raw.description.trim()) {
-    return null;
+    return undefined;
   }
 
   const metadata: SkillMetadata = {
@@ -172,9 +174,11 @@ export function toSkillMetadata(raw: RawFrontmatter): SkillMetadata | null {
  * Prefers uppercase SKILL.md but accepts lowercase skill.md as fallback.
  *
  * @param skillDir Path to the skill directory
- * @returns Absolute path to SKILL.md or null if not found
+ * @returns Absolute path to SKILL.md or undefined if not found
  */
-export async function findSkillMd(skillDir: string): Promise<string | null> {
+export async function findSkillMd(
+  skillDir: string,
+): Promise<string | undefined> {
   const dir = resolve(skillDir);
 
   // Prefer uppercase SKILL.md
@@ -189,30 +193,30 @@ export async function findSkillMd(skillDir: string): Promise<string | null> {
     return lowercase;
   }
 
-  return null;
+  return undefined;
 }
 
 /**
  * Read and parse a skill from a directory.
  *
  * @param skillDir Path to the skill directory
- * @returns Skill object or null if invalid
+ * @returns Skill object or undefined if invalid
  */
-export async function readSkill(skillDir: string): Promise<Skill | null> {
+export async function readSkill(skillDir: string): Promise<Skill | undefined> {
   const location = await findSkillMd(skillDir);
   if (!location) {
-    return null;
+    return undefined;
   }
 
   const content = await Deno.readTextFile(location);
   const raw = parseFrontmatter(content);
   if (!raw) {
-    return null;
+    return undefined;
   }
 
   const metadata = toSkillMetadata(raw);
   if (!metadata) {
-    return null;
+    return undefined;
   }
 
   return { metadata, location };

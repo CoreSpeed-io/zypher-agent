@@ -67,34 +67,34 @@ Body
   expect(result.metadata).toEqual({ author: "Test User", version: "1.0.0" });
 });
 
-Deno.test("parseFrontmatter - no frontmatter returns null", () => {
+Deno.test("parseFrontmatter - no frontmatter returns undefined", () => {
   const content = `# My Skill
 
 No frontmatter here.
 `;
 
   const result = parseFrontmatter(content);
-  assertEquals(result, null);
+  assertEquals(result, undefined);
 });
 
-Deno.test("parseFrontmatter - unclosed frontmatter returns null", () => {
+Deno.test("parseFrontmatter - unclosed frontmatter returns undefined", () => {
   const content = `---
 name: my-skill
 description: A test skill
 `;
 
   const result = parseFrontmatter(content);
-  assertEquals(result, null);
+  assertEquals(result, undefined);
 });
 
-Deno.test("parseFrontmatter - empty frontmatter returns null", () => {
+Deno.test("parseFrontmatter - empty frontmatter returns undefined", () => {
   const content = `---
 ---
 Body
 `;
 
   const result = parseFrontmatter(content);
-  assertEquals(result, null);
+  assertEquals(result, undefined);
 });
 
 Deno.test("toSkillMetadata - valid data", () => {
@@ -111,32 +111,32 @@ Deno.test("toSkillMetadata - valid data", () => {
   assertEquals(result.license, "MIT");
 });
 
-Deno.test("toSkillMetadata - missing name returns null", () => {
+Deno.test("toSkillMetadata - missing name returns undefined", () => {
   const raw = {
     description: "A test skill",
   };
 
   const result = toSkillMetadata(raw);
-  assertEquals(result, null);
+  assertEquals(result, undefined);
 });
 
-Deno.test("toSkillMetadata - missing description returns null", () => {
+Deno.test("toSkillMetadata - missing description returns undefined", () => {
   const raw = {
     name: "my-skill",
   };
 
   const result = toSkillMetadata(raw);
-  assertEquals(result, null);
+  assertEquals(result, undefined);
 });
 
-Deno.test("toSkillMetadata - empty name returns null", () => {
+Deno.test("toSkillMetadata - empty name returns undefined", () => {
   const raw = {
     name: "   ",
     description: "A test skill",
   };
 
   const result = toSkillMetadata(raw);
-  assertEquals(result, null);
+  assertEquals(result, undefined);
 });
 
 Deno.test("toSkillMetadata - allowed-tools converted to allowedTools", () => {
@@ -181,11 +181,11 @@ Deno.test("findSkillMd - finds lowercase skill.md", async () => {
   }
 });
 
-Deno.test("findSkillMd - returns null when not found", async () => {
+Deno.test("findSkillMd - returns undefined when not found", async () => {
   const tmpDir = await Deno.makeTempDir();
   try {
     const result = await findSkillMd(tmpDir);
-    assertEquals(result, null);
+    assertEquals(result, undefined);
   } finally {
     await Deno.remove(tmpDir, { recursive: true });
   }
@@ -216,17 +216,17 @@ license: MIT
   }
 });
 
-Deno.test("readSkill - returns null for missing SKILL.md", async () => {
+Deno.test("readSkill - returns undefined for missing SKILL.md", async () => {
   const tmpDir = await Deno.makeTempDir();
   try {
     const result = await readSkill(tmpDir);
-    assertEquals(result, null);
+    assertEquals(result, undefined);
   } finally {
     await Deno.remove(tmpDir, { recursive: true });
   }
 });
 
-Deno.test("readSkill - returns null for invalid frontmatter", async () => {
+Deno.test("readSkill - returns undefined for invalid frontmatter", async () => {
   const tmpDir = await Deno.makeTempDir();
   try {
     await Deno.writeTextFile(
@@ -235,7 +235,7 @@ Deno.test("readSkill - returns null for invalid frontmatter", async () => {
     );
 
     const result = await readSkill(tmpDir);
-    assertEquals(result, null);
+    assertEquals(result, undefined);
   } finally {
     await Deno.remove(tmpDir, { recursive: true });
   }
