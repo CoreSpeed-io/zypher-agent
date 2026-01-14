@@ -94,31 +94,31 @@ function inferBaseUrl(model: string): string | undefined {
  * @example
  * ```typescript
  * // Explicit provider/model format
- * const model = createModel("anthropic/claude-sonnet-4-5-20250929");
- * const model = createModel("openai/gpt-5.2");
+ * const provider = createModelProvider("anthropic/claude-sonnet-4-5-20250929");
+ * const provider = createModelProvider("openai/gpt-5.2");
  *
  * // Auto-inferred provider from model name
- * const model = createModel("claude-sonnet-4-5-20250929"); // → anthropic
- * const model = createModel("gpt-5.2");                    // → openai
- * const model = createModel("gemini-2.0-flash");           // → openai (with Google base URL)
- * const model = createModel("deepseek-chat");              // → openai (with DeepSeek base URL)
- * const model = createModel("qwen-plus");                  // → openai (with DashScope base URL)
- * const model = createModel("grok-2");                     // → openai (with xAI base URL)
- * const model = createModel("llama-3.3-70b");              // → openai (no default URL, self-hosted)
+ * const provider = createModelProvider("claude-sonnet-4-5-20250929"); // → anthropic
+ * const provider = createModelProvider("gpt-5.2");                    // → openai
+ * const provider = createModelProvider("gemini-2.0-flash");           // → openai (with Google base URL)
+ * const provider = createModelProvider("deepseek-chat");              // → openai (with DeepSeek base URL)
+ * const provider = createModelProvider("qwen-plus");                  // → openai (with DashScope base URL)
+ * const provider = createModelProvider("grok-2");                     // → openai (with xAI base URL)
+ * const provider = createModelProvider("llama-3.3-70b");              // → openai (no default URL, self-hosted)
  *
  * // With options (API key optional - falls back to env vars)
- * const model = createModel("gpt-5.2", { apiKey: "..." });
+ * const provider = createModelProvider("gpt-5.2", { apiKey: "..." });
  *
  * // For provider-specific options, use the dedicated helpers:
- * const model = anthropic("claude-sonnet-4-5-20250929", { thinkingBudget: 10000 });
- * const model = openai("o1", { reasoningEffort: "high" });
+ * const provider = anthropic("claude-sonnet-4-5-20250929", { thinkingBudget: 10000 });
+ * const provider = openai("o1", { reasoningEffort: "high" });
  * ```
  *
  * @param modelString - Model specification: "provider/model-id" or just "model-id"
  * @param options - Optional configuration (apiKey, baseUrl)
  * @returns A configured ModelProvider instance
  */
-export function createModel(
+export function createModelProvider(
   modelString: string,
   options: ModelProviderOptions = {},
 ): ModelProvider {

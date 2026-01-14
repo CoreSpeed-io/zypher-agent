@@ -1,4 +1,4 @@
-import { createModel, createZypherAgent, DEFAULT_MODELS } from "@zypher/agent";
+import { createModelProvider, createZypherAgent, DEFAULT_MODELS } from "@zypher/agent";
 import {
   createFileSystemTools,
   createImageTools,
@@ -37,7 +37,7 @@ export async function main(): Promise<void> {
   // Model string with auto-inferred provider
   const modelString = cli.model ?? DEFAULT_MODELS.openai;
 
-  const modelProvider = createModel(modelString, {
+  const modelProvider = createModelProvider(modelString, {
     apiKey: cli.apiKey,
     baseUrl: cli.baseUrl,
   });

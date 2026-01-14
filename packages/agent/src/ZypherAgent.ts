@@ -10,7 +10,7 @@ import {
   getSystemPrompt,
 } from "./utils/mod.ts";
 import type { ModelProvider, TokenUsage } from "./llm/mod.ts";
-import { createModel } from "./llm/mod.ts";
+import { createModelProvider } from "./llm/mod.ts";
 import { AbortError, isAbortError, TaskConcurrencyError } from "./error.ts";
 import { filter, type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
@@ -116,7 +116,7 @@ export class ZypherAgent {
     options: ZypherAgentOptions = {},
   ) {
     this.#modelProvider = typeof modelProvider === "string"
-      ? createModel(modelProvider)
+      ? createModelProvider(modelProvider)
       : modelProvider;
     this.#context = context;
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??

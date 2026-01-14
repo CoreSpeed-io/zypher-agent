@@ -32,7 +32,7 @@
  */
 
 import {
-  createModel,
+  createModelProvider,
   createZypherAgent,
   DEFAULT_MODELS,
 } from "@zypher/agent";
@@ -42,7 +42,7 @@ import { type AcpClientConfig, runAcpServer } from "./server.ts";
 export async function main(): Promise<void> {
   // Model is auto-detected from ZYPHER_MODEL env var, defaults to OpenAI's GPT-4o
   const modelId = Deno.env.get("ZYPHER_MODEL") ?? DEFAULT_MODELS.openai;
-  const modelProvider = createModel(modelId);
+  const modelProvider = createModelProvider(modelId);
 
   await runAcpServer(async (clientConfig: AcpClientConfig) => {
     return await createZypherAgent({

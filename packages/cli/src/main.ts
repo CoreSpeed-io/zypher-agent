@@ -1,6 +1,6 @@
 import "@std/dotenv/load";
 import {
-  createModel,
+  createModelProvider,
   createZypherAgent,
   DEFAULT_MODELS,
   formatError,
@@ -54,7 +54,7 @@ export async function main(): Promise<void> {
     const modelString = cli.model ?? DEFAULT_MODELS.openai;
 
     // Initialize the model provider
-    const modelProvider = createModel(modelString, {
+    const modelProvider = createModelProvider(modelString, {
       apiKey: cli.apiKey,
       baseUrl: cli.baseUrl,
     });

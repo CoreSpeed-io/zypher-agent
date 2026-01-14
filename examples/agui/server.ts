@@ -9,7 +9,7 @@
 
 import "@std/dotenv/load";
 import { z } from "zod";
-import { createModel, createZypherAgent } from "@zypher/agent";
+import { createModelProvider, createZypherAgent } from "@zypher/agent";
 import { createTool } from "@zypher/agent/tools";
 import { createAguiEventStream, parseRunAgentInput } from "@zypher/agui";
 import type { Message } from "@ag-ui/core";
@@ -53,7 +53,7 @@ const getWeatherTool = createTool({
 const modelId = Deno.env.get("ZYPHER_MODEL") ?? DEFAULT_MODEL;
 
 const agent = await createZypherAgent({
-  model: createModel(`anthropic/${modelId}`, {
+  model: createModelProvider(`anthropic/${modelId}`, {
     apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
   }),
   tools: [getWeatherTool],
