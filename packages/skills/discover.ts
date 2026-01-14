@@ -43,7 +43,7 @@ export interface DiscoverOptions {
   /** Called when a skill directory is missing SKILL.md */
   onMissingSkillMd?: (dirName: string) => void;
   /** Called when a skill fails to load */
-  onLoadError?: (dirName: string, error: Error) => void;
+  onLoadError?: (dirName: string, error: unknown) => void;
   /** Called when a skill has invalid metadata */
   onInvalidMetadata?: (path: string, errors: string[]) => void;
 }
@@ -101,10 +101,7 @@ export async function discoverSkills(
 
       skills.push({ metadata, location: skillMdPath });
     } catch (error: unknown) {
-      options?.onLoadError?.(
-        entry.name,
-        error instanceof Error ? error : new Error(String(error)),
-      );
+      options?.onLoadError?.(entry.name, error);
     }
   }
 
