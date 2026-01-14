@@ -1,4 +1,4 @@
-import { fileExists } from "./data.ts";
+import { exists } from "@std/fs";
 import type { SkillManager } from "../SkillManager.ts";
 
 /**
@@ -50,7 +50,7 @@ const SUPPORTED_AGENT_RULE_TYPES = [
 export async function getCustomRules(): Promise<string | null> {
   try {
     for (const rule of SUPPORTED_AGENT_RULE_TYPES) {
-      if (await fileExists(rule)) {
+      if (await exists(rule)) {
         const rules = await Deno.readTextFile(rule);
         return rules;
       }

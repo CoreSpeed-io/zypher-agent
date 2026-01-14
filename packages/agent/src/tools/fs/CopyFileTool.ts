@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { createTool, type Tool, type ToolExecutionContext } from "../mod.ts";
 import * as path from "@std/path";
-import { fileExists } from "../../utils/mod.ts";
-import { ensureDir } from "@std/fs";
+import { ensureDir, exists } from "@std/fs";
 
 export const CopyFileTool: Tool<{
   sourceFile: string;
@@ -41,12 +40,12 @@ export const CopyFileTool: Tool<{
     const dstResolved = path.resolve(ctx.workingDirectory, destinationFile);
 
     // Check if source file exists
-    if (!(await fileExists(srcResolved))) {
+    if (!(await exists(srcResolved))) {
       throw new Error(`Source file not found: ${srcResolved}`);
     }
 
     // Check if destination file already exists
-    const destinationExists = await fileExists(dstResolved);
+    const destinationExists = await exists(dstResolved);
     if (destinationExists && !overwrite) {
       throw new Error(
         `Destination file already exists: ${dstResolved}. Use overwrite=true to replace it.`,

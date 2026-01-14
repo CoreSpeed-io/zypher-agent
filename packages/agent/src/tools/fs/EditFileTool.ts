@@ -5,9 +5,8 @@ import {
   type ToolExecutionContext,
   type ToolResult,
 } from "../mod.ts";
-import { fileExists } from "../../utils/data.ts";
 import { basename, dirname, join, resolve } from "@std/path";
-import { ensureDir } from "@std/fs";
+import { ensureDir, exists } from "@std/fs";
 
 /**
  * Create file editing tools with an optional backup directory
@@ -74,7 +73,7 @@ Action types:
       await ensureDir(resolvedBackupDir);
 
       // Check if file exists and create backup if needed
-      if (await fileExists(target)) {
+      if (await exists(target)) {
         const fileName = basename(target);
         // Backup original file
         await Deno.copyFile(
@@ -180,7 +179,7 @@ Action types:
 
       // const backupFile = `${backupDir}/${fileName}.bak`;
       const backupFile = join(backupResolvedDir, `${fileName}.bak`);
-      const backupExists = await fileExists(backupFile);
+      const backupExists = await exists(backupFile);
       if (backupExists) {
         await Deno.copyFile(backupFile, targetResolved);
       } else {

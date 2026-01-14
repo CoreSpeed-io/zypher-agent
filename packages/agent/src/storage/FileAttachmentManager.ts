@@ -1,11 +1,11 @@
 import * as path from "@std/path";
+import { exists } from "@std/fs";
 import {
   type FileAttachment,
   isFileAttachment,
   type Message,
 } from "../message.ts";
 import type { StorageService } from "./StorageService.ts";
-import { fileExists } from "../utils/mod.ts";
 
 /**
  * A map of file attachment IDs to their cached file paths and signed URLs
@@ -94,7 +94,7 @@ export class FileAttachmentManager {
     fileId: string,
   ): Promise<FileAttachmentCache | null> {
     const cachePath = this.getFileAttachmentCachePath(fileId);
-    if (!await fileExists(cachePath)) {
+    if (!await exists(cachePath)) {
       // Download the file attachment from storage service to cache path
       await this.storageService.downloadFile(fileId, cachePath);
     }

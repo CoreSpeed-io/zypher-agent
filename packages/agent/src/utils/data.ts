@@ -1,23 +1,9 @@
 import * as path from "@std/path";
+import { exists } from "@std/fs";
 import type { Message } from "../message.ts";
 import { isMessage } from "../message.ts";
 import { formatError } from "../error.ts";
 import type { ZypherContext } from "../ZypherAgent.ts";
-
-/**
- * Checks if a file exists and is readable.
- *
- * @param {string} path - Path to the file to check
- * @returns {Promise<boolean>} True if file exists and is readable, false otherwise
- */
-export async function fileExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Loads the message history for the current workspace.
@@ -32,7 +18,7 @@ export async function loadMessageHistory(
     const historyPath = path.join(context.workspaceDataDir, "history.json");
 
     // Check if file exists before trying to read it
-    if (!(await fileExists(historyPath))) {
+    if (!(await exists(historyPath))) {
       return [];
     }
 

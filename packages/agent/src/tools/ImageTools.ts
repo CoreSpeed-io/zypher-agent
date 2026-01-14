@@ -2,8 +2,7 @@ import { z } from "zod";
 import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
 import OpenAI, { toFile } from "@openai/openai";
 import * as path from "@std/path";
-import { ensureDir } from "@std/fs";
-import { fileExists } from "../utils/mod.ts";
+import { ensureDir, exists } from "@std/fs";
 
 // Common parameter schemas
 const sizeSchema = z
@@ -248,7 +247,7 @@ export function createImageTools(openaiApiKey: string): Tool[] {
       );
 
       // Validate source image exists
-      if (!(await fileExists(resolvedSource))) {
+      if (!(await exists(resolvedSource))) {
         throw new Error(`Source image not found: ${resolvedSource}`);
       }
 
