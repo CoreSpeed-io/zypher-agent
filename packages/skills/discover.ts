@@ -100,7 +100,7 @@ export async function discoverSkills(
       }
 
       skills.push({ metadata, location: skillMdPath });
-    } catch (error: unknown) {
+    } catch (error) {
       options?.onLoadError?.(entry.name, error);
     }
   }
