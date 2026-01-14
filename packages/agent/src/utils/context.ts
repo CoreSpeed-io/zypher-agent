@@ -32,11 +32,14 @@ export async function createZypherContext(
     path.join(zypherDir, "cache", "files");
   await ensureDir(fileAttachmentCacheDir);
 
+  const skillsDir = options?.skillsDir ?? path.join(zypherDir, "skills");
+
   return {
     workingDirectory,
     zypherDir,
     workspaceDataDir,
     fileAttachmentCacheDir,
+    skillsDir,
     userId: options?.userId,
   };
 }

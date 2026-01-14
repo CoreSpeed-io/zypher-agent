@@ -1,6 +1,6 @@
 import type { ErrorDetector } from "./interface.ts";
 import { extractErrorOutput } from "./utils.ts";
-import { fileExists } from "../../utils/mod.ts";
+import { exists } from "@std/fs";
 import * as path from "@std/path";
 
 // Reuse a single TextDecoder instance for efficiency
@@ -156,7 +156,7 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       }
 
       // Fallback to checking for tsconfig.json
-      return await fileExists(path.join(workingDirectory, "tsconfig.json"));
+      return await exists(path.join(workingDirectory, "tsconfig.json"));
     } catch {
       return false;
     }
@@ -290,17 +290,17 @@ export async function detectPackageManager(workingDirectory: string): Promise<
 > {
   // Check for lockfiles to determine package manager
   if (
-    (await fileExists(path.join(workingDirectory, "bun.lock"))) ||
-    (await fileExists(path.join(workingDirectory, "bun.lockb")))
+    (await exists(path.join(workingDirectory, "bun.lock"))) ||
+    (await exists(path.join(workingDirectory, "bun.lockb")))
   ) {
     return "bun";
   }
 
-  if (await fileExists(path.join(workingDirectory, "pnpm-lock.yaml"))) {
+  if (await exists(path.join(workingDirectory, "pnpm-lock.yaml"))) {
     return "pnpm";
   }
 
-  if (await fileExists(path.join(workingDirectory, "yarn.lock"))) {
+  if (await exists(path.join(workingDirectory, "yarn.lock"))) {
     return "yarn";
   }
 

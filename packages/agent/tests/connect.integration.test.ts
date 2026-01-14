@@ -23,8 +23,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
   connectToCliServer,
   connectToRemoteServer,
-} from "@zypher/mcp/connect.ts";
-import type { McpCommandConfig, McpRemoteConfig } from "@zypher/mcp/mod.ts";
+} from "../src/mcp/connect.ts";
+import type { McpCommandConfig, McpRemoteConfig } from "../src/mcp/mod.ts";
 
 describe("Transport Integration Tests", () => {
   let client: Client;

@@ -1,4 +1,5 @@
-import { fileExists } from "./data.ts";
+import { exists } from "@std/fs";
+import type { SkillManager } from "../SkillManager.ts";
 
 /**
  * Information about the user's system environment.
@@ -49,7 +50,7 @@ const SUPPORTED_AGENT_RULE_TYPES = [
 export async function getCustomRules(): Promise<string | null> {
   try {
     for (const rule of SUPPORTED_AGENT_RULE_TYPES) {
-      if (await fileExists(rule)) {
+      if (await exists(rule)) {
         const rules = await Deno.readTextFile(rule);
         return rules;
       }
@@ -71,6 +72,8 @@ export async function getCustomRules(): Promise<string | null> {
  *  If not provided, defaults to {@link getCurrentUserInfo}(workingDirectory).
  * @param options.customInstructions Additional instructions to append to the system prompt.
  *  If not provided, defaults to {@link getCustomRules}(workingDirectory) which loads from supported rule files in the working directory.
+ * @param options.skillManager Optional SkillManager instance to include Skill metadata in the prompt.
+ *  If provided, skills will be automatically discovered before generating the prompt.
  * @returns The complete system prompt string including custom rules if found
  */
 export async function getSystemPrompt(
@@ -78,6 +81,7 @@ export async function getSystemPrompt(
   options?: {
     userInfo?: UserInfo;
     customInstructions?: string;
+    skillManager?: SkillManager;
   },
 ): Promise<string> {
   const userInfo = options?.userInfo ?? getCurrentUserInfo(workingDirectory);
@@ -149,8 +153,20 @@ Otherwise, follow debugging best practices:
 </calling_external_apis>
 
 <user_info>
-The user's OS version is ${userInfo.osVersion}. The absolute path of the user's workspace is ${userInfo.workspacePath}. The user's shell is ${userInfo.shell}. 
+The user's OS version is ${userInfo.osVersion}. The absolute path of the user's workspace is ${userInfo.workspacePath}. The user's shell is ${userInfo.shell}.
 </user_info>
+
+<agent_skills>
+Agent Skills are specialized instruction packages that extend your capabilities for specific domains.
+
+When skills are available in <available_skills>, you MUST:
+1. Review the skill descriptions for each user request
+2. If a skill matches the task, load its full instructions using the read_file tool at the <location> path BEFORE proceeding
+3. Follow the loaded skill instructions precisely
+4. Load additional resources referenced in SKILL.md only when needed
+
+Skill use is MANDATORY when a relevant skill exists - never skip loading applicable skills.
+</agent_skills>
 
 Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
 `;
@@ -164,6 +180,13 @@ ${customRules}
 `
     : "";
 
+  let skillsBlock = "";
+  if (options?.skillManager) {
+    await options.skillManager.discover();
+    skillsBlock = options.skillManager.skillsPrompt;
+  }
+
   return `${systemPrompt}
+${skillsBlock}
 ${customRulesBlock}`;
 }

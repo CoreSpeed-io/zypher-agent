@@ -25,6 +25,7 @@ import {
   ToolExecutionInterceptor,
 } from "./loopInterceptors/mod.ts";
 import type { TaskEvent } from "./TaskEvents.ts";
+import { SkillManager, type SkillManagerOptions } from "./SkillManager.ts";
 import type { Tool } from "./tools/mod.ts";
 
 /**
@@ -49,10 +50,12 @@ export interface ZypherContext {
   /** Workspace-specific data directory for isolated storage (Defaults to ~/.zypher/encoded_working_directory_path)
    * Used for message history, checkpoints, and other workspace-specific data */
   workspaceDataDir: string;
-  /** Unique identifier for tracking user-specific usage history */
-  userId?: string;
   /** Directory to cache file attachments (Defaults to ~/.zypher/cache/files) */
   fileAttachmentCacheDir: string;
+  /** Global skills directory (Defaults to ~/.zypher/skills) */
+  skillsDir: string;
+  /** Unique identifier for tracking user-specific usage history */
+  userId?: string;
 }
 
 export interface ZypherAgentConfig {
@@ -62,6 +65,8 @@ export interface ZypherAgentConfig {
   maxTokens: number;
   /** Maximum allowed time for a task in milliseconds before it's automatically cancelled. Default is 15 minutes (900000ms). Set to 0 to disable. */
   taskTimeoutMs: number;
+  /** Skills configuration options */
+  skills?: SkillManagerOptions;
 }
 
 export interface ZypherAgentOptions {
@@ -79,6 +84,8 @@ export interface ZypherAgentOptions {
     mcpServerManager?: McpServerManager;
     /** Custom loop interceptor manager. If not provided, a default instance will be created. */
     loopInterceptorManager?: LoopInterceptorManager;
+    /** Custom Skill manager. If not provided, a default instance will be created. */
+    skillManager?: SkillManager;
   };
   config?: Partial<ZypherAgentConfig>;
 }
@@ -91,6 +98,7 @@ export class ZypherAgent {
   readonly #modelProvider: ModelProvider;
   readonly #mcpServerManager: McpServerManager;
   readonly #loopInterceptorManager: LoopInterceptorManager;
+  readonly #skillManager: SkillManager;
   readonly #checkpointManager?: CheckpointManager;
   readonly #systemPromptLoader: SystemPromptLoader;
   readonly #storageService?: StorageService;
@@ -116,8 +124,19 @@ export class ZypherAgent {
   ) {
     this.#modelProvider = modelProvider;
     this.#context = context;
+
+    // Initialize SkillManager
+    this.#skillManager = options.overrides?.skillManager ??
+      new SkillManager(context, options.config?.skills);
+
+    // Create system prompt loader that includes Skills
+    // Skills are automatically discovered within getSystemPrompt when skillManager is provided
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
-      (() => getSystemPrompt(context.workingDirectory));
+      (() =>
+        getSystemPrompt(context.workingDirectory, {
+          skillManager: this.#skillManager,
+        }));
+
     this.#config = {
       maxIterations: options.config?.maxIterations ?? DEFAULT_MAX_ITERATIONS,
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -186,6 +205,13 @@ export class ZypherAgent {
    */
   get loopInterceptor(): LoopInterceptorManager {
     return this.#loopInterceptorManager;
+  }
+
+  /**
+   * Get the Skill manager for configuration and Skill access
+   */
+  get skills(): SkillManager {
+    return this.#skillManager;
   }
 
   /**
