@@ -4,25 +4,18 @@ import {
   createImageTools,
   RunTerminalCmdTool,
 } from "@zypher/agent/tools";
-import { Command, EnumType } from "@cliffy/command";
+import { Command } from "@cliffy/command";
 import { createZypherHandler } from "./handler.ts";
-
-const providerType = new EnumType(["anthropic", "openai"]);
 
 export async function main(): Promise<void> {
   const { options: cli } = await new Command()
     .name("zypher-http")
     .description("Zypher Agent HTTP Server")
-    .type("provider", providerType)
     .option(
       "-k, --api-key <apiKey:string>",
       "Model provider API key (uses env var if not provided)",
     )
-    .option("-m, --model <model:string>", "Model name")
-    .option(
-      "-P, --provider <provider:provider>",
-      "Model provider (auto-detected from model name if not specified)",
-    )
+    .option("-m, --model <model:string>", "Model name (provider auto-detected)")
     .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
     .option(
       "-w, --workDir <workingDirectory:string>",
@@ -31,7 +24,7 @@ export async function main(): Promise<void> {
     .option("-u, --user-id <userId:string>", "Custom user ID")
     .option(
       "--openai-api-key <openaiApiKey:string>",
-      "OpenAI API key for image tools when provider=anthropic",
+      "OpenAI API key for image tools when using Anthropic models",
     )
     .option("-p, --port <port:number>", "Port to listen on", {
       default: 8080,
@@ -41,10 +34,8 @@ export async function main(): Promise<void> {
     })
     .parse(Deno.args);
 
-  // Build model string: explicit provider/model or just model (auto-inferred)
-  const modelString = cli.provider && cli.model
-    ? `${cli.provider}/${cli.model}`
-    : cli.model ?? DEFAULT_MODELS.openai;
+  // Model string with auto-inferred provider
+  const modelString = cli.model ?? DEFAULT_MODELS.openai;
 
   const modelProvider = createModel(modelString, {
     apiKey: cli.apiKey,
@@ -63,7 +54,7 @@ export async function main(): Promise<void> {
   ];
 
   const agent = await createZypherAgent({
-    modelProvider,
+    model: modelProvider,
     workingDirectory: cli.workDir,
     tools,
     context: { userId: cli.userId },

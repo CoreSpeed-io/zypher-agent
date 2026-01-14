@@ -12,10 +12,10 @@
  * @example Import as library
  * ```ts
  * import { createZypherHandler } from "@zypher/http";
- * import { createZypherAgent, AnthropicModelProvider } from "@zypher/agent";
+ * import { createZypherAgent } from "@zypher/agent";
  *
  * const agent = await createZypherAgent({
- *   modelProvider: new AnthropicModelProvider({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! }),
+ *   model: "claude-sonnet-4-5-20250929",
  * });
  *
  * const app = createZypherHandler({ agent });

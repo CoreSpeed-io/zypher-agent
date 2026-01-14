@@ -13,13 +13,14 @@ import { createZypherContext } from "./utils/context.ts";
  */
 export interface CreateZypherAgentOptions extends ZypherAgentOptions {
   /**
-   * The AI model provider to use (Anthropic or OpenAI).
-   * Can be a ModelProvider instance or a model string (e.g., "claude-sonnet-4-5-20250929", "gpt-5.2").
-   * @example new AnthropicModelProvider({ apiKey: "..." })
+   * The model to use. Can be:
+   * - A model string (e.g., "claude-sonnet-4-5-20250929", "gpt-5.2")
+   * - A ModelProvider instance (for provider-specific options)
    * @example "claude-sonnet-4-5-20250929"
    * @example "gpt-5.2"
+   * @example anthropic("claude-sonnet-4-5-20250929", { thinkingBudget: 10000 })
    */
-  modelProvider: ModelProvider | string;
+  model: ModelProvider | string;
 
   /**
    * Working directory for the agent. Defaults to Deno.cwd().
@@ -51,13 +52,13 @@ export interface CreateZypherAgentOptions extends ZypherAgentOptions {
  * ```typescript
  * // Using a model string (recommended for most cases)
  * const agent = await createZypherAgent({
- *   modelProvider: "claude-sonnet-4-5-20250929",
+ *   model: "claude-sonnet-4-5-20250929",
  *   tools: [ReadFileTool, ListDirTool],
  * });
  *
  * // Using a ModelProvider instance (for provider-specific options)
  * const agent = await createZypherAgent({
- *   modelProvider: anthropic("claude-sonnet-4-5-20250929", { thinkingBudget: 10000 }),
+ *   model: anthropic("claude-sonnet-4-5-20250929", { thinkingBudget: 10000 }),
  *   tools: [ReadFileTool, ListDirTool],
  *   mcpServers: ["@firecrawl/firecrawl"],
  * });
@@ -80,7 +81,7 @@ export async function createZypherAgent(
   );
 
   // 2. Create agent with tools
-  const agent = new ZypherAgent(zypherContext, options.modelProvider, {
+  const agent = new ZypherAgent(zypherContext, options.model, {
     storageService: options.storageService,
     checkpointManager: options.checkpointManager,
     tools: options.tools,

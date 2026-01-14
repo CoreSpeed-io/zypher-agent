@@ -46,7 +46,7 @@ export async function main(): Promise<void> {
 
   await runAcpServer(async (clientConfig: AcpClientConfig) => {
     return await createZypherAgent({
-      modelProvider,
+      model: modelProvider,
       tools: [...createFileSystemTools(), RunTerminalCmdTool],
       workingDirectory: clientConfig.cwd,
       mcpServers: clientConfig.mcpServers,
