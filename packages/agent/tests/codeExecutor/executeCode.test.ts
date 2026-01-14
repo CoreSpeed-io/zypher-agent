@@ -19,6 +19,7 @@ describe("executeCode", () => {
     zypherDir: "/tmp/.zypher",
     workspaceDataDir: "/tmp/.zypher/test-workspace",
     fileAttachmentCacheDir: "/tmp/.zypher/cache/files",
+    skillsDir: "/tmp/.zypher/skills",
   };
 
   function createMockTool(

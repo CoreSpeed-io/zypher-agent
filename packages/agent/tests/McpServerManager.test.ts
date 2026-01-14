@@ -17,6 +17,7 @@ describe("McpServerManager", () => {
     zypherDir: "/tmp/.zypher",
     workspaceDataDir: "/tmp/.zypher/test-workspace",
     fileAttachmentCacheDir: "/tmp/.zypher/cache/files",
+    skillsDir: "/tmp/.zypher/skills",
   };
 
   // Helper to create a server endpoint for testing.
