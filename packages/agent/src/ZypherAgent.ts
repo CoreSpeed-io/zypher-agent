@@ -112,18 +112,22 @@ export class ZypherAgent {
    * Creates a new ZypherAgent instance
    *
    * @param context Workspace and filesystem environment configuration
-   * @param modelProvider The AI model provider to use for chat completions.
-   *   Can be a ModelProvider instance or a model string (e.g., "claude-sonnet-4-5-20250929", "gpt-5.2").
+   * @param model The model to use. Can be:
+   *   - A model string (e.g., "claude-sonnet-4-5-20250929", "gpt-5.2")
+   *   - A ModelProvider instance (for provider-specific options)
+   * @example "claude-sonnet-4-5-20250929"
+   * @example "gpt-5.2"
+   * @example anthropic("claude-sonnet-4-5-20250929", { thinkingBudget: 10000 })
    * @param options Configuration options for the agent
    */
   constructor(
     context: ZypherContext,
-    modelProvider: ModelProvider | string,
+    model: ModelProvider | string,
     options: ZypherAgentOptions = {},
   ) {
-    this.#modelProvider = typeof modelProvider === "string"
-      ? createModelProvider(modelProvider)
-      : modelProvider;
+    this.#modelProvider = typeof model === "string"
+      ? createModelProvider(model)
+      : model;
     this.#context = context;
     this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
       (() => getSystemPrompt(context.workingDirectory));
