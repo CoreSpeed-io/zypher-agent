@@ -6,10 +6,10 @@
  * Usage:
  *   deno run -A jsr:@zypher/acp
  *
- * Environment variables (checked in order):
- *   OPENAI_API_KEY - Use OpenAI as the model provider (default model: gpt-4o-2024-11-20)
- *   ANTHROPIC_API_KEY - Use Anthropic as the model provider (default model: claude-sonnet-4-20250514)
- *   ZYPHER_MODEL - Optional: override the default model
+ * Environment variables:
+ *   ZYPHER_MODEL - Model to use (provider auto-detected from model name)
+ *   OPENAI_API_KEY - API key for OpenAI
+ *   ANTHROPIC_API_KEY - API key for Anthropic
  *
  * Zed configuration example:
  * {
@@ -29,46 +29,23 @@
  */
 
 import {
-  AnthropicModelProvider,
+  createModelProvider,
   createZypherAgent,
-  type ModelProvider,
-  OpenAIModelProvider,
+  DEFAULT_MODELS,
 } from "@zypher/agent";
 import { createFileSystemTools, RunTerminalCmdTool } from "@zypher/agent/tools";
 import { type AcpClientConfig, runAcpServer } from "./server.ts";
 
-function extractModelProvider(): { provider: ModelProvider; model: string } {
-  const openaiKey = Deno.env.get("OPENAI_API_KEY");
-  if (openaiKey) {
-    return {
-      provider: new OpenAIModelProvider({ apiKey: openaiKey }),
-      model: Deno.env.get("ZYPHER_MODEL") || "gpt-4o-2024-11-20",
-    };
-  }
-
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (anthropicKey) {
-    return {
-      provider: new AnthropicModelProvider({ apiKey: anthropicKey }),
-      model: Deno.env.get("ZYPHER_MODEL") || "claude-sonnet-4-20250514",
-    };
-  }
-
-  console.error(
-    "Error: Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable",
-  );
-  Deno.exit(1);
-}
-
 export async function main(): Promise<void> {
-  const { provider: modelProvider, model } = extractModelProvider();
+  const modelId = Deno.env.get("ZYPHER_MODEL") ?? DEFAULT_MODELS.openai;
+  const modelProvider = createModelProvider(modelId);
 
   await runAcpServer(async (clientConfig: AcpClientConfig) => {
     return await createZypherAgent({
-      modelProvider,
+      model: modelProvider,
       tools: [...createFileSystemTools(), RunTerminalCmdTool],
       workingDirectory: clientConfig.cwd,
       mcpServers: clientConfig.mcpServers,
     });
-  }, model);
+  });
 }

@@ -27,21 +27,18 @@ export interface RunAcpServerOptions {
  * @example Basic usage
  * ```typescript
  * import { runAcpServer } from "@zypher/acp";
- * import { createZypherAgent, AnthropicModelProvider } from "@zypher/agent";
+ * import { createZypherAgent, createModelProvider } from "@zypher/agent";
  *
- * const modelProvider = new AnthropicModelProvider({ apiKey: "..." });
+ * const modelProvider = createModelProvider("anthropic/claude-sonnet-4-20250514", { apiKey: "..." });
  *
- * await runAcpServer(
- *   async (clientConfig) => {
- *     return await createZypherAgent({
- *       modelProvider,
- *       tools: [...],
- *       workingDirectory: clientConfig.cwd,
- *       mcpServers: clientConfig.mcpServers,
- *     });
- *   },
- *   "claude-sonnet-4-20250514",
- * );
+ * await runAcpServer(async (clientConfig) => {
+ *   return await createZypherAgent({
+ *     model: modelProvider,
+ *     tools: [...],
+ *     workingDirectory: clientConfig.cwd,
+ *     mcpServers: clientConfig.mcpServers,
+ *   });
+ * });
  * ```
  *
  * @example With abort signal
@@ -49,17 +46,15 @@ export interface RunAcpServerOptions {
  * const controller = new AbortController();
  * setTimeout(() => controller.abort(), 60000);
  *
- * await runAcpServer(builder, model, { signal: controller.signal });
+ * await runAcpServer(builder, { signal: controller.signal });
  * ```
  *
  * @param builder - Function that creates a ZypherAgent for each session
- * @param model - The model identifier to use for agent tasks
  * @param options - Optional configuration for streams and cancellation
  * @returns Promise that resolves when the connection closes
  */
 export async function runAcpServer(
   builder: ZypherAgentBuilder,
-  model: string,
   options?: RunAcpServerOptions,
 ): Promise<void> {
   const input = options?.input ?? Deno.stdin.readable;
@@ -67,7 +62,7 @@ export async function runAcpServer(
   const stream = acp.ndJsonStream(output, input);
 
   const connection = new acp.AgentSideConnection(
-    (conn) => new ZypherAcpAgent(conn, builder, model),
+    (conn) => new ZypherAcpAgent(conn, builder),
     stream,
   );
 

@@ -92,9 +92,6 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
 
             switch (message.action) {
               case "startTask": {
-                const resolvedModel = message.model ??
-                  "claude-sonnet-4-5-20250929";
-
                 // Check if a task is already running
                 if (taskAbortController || taskEventSubject) {
                   ws.close(1008, "task_already_in_progress");
@@ -108,7 +105,6 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                 const eventSubject = taskEventSubject ??= runAgentTask(
                   agent,
                   message.task,
-                  resolvedModel,
                   { signal: abortController.signal },
                 );
 
@@ -220,13 +216,11 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
 function runAgentTask(
   agent: ZypherAgent,
   taskPrompt: string,
-  model: string,
   options?: { signal?: AbortSignal },
 ): ReplaySubject<HttpTaskEvent> {
   const zypherHttpTaskEvent$ = agent.runTask(
     taskPrompt,
-    model,
-    [],
+    undefined,
     options,
   );
 

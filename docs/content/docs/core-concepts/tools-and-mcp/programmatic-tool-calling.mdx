@@ -52,7 +52,7 @@ const getWeather = createTool({
 });
 
 const agent = await createZypherAgent({
-  modelProvider: new AnthropicModelProvider({ apiKey }),
+  model: "claude-sonnet-4-5-20250929",
   tools: [...programmatic(getWeather)],
 });
 ```
@@ -62,7 +62,7 @@ const agent = await createZypherAgent({
 
 ```typescript
 const agent = await createZypherAgent({
-  modelProvider: new AnthropicModelProvider({ apiKey }),
+  model: "claude-sonnet-4-5-20250929",
   mcpServers: [
     programmatic({
       id: "deepwiki",

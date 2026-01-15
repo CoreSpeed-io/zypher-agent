@@ -9,9 +9,9 @@ import {
   createEmittingMessageArray,
   getSystemPrompt,
 } from "./utils/mod.ts";
-import type { TokenUsage } from "./llm/mod.ts";
+import type { ModelProvider, TokenUsage } from "./llm/mod.ts";
+import { createModelProvider } from "./llm/mod.ts";
 import { AbortError, isAbortError, TaskConcurrencyError } from "./error.ts";
-import type { ModelProvider } from "./llm/mod.ts";
 import { filter, type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
 import {
@@ -76,6 +76,12 @@ export interface ZypherAgentOptions {
   checkpointManager?: CheckpointManager;
   /** Tools to register with the agent. */
   tools?: Tool[];
+  /**
+   * Initial messages to seed the conversation history.
+   * Useful for model switching - allows preserving conversation context
+   * when creating a new agent with a different model.
+   */
+  initialMessages?: Message[];
   /** Override default implementations of core components */
   overrides?: {
     /** Function that loads the system prompt for the agent. Defaults to {@link getSystemPrompt}. */
@@ -113,16 +119,23 @@ export class ZypherAgent {
   /**
    * Creates a new ZypherAgent instance
    *
-   * @param modelProvider The AI model provider to use for chat completions
    * @param context Workspace and filesystem environment configuration
+   * @param model The model to use. Can be:
+   *   - A model string (e.g., "claude-sonnet-4-5-20250929", "gpt-5.2")
+   *   - A ModelProvider instance (for provider-specific options)
+   * @example "claude-sonnet-4-5-20250929"
+   * @example "gpt-5.2"
+   * @example anthropic("claude-sonnet-4-5-20250929", { thinkingBudget: 10000 })
    * @param options Configuration options for the agent
    */
   constructor(
     context: ZypherContext,
-    modelProvider: ModelProvider,
+    model: ModelProvider | string,
     options: ZypherAgentOptions = {},
   ) {
-    this.#modelProvider = modelProvider;
+    this.#modelProvider = typeof model === "string"
+      ? createModelProvider(model)
+      : model;
     this.#context = context;
 
     // Initialize SkillManager
@@ -142,7 +155,9 @@ export class ZypherAgent {
       maxTokens: options.config?.maxTokens ?? DEFAULT_MAX_TOKENS,
       taskTimeoutMs: options.config?.taskTimeoutMs ?? DEFAULT_TASK_TIMEOUT_MS, // Default is 15 minutes
     };
-    this.#messages = [];
+    this.#messages = options.initialMessages
+      ? [...options.initialMessages]
+      : [];
 
     // Services and interceptors
     this.#mcpServerManager = options.overrides?.mcpServerManager ??
@@ -266,7 +281,6 @@ export class ZypherAgent {
    * - Errors and code fixes are handled automatically
    *
    * @param taskDescription The text description of the task to perform
-   * @param streamHandler Handler for real-time content updates and complete messages
    * @param fileAttachments Optional array of file attachments
    * @param options Additional options:
    *   - maxIterations: Maximum number of iterations to run (default: 25)
@@ -276,7 +290,6 @@ export class ZypherAgent {
    */
   runTask(
     taskDescription: string,
-    model: string,
     fileAttachments?: FileAttachment[],
     options?: {
       maxIterations?: number;
@@ -290,7 +303,6 @@ export class ZypherAgent {
     this.#runTaskInternal(
       taskEventSubject,
       taskDescription,
-      model,
       fileAttachments,
       options,
     );
@@ -301,7 +313,6 @@ export class ZypherAgent {
   async #runTaskInternal(
     taskEventSubject: Subject<TaskEvent>,
     taskDescription: string,
-    model: string,
     fileAttachments?: FileAttachment[],
     options?: {
       maxIterations?: number;
@@ -409,7 +420,6 @@ export class ZypherAgent {
 
         const stream = this.#modelProvider.streamChat(
           {
-            model,
             maxTokens: this.#config.maxTokens,
             system: systemPrompt,
             messages: this.#messages,

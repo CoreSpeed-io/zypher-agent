@@ -22,7 +22,6 @@ export const wsClientMessageSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("startTask"),
     task: z.string(),
-    model: z.string().optional(),
     fileAttachments: z.array(fileIdSchema).optional(),
   }),
   z.object({

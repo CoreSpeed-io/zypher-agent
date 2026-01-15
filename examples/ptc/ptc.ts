@@ -14,7 +14,6 @@
 
 import "@std/dotenv/load";
 import {
-  AnthropicModelProvider,
   createZypherContext,
   McpServerManager,
   ZypherAgent,
@@ -40,11 +39,7 @@ async function prompt(message: string): Promise<string> {
   }
 }
 
-const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-if (!apiKey) {
-  console.error("Error: Set ANTHROPIC_API_KEY environment variable");
-  Deno.exit(1);
-}
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 // Create a simple weather tool
 const getWeather = createTool({
@@ -129,7 +124,7 @@ mcpServerManager.registerTool(createExecuteCodeTool(mcpServerManager));
 // Create the agent with the custom MCP server manager
 const agent = new ZypherAgent(
   context,
-  new AnthropicModelProvider({ apiKey }),
+  Deno.env.get("ZYPHER_MODEL") ?? DEFAULT_MODEL,
   {
     overrides: {
       mcpServerManager,
@@ -151,7 +146,6 @@ const events$ = agent.runTask(
 - lisbon
 
 get two cities with the most similar weather and the city with the highest temperature`,
-  "claude-sonnet-4-5-20250929",
 );
 
 const textEncoder = new TextEncoder();

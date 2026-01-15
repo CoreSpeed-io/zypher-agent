@@ -38,23 +38,18 @@ deno add jsr:@zypher/agent
 ### SDK Usage
 
 ```typescript
-import { AnthropicModelProvider, createZypherAgent } from "@zypher/agent";
+import { createZypherAgent } from "@zypher/agent";
 import { createFileSystemTools } from "@zypher/agent/tools";
 import { eachValueFrom } from "rxjs-for-await";
 
 const agent = await createZypherAgent({
-  modelProvider: new AnthropicModelProvider({
-    apiKey: Deno.env.get("ANTHROPIC_API_KEY")!,
-  }),
+  model: "claude-sonnet-4-5-20250929", // Or use ModelProvider for advanced options
   tools: [...createFileSystemTools()],
   mcpServers: ["@modelcontextprotocol/sequentialthinking-server"],
 });
 
 // Run task with streaming
-const taskEvents = agent.runTask(
-  "Implement authentication middleware",
-  "claude-sonnet-4-20250514",
-);
+const taskEvents = agent.runTask("Implement authentication middleware");
 
 for await (const event of eachValueFrom(taskEvents)) {
   console.log(event);

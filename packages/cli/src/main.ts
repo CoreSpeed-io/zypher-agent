@@ -1,55 +1,29 @@
 import "@std/dotenv/load";
 import {
-  AnthropicModelProvider,
+  createModelProvider,
   createZypherAgent,
+  DEFAULT_MODELS,
   formatError,
-  OpenAIModelProvider,
 } from "@zypher/agent";
 import {
   createFileSystemTools,
   createImageTools,
   RunTerminalCmdTool,
 } from "@zypher/agent/tools";
-import { Command, EnumType } from "@cliffy/command";
+import { Command } from "@cliffy/command";
 import chalk from "chalk";
 import { runAgentInTerminal } from "./runAgentInTerminal.ts";
-
-const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
-const DEFAULT_OPENAI_MODEL = "gpt-4o-2024-11-20";
-
-const providerType = new EnumType(["anthropic", "openai"]);
-
-function inferProvider(
-  provider?: string,
-  model?: string,
-): "anthropic" | "openai" {
-  const p = provider?.toLowerCase();
-  if (p === "openai" || p === "anthropic") return p;
-  if (!model) return "anthropic";
-  const m = model.toLowerCase();
-  if (
-    m.includes("claude") || m.startsWith("sonnet") || m.startsWith("haiku") ||
-    m.startsWith("opus")
-  ) {
-    return "anthropic";
-  }
-  return "openai"; // fallback to OpenAI-compatible models
-}
 
 export async function main(): Promise<void> {
   // Parse command line arguments using Cliffy
   const { options: cli } = await new Command()
     .name("zypher")
     .description("Zypher Agent CLI")
-    .type("provider", providerType)
-    .option("-k, --api-key <apiKey:string>", "Model provider API key", {
-      required: true,
-    })
-    .option("-m, --model <model:string>", "Model name")
     .option(
-      "-p, --provider <provider:provider>",
-      "Model provider",
+      "-k, --api-key <apiKey:string>",
+      "Model provider API key (uses env var if not provided)",
     )
+    .option("-m, --model <model:string>", "Model name (provider auto-detected)")
     .option("-b, --base-url <baseUrl:string>", "Custom API base URL")
     .option(
       "-w, --workDir <workingDirectory:string>",
@@ -58,7 +32,7 @@ export async function main(): Promise<void> {
     .option("-u, --user-id <userId:string>", "Custom user ID")
     .option(
       "--openai-api-key <openaiApiKey:string>",
-      "OpenAI API key for image tools when provider=anthropic (ignored if provider=openai)",
+      "OpenAI API key for image tools when using Anthropic models",
     )
     .option(
       "--skills-dir <skillsDir:string>",
@@ -81,28 +55,20 @@ export async function main(): Promise<void> {
       console.log(`💻 Using working directory: ${cli.workDir}`);
     }
 
-    const selectedProvider = inferProvider(cli.provider, cli.model);
-    console.log(`🤖 Using provider: ${chalk.magenta(selectedProvider)}`);
+    // Model string with auto-inferred provider
+    const modelString = cli.model ?? DEFAULT_MODELS.openai;
 
-    const modelToUse = cli.model ??
-      (selectedProvider === "openai"
-        ? DEFAULT_OPENAI_MODEL
-        : DEFAULT_ANTHROPIC_MODEL);
-    console.log(`🧠 Using model: ${chalk.cyan(modelToUse)}`);
+    // Initialize the model provider
+    const modelProvider = createModelProvider(modelString, {
+      apiKey: cli.apiKey,
+      baseUrl: cli.baseUrl,
+    });
 
-    // Initialize the agent with provided options
-    const providerInstance = selectedProvider === "openai"
-      ? new OpenAIModelProvider({
-        apiKey: cli.apiKey,
-        baseUrl: cli.baseUrl,
-      })
-      : new AnthropicModelProvider({
-        apiKey: cli.apiKey,
-        baseUrl: cli.baseUrl,
-      });
+    console.log(`🤖 Using provider: ${chalk.magenta(modelProvider.info.name)}`);
+    console.log(`🧠 Using model: ${chalk.cyan(modelProvider.modelId)}`);
 
-    // Build tools list
-    const openaiApiKey = cli.provider === "openai"
+    // Build tools list - use OpenAI key for image tools
+    const openaiApiKey = modelProvider.info.name === "openai"
       ? cli.apiKey
       : cli.openaiApiKey;
 
@@ -113,7 +79,7 @@ export async function main(): Promise<void> {
     ];
 
     const agent = await createZypherAgent({
-      modelProvider: providerInstance,
+      model: modelProvider,
       workingDirectory: cli.workDir,
       tools,
       context: { userId: cli.userId },
@@ -135,7 +101,7 @@ export async function main(): Promise<void> {
       Deno.exit(0);
     });
 
-    await runAgentInTerminal(agent, modelToUse);
+    await runAgentInTerminal(agent);
   } catch (error) {
     console.error("Fatal Error:", formatError(error));
     Deno.exit(1);
