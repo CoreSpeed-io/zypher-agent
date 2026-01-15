@@ -7,12 +7,9 @@
  *   deno run -A jsr:@zypher/acp
  *
  * Environment variables:
- *   ZYPHER_MODEL - Model to use (default: gpt-4o-2024-11-20)
- *                  Provider is auto-detected from model name:
- *                  - claude*, sonnet*, haiku*, opus* → Anthropic
- *                  - Other models → OpenAI (OpenAI-compatible is de facto standard)
- *   OPENAI_API_KEY - API key for OpenAI (default provider)
- *   ANTHROPIC_API_KEY - API key for Anthropic (if using Anthropic models)
+ *   ZYPHER_MODEL - Model to use (provider auto-detected from model name)
+ *   OPENAI_API_KEY - API key for OpenAI
+ *   ANTHROPIC_API_KEY - API key for Anthropic
  *
  * Zed configuration example:
  * {
@@ -40,7 +37,6 @@ import { createFileSystemTools, RunTerminalCmdTool } from "@zypher/agent/tools";
 import { type AcpClientConfig, runAcpServer } from "./server.ts";
 
 export async function main(): Promise<void> {
-  // Model is auto-detected from ZYPHER_MODEL env var, defaults to OpenAI's GPT-4o
   const modelId = Deno.env.get("ZYPHER_MODEL") ?? DEFAULT_MODELS.openai;
   const modelProvider = createModelProvider(modelId);
 
