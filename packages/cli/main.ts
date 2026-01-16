@@ -12,7 +12,7 @@ import {
 } from "@zypher/agent/tools";
 import { Command } from "@cliffy/command";
 import chalk from "chalk";
-import { runAgentInTerminal } from "./runAgentInTerminal.ts";
+import { runAgentInTerminal } from "./run_agent_in_terminal.ts";
 
 export async function main(): Promise<void> {
   // Parse command line arguments using Cliffy

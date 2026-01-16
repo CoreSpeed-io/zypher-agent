@@ -6,8 +6,11 @@
 
 import * as acp from "acp";
 import { Completer } from "@zypher/agent";
-import { ZypherAcpAgent, type ZypherAgentBuilder } from "./ZypherAcpAgent.ts";
-export type { AcpClientConfig, ZypherAgentBuilder } from "./ZypherAcpAgent.ts";
+import { ZypherAcpAgent, type ZypherAgentBuilder } from "./zypher_acp_agent.ts";
+export type {
+  AcpClientConfig,
+  ZypherAgentBuilder,
+} from "./zypher_acp_agent.ts";
 
 /**
  * Options for running an ACP server.
