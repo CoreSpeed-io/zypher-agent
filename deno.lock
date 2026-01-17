@@ -36,19 +36,17 @@
     "npm:@anthropic-ai/sdk@~0.71.2": "0.71.2_zod@4.3.5",
     "npm:@aws-sdk/client-s3@^3.971.0": "3.971.0",
     "npm:@aws-sdk/s3-request-presigner@^3.971.0": "3.971.0",
-    "npm:@modelcontextprotocol/sdk@^1.25.1": "1.25.2_zod@4.3.5_ajv@8.17.1_express@5.2.1",
     "npm:@modelcontextprotocol/sdk@^1.25.2": "1.25.2_zod@4.3.5_ajv@8.17.1_express@5.2.1",
-    "npm:@types/react@^19.2.7": "19.2.8",
+    "npm:@types/react@^19.2.8": "19.2.8",
     "npm:chalk@^5.6.2": "5.6.2",
     "npm:ink-select-input@^6.2.0": "6.2.0_ink@6.6.0__@types+react@19.2.8__react@19.2.3_react@19.2.3_@types+react@19.2.8",
     "npm:ink-text-input@6": "6.0.0_ink@6.6.0__@types+react@19.2.8__react@19.2.3_react@19.2.3_@types+react@19.2.8",
-    "npm:ink@^6.5.1": "6.6.0_@types+react@19.2.8_react@19.2.3",
+    "npm:ink@^6.6.0": "6.6.0_@types+react@19.2.8_react@19.2.3",
     "npm:openai@6.9.1": "6.9.1_zod@4.3.5",
     "npm:react-dom@^19.2.3": "19.2.3_react@19.2.3",
     "npm:react@^19.2.3": "19.2.3",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
-    "npm:xstate@^5.25.0": "5.25.1",
     "npm:xstate@^5.25.1": "5.25.1",
     "npm:zod@^4.1.13": "4.3.5",
     "npm:zod@^4.2.0": "4.3.5",
@@ -2046,14 +2044,14 @@
       "examples/mcp": {
         "dependencies": [
           "jsr:@cliffy/command@^1.0.0-rc.8",
-          "npm:@modelcontextprotocol/sdk@^1.25.1",
-          "npm:@types/react@^19.2.7",
+          "npm:@modelcontextprotocol/sdk@^1.25.2",
+          "npm:@types/react@^19.2.8",
           "npm:ink-select-input@^6.2.0",
           "npm:ink-text-input@6",
-          "npm:ink@^6.5.1",
+          "npm:ink@^6.6.0",
           "npm:react-dom@^19.2.3",
           "npm:react@^19.2.3",
-          "npm:xstate@^5.25.0"
+          "npm:xstate@^5.25.1"
         ]
       },
       "examples/ptc": {
