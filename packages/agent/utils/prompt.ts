@@ -39,7 +39,10 @@ const SUPPORTED_AGENT_RULE_TYPES = [
  * Searches for rule files in the following order and returns the first one found:
  * .zypherrules, .cursorrules, .windsurfrules, CLAUDE.md, AGENTS.md
  *
- * @returns Contents of the first matching rules file, or null if none found
+ * Fails silently if no rule file is found or if reading fails, as custom rules
+ * are optional configuration.
+ *
+ * @returns Contents of the first matching rules file, or undefined if none found or on error
  *
  * @example
  * const rules = await getCustomRules();
@@ -47,7 +50,7 @@ const SUPPORTED_AGENT_RULE_TYPES = [
  *   console.log('Found custom rules:', rules);
  * }
  */
-export async function getCustomRules(): Promise<string | null> {
+export async function getCustomRules(): Promise<string | undefined> {
   try {
     for (const rule of SUPPORTED_AGENT_RULE_TYPES) {
       if (await exists(rule)) {
@@ -56,10 +59,9 @@ export async function getCustomRules(): Promise<string | null> {
       }
     }
 
-    return null;
-  } catch (error) {
-    console.warn("Failed to read custom rules:", error);
-    return null;
+    return undefined;
+  } catch {
+    return undefined;
   }
 }
 

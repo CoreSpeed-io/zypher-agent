@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-console -- Worker overrides console methods to capture output from executed code
 /**
  * Web Worker entrypoint that executes user-provided TypeScript/JavaScript code in an isolated context.
  *
@@ -61,7 +62,7 @@ function postMessage(message: ToolUseMessage | CodeExecutionResult) {
 const pendingToolCalls = new Map<string, Completer<ToolResult>>();
 const logs: string[] = [];
 
-// setup console logging
+// Redirect console methods to capture logs from executed code
 const stringify = (v: unknown) =>
   typeof v === "object" && v !== null ? JSON.stringify(v) : String(v);
 const format = (args: unknown[]) => args.map(stringify).join(" ");
