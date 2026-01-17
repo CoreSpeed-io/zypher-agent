@@ -122,11 +122,8 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
         if (await detector.isApplicable(workingDirectory)) {
           applicableDetectors.push(detector);
         }
-      } catch (error) {
-        console.warn(
-          `Error checking if detector ${detector.name} is applicable:`,
-          error,
-        );
+      } catch {
+        // Skip detector if applicability check fails
       }
     }
 
@@ -147,8 +144,8 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
         if (result) {
           errorMessages.push(result);
         }
-      } catch (error) {
-        console.warn(`Error running detector ${detector.name}:`, error);
+      } catch {
+        // Skip detector if detection fails
       }
     }
 

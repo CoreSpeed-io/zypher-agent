@@ -182,9 +182,6 @@ export class AnthropicModelProvider implements ModelProvider {
           if (block.type === "file_attachment") {
             const cache = fileAttachmentCacheMap?.[block.fileId];
             if (!cache) {
-              console.warn(
-                `Skipping file attachment as it is not cached. File ID: ${block.fileId}`,
-              );
               return null;
             }
             // Increment the file attachment counter for each file attachment
@@ -226,9 +223,6 @@ Cached at: ${cache.cachePath}`,
             }
 
             // Fall back to just the text block for unsupported types
-            console.warn(
-              `File attachment ${block.fileId} is not supported by Anthropic (MIME type: ${block.mimeType}), this file will not be shown to the model.`,
-            );
             return [textBlock];
           } else if (block.type === "image") {
             return mapImageBlockToA7cBlock(block);
@@ -410,9 +404,6 @@ function mapA7cContentBlockToContentBlock(
         thinking: block.thinking,
       };
     default:
-      console.warn(
-        `Received unsupported block type: ${block.type} from Anthropic, ignoring...`,
-      );
       return null;
   }
 }
@@ -460,9 +451,7 @@ function mapImageBlockToA7cBlock(
       } satisfies Anthropic.ImageBlockParam;
     }
   } else {
-    console.warn(
-      `You provided an unsupported image source (MIME type: ${block.source.mediaType}), this image will not be shown to the model.`,
-    );
+    // Return a text block informing the model about the unsupported image type
     return {
       type: "text" as const,
       text:

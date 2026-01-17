@@ -96,7 +96,6 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
         };
       }
     } catch (error) {
-      console.error(`Error executing tool ${name}:`, error);
       return {
         type: "tool_result" as const,
         toolUseId,

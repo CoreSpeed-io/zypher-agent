@@ -32,37 +32,32 @@ export class ESLintErrorDetector implements ErrorDetector {
   }
 
   async detect(workingDirectory: string): Promise<string | null> {
-    try {
-      // Determine the command to run
-      const commandConfig = await this.determineCommand(workingDirectory);
+    // Determine the command to run
+    const commandConfig = await this.determineCommand(workingDirectory);
 
-      // Execute the command
-      const result = await new Deno.Command(commandConfig.cmd, {
-        args: commandConfig.args,
-        cwd: workingDirectory,
-      }).output();
+    // Execute the command
+    const result = await new Deno.Command(commandConfig.cmd, {
+      args: commandConfig.args,
+      cwd: workingDirectory,
+    }).output();
 
-      // Check if the command failed (non-zero exit code)
-      if (!result.success) {
-        // Command failed, which likely means it found errors
-        const errorOutput = extractErrorOutput(
-          {
-            stdout: decoder.decode(result.stdout),
-            stderr: decoder.decode(result.stderr),
-          },
-          (output) => this.filterNonErrors(output),
-        );
+    // Check if the command failed (non-zero exit code)
+    if (!result.success) {
+      // Command failed, which likely means it found errors
+      const errorOutput = extractErrorOutput(
+        {
+          stdout: decoder.decode(result.stdout),
+          stderr: decoder.decode(result.stderr),
+        },
+        (output) => this.filterNonErrors(output),
+      );
 
-        if (errorOutput) {
-          return `ESLint errors detected:\n${errorOutput}`;
-        }
+      if (errorOutput) {
+        return `ESLint errors detected:\n${errorOutput}`;
       }
-
-      return null;
-    } catch (error) {
-      console.warn("Error running ESLint check:", error);
-      return null;
     }
+
+    return null;
   }
 
   /**
@@ -163,37 +158,32 @@ export class TypeScriptErrorDetector implements ErrorDetector {
   }
 
   async detect(workingDirectory: string): Promise<string | null> {
-    try {
-      // Determine the command to run
-      const commandConfig = await this.determineCommand(workingDirectory);
+    // Determine the command to run
+    const commandConfig = await this.determineCommand(workingDirectory);
 
-      // Execute the command
-      const result = await new Deno.Command(commandConfig.cmd, {
-        args: commandConfig.args,
-        cwd: workingDirectory,
-      }).output();
+    // Execute the command
+    const result = await new Deno.Command(commandConfig.cmd, {
+      args: commandConfig.args,
+      cwd: workingDirectory,
+    }).output();
 
-      // Check if the command failed (non-zero exit code)
-      if (!result.success) {
-        // Command failed, which likely means it found errors
-        const errorOutput = extractErrorOutput(
-          {
-            stdout: decoder.decode(result.stdout),
-            stderr: decoder.decode(result.stderr),
-          },
-          (output) => this.filterNonErrors(output),
-        );
+    // Check if the command failed (non-zero exit code)
+    if (!result.success) {
+      // Command failed, which likely means it found errors
+      const errorOutput = extractErrorOutput(
+        {
+          stdout: decoder.decode(result.stdout),
+          stderr: decoder.decode(result.stderr),
+        },
+        (output) => this.filterNonErrors(output),
+      );
 
-        if (errorOutput) {
-          return `TypeScript errors detected:\n${errorOutput}`;
-        }
+      if (errorOutput) {
+        return `TypeScript errors detected:\n${errorOutput}`;
       }
-
-      return null;
-    } catch (error) {
-      console.warn("Error running TypeScript check:", error);
-      return null;
     }
+
+    return null;
   }
 
   /**

@@ -13,6 +13,9 @@ export type TaskEvent =
   | TaskToolUseApprovedEvent
   | TaskToolUseResultEvent
   | TaskToolUseErrorEvent
+  | TaskInterceptorUseEvent
+  | TaskInterceptorResultEvent
+  | TaskInterceptorErrorEvent
   | TaskCancelledEvent
   | TaskUsageEvent
   | TaskCompletedEvent;
@@ -116,6 +119,32 @@ export interface TaskToolUseErrorEvent {
   toolUseId: string;
   toolName: string;
   input: unknown;
+  error: unknown;
+}
+
+/**
+ * Event emitted when an interceptor starts execution
+ */
+export interface TaskInterceptorUseEvent {
+  type: "interceptor_use";
+  interceptorName: string;
+}
+
+/**
+ * Event emitted when an interceptor completes execution
+ */
+export interface TaskInterceptorResultEvent {
+  type: "interceptor_result";
+  interceptorName: string;
+  decision: "continue" | "complete";
+}
+
+/**
+ * Event emitted when an interceptor throws an error
+ */
+export interface TaskInterceptorErrorEvent {
+  type: "interceptor_error";
+  interceptorName: string;
   error: unknown;
 }
 

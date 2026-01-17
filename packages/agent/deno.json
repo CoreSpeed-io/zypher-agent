@@ -26,5 +26,10 @@
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0",
     "xstate": "npm:xstate@^5.25.0",
     "zod": "npm:zod@^4.2.0"
+  },
+  "lint": {
+    "rules": {
+      "include": ["no-console"]
+    }
   }
 }
