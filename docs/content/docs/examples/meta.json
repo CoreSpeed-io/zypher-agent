@@ -1,6 +1,4 @@
 {
   "title": "Examples",
-  "pages": [
-    "basic-research-agent"
-  ]
+  "pages": ["basic-research-agent"]
 }

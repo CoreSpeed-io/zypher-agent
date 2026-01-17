@@ -1,7 +1,4 @@
 {
   "title": "Loop Interceptors",
-  "pages": [
-    "index",
-    "built-in-interceptors"
-  ]
+  "pages": ["index", "built-in-interceptors"]
 }

@@ -1,8 +1,4 @@
 {
   "title": "Tools & MCP",
-  "pages": [
-    "index",
-    "built-in-tools",
-    "programmatic-tool-calling"
-  ]
+  "pages": ["index", "built-in-tools", "programmatic-tool-calling"]
 }

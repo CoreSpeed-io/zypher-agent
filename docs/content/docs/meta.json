@@ -1,10 +1,4 @@
 {
   "title": "Documentation",
-  "pages": [
-    "index",
-    "quick-start",
-    "core-concepts",
-    "guides", 
-    "examples"
-  ]
+  "pages": ["index", "quick-start", "core-concepts", "guides", "examples"]
 }

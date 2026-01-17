@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 interface AnimatedTextProps {
   texts: string[];
@@ -8,20 +8,20 @@ interface AnimatedTextProps {
   className?: string;
 }
 
-export default function AnimatedText({ 
-  texts, 
-  interval = 2500, 
-  className = "" 
+export default function AnimatedText({
+  texts,
+  interval = 2500,
+  className = "",
 }: AnimatedTextProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
     if (texts.length <= 1) return;
-    
+
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % texts.length);
     }, interval);
-    
+
     return () => clearInterval(timer);
   }, [texts.length, interval]);
 
@@ -30,7 +30,7 @@ export default function AnimatedText({
 
   return (
     <span className="inline-block">
-      <span 
+      <span
         key={currentIndex}
         className={`inline-block animate-fadeInUp ${className}`}
       >
