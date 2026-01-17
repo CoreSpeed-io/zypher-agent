@@ -31,7 +31,7 @@ Deno.test(
     const signal = AbortSignal.timeout(100); // Use a short timeout for the test
     await assertRejects(
       () => completer.wait({ signal }),
-      Error,
+      DOMException,
       "Operation aborted",
     );
   },
@@ -67,7 +67,7 @@ Deno.test("completer rejects immediately with pre-aborted signal", async () => {
   controller.abort();
   await assertRejects(
     () => completer.wait({ signal: controller.signal }),
-    Error,
+    DOMException,
     "Operation aborted",
   );
 });

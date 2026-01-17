@@ -25,7 +25,8 @@ import { RunAgentInputSchema } from "@ag-ui/core";
 import type { BaseEvent, Message, RunAgentInput } from "@ag-ui/core";
 import { concatMap, from, Observable } from "rxjs";
 
-import { formatError, type ZypherAgent } from "@zypher/agent";
+import type { ZypherAgent } from "@zypher/agent";
+import { formatError } from "@zypher/utils/error";
 import {
   convertZypherMessagesToAgui,
   extractTaskDescription,

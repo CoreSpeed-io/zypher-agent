@@ -6,7 +6,7 @@
  */
 
 import type { McpServerManager } from "../../mcp/mod.ts";
-import { Completer } from "../../utils/mod.ts";
+import { Completer } from "@zypher/utils";
 import {
   type CodeExecutionResult,
   type HostToWorkerMessage,

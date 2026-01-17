@@ -4,7 +4,7 @@ import {
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
-import { AbortError, formatError } from "../error.ts";
+import { createAbortError, formatError } from "@zypher/utils";
 
 /**
  * Manages and executes loop interceptors
@@ -69,7 +69,7 @@ export class LoopInterceptorManager {
     for (const interceptor of this.#interceptors) {
       // Check for abort signal
       if (context.signal?.aborted) {
-        throw new AbortError("Aborted while running loop interceptors");
+        throw createAbortError("Aborted while running loop interceptors");
       }
 
       try {

@@ -2148,6 +2148,11 @@
           "jsr:@std/fs@^1.0.21",
           "jsr:@std/path@^1.1.4"
         ]
+      },
+      "packages/utils": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.16"
+        ]
       }
     }
   }

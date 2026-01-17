@@ -4,7 +4,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { Completer } from "../../utils/mod.ts";
+import { Completer } from "@zypher/utils";
 import type { CodeExecutionResult } from "./protocol.ts";
 
 Deno.test("worker - builds tools proxy correctly", async () => {

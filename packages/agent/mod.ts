@@ -5,7 +5,6 @@ export * from "./zypher_agent.ts";
 export * from "./factory.ts";
 export * from "./checkpoint_manager.ts";
 export * from "./skill_manager.ts";
-export * from "./error.ts";
 export * from "./message.ts";
 export * from "./task_events.ts";
 

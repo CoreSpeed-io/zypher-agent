@@ -3,8 +3,8 @@ import {
   createModelProvider,
   createZypherAgent,
   DEFAULT_MODELS,
-  formatError,
 } from "@zypher/agent";
+import { formatError } from "@zypher/utils/error";
 import {
   createFileSystemTools,
   createImageTools,

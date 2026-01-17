@@ -7,7 +7,7 @@
 
 /// <reference lib="deno.worker" />
 
-import { Completer } from "../../utils/mod.ts";
+import { Completer } from "@zypher/utils";
 import type { ToolResult } from "../mod.ts";
 import { encodeBase64 } from "@std/encoding/base64";
 import { HostToWorkerMessageSchema } from "./protocol.ts";

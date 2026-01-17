@@ -27,7 +27,7 @@ import { assign, createActor, setup, waitFor } from "xstate";
 import { createTool, type Tool } from "../tools/mod.ts";
 import { jsonToZod } from "./utils.ts";
 import type { McpServerEndpoint } from "./mod.ts";
-import { formatError, isAbortError } from "../error.ts";
+import { formatError, isAbortError } from "@zypher/utils";
 import { assert } from "@std/assert";
 import { connectToServer, type OAuthOptions } from "./connect.ts";
 import type { ZypherContext } from "../zypher_agent.ts";

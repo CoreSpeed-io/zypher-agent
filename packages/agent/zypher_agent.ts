@@ -5,13 +5,22 @@ import { McpServerManager } from "./mcp/mcp_server_manager.ts";
 import type { StorageService } from "./storage/storage_service.ts";
 import {
   addTokenUsage,
-  Completer,
   createEmittingMessageArray,
   getSystemPrompt,
 } from "./utils/mod.ts";
 import type { ModelProvider, TokenUsage } from "./llm/mod.ts";
 import { createModelProvider } from "./llm/mod.ts";
-import { AbortError, isAbortError, TaskConcurrencyError } from "./error.ts";
+import { createAbortError, isAbortError } from "@zypher/utils";
+
+/**
+ * Error thrown when attempting to run a new task while another task is already running.
+ */
+export class TaskConcurrencyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TaskConcurrencyError";
+  }
+}
 import { filter, type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
 import {
@@ -27,6 +36,7 @@ import {
 import type { TaskEvent } from "./task_events.ts";
 import { SkillManager, type SkillManagerOptions } from "./skill_manager.ts";
 import type { Tool } from "./tools/mod.ts";
+import { Completer } from "@zypher/utils";
 
 /**
  * Function that loads the system prompt for the agent.
@@ -415,7 +425,7 @@ export class ZypherAgent {
       while (iterations < maxIterations) {
         // Check for abort signal early
         if (mergedSignal.aborted) {
-          throw new AbortError("Task aborted");
+          throw createAbortError("Task aborted");
         }
 
         const stream = this.#modelProvider.streamChat(
@@ -457,7 +467,7 @@ export class ZypherAgent {
 
         // Check for cancellation
         if (mergedSignal.aborted) {
-          throw new AbortError("Task aborted");
+          throw createAbortError("Task aborted");
         }
 
         // Execute loop interceptors to determine if we should continue

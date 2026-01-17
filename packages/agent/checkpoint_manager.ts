@@ -1,6 +1,6 @@
 import * as path from "@std/path";
 import { ensureDir } from "@std/fs";
-import { runCommand } from "./utils/mod.ts";
+import { runCommand } from "@zypher/utils";
 import type { ZypherContext } from "./zypher_agent.ts";
 
 /**

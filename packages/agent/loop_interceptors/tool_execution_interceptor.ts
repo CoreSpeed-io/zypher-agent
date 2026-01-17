@@ -11,7 +11,7 @@ import {
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
-import { formatError } from "../error.ts";
+import { formatError } from "@zypher/utils";
 
 /**
  * Interceptor that handles tool execution when the LLM requests tool calls
