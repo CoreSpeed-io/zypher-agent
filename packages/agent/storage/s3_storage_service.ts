@@ -22,7 +22,6 @@ import {
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { generateFileId } from "./utils.ts";
 import { ensureDir } from "@std/fs";
 import * as path from "@std/path";
 
@@ -109,7 +108,7 @@ export class S3StorageService implements StorageService {
     options: UploadOptions,
   ): Promise<UploadResult> {
     // Generate a unique key for this upload
-    const key = await generateFileId();
+    const key = crypto.randomUUID();
 
     // Prepare metadata (S3 only supports string values)
     const metadata: Record<string, string> = {
@@ -267,7 +266,7 @@ export class S3StorageService implements StorageService {
     buffer: Uint8Array,
     options: UploadOptions,
   ): Promise<UploadResult> {
-    const key = await generateFileId();
+    const key = crypto.randomUUID();
 
     // Prepare metadata
     const metadata: Record<string, string> = {
@@ -392,7 +391,7 @@ export class S3StorageService implements StorageService {
     options: UploadOptions,
   ): Promise<GenerateUploadUrlResult> {
     // Generate a unique key for this upload
-    const key = await generateFileId();
+    const key = crypto.randomUUID();
 
     // Prepare metadata
     const metadata: Record<string, string> = {
