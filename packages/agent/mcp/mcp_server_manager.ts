@@ -591,39 +591,4 @@ export class McpServerManager {
       throw error;
     }
   }
-
-  debugLogState(): void {
-    console.log("\n=== MCP SERVER MANAGER STATE ===");
-    console.log(`Number of servers: ${this.#serverStateMap.size}`);
-    console.log(`Number of directly registered tools: ${this.#toolbox.size}`);
-
-    console.log(`Total number of tools: ${this.tools.size}`);
-
-    if (this.#toolbox.size > 0) {
-      console.log(
-        `\nDirectly registered tools: ${
-          Array.from(this.#toolbox.keys()).join(", ")
-        }`,
-      );
-    }
-
-    for (const [serverId, state] of this.#serverStateMap.entries()) {
-      console.log(`\nServer: ${state.server.displayName ?? state.server.id}`);
-      console.log(`  - ID: ${serverId}`);
-      console.log(`  - Enabled: ${state.client.desiredEnabled}`);
-      console.log(`  - Connected: ${state.client.connected ?? false}`);
-      console.log(`  - Tools count: ${state.client.toolCount ?? 0}`);
-
-      if (state.client.toolCount > 0) {
-        console.log(
-          `  - Tool names: ${state.client.tools.map((t) => t.name).join(", ")}`,
-        );
-      }
-    }
-
-    console.log(
-      `\nAll available tools: ${Array.from(this.tools.keys()).join(", ")}`,
-    );
-    console.log("=== END STATE ===\n");
-  }
 }

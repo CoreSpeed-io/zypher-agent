@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-console -- Test file uses console for debugging output
 import { afterEach, beforeAll, describe, test } from "@std/testing/bdd";
 import { expect } from "@std/expect";
 import { assertRejects } from "@std/assert";
