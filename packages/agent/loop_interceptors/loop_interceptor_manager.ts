@@ -4,7 +4,7 @@ import {
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
-import { createAbortError, formatError } from "@zypher/utils";
+import { createAbortError } from "@zypher/utils";
 
 /**
  * Manages and executes loop interceptors
@@ -72,9 +72,22 @@ export class LoopInterceptorManager {
         throw createAbortError("Aborted while running loop interceptors");
       }
 
+      context.eventSubject.next({
+        type: "interceptor_use",
+        interceptorName: interceptor.name,
+      });
+
       try {
         // Execute the interceptor
         const result = await interceptor.intercept(context);
+
+        context.eventSubject.next({
+          type: "interceptor_result",
+          interceptorName: interceptor.name,
+          decision: result.decision === LoopDecision.CONTINUE
+            ? "continue"
+            : "complete",
+        });
 
         // If this interceptor wants to continue, it takes control of the chain
         if (result.decision === LoopDecision.CONTINUE) {
@@ -84,10 +97,11 @@ export class LoopInterceptorManager {
         // If interceptor decides to COMPLETE, continue to next interceptor
         // (unless it's the last one)
       } catch (error) {
-        console.warn(
-          `Error running loop interceptor '${interceptor.name}':`,
-          formatError(error),
-        );
+        context.eventSubject.next({
+          type: "interceptor_error",
+          interceptorName: interceptor.name,
+          error,
+        });
         // Continue with next interceptor even if one fails
       }
     }

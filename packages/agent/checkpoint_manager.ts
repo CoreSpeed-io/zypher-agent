@@ -260,7 +260,6 @@ export class CheckpointManager {
 
         // Skip if we don't have valid id or timestamp
         if (!id || !timestamp) {
-          console.warn("Invalid commit entry, missing id or timestamp");
           continue;
         }
 
@@ -322,11 +321,8 @@ export class CheckpointManager {
       // Get checkpoint details
       const checkpoint = await this.getCheckpointDetails(checkpointId);
 
-      // If this is an advice-only checkpoint (no files), warn that there are no changes to apply
+      // If this is an advice-only checkpoint (no files), there are no changes to apply
       if (!checkpoint.files || checkpoint.files.length === 0) {
-        console.warn(
-          `Checkpoint "${checkpoint.name}" contains no file changes.`,
-        );
         return;
       }
 
