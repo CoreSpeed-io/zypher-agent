@@ -1,5 +1,8 @@
 "use client";
 
+import { usePathname } from "fumadocs-core/framework";
+import Link from "fumadocs-core/link";
+import { useIsScrollTop } from "fumadocs-ui/utils/use-is-scroll-top";
 import {
   type ComponentProps,
   createContext,
@@ -9,11 +12,8 @@ import {
 } from "react";
 import { cn } from "../../../lib/cn";
 import { useSidebar } from "../sidebar/base";
-import { usePathname } from "fumadocs-core/framework";
-import Link from "fumadocs-core/link";
 import type { SidebarTab } from "../sidebar/tabs";
 import { isTabActive } from "../sidebar/tabs/dropdown";
-import { useIsScrollTop } from "fumadocs-ui/utils/use-is-scroll-top";
 
 export const LayoutContext = createContext<{
   isNavTransparent: boolean;

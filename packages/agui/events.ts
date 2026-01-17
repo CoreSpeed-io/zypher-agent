@@ -1,4 +1,3 @@
-import { EventType } from "@ag-ui/core";
 import type {
   BaseEvent,
   CustomEvent,
@@ -16,6 +15,7 @@ import type {
   ToolCallResultEvent,
   ToolCallStartEvent,
 } from "@ag-ui/core";
+import { EventType } from "@ag-ui/core";
 import type { TaskEvent } from "@zypher/agent";
 import type { EventContext } from "./adapter.ts";
 

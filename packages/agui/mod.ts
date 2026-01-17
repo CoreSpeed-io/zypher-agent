@@ -7,20 +7,12 @@
  */
 
 // Core adapter and types
+export type { AguiEventStreamOptions, EventContext } from "./adapter.ts";
 export {
   createAguiEventStream,
   createEventContext,
   parseRunAgentInput,
 } from "./adapter.ts";
-export type { AguiEventStreamOptions, EventContext } from "./adapter.ts";
-
-// Message conversion utilities
-export {
-  convertAguiMessagesToZypher,
-  convertZypherMessagesToAgui,
-  extractTaskDescription,
-} from "./messages.ts";
-
 // Event conversion utilities
 export {
   convertTaskEvent,
@@ -30,3 +22,10 @@ export {
   createRunStartedEvent,
   createStateSnapshotEvent,
 } from "./events.ts";
+
+// Message conversion utilities
+export {
+  convertAguiMessagesToZypher,
+  convertZypherMessagesToAgui,
+  extractTaskDescription,
+} from "./messages.ts";

@@ -1,11 +1,11 @@
 import type { ModelProvider } from "./llm/mod.ts";
 import type { McpServerEndpoint } from "./mcp/mod.ts";
+import { createZypherContext } from "./utils/context.ts";
 import {
   ZypherAgent,
   type ZypherAgentOptions,
   type ZypherContext,
 } from "./zypher_agent.ts";
-import { createZypherContext } from "./utils/context.ts";
 
 /**
  * Options for creating a ZypherAgent using the simplified factory function.

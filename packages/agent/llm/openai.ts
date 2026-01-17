@@ -1,4 +1,7 @@
+import { type ClientOptions, OpenAI } from "@openai/openai";
 import { Observable } from "rxjs";
+import * as z from "zod";
+import { type ImageBlock, isFileAttachment, type Message } from "../message.ts";
 import type { FileAttachmentCacheMap } from "../storage/file_attachment_manager.ts";
 import type {
   FinalMessage,
@@ -10,9 +13,6 @@ import type {
   StreamChatParams,
   TokenUsage,
 } from "./model_provider.ts";
-import { type ClientOptions, OpenAI } from "@openai/openai";
-import { type ImageBlock, isFileAttachment, type Message } from "../message.ts";
-import * as z from "zod";
 import { injectOutputSchema } from "./utils.ts";
 
 const SUPPORTED_IMAGE_TYPES = [

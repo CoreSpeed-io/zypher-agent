@@ -1,8 +1,8 @@
-import type { ModelProvider, ModelProviderOptions } from "./model_provider.ts";
 import {
   AnthropicModelProvider,
   type AnthropicModelProviderOptions,
 } from "./anthropic.ts";
+import type { ModelProvider, ModelProviderOptions } from "./model_provider.ts";
 import {
   OpenAIModelProvider,
   type OpenAIModelProviderOptions,

@@ -1,5 +1,5 @@
-import type { Message } from "../message.ts";
 import type { Subject } from "rxjs";
+import type { Message } from "../message.ts";
 import type { TaskEvent } from "../task_events.ts";
 
 /**

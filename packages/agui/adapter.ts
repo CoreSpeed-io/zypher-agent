@@ -21,16 +21,11 @@
  * ```
  */
 
-import { RunAgentInputSchema } from "@ag-ui/core";
 import type { BaseEvent, Message, RunAgentInput } from "@ag-ui/core";
-import { concatMap, from, Observable } from "rxjs";
-
+import { RunAgentInputSchema } from "@ag-ui/core";
 import type { ZypherAgent } from "@zypher/agent";
 import { formatError } from "@zypher/utils/error";
-import {
-  convertZypherMessagesToAgui,
-  extractTaskDescription,
-} from "./messages.ts";
+import { concatMap, from, Observable } from "rxjs";
 import {
   convertTaskEvent,
   createMessagesSnapshotEvent,
@@ -39,6 +34,10 @@ import {
   createRunStartedEvent,
   createStateSnapshotEvent,
 } from "./events.ts";
+import {
+  convertZypherMessagesToAgui,
+  extractTaskDescription,
+} from "./messages.ts";
 
 export interface EventContext {
   messageId: string;

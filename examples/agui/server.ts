@@ -8,12 +8,12 @@
  */
 
 import "@std/dotenv/load";
-import { z } from "zod";
+import type { Message } from "@ag-ui/core";
 import { createZypherAgent } from "@zypher/agent";
 import { createTool } from "@zypher/agent/tools";
 import { createAguiEventStream, parseRunAgentInput } from "@zypher/agui";
-import type { Message } from "@ag-ui/core";
 import { eachValueFrom } from "rxjs-for-await";
+import { z } from "zod";
 
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 

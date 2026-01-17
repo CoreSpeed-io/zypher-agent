@@ -2,10 +2,10 @@ import type { Message } from "@ag-ui/core";
 import type {
   ContentBlock,
   ImageBlock,
-  Message as ZypherMessage,
   TextBlock,
   ToolResultBlock,
   ToolUseBlock,
+  Message as ZypherMessage,
 } from "@zypher/agent";
 
 export function convertAguiMessagesToZypher(

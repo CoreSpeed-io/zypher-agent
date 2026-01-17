@@ -5,9 +5,9 @@
  * to the ACP protocol.
  */
 
-import type * as acp from "acp";
 import type { McpServerEndpoint, TaskEvent, ZypherAgent } from "@zypher/agent";
 import type { ToolResult } from "@zypher/agent/tools";
+import type * as acp from "acp";
 import { eachValueFrom } from "rxjs-for-await";
 import { convertPromptContent } from "./content.ts";
 import denoConfig from "./deno.json" with { type: "json" };

@@ -4,9 +4,10 @@
  * Runs a Zypher ACP agent over stdio.
  */
 
-import * as acp from "acp";
 import { Completer } from "@zypher/utils";
+import * as acp from "acp";
 import { ZypherAcpAgent, type ZypherAgentBuilder } from "./zypher_acp_agent.ts";
+
 export type {
   AcpClientConfig,
   ZypherAgentBuilder,

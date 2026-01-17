@@ -1,11 +1,3 @@
-import type {
-  AttachmentMetadata,
-  GenerateUploadUrlResult,
-  StorageService,
-  UploadOptions,
-  UploadResult,
-} from "./storage_service.ts";
-import { FileNotFoundError } from "./storage_errors.ts";
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -24,6 +16,14 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ensureDir } from "@std/fs";
 import * as path from "@std/path";
+import { FileNotFoundError } from "./storage_errors.ts";
+import type {
+  AttachmentMetadata,
+  GenerateUploadUrlResult,
+  StorageService,
+  UploadOptions,
+  UploadResult,
+} from "./storage_service.ts";
 
 /**
  * S3-specific provider options

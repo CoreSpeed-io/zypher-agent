@@ -17,9 +17,9 @@
  * - Includes error handling and abort signal tests
  */
 
-import { afterEach, describe, test } from "@std/testing/bdd";
-import { expect } from "@std/expect";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { expect } from "@std/expect";
+import { afterEach, describe, test } from "@std/testing/bdd";
 import { connectToCliServer, connectToRemoteServer } from "./connect.ts";
 import type { McpCommandConfig, McpRemoteConfig } from "./mod.ts";
 

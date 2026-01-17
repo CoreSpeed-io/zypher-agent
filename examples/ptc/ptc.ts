@@ -13,16 +13,16 @@
  */
 
 import "@std/dotenv/load";
+import { TextLineStream } from "@std/streams/text-line-stream";
 import {
   createZypherContext,
   McpServerManager,
   ZypherAgent,
 } from "@zypher/agent";
 import { createExecuteCodeTool, createTool } from "@zypher/agent/tools";
-import { z } from "zod";
-import { eachValueFrom } from "rxjs-for-await";
-import { TextLineStream } from "@std/streams/text-line-stream";
 import chalk from "chalk";
+import { eachValueFrom } from "rxjs-for-await";
+import { z } from "zod";
 
 async function prompt(message: string): Promise<string> {
   console.log(message);

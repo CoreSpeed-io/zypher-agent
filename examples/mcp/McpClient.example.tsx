@@ -18,13 +18,7 @@
  */
 
 import { Command } from "@cliffy/command";
-import { useEffect, useState } from "react";
-import { Box, render, Text, useApp, useInput } from "ink";
-import SelectInput from "ink-select-input";
-import TextInput from "ink-text-input";
-import { renderToStaticMarkup } from "react-dom/server";
 import type { OAuthClientMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { matchesState, type StateValue } from "xstate";
 import {
   createZypherContext,
   InMemoryOAuthProvider,
@@ -35,6 +29,12 @@ import {
   type OAuthOptions,
 } from "@zypher/agent";
 import { Completer } from "@zypher/utils";
+import { Box, render, Text, useApp, useInput } from "ink";
+import SelectInput from "ink-select-input";
+import TextInput from "ink-text-input";
+import { useEffect, useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { matchesState, type StateValue } from "xstate";
 
 // --- HTTP Server OAuth Provider ---
 

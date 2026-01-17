@@ -1,3 +1,4 @@
+import { Command } from "@cliffy/command";
 import {
   createModelProvider,
   createZypherAgent,
@@ -8,7 +9,6 @@ import {
   createImageTools,
   RunTerminalCmdTool,
 } from "@zypher/agent/tools";
-import { Command } from "@cliffy/command";
 import { createZypherHandler } from "./handler.ts";
 
 export async function main(): Promise<void> {

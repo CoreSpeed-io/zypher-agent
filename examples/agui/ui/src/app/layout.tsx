@@ -1,6 +1,5 @@
-import type { Metadata } from "next";
-
 import { CopilotKit } from "@copilotkit/react-core";
+import type { Metadata } from "next";
 import "./globals.css";
 import "@copilotkit/react-core/v2/styles.css";
 

@@ -1,6 +1,6 @@
-import type { ZypherAgent } from "@zypher/agent";
-import readline from "node:readline";
 import { stdin, stdout } from "node:process";
+import readline from "node:readline";
+import type { ZypherAgent } from "@zypher/agent";
 import { formatError } from "@zypher/utils/error";
 import chalk from "chalk";
 import { eachValueFrom } from "rxjs-for-await";

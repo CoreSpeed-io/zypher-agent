@@ -16,22 +16,23 @@
  * - StdioClientTransport for CLI server communication
  * - SSEClientTransport with OAuth for HTTP server communication
  */
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type {
   CallToolResult,
   CompatibilityCallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
+import { assert } from "@std/assert";
+import { formatError, isAbortError } from "@zypher/utils";
+import { distinctUntilChanged, from, map, type Observable } from "rxjs";
 import { assign, createActor, setup, waitFor } from "xstate";
 import { createTool, type Tool } from "../tools/mod.ts";
-import { jsonToZod } from "./utils.ts";
-import type { McpServerEndpoint } from "./mod.ts";
-import { formatError, isAbortError } from "@zypher/utils";
-import { assert } from "@std/assert";
-import { connectToServer, type OAuthOptions } from "./connect.ts";
 import type { ZypherContext } from "../zypher_agent.ts";
-import { distinctUntilChanged, from, map, type Observable } from "rxjs";
+import { connectToServer, type OAuthOptions } from "./connect.ts";
+import type { McpServerEndpoint } from "./mod.ts";
+import { jsonToZod } from "./utils.ts";
 
 /** Client-specific configuration options */
 export interface McpClientOptions {

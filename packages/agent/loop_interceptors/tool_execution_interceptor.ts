@@ -1,17 +1,17 @@
+import { formatError } from "@zypher/utils";
+import type { McpServerManager } from "../mcp/mcp_server_manager.ts";
 import type {
   ImageBlock,
   TextBlock,
   ToolResultBlock,
   ToolUseBlock,
 } from "../message.ts";
-import type { McpServerManager } from "../mcp/mcp_server_manager.ts";
 import {
   type InterceptorContext,
   type InterceptorResult,
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
-import { formatError } from "@zypher/utils";
 
 /**
  * Interceptor that handles tool execution when the LLM requests tool calls

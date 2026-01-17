@@ -1,16 +1,16 @@
 import "@std/dotenv/load";
+import { Command } from "@cliffy/command";
 import {
   createModelProvider,
   createZypherAgent,
   DEFAULT_MODELS,
 } from "@zypher/agent";
-import { formatError } from "@zypher/utils/error";
 import {
   createFileSystemTools,
   createImageTools,
   RunTerminalCmdTool,
 } from "@zypher/agent/tools";
-import { Command } from "@cliffy/command";
+import { formatError } from "@zypher/utils/error";
 import chalk from "chalk";
 import { runAgentInTerminal } from "./run_agent_in_terminal.ts";
 

@@ -1,7 +1,7 @@
-import type { ErrorDetector } from "./interface.ts";
-import { extractErrorOutput } from "./utils.ts";
 import { exists } from "@std/fs";
 import * as path from "@std/path";
+import type { ErrorDetector } from "./interface.ts";
+import { extractErrorOutput } from "./utils.ts";
 
 // Reuse a single TextDecoder instance for efficiency
 const decoder = new TextDecoder();

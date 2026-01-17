@@ -1,8 +1,8 @@
 "use client";
-import type { ComponentProps, ReactNode } from "react";
 import { usePathname } from "fumadocs-core/framework";
-import { isActive } from "../../lib/urls";
 import Link from "fumadocs-core/link";
+import type { ComponentProps, ReactNode } from "react";
+import { isActive } from "../../lib/urls";
 
 interface Filterable {
   /**

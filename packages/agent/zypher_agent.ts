@@ -1,16 +1,15 @@
-import type { Checkpoint } from "./checkpoint_manager.ts";
-import type { CheckpointManager } from "./checkpoint_manager.ts";
-import type { ContentBlock, FileAttachment, Message } from "./message.ts";
+import { createAbortError, isAbortError } from "@zypher/utils";
+import type { Checkpoint, CheckpointManager } from "./checkpoint_manager.ts";
+import type { ModelProvider, TokenUsage } from "./llm/mod.ts";
+import { createModelProvider } from "./llm/mod.ts";
 import { McpServerManager } from "./mcp/mcp_server_manager.ts";
+import type { ContentBlock, FileAttachment, Message } from "./message.ts";
 import type { StorageService } from "./storage/storage_service.ts";
 import {
   addTokenUsage,
   createEmittingMessageArray,
   getSystemPrompt,
 } from "./utils/mod.ts";
-import type { ModelProvider, TokenUsage } from "./llm/mod.ts";
-import { createModelProvider } from "./llm/mod.ts";
-import { createAbortError, isAbortError } from "@zypher/utils";
 
 /**
  * Error thrown when attempting to run a new task while another task is already running.
@@ -21,22 +20,23 @@ export class TaskConcurrencyError extends Error {
     this.name = "TaskConcurrencyError";
   }
 }
+
+import { Completer } from "@zypher/utils";
 import { filter, type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
-import {
-  type FileAttachmentCacheMap,
-  FileAttachmentManager,
-} from "./storage/mod.ts";
 import {
   LoopDecision,
   LoopInterceptorManager,
   MaxTokensInterceptor,
   ToolExecutionInterceptor,
 } from "./loop_interceptors/mod.ts";
-import type { TaskEvent } from "./task_events.ts";
 import { SkillManager, type SkillManagerOptions } from "./skill_manager.ts";
+import {
+  type FileAttachmentCacheMap,
+  FileAttachmentManager,
+} from "./storage/mod.ts";
+import type { TaskEvent } from "./task_events.ts";
 import type { Tool } from "./tools/mod.ts";
-import { Completer } from "@zypher/utils";
 
 /**
  * Function that loads the system prompt for the agent.

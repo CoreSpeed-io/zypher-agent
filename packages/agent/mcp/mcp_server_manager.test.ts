@@ -1,13 +1,13 @@
-import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
 import { expect } from "@std/expect";
+import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
 import z from "zod";
-import type { Tool } from "../tools/mod.ts";
 import type {
   McpServerEndpoint,
   McpServerManagerEvent,
   ZypherContext,
 } from "../mod.ts";
 import { McpServerManager } from "../mod.ts";
+import type { Tool } from "../tools/mod.ts";
 
 describe("McpServerManager", () => {
   let manager: McpServerManager;

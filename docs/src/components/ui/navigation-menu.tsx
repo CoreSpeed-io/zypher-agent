@@ -1,6 +1,6 @@
 "use client";
-import * as React from "react";
 import * as Primitive from "@radix-ui/react-navigation-menu";
+import * as React from "react";
 import { cn } from "../../lib/cn";
 
 export type NavigationMenuContentProps = Primitive.NavigationMenuContentProps;

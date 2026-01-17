@@ -1,3 +1,5 @@
+import { encodeBase64 } from "@std/encoding/base64";
+import * as path from "@std/path";
 import { z } from "zod";
 import {
   createTool,
@@ -5,8 +7,6 @@ import {
   type ToolExecutionContext,
   type ToolResult,
 } from "../mod.ts";
-import * as path from "@std/path";
-import { encodeBase64 } from "@std/encoding/base64";
 
 // Supported image types that can be displayed as rich content
 const SUPPORTED_IMAGE_TYPES = [

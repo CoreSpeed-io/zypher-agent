@@ -5,8 +5,8 @@
  * and cancellation support. Manages the worker lifecycle and message passing internally.
  */
 
-import type { McpServerManager } from "../../mcp/mod.ts";
 import { Completer } from "@zypher/utils";
+import type { McpServerManager } from "../../mcp/mod.ts";
 import {
   type CodeExecutionResult,
   type HostToWorkerMessage,

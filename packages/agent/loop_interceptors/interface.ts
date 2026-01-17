@@ -1,8 +1,8 @@
-import type { Message } from "../message.ts";
-import type { Tool } from "../tools/mod.ts";
-import type { FinalMessage } from "../llm/mod.ts";
 import type { Subject } from "rxjs";
+import type { FinalMessage } from "../llm/mod.ts";
+import type { Message } from "../message.ts";
 import type { TaskEvent } from "../task_events.ts";
+import type { Tool } from "../tools/mod.ts";
 import type { ZypherContext } from "../zypher_agent.ts";
 
 /**

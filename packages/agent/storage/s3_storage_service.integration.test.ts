@@ -1,11 +1,12 @@
 // deno-lint-ignore-file no-console -- Test file uses console for debugging output
-import { afterEach, beforeAll, describe, test } from "@std/testing/bdd";
-import { expect } from "@std/expect";
+
 import { assertRejects } from "@std/assert";
+import { expect } from "@std/expect";
+import { afterEach, beforeAll, describe, test } from "@std/testing/bdd";
 import "@std/dotenv/load";
 import { S3StorageService } from "./s3_storage_service.ts";
-import type { UploadOptions } from "./storage_service.ts";
 import { FileNotFoundError } from "./storage_errors.ts";
+import type { UploadOptions } from "./storage_service.ts";
 
 // Skip tests if environment variables are not set
 const skipTests = !Deno.env.get("S3_ACCESS_KEY_ID") ||

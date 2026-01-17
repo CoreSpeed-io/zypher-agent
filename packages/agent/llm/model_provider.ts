@@ -1,12 +1,12 @@
 import type { Observable } from "rxjs";
 import type { Message } from "../message.ts";
-import type { Tool } from "../tools/mod.ts";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 import type {
   TaskTextEvent,
   TaskToolUseEvent,
   TaskToolUseInputEvent,
 } from "../task_events.ts";
+import type { Tool } from "../tools/mod.ts";
 
 export interface ModelProviderOptions {
   /**

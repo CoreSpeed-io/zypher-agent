@@ -1,5 +1,5 @@
-import type { ErrorDetector } from "./error_detection/mod.ts";
 import { createAbortError } from "@zypher/utils";
+import type { ErrorDetector } from "./error_detection/mod.ts";
 import {
   type InterceptorContext,
   type InterceptorResult,

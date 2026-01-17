@@ -1,10 +1,8 @@
+export * from "./connect.ts";
+export * from "./in_memory_oauth_provider.ts";
 export * from "./mcp_client.ts";
 export * from "./mcp_server_manager.ts";
-
 export * from "./utils.ts";
-export * from "./connect.ts";
-
-export * from "./in_memory_oauth_provider.ts";
 
 /** Command configuration for local MCP server execution */
 export interface McpCommandConfig {

@@ -1,9 +1,9 @@
-import { z } from "zod";
 import type {
   Argument,
   Package,
   ServerDetail,
 } from "@corespeed/mcp-store-client";
+import { z } from "zod";
 import type { McpServerEndpoint } from "./mod.ts";
 
 // =============================================================================

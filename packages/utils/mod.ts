@@ -15,14 +15,12 @@
  * @module
  */
 
-// Error utilities
-export { createAbortError, formatError, isAbortError } from "./error.ts";
-
 // Async utilities
 export { Completer } from "./async.ts";
+// Command utilities
+export { runCommand } from "./command.ts";
 
 // Environment utilities
 export { getRequiredEnv, parsePort } from "./env.ts";
-
-// Command utilities
-export { runCommand } from "./command.ts";
+// Error utilities
+export { createAbortError, formatError, isAbortError } from "./error.ts";

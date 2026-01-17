@@ -3,12 +3,12 @@
  * in an isolated Web Worker environment with tool access.
  */
 
-import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
 import { expect } from "@std/expect";
+import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
 import z from "zod";
-import type { Tool } from "../mod.ts";
 import type { ZypherContext } from "../../mod.ts";
 import { McpServerManager } from "../../mod.ts";
+import type { Tool } from "../mod.ts";
 import { executeCode } from "./execute_code.ts";
 
 describe("executeCode", () => {

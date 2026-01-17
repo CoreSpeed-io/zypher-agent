@@ -1,9 +1,9 @@
+import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotRuntime,
   copilotRuntimeNextJSAppRouterEndpoint,
   ExperimentalEmptyAdapter,
 } from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
 import type { NextRequest } from "next/server";
 
 // 1. You can use any service adapter here for multi-agent support. We use

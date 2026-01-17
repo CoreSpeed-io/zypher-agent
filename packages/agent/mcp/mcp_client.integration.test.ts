@@ -1,9 +1,9 @@
-import { afterEach, beforeAll, describe, test } from "@std/testing/bdd";
 import { expect } from "@std/expect";
-import { McpClient } from "./mcp_client.ts";
-import type { McpServerEndpoint } from "./mod.ts";
+import { afterEach, beforeAll, describe, test } from "@std/testing/bdd";
 import { createZypherContext } from "../utils/mod.ts";
 import type { ZypherContext } from "../zypher_agent.ts";
+import { McpClient } from "./mcp_client.ts";
+import type { McpServerEndpoint } from "./mod.ts";
 
 describe("McpClient Integration Tests", () => {
   let client: McpClient;

@@ -1,10 +1,10 @@
+import { createAbortError } from "@zypher/utils";
 import {
   type InterceptorContext,
   type InterceptorResult,
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
-import { createAbortError } from "@zypher/utils";
 
 /**
  * Manages and executes loop interceptors

@@ -1,7 +1,7 @@
+import { ensureDir, exists } from "@std/fs";
+import * as path from "@std/path";
 import { z } from "zod";
 import { createTool, type Tool, type ToolExecutionContext } from "../mod.ts";
-import * as path from "@std/path";
-import { ensureDir, exists } from "@std/fs";
 
 export const CopyFileTool: Tool<{
   sourceFile: string;

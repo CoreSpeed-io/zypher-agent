@@ -1,3 +1,8 @@
+import { Anthropic, type ClientOptions } from "@anthropic-ai/sdk";
+import { Observable } from "rxjs";
+import * as z from "zod";
+import type { ContentBlock, ImageBlock, Message } from "../message.ts";
+import type { FileAttachmentCacheMap } from "../storage/mod.ts";
 import type {
   FinalMessage,
   ModelEvent,
@@ -8,11 +13,6 @@ import type {
   StreamChatParams,
   TokenUsage,
 } from "./model_provider.ts";
-import { Anthropic, type ClientOptions } from "@anthropic-ai/sdk";
-import type { ContentBlock, ImageBlock, Message } from "../message.ts";
-import { Observable } from "rxjs";
-import type { FileAttachmentCacheMap } from "../storage/mod.ts";
-import * as z from "zod";
 import { injectOutputSchema } from "./utils.ts";
 
 const SUPPORTED_IMAGE_TYPES = [

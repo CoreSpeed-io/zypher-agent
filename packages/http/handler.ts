@@ -1,5 +1,8 @@
+import type { ZypherAgent } from "@zypher/agent";
+import type { Completer } from "@zypher/utils";
 import { Hono } from "hono";
 import { upgradeWebSocket } from "hono/deno";
+import { filter, map, type Observable, type ReplaySubject } from "rxjs";
 import { sendServerMessage, wsClientMessageSchema } from "./schema.ts";
 import {
   type HttpTaskEvent,
@@ -7,9 +10,6 @@ import {
   replayHttpTaskEvents,
   withHttpTaskEventReplayAndHeartbeat,
 } from "./task_event.ts";
-import { filter, map, type Observable, type ReplaySubject } from "rxjs";
-import type { ZypherAgent } from "@zypher/agent";
-import type { Completer } from "@zypher/utils";
 
 /**
  * Options for creating a Zypher HTTP handler.

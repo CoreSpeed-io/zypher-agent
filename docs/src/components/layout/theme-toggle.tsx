@@ -2,7 +2,7 @@
 import { cva } from "class-variance-authority";
 import { Airplay, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { ComponentProps, useEffect, useState } from "react";
+import { type ComponentProps, useEffect, useState } from "react";
 import { cn } from "../../lib/cn";
 
 const itemVariants = cva(

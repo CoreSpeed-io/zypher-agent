@@ -1,5 +1,5 @@
-import type * as z from "zod";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type * as z from "zod";
 import type { ZypherContext } from "../zypher_agent.ts";
 
 /**
@@ -70,12 +70,12 @@ export function createTool<T extends BaseParams>(options: {
   };
 }
 
-// Filesystem tools
-export * from "./fs/mod.ts";
-
 // Code executor tool
 export * from "./code_executor/mod.ts";
 
+// Filesystem tools
+export * from "./fs/mod.ts";
+
 // Other tools
-export { RunTerminalCmdTool } from "./run_terminal_cmd_tool.ts";
 export { createImageTools } from "./image_tools.ts";
+export { RunTerminalCmdTool } from "./run_terminal_cmd_tool.ts";

@@ -13,8 +13,8 @@
  */
 
 export {
-  runAcpServer,
   type RunAcpServerOptions,
+  runAcpServer,
   type ZypherAgentBuilder,
 } from "./server.ts";
 

@@ -10,18 +10,15 @@
  */
 
 export {
+  type DiscoverOptions,
+  discoverSkills,
+  findSkillMd,
+} from "./discover.ts";
+export { escapeHtml, toPrompt } from "./prompt.ts";
+export {
   parseSkill,
   type Skill,
   type SkillMetadata,
   toSkillMetadata,
 } from "./skill.ts";
-
-export {
-  type DiscoverOptions,
-  discoverSkills,
-  findSkillMd,
-} from "./discover.ts";
-
-export { validateSkillMetadata, type ValidationResult } from "./validator.ts";
-
-export { escapeHtml, toPrompt } from "./prompt.ts";
+export { type ValidationResult, validateSkillMetadata } from "./validator.ts";

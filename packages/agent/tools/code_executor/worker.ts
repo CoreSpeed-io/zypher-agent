@@ -8,11 +8,11 @@
 
 /// <reference lib="deno.worker" />
 
+import { encodeBase64 } from "@std/encoding/base64";
 import { Completer } from "@zypher/utils";
 import type { ToolResult } from "../mod.ts";
-import { encodeBase64 } from "@std/encoding/base64";
-import { HostToWorkerMessageSchema } from "./protocol.ts";
 import type { CodeExecutionResult, ToolUseMessage } from "./protocol.ts";
+import { HostToWorkerMessageSchema } from "./protocol.ts";
 
 type ToolsProxy = Record<string, (input: unknown) => Promise<unknown>>;
 

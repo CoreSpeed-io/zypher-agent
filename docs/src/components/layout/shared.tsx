@@ -1,7 +1,7 @@
-import type { ComponentProps, ReactNode } from "react";
 import type { I18nConfig } from "fumadocs-core/i18n";
-import type { LinkItemType } from "./link-item";
 import Link from "fumadocs-core/link";
+import type { ComponentProps, ReactNode } from "react";
+import type { LinkItemType } from "./link-item";
 
 export interface NavOptions {
   enabled: boolean;

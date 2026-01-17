@@ -1,7 +1,5 @@
 "use client";
 
-import { WeatherCard } from "@/components/weather";
-import { MoonCard } from "@/components/moon";
 import {
   useFrontendTool,
   useHumanInTheLoop,
@@ -10,6 +8,8 @@ import {
 import { CopilotChat } from "@copilotkit/react-core/v2";
 import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 import { useState } from "react";
+import { MoonCard } from "@/components/moon";
+import { WeatherCard } from "@/components/weather";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
