@@ -264,9 +264,6 @@ function formatInputMessage(
           } else if (isFileAttachment(c)) {
             const cache = fileAttachmentCacheMap?.[c.fileId];
             if (!cache) {
-              console.warn(
-                `Skipping file attachment as it is not cached. File ID: ${c.fileId}`,
-              );
               return null;
             }
 
@@ -294,9 +291,6 @@ Cached at: ${cache.cachePath}`,
             }
 
             // Fall back to just the text block for unsupported types
-            console.warn(
-              `File attachment ${c.fileId} is not supported by OpenAI's Chat Completion API (MIME type: ${c.mimeType}), this file will not be shown to the model.`,
-            );
             return textBlock;
           }
 

@@ -144,12 +144,7 @@ export async function connectToRemoteServer(
     );
   } catch (error) {
     if (is4xxError(error)) {
-      console.warn(
-        "Got 4xx error while trying to connect to remote MCP server with StreamableHTTPClientTransport",
-        error,
-      );
-      console.warn("Falling back to SSE transport");
-      // Fall back to SSE transport
+      // Fall back to SSE transport on 4xx errors
       return await attemptToConnect(
         client,
         () =>
