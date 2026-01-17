@@ -26,7 +26,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { OAuthClientMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { matchesState, type StateValue } from "xstate";
 import {
-  Completer,
   createZypherContext,
   InMemoryOAuthProvider,
   McpClient,
@@ -35,6 +34,7 @@ import {
   type OAuthCallbackHandler,
   type OAuthOptions,
 } from "@zypher/agent";
+import { Completer } from "@zypher/utils";
 
 // --- HTTP Server OAuth Provider ---
 

@@ -6,6 +6,7 @@
     "packages/acp",
     "packages/http",
     "packages/skills",
+    "packages/utils",
     "examples/mcp",
     "examples/agui",
     "examples/ptc"

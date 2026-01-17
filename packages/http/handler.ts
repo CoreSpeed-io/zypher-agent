@@ -8,7 +8,8 @@ import {
   withHttpTaskEventReplayAndHeartbeat,
 } from "./task_event.ts";
 import { filter, map, type Observable, type ReplaySubject } from "rxjs";
-import type { Completer, ZypherAgent } from "@zypher/agent";
+import type { ZypherAgent } from "@zypher/agent";
+import type { Completer } from "@zypher/utils";
 
 /**
  * Options for creating a Zypher HTTP handler.

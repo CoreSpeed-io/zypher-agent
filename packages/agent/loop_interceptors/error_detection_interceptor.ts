@@ -1,5 +1,5 @@
 import type { ErrorDetector } from "./error_detection/mod.ts";
-import { AbortError } from "../error.ts";
+import { createAbortError } from "../error.ts";
 import {
   type InterceptorContext,
   type InterceptorResult,
@@ -115,7 +115,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
     // Find applicable detectors
     for (const detector of this.#errorDetectors) {
       if (options.signal?.aborted) {
-        throw new AbortError("Aborted while checking detectors");
+        throw createAbortError("Aborted while checking detectors");
       }
 
       try {
@@ -139,7 +139,7 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
 
     for (const detector of applicableDetectors) {
       if (options.signal?.aborted) {
-        throw new AbortError("Aborted while running detectors");
+        throw createAbortError("Aborted while running detectors");
       }
 
       try {
