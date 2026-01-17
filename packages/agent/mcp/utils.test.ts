@@ -49,7 +49,7 @@ describe("convertServerDetailToEndpoint", () => {
       remote: {
         url: "https://api.example.com/mcp",
         headers: {
-          "Authorization": "Bearer token123",
+          Authorization: "Bearer token123",
           "X-Custom-Header": "custom-value",
         },
       },
@@ -91,12 +91,8 @@ describe("convertServerDetailToEndpoint", () => {
           name: "@modelcontextprotocol/server-github",
           version: "1.0.0",
           runtimeHint: "npx",
-          packageArguments: [
-            { type: "positional", value: "owner/repo" },
-          ],
-          runtimeArguments: [
-            { type: "positional", value: "-y" },
-          ],
+          packageArguments: [{ type: "positional", value: "owner/repo" }],
+          runtimeArguments: [{ type: "positional", value: "-y" }],
           environmentVariables: [
             { name: "GITHUB_TOKEN", value: "token123" },
             { name: "DEBUG", value: "true" },
@@ -113,14 +109,10 @@ describe("convertServerDetailToEndpoint", () => {
       type: "command",
       command: {
         command: "npx",
-        args: [
-          "-y",
-          "@modelcontextprotocol/server-github@1.0.0",
-          "owner/repo",
-        ],
+        args: ["-y", "@modelcontextprotocol/server-github@1.0.0", "owner/repo"],
         env: {
-          "GITHUB_TOKEN": "token123",
-          "DEBUG": "true",
+          GITHUB_TOKEN: "token123",
+          DEBUG: "true",
         },
       },
     });

@@ -11,9 +11,7 @@ export const DeleteFileTool: Tool<{
   schema: z.object({
     targetFile: z
       .string()
-      .describe(
-        "The path of the file to delete (relative or absolute).",
-      ),
+      .describe("The path of the file to delete (relative or absolute)."),
     explanation: z
       .string()
       .optional()

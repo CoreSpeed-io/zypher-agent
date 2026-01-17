@@ -81,10 +81,12 @@ export class ErrorDetectionInterceptor implements LoopInterceptor {
       // Add error message to context
       context.messages.push({
         role: "user",
-        content: [{
-          type: "text",
-          text: `🔍 Detected code errors that need to be fixed:\n\n${errors}`,
-        }],
+        content: [
+          {
+            type: "text",
+            text: `🔍 Detected code errors that need to be fixed:\n\n${errors}`,
+          },
+        ],
         timestamp: new Date(),
       });
 

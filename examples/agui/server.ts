@@ -35,17 +35,19 @@ const getWeatherTool = createTool({
     console.log(`Fetching weather for ${location} in ${unit}...`);
     // Return CallToolResult with JSON string for backend_tool_rendering
     return Promise.resolve({
-      content: [{
-        type: "text" as const,
-        text: JSON.stringify({
-          location,
-          temperature: temp,
-          conditions: "sunny",
-          humidity: 45,
-          wind_speed: 10,
-          feels_like: temp + 2,
-        }),
-      }],
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify({
+            location,
+            temperature: temp,
+            conditions: "sunny",
+            humidity: 45,
+            wind_speed: 10,
+            feels_like: temp + 2,
+          }),
+        },
+      ],
     });
   },
 });

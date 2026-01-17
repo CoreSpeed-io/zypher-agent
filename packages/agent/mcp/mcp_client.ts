@@ -351,12 +351,9 @@ export class McpClient {
     } catch (error) {
       this.#actor.send({
         type: "error",
-        error: new Error(
-          `Failed to discover tools.`,
-          {
-            cause: error,
-          },
-        ),
+        error: new Error(`Failed to discover tools.`, {
+          cause: error,
+        }),
       });
     }
   }
@@ -396,13 +393,9 @@ export class McpClient {
     this.#actor.send({ type: "updateDesiredState", desiredState: "disposed" });
 
     // wait for the machine to reach the disposed state
-    await waitFor(
-      this.#actor,
-      (snapshot) => snapshot.value === "disposed",
-      {
-        timeout: 30_000, // 30 seconds (30,000 milliseconds)
-      },
-    );
+    await waitFor(this.#actor, (snapshot) => snapshot.value === "disposed", {
+      timeout: 30_000, // 30 seconds (30,000 milliseconds)
+    });
   }
 
   /**
@@ -477,8 +470,10 @@ export class McpClient {
     if (finalSnapshot.value === "error") {
       // Get the actual error from context
       const actualError = finalSnapshot.context.lastError;
-      throw actualError ??
-        new Error("Failed to connect to MCP server, unknown error");
+      throw (
+        actualError ??
+        new Error("Failed to connect to MCP server, unknown error")
+      );
     }
   }
 
@@ -488,8 +483,10 @@ export class McpClient {
    */
   get connected(): boolean {
     const snapshot = this.#actor.getSnapshot();
-    return snapshot.context.desiredState === "connected" &&
-      snapshot.matches("connected");
+    return (
+      snapshot.context.desiredState === "connected" &&
+      snapshot.matches("connected")
+    );
   }
 
   get status(): McpClientStatus {
@@ -557,12 +554,9 @@ export class McpClient {
    * @private
    */
   async #discoverTools(signal: AbortSignal): Promise<void> {
-    const toolResult = await this.#client.listTools(
-      undefined,
-      {
-        signal,
-      },
-    );
+    const toolResult = await this.#client.listTools(undefined, {
+      signal,
+    });
 
     // Convert MCP tools to our internal tool format
     this.#tools = toolResult.tools.map((tool) => {
@@ -619,9 +613,7 @@ export class McpClient {
 function isLegacyToolResult(
   result: CompatibilityCallToolResult,
 ): result is { toolResult: unknown } {
-  return result != null &&
-    typeof result === "object" &&
-    "toolResult" in result;
+  return result != null && typeof result === "object" && "toolResult" in result;
 }
 
 /**
@@ -630,10 +622,12 @@ function isLegacyToolResult(
 function isCurrentToolResult(
   result: CompatibilityCallToolResult,
 ): result is CallToolResult {
-  return result != null &&
+  return (
+    result != null &&
     typeof result === "object" &&
     "content" in result &&
-    Array.isArray(result.content);
+    Array.isArray(result.content)
+  );
 }
 
 /**

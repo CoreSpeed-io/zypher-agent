@@ -41,10 +41,7 @@ export class SkillManager {
   readonly #options: SkillManagerOptions;
   readonly #skills: Map<string, Skill> = new Map();
 
-  constructor(
-    context: ZypherContext,
-    options?: SkillManagerOptions,
-  ) {
+  constructor(context: ZypherContext, options?: SkillManagerOptions) {
     this.#context = context;
     this.#options = options ?? {};
 
@@ -56,7 +53,7 @@ export class SkillManager {
 
     // Custom directories (resolved relative to workingDirectory)
     this.#customSkillsDirs = (options?.customSkillsDirs ?? []).map((dir) =>
-      resolve(context.workingDirectory, dir)
+      resolve(context.workingDirectory, dir),
     );
   }
 

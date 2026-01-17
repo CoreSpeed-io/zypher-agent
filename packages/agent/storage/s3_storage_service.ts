@@ -88,8 +88,10 @@ export class S3StorageService implements StorageService {
     key: string,
     headOutput: HeadObjectCommandOutput,
   ): AttachmentMetadata {
-    const originalFilename = headOutput.Metadata?.["original-filename"] ??
-      key.split("/").pop() ?? "unknown";
+    const originalFilename =
+      headOutput.Metadata?.["original-filename"] ??
+      key.split("/").pop() ??
+      "unknown";
 
     return {
       filename: originalFilename,
@@ -372,10 +374,7 @@ export class S3StorageService implements StorageService {
     return signedUrl;
   }
 
-  async getSignedUrl(
-    fileId: string,
-    expirySeconds = 3600,
-  ): Promise<string> {
+  async getSignedUrl(fileId: string, expirySeconds = 3600): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.#bucket,
       Key: fileId,

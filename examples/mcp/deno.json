@@ -16,10 +16,7 @@
     }
   },
   "compilerOptions": {
-    "types": [
-      "react",
-      "@types/react"
-    ],
+    "types": ["react", "@types/react"],
     "jsx": "react-jsx",
     "jsxImportSource": "react"
   }

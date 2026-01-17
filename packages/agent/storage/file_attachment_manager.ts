@@ -94,7 +94,7 @@ export class FileAttachmentManager {
     fileId: string,
   ): Promise<FileAttachmentCache | null> {
     const cachePath = this.getFileAttachmentCachePath(fileId);
-    if (!await exists(cachePath)) {
+    if (!(await exists(cachePath))) {
       // Download the file attachment from storage service to cache path
       await this.storageService.downloadFile(fileId, cachePath);
     }

@@ -23,22 +23,20 @@ export interface McpRemoteConfig {
 }
 
 /** Server endpoint information for connecting to an MCP server */
-export type McpServerEndpoint =
-  & {
-    /** Kebab-case identifier used as key (e.g., "github-copilot") */
-    id: string;
-    /** Human-readable display name (e.g., "GitHub Copilot") */
-    displayName?: string;
-  }
-  & (
-    | {
+export type McpServerEndpoint = {
+  /** Kebab-case identifier used as key (e.g., "github-copilot") */
+  id: string;
+  /** Human-readable display name (e.g., "GitHub Copilot") */
+  displayName?: string;
+} & (
+  | {
       type: "command";
       /** CLI command configuration for local server execution */
       command: McpCommandConfig;
     }
-    | {
+  | {
       type: "remote";
       /** Remote server configuration for HTTP/SSE connections */
       remote: McpRemoteConfig;
     }
-  );
+);

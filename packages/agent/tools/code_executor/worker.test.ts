@@ -11,12 +11,9 @@ Deno.test("worker - builds tools proxy correctly", async () => {
   const toolCalls: Array<{ toolName: string; input: unknown }> = [];
   const completer = new Completer<CodeExecutionResult>();
 
-  const worker = new Worker(
-    new URL("./worker.ts", import.meta.url),
-    {
-      type: "module",
-    },
-  );
+  const worker = new Worker(new URL("./worker.ts", import.meta.url), {
+    type: "module",
+  });
 
   try {
     worker.onmessage = (event) => {
@@ -68,12 +65,9 @@ Deno.test("worker - builds tools proxy correctly", async () => {
 Deno.test("worker - captures console output", async () => {
   const completer = new Completer<CodeExecutionResult>();
 
-  const worker = new Worker(
-    new URL("./worker.ts", import.meta.url),
-    {
-      type: "module",
-    },
-  );
+  const worker = new Worker(new URL("./worker.ts", import.meta.url), {
+    type: "module",
+  });
 
   try {
     worker.onmessage = (event) => {
@@ -116,12 +110,9 @@ Deno.test("worker - captures console output", async () => {
 Deno.test("worker - handles exceptions and preserves logs", async () => {
   const completer = new Completer<CodeExecutionResult>();
 
-  const worker = new Worker(
-    new URL("./worker.ts", import.meta.url),
-    {
-      type: "module",
-    },
-  );
+  const worker = new Worker(new URL("./worker.ts", import.meta.url), {
+    type: "module",
+  });
 
   try {
     worker.onmessage = (event) => {

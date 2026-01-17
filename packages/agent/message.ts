@@ -130,8 +130,8 @@ export function isMessage(value: unknown): value is Message {
     return false;
   }
 
-  const hasRequiredProps = "role" in value && "content" in value &&
-    "timestamp" in value;
+  const hasRequiredProps =
+    "role" in value && "content" in value && "timestamp" in value;
 
   if (!hasRequiredProps) {
     return false;
@@ -146,7 +146,12 @@ export function isMessage(value: unknown): value is Message {
 }
 
 export function isFileAttachment(value: unknown): value is FileAttachment {
-  return typeof value === "object" && value !== null &&
-    "type" in value && value.type === "file_attachment" &&
-    "fileId" in value && typeof value.fileId === "string";
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    value.type === "file_attachment" &&
+    "fileId" in value &&
+    typeof value.fileId === "string"
+  );
 }

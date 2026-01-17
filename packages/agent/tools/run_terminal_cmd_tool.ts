@@ -27,10 +27,7 @@ export const RunTerminalCmdTool: Tool<{
       .optional()
       .describe("One sentence explanation for tool usage"),
   }),
-  execute: async (
-    { command, isBackground },
-    ctx: ToolExecutionContext,
-  ) => {
+  execute: async ({ command, isBackground }, ctx: ToolExecutionContext) => {
     if (isBackground) {
       // For background processes, use spawn
       const child = spawn(command, [], {

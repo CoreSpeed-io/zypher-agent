@@ -16,10 +16,7 @@ import { HostToWorkerMessageSchema } from "./protocol.ts";
 
 type ToolsProxy = Record<string, (input: unknown) => Promise<unknown>>;
 
-function callTool(
-  toolName: string,
-  input: unknown,
-): Promise<ToolResult> {
+function callTool(toolName: string, input: unknown): Promise<ToolResult> {
   const toolUseId = `ptc_${crypto.randomUUID()}`;
   const completer = new Completer<ToolResult>();
   pendingToolCalls.set(toolUseId, completer);
@@ -43,11 +40,9 @@ function buildToolsProxy(tools: string[]): ToolsProxy {
 
 async function executeCode(code: string, tools: ToolsProxy): Promise<unknown> {
   const moduleCode = `export default async function(tools) {\n${code}\n}`;
-  const dataUrl = `data:application/typescript;base64,${
-    encodeBase64(
-      new TextEncoder().encode(moduleCode),
-    )
-  }`;
+  const dataUrl = `data:application/typescript;base64,${encodeBase64(
+    new TextEncoder().encode(moduleCode),
+  )}`;
   return (await import(dataUrl)).default(tools);
 }
 

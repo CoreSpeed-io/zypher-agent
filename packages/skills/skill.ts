@@ -55,19 +55,19 @@ export function toSkillMetadata(
     metadata.compatibility = raw.compatibility.trim();
   }
 
-  if (
-    typeof raw["allowed-tools"] === "string" && raw["allowed-tools"].trim()
-  ) {
+  if (typeof raw["allowed-tools"] === "string" && raw["allowed-tools"].trim()) {
     metadata.allowedTools = raw["allowed-tools"].trim();
   }
 
   if (
-    raw.metadata && typeof raw.metadata === "object" &&
+    raw.metadata &&
+    typeof raw.metadata === "object" &&
     !Array.isArray(raw.metadata)
   ) {
-    const entries = Object.entries(raw.metadata).map(
-      ([k, v]) => [String(k), String(v)],
-    );
+    const entries = Object.entries(raw.metadata).map(([k, v]) => [
+      String(k),
+      String(v),
+    ]);
     if (entries.length > 0) {
       metadata.metadata = Object.fromEntries(entries);
     }

@@ -32,9 +32,9 @@ function getMimeTypeFromPath(filePath: string): string | undefined {
 
 function isSupportedImageType(
   mimeType: string,
-): mimeType is typeof SUPPORTED_IMAGE_TYPES[number] {
+): mimeType is (typeof SUPPORTED_IMAGE_TYPES)[number] {
   return SUPPORTED_IMAGE_TYPES.includes(
-    mimeType as typeof SUPPORTED_IMAGE_TYPES[number],
+    mimeType as (typeof SUPPORTED_IMAGE_TYPES)[number],
   );
 }
 
@@ -71,8 +71,7 @@ export const ReadFileTool: Tool<{
   explanation?: string | undefined;
 }> = createTool({
   name: "read_file",
-  description:
-    `Read the contents of a file. Supports text files (with line-based reading) and images (JPEG, PNG, GIF, WebP, SVG) as rich content.
+  description: `Read the contents of a file. Supports text files (with line-based reading) and images (JPEG, PNG, GIF, WebP, SVG) as rich content.
 
 For text files: if startLine and endLine are provided, reads the specified line range (1-indexed, inclusive).
 If no line range is specified, reads the entire file.
@@ -113,11 +112,7 @@ Specifically, each time you call this command you should:
       ),
   }),
   execute: async (
-    {
-      filePath,
-      startLine,
-      endLine,
-    },
+    { filePath, startLine, endLine },
     ctx: ToolExecutionContext,
   ): Promise<ToolResult> => {
     const resolvedPath = path.resolve(ctx.workingDirectory, filePath);
@@ -148,10 +143,12 @@ Specifically, each time you call this command you should:
     if (isLikelyBinary) {
       const fileStats = await Deno.stat(resolvedPath);
       return {
-        content: [{
-          type: "text",
-          text: `Unable to read ${filePath} as text (likely a binary file)`,
-        }],
+        content: [
+          {
+            type: "text",
+            text: `Unable to read ${filePath} as text (likely a binary file)`,
+          },
+        ],
         structuredContent: {
           type: "file_info",
           path: filePath,

@@ -44,10 +44,7 @@ describe("executeCode", () => {
 
   describe("basic code execution", () => {
     it("should execute simple code and return result", async () => {
-      const result = await executeCode(
-        `return 1 + 2;`,
-        manager,
-      );
+      const result = await executeCode(`return 1 + 2;`, manager);
 
       expect(result.success).toBe(true);
       expect(result.data).toBe(3);
@@ -272,10 +269,7 @@ describe("executeCode", () => {
     });
 
     it("should handle code that returns null", async () => {
-      const result = await executeCode(
-        `return null;`,
-        manager,
-      );
+      const result = await executeCode(`return null;`, manager);
 
       expect(result.success).toBe(true);
       expect(result.data).toBe(null);
@@ -309,10 +303,7 @@ describe("executeCode", () => {
     });
 
     it("should handle code with syntax errors", async () => {
-      const result = await executeCode(
-        "const x = { unclosed: 'brace",
-        manager,
-      );
+      const result = await executeCode("const x = { unclosed: 'brace", manager);
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();

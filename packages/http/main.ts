@@ -47,9 +47,8 @@ export async function main(): Promise<void> {
   });
 
   // Use OpenAI key for image tools
-  const openaiApiKey = modelProvider.info.name === "openai"
-    ? cli.apiKey
-    : cli.openaiApiKey;
+  const openaiApiKey =
+    modelProvider.info.name === "openai" ? cli.apiKey : cli.openaiApiKey;
 
   const tools = [
     ...createFileSystemTools(),
@@ -66,19 +65,24 @@ export async function main(): Promise<void> {
 
   const app = createZypherHandler({ agent });
 
-  Deno.serve({
-    port: cli.port,
-    hostname: cli.host,
-    onListen: ({ hostname, port }) => {
-      console.log(`Zypher HTTP server listening on http://${hostname}:${port}`);
-      console.log(`Provider: ${modelProvider.info.name}`);
-      console.log(`Model: ${modelProvider.modelId}`);
-      if (cli.baseUrl) console.log(`Base URL: ${cli.baseUrl}`);
-      if (cli.workDir) console.log(`Working directory: ${cli.workDir}`);
-      if (cli.userId) console.log(`User ID: ${cli.userId}`);
-      console.log(`Tools: ${Array.from(agent.mcp.tools.keys()).join(", ")}`);
+  Deno.serve(
+    {
+      port: cli.port,
+      hostname: cli.host,
+      onListen: ({ hostname, port }) => {
+        console.log(
+          `Zypher HTTP server listening on http://${hostname}:${port}`,
+        );
+        console.log(`Provider: ${modelProvider.info.name}`);
+        console.log(`Model: ${modelProvider.modelId}`);
+        if (cli.baseUrl) console.log(`Base URL: ${cli.baseUrl}`);
+        if (cli.workDir) console.log(`Working directory: ${cli.workDir}`);
+        if (cli.userId) console.log(`User ID: ${cli.userId}`);
+        console.log(`Tools: ${Array.from(agent.mcp.tools.keys()).join(", ")}`);
+      },
     },
-  }, app.fetch);
+    app.fetch,
+  );
 }
 
 if (import.meta.main) {

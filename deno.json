@@ -22,10 +22,10 @@
       "tags": ["recommended", "jsr"]
     }
   },
-  "exclude": [
-    "docs/",
-    "examples/agui/ui"
-  ],
+  "fmt": {
+    "exclude": ["**/*"]
+  },
+  "exclude": ["docs/", "examples/agui/ui"],
   "imports": {
     "@biomejs/biome": "npm:@biomejs/biome@^2.3.11"
   }

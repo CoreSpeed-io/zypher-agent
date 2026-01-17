@@ -97,8 +97,8 @@ export function convertTaskEvent(
 
     case "tool_use_result": {
       // Look up by toolUseId, fall back to event.toolUseId if not found
-      const toolCallId = context.toolCallIds.get(event.toolUseId) ??
-        event.toolUseId;
+      const toolCallId =
+        context.toolCallIds.get(event.toolUseId) ?? event.toolUseId;
 
       const toolEndEvent = {
         type: EventType.TOOL_CALL_END,
@@ -137,8 +137,8 @@ export function convertTaskEvent(
 
     case "tool_use_error": {
       // Look up by toolUseId, fall back to event.toolUseId if not found
-      const toolCallId = context.toolCallIds.get(event.toolUseId) ??
-        event.toolUseId;
+      const toolCallId =
+        context.toolCallIds.get(event.toolUseId) ?? event.toolUseId;
 
       const toolEndEvent = {
         type: EventType.TOOL_CALL_END,

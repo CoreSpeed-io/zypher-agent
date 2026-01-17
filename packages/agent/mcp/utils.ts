@@ -62,8 +62,9 @@ function convertToRecord(
   if (!items?.length) return undefined;
 
   const entries = items
-    .filter((item): item is { name: string; value: string } =>
-      !!item.name && !!item.value
+    .filter(
+      (item): item is { name: string; value: string } =>
+        !!item.name && !!item.value,
     )
     .map((item) => [item.name, item.value] as [string, string]);
 
@@ -73,9 +74,7 @@ function convertToRecord(
 /**
  * Extract string values from an array of {value} objects, filtering out undefined values
  */
-function extractArguments(
-  args?: Array<Argument>,
-): string[] {
+function extractArguments(args?: Array<Argument>): string[] {
   if (!args) return [];
 
   const result: string[] = [];

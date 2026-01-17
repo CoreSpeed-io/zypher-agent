@@ -143,18 +143,19 @@ export class ZypherAgent {
     model: ModelProvider | string,
     options: ZypherAgentOptions = {},
   ) {
-    this.#modelProvider = typeof model === "string"
-      ? createModelProvider(model)
-      : model;
+    this.#modelProvider =
+      typeof model === "string" ? createModelProvider(model) : model;
     this.#context = context;
 
     // Initialize SkillManager
-    this.#skillManager = options.overrides?.skillManager ??
+    this.#skillManager =
+      options.overrides?.skillManager ??
       new SkillManager(context, options.config?.skills);
 
     // Create system prompt loader that includes Skills
     // Skills are automatically discovered within getSystemPrompt when skillManager is provided
-    this.#systemPromptLoader = options.overrides?.systemPromptLoader ??
+    this.#systemPromptLoader =
+      options.overrides?.systemPromptLoader ??
       (() =>
         getSystemPrompt(context.workingDirectory, {
           skillManager: this.#skillManager,
@@ -170,9 +171,10 @@ export class ZypherAgent {
       : [];
 
     // Services and interceptors
-    this.#mcpServerManager = options.overrides?.mcpServerManager ??
-      new McpServerManager(context);
-    this.#loopInterceptorManager = options.overrides?.loopInterceptorManager ??
+    this.#mcpServerManager =
+      options.overrides?.mcpServerManager ?? new McpServerManager(context);
+    this.#loopInterceptorManager =
+      options.overrides?.loopInterceptorManager ??
       new LoopInterceptorManager([
         new ToolExecutionInterceptor(this.#mcpServerManager),
         new MaxTokensInterceptor(),
@@ -354,15 +356,18 @@ export class ZypherAgent {
     }
 
     // Pipe MCP tool events directly to task events (event shapes are compatible)
-    const mcpSubscription = this.#mcpServerManager.events$.pipe(
-      filter((e) =>
-        e.type === "tool_use_pending_approval" ||
-        e.type === "tool_use_approved" ||
-        e.type === "tool_use_rejected" ||
-        e.type === "tool_use_result" ||
-        e.type === "tool_use_error"
-      ),
-    ).subscribe((event) => taskEventSubject.next(event));
+    const mcpSubscription = this.#mcpServerManager.events$
+      .pipe(
+        filter(
+          (e) =>
+            e.type === "tool_use_pending_approval" ||
+            e.type === "tool_use_approved" ||
+            e.type === "tool_use_rejected" ||
+            e.type === "tool_use_result" ||
+            e.type === "tool_use_error",
+        ),
+      )
+      .subscribe((event) => taskEventSubject.next(event));
 
     try {
       // Reload system prompt to get current custom rules from working directory
@@ -373,15 +378,14 @@ export class ZypherAgent {
       let checkpointId: string | undefined;
       let checkpoint: Checkpoint | undefined;
       if (this.#checkpointManager) {
-        const checkpointName = `Before task: ${
-          taskDescription.substring(0, 50)
-        }${taskDescription.length > 50 ? "..." : ""}`;
-        checkpointId = await this.#checkpointManager.createCheckpoint(
-          checkpointName,
-        );
-        checkpoint = await this.#checkpointManager.getCheckpointDetails(
-          checkpointId,
-        );
+        const checkpointName = `Before task: ${taskDescription.substring(
+          0,
+          50,
+        )}${taskDescription.length > 50 ? "..." : ""}`;
+        checkpointId =
+          await this.#checkpointManager.createCheckpoint(checkpointName);
+        checkpoint =
+          await this.#checkpointManager.getCheckpointDetails(checkpointId);
       }
 
       const messageContent: ContentBlock[] = [
@@ -403,21 +407,19 @@ export class ZypherAgent {
       this.#messages.push(userMessage);
       taskEventSubject.next({ type: "message", message: userMessage });
 
-      const toolCalls = Array.from(
-        this.#mcpServerManager.tools.values(),
-      );
+      const toolCalls = Array.from(this.#mcpServerManager.tools.values());
 
       // Cache file attachments if enabled
       let cacheMap: FileAttachmentCacheMap | undefined;
       if (this.#fileAttachmentManager) {
-        cacheMap = await this.#fileAttachmentManager
-          .cacheMessageFileAttachments(
+        cacheMap =
+          await this.#fileAttachmentManager.cacheMessageFileAttachments(
             this.#messages,
           );
       }
 
-      const maxIterations = options?.maxIterations ??
-        this.#config.maxIterations;
+      const maxIterations =
+        options?.maxIterations ?? this.#config.maxIterations;
 
       // Cumulative token usage tracker (undefined until we receive usage data)
       let cumulativeUsage: TokenUsage | undefined;
@@ -492,9 +494,8 @@ export class ZypherAgent {
           eventSubject: taskEventSubject,
         };
 
-        const interceptorResult = await this.#loopInterceptorManager.execute(
-          interceptorContext,
-        );
+        const interceptorResult =
+          await this.#loopInterceptorManager.execute(interceptorContext);
 
         if (interceptorResult.decision === LoopDecision.COMPLETE) {
           // All interceptors decided to complete, exit the loop

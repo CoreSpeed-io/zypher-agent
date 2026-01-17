@@ -33,9 +33,9 @@ export {
  * });
  * ```
  */
-export function createFileSystemTools(
-  options?: { backupDir?: string },
-): Tool[] {
+export function createFileSystemTools(options?: {
+  backupDir?: string;
+}): Tool[] {
   return [
     ReadFileTool,
     ListDirTool,

@@ -62,9 +62,7 @@ export class LoopInterceptorManager {
    * @param context The context to pass to interceptors
    * @returns Promise<InterceptorResult> Result from the chain
    */
-  async execute(
-    context: InterceptorContext,
-  ): Promise<InterceptorResult> {
+  async execute(context: InterceptorContext): Promise<InterceptorResult> {
     // Execute interceptors sequentially until one decides to CONTINUE
     for (const interceptor of this.#interceptors) {
       // Check for abort signal
@@ -84,9 +82,8 @@ export class LoopInterceptorManager {
         context.eventSubject.next({
           type: "interceptor_result",
           interceptorName: interceptor.name,
-          decision: result.decision === LoopDecision.CONTINUE
-            ? "continue"
-            : "complete",
+          decision:
+            result.decision === LoopDecision.CONTINUE ? "continue" : "complete",
         });
 
         // If this interceptor wants to continue, it takes control of the chain

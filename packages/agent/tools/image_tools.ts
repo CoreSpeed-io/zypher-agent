@@ -80,9 +80,8 @@ async function saveImages(
     // Process base64 JSON data
     if (image.b64_json) {
       // Decode base64 data to Uint8Array
-      const binaryData = Uint8Array.from(
-        atob(image.b64_json),
-        (c) => c.charCodeAt(0),
+      const binaryData = Uint8Array.from(atob(image.b64_json), (c) =>
+        c.charCodeAt(0),
       );
 
       // Write the data to the file
@@ -142,13 +141,7 @@ export function createImageTools(openaiApiKey: string): Tool[] {
     }),
 
     execute: async (
-      {
-        prompt,
-        size,
-        quality,
-        background,
-        destinationPath,
-      },
+      { prompt, size, quality, background, destinationPath },
       ctx: ToolExecutionContext,
     ): Promise<string> => {
       const resolvedDestination = path.resolve(
@@ -230,14 +223,7 @@ export function createImageTools(openaiApiKey: string): Tool[] {
     }),
 
     execute: async (
-      {
-        sourcePath,
-        mimeType,
-        prompt,
-        size,
-        quality,
-        destinationPath,
-      },
+      { sourcePath, mimeType, prompt, size, quality, destinationPath },
       ctx: ToolExecutionContext,
     ): Promise<string> => {
       const resolvedSource = path.resolve(ctx.workingDirectory, sourcePath);

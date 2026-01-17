@@ -4,11 +4,9 @@ import { filter, Observable, ReplaySubject } from "rxjs";
 /**
  * Event types for task execution events using discriminated union types
  */
-export type HttpTaskEvent =
-  & (AgentTaskEvent | HeartbeatEvent)
-  & {
-    eventId: HttpTaskEventId;
-  };
+export type HttpTaskEvent = (AgentTaskEvent | HeartbeatEvent) & {
+  eventId: HttpTaskEventId;
+};
 
 /**
  * Heartbeat event data
@@ -130,8 +128,9 @@ export class HttpTaskEventId {
       return true;
     }
 
-    return this.#timestamp === other.#timestamp &&
-      this.#sequence > other.#sequence;
+    return (
+      this.#timestamp === other.#timestamp && this.#sequence > other.#sequence
+    );
   }
 
   /**
@@ -277,26 +276,24 @@ export function replayHttpTaskEvents(
   serverLatestEventId?: HttpTaskEventId,
   clientLastEventId?: HttpTaskEventId,
 ): Observable<HttpTaskEvent> {
-  return source
-    .asObservable()
-    .pipe(
-      // First filter: only include events after clientLastEventId (if provided)
-      filter((event) =>
-        clientLastEventId ? event.eventId.isAfter(clientLastEventId) : true
-      ),
-      // Second filter: filter out stale pending approval events
-      filter((event) => {
-        // Only apply this filter to tool_approval_pending events when serverLatestEventId is provided
-        if (serverLatestEventId && event.type === "tool_use_pending_approval") {
-          // Create HttpTaskEventId objects for comparison
-          const eventId = event.eventId;
+  return source.asObservable().pipe(
+    // First filter: only include events after clientLastEventId (if provided)
+    filter((event) =>
+      clientLastEventId ? event.eventId.isAfter(clientLastEventId) : true,
+    ),
+    // Second filter: filter out stale pending approval events
+    filter((event) => {
+      // Only apply this filter to tool_approval_pending events when serverLatestEventId is provided
+      if (serverLatestEventId && event.type === "tool_use_pending_approval") {
+        // Create HttpTaskEventId objects for comparison
+        const eventId = event.eventId;
 
-          // Keep the event if it's newer than or equal to the server's latest event
-          // (i.e., filter out stale pending approval events that happened before the server's latest event)
-          return !serverLatestEventId.isAfter(eventId);
-        }
-        // Keep all other event types
-        return true;
-      }),
-    );
+        // Keep the event if it's newer than or equal to the server's latest event
+        // (i.e., filter out stale pending approval events that happened before the server's latest event)
+        return !serverLatestEventId.isAfter(eventId);
+      }
+      // Keep all other event types
+      return true;
+    }),
+  );
 }

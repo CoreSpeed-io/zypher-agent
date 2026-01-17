@@ -21,15 +21,13 @@ export async function createZypherContext(
   await ensureDir(zypherDir);
 
   // Generate workspace data directory using Base64 encoding (unless overridden)
-  const workspaceDataDir = options?.workspaceDataDir ??
-    getDefaultWorkspaceDataDir(
-      zypherDir,
-      workingDirectory,
-    );
+  const workspaceDataDir =
+    options?.workspaceDataDir ??
+    getDefaultWorkspaceDataDir(zypherDir, workingDirectory);
   await ensureDir(workspaceDataDir);
 
-  const fileAttachmentCacheDir = options?.fileAttachmentCacheDir ??
-    path.join(zypherDir, "cache", "files");
+  const fileAttachmentCacheDir =
+    options?.fileAttachmentCacheDir ?? path.join(zypherDir, "cache", "files");
   await ensureDir(fileAttachmentCacheDir);
 
   const skillsDir = options?.skillsDir ?? path.join(zypherDir, "skills");
@@ -72,10 +70,9 @@ function getDefaultWorkspaceDataDir(
   // Use Base64 encoding for consistent, filesystem-safe workspace directory names
   const encoder = new TextEncoder();
   const data = encoder.encode(workingDirectory);
-  const encodedPath = encodeBase64(data).replace(/[/+]/g, "_").replace(
-    /=/g,
-    "",
-  );
+  const encodedPath = encodeBase64(data)
+    .replace(/[/+]/g, "_")
+    .replace(/=/g, "");
 
   return path.join(zypherDir, encodedPath);
 }

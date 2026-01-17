@@ -136,9 +136,7 @@ Deno.test("toPrompt - escapes special characters in description", () => {
 
   const result = toPrompt(skills);
 
-  expect(result).toContain(
-    "&quot;quotes&quot; &amp; &lt;tags&gt;",
-  );
+  expect(result).toContain("&quot;quotes&quot; &amp; &lt;tags&gt;");
 });
 
 Deno.test("toPrompt - preserves location path as-is", () => {

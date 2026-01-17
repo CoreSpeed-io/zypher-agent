@@ -82,9 +82,8 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
               throw error;
             }
 
-            const { success, data: message } = wsClientMessageSchema.safeParse(
-              rawMessage,
-            );
+            const { success, data: message } =
+              wsClientMessageSchema.safeParse(rawMessage);
 
             if (!success) {
               ws.close(1003, "invalid_message");
@@ -100,14 +99,14 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                 }
 
                 // Create abort controller and start task
-                const abortController = taskAbortController ??=
-                  new AbortController();
+                const abortController = (taskAbortController ??=
+                  new AbortController());
 
-                const eventSubject = taskEventSubject ??= runAgentTask(
+                const eventSubject = (taskEventSubject ??= runAgentTask(
                   agent,
                   message.task,
                   { signal: abortController.signal },
-                );
+                ));
 
                 // Subscribe to events and send them over WebSocket
                 eventSubject.subscribe({
@@ -219,17 +218,13 @@ function runAgentTask(
   taskPrompt: string,
   options?: { signal?: AbortSignal },
 ): ReplaySubject<HttpTaskEvent> {
-  const zypherHttpTaskEvent$ = agent.runTask(
-    taskPrompt,
-    undefined,
-    options,
-  );
+  const zypherHttpTaskEvent$ = agent.runTask(taskPrompt, undefined, options);
 
   // Track whether we've seen the first message event
   let firstUserMessageEventSeen = false;
 
-  const agentHttpTaskEvent$: Observable<HttpTaskEvent> = zypherHttpTaskEvent$
-    .pipe(
+  const agentHttpTaskEvent$: Observable<HttpTaskEvent> =
+    zypherHttpTaskEvent$.pipe(
       filter((event) => {
         // Filter out the first user message event since the client optimistically updates
         if (!firstUserMessageEventSeen && event.type === "message") {

@@ -43,11 +43,7 @@ describe("Transport Integration Tests", () => {
         args: ["-y", "@modelcontextprotocol/server-everything"],
       };
 
-      await connectToCliServer(
-        Deno.cwd(),
-        client,
-        commandConfig,
-      );
+      await connectToCliServer(Deno.cwd(), client, commandConfig);
 
       const toolResult = await client.listTools();
       expect(toolResult.tools.length).toBeGreaterThan(0);
@@ -94,26 +90,30 @@ describe("Transport Integration Tests", () => {
   });
 
   describe("connectToRemoteServer", () => {
-    test("should connect to MCP HTTP server when URL provided", {
-      ignore: !Deno.env.get("MCP_TEST_SERVER_URL"),
-    }, async () => {
-      const testServerUrl = Deno.env.get("MCP_TEST_SERVER_URL")!;
+    test(
+      "should connect to MCP HTTP server when URL provided",
+      {
+        ignore: !Deno.env.get("MCP_TEST_SERVER_URL"),
+      },
+      async () => {
+        const testServerUrl = Deno.env.get("MCP_TEST_SERVER_URL")!;
 
-      client = new Client({
-        name: "test-client",
-        version: "1.0.0",
-      });
+        client = new Client({
+          name: "test-client",
+          version: "1.0.0",
+        });
 
-      const remoteConfig: McpRemoteConfig = {
-        url: testServerUrl,
-      };
+        const remoteConfig: McpRemoteConfig = {
+          url: testServerUrl,
+        };
 
-      await connectToRemoteServer(client, remoteConfig);
+        await connectToRemoteServer(client, remoteConfig);
 
-      // Verify we can list tools from the connected server
-      const toolResult = await client.listTools();
-      expect(toolResult.tools.length).toBeGreaterThan(0);
-    });
+        // Verify we can list tools from the connected server
+        const toolResult = await client.listTools();
+        expect(toolResult.tools.length).toBeGreaterThan(0);
+      },
+    );
 
     test("should throw error for invalid URL", async () => {
       client = new Client({

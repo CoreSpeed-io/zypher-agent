@@ -25,10 +25,7 @@ export interface Tool<T extends BaseParams = BaseParams> {
   readonly description: string;
   readonly schema: z.ZodType<T>;
   readonly outputSchema?: z.ZodType;
-  execute(
-    input: T,
-    ctx: ToolExecutionContext,
-  ): Promise<ToolResult>;
+  execute(input: T, ctx: ToolExecutionContext): Promise<ToolResult>;
 }
 
 /**
@@ -52,10 +49,7 @@ export function createTool<T extends BaseParams>(options: {
   description: string;
   schema: z.ZodType<T>;
   outputSchema?: z.ZodType;
-  execute: (
-    params: T,
-    ctx: ToolExecutionContext,
-  ) => Promise<ToolResult>;
+  execute: (params: T, ctx: ToolExecutionContext) => Promise<ToolResult>;
 }): Tool<T> {
   return {
     name: options.name,

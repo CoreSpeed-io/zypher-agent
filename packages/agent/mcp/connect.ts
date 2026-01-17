@@ -63,11 +63,10 @@ export async function connectToServer(
       { signal: options?.signal },
     );
   } else {
-    return await connectToRemoteServer(
-      client,
-      serverEndpoint.remote,
-      { signal: options?.signal, oauth: options?.oauth },
-    );
+    return await connectToRemoteServer(client, serverEndpoint.remote, {
+      signal: options?.signal,
+      oauth: options?.oauth,
+    });
   }
 }
 
@@ -131,15 +130,12 @@ export async function connectToRemoteServer(
     return await attemptToConnect(
       client,
       () =>
-        new StreamableHTTPClientTransport(
-          mcpServerUrl,
-          {
-            requestInit: {
-              headers: remoteConfig.headers,
-            },
-            authProvider: options?.oauth?.authProvider,
+        new StreamableHTTPClientTransport(mcpServerUrl, {
+          requestInit: {
+            headers: remoteConfig.headers,
           },
-        ),
+          authProvider: options?.oauth?.authProvider,
+        }),
       options,
     );
   } catch (error) {
@@ -148,15 +144,12 @@ export async function connectToRemoteServer(
       return await attemptToConnect(
         client,
         () =>
-          new SSEClientTransport(
-            mcpServerUrl,
-            {
-              requestInit: {
-                headers: remoteConfig.headers,
-              },
-              authProvider: options?.oauth?.authProvider,
+          new SSEClientTransport(mcpServerUrl, {
+            requestInit: {
+              headers: remoteConfig.headers,
             },
-          ),
+            authProvider: options?.oauth?.authProvider,
+          }),
         options,
       );
     } else {
@@ -189,8 +182,10 @@ async function attemptToConnect(
 
       // Wait for the OAuth callback handler to complete the flow
       // The OAuth provider has already shown the authorization URL via redirectToAuthorization
-      const authorizationCode = await options.oauth.callbackHandler
-        .waitForCallback({ signal: options.signal });
+      const authorizationCode =
+        await options.oauth.callbackHandler.waitForCallback({
+          signal: options.signal,
+        });
 
       // Exchange the authorization code for an access token so the next connection attempt will succeed
       await transport.finishAuth(authorizationCode);

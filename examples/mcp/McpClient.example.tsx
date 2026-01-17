@@ -94,8 +94,10 @@ function renderHtmlResponse(element: React.ReactElement): Response {
 // See: https://github.com/modelcontextprotocol/typescript-sdk/issues/1316
 const OAUTH_CALLBACK_PORT = 9876;
 
-class HttpServerOAuthProvider extends InMemoryOAuthProvider
-  implements OAuthCallbackHandler {
+class HttpServerOAuthProvider
+  extends InMemoryOAuthProvider
+  implements OAuthCallbackHandler
+{
   #codeCompleter?: Completer<string>;
   #server?: Deno.HttpServer;
 
@@ -106,9 +108,7 @@ class HttpServerOAuthProvider extends InMemoryOAuthProvider
   }
 
   override async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
-    console.info(
-      `[OAuth] Starting callback server...`,
-    );
+    console.info(`[OAuth] Starting callback server...`);
 
     this.#codeCompleter = new Completer<string>();
     const serverReadyCompleter = new Completer<void>();
@@ -203,9 +203,8 @@ function formatStatus(status: StateValue): string {
 }
 
 function getStatusColor(status: McpClientStatus): string {
-  if (
-    matchesState("disconnected", status) || matchesState("disposed", status)
-  ) return "gray";
+  if (matchesState("disconnected", status) || matchesState("disposed", status))
+    return "gray";
   if (matchesState("error", status)) return "red";
   if (matchesState("connecting", status)) return "yellow";
   if (matchesState("connected", status)) return "green";
@@ -395,7 +394,9 @@ function App({ client }: AppProps) {
       {viewMode.type === "tools" && (
         <Box flexDirection="column">
           <Text bold>🔧 Tools ({tools.length}):</Text>
-          {tools.length === 0 ? <Text dimColor>No tools available</Text> : (
+          {tools.length === 0 ? (
+            <Text dimColor>No tools available</Text>
+          ) : (
             tools.map((tool, i) => (
               <Box key={i}>
                 <Text>
@@ -444,7 +445,9 @@ function App({ client }: AppProps) {
       {/* OAuth waiting */}
       {viewMode.type === "oauth-waiting" && (
         <Box flexDirection="column">
-          <Text bold color="yellow">🌐 AUTHORIZATION REQUIRED</Text>
+          <Text bold color="yellow">
+            🌐 AUTHORIZATION REQUIRED
+          </Text>
           <Text>
             A browser window should have opened. If not, please visit this URL:
           </Text>
@@ -459,7 +462,9 @@ function App({ client }: AppProps) {
       {/* Exiting */}
       {viewMode.type === "exiting" && (
         <Box flexDirection="column">
-          <Text bold color="yellow">Shutting down...</Text>
+          <Text bold color="yellow">
+            Shutting down...
+          </Text>
         </Box>
       )}
     </Box>

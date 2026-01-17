@@ -28,9 +28,7 @@ export function convertPromptContent(blocks: AcpContentBlock[]): PromptContent {
   return { text: parts.join("\n\n") };
 }
 
-function convertBlock(
-  block: AcpContentBlock,
-): { text: string } {
+function convertBlock(block: AcpContentBlock): { text: string } {
   switch (block.type) {
     case "text":
       return { text: block.text };

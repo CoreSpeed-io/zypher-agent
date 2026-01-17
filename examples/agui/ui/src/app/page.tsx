@@ -58,9 +58,11 @@ export default function CopilotKitPage() {
 
   return (
     <main
-      style={{
-        "--copilot-kit-primary-color": themeColor,
-      } as CopilotKitCSSProperties}
+      style={
+        {
+          "--copilot-kit-primary-color": themeColor,
+        } as CopilotKitCSSProperties
+      }
       className="h-screen"
     >
       <CopilotChat className="h-full" />

@@ -44,8 +44,10 @@ function inferProvider(model: string): ProviderName {
 
   // Anthropic models
   if (
-    m.includes("claude") || m.startsWith("sonnet") ||
-    m.startsWith("haiku") || m.startsWith("opus")
+    m.includes("claude") ||
+    m.startsWith("sonnet") ||
+    m.startsWith("haiku") ||
+    m.startsWith("opus")
   ) {
     return "anthropic";
   }

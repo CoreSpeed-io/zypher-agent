@@ -23,8 +23,7 @@ export function createExecuteCodeTool(
 
   return createTool({
     name: "execute_code",
-    description:
-      `Execute arbitrary TypeScript/JavaScript code in an isolated environment.
+    description: `Execute arbitrary TypeScript/JavaScript code in an isolated environment.
 
 Use this tool for:
 - Complex computations, data transformations, or algorithmic tasks

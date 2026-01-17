@@ -54,9 +54,9 @@ const getWeather = createTool({
   outputSchema: z.object({
     city: z.string().describe("The city name"),
     temperature: z.number().describe("Temperature in Celsius"),
-    condition: z.string().describe(
-      "Weather condition (e.g., Sunny, Cloudy, Rainy)",
-    ),
+    condition: z
+      .string()
+      .describe("Weather condition (e.g., Sunny, Cloudy, Rainy)"),
     unit: z.literal("celsius").describe("Temperature unit"),
   }),
   execute: ({ city }) => {
@@ -78,21 +78,20 @@ const getWeather = createTool({
     if (!data) {
       throw new Error(`Weather data not available for ${city}`);
     }
-    return Promise.resolve(
-      {
-        content: [{
+    return Promise.resolve({
+      content: [
+        {
           type: "text",
-          text:
-            `The weather in ${city} is ${data.condition} with a temperature of ${data.temp}°C`,
-        }],
-        structuredContent: {
-          city,
-          temperature: data.temp,
-          condition: data.condition,
-          unit: "celsius",
+          text: `The weather in ${city} is ${data.condition} with a temperature of ${data.temp}°C`,
         },
+      ],
+      structuredContent: {
+        city,
+        temperature: data.temp,
+        condition: data.condition,
+        unit: "celsius",
       },
-    );
+    });
   },
 });
 

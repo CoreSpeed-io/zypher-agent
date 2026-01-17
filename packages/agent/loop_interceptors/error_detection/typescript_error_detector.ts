@@ -21,7 +21,8 @@ export class ESLintErrorDetector implements ErrorDetector {
       const hasEslint = hasDependency(packageJson, "eslint");
 
       // Also check if there are lint scripts
-      const hasLintScript = hasScript(packageJson, "lint") ||
+      const hasLintScript =
+        hasScript(packageJson, "lint") ||
         hasScript(packageJson, "eslint") ||
         !!findScriptByPattern(packageJson, "lint");
 
@@ -92,10 +93,12 @@ export class ESLintErrorDetector implements ErrorDetector {
 
     // For direct commands, we'll use the eslint binary directly
     // but still respect the package manager via getRunCommand
-    return await getRunCommand(
-      workingDirectory,
-      ["eslint", ".", "--ext", ".js,.jsx,.ts,.tsx"],
-    );
+    return await getRunCommand(workingDirectory, [
+      "eslint",
+      ".",
+      "--ext",
+      ".js,.jsx,.ts,.tsx",
+    ]);
   }
 
   /**
@@ -139,7 +142,8 @@ export class TypeScriptErrorDetector implements ErrorDetector {
         const hasTypeScript = hasDependency(packageJson, "typescript");
 
         // Check if there are type-check scripts
-        const hasTypeCheckScript = hasScript(packageJson, "type-check") ||
+        const hasTypeCheckScript =
+          hasScript(packageJson, "type-check") ||
           hasScript(packageJson, "typecheck") ||
           hasScript(packageJson, "tsc") ||
           !!findScriptByPattern(packageJson, "type") ||
@@ -210,7 +214,8 @@ export class TypeScriptErrorDetector implements ErrorDetector {
       } else if (hasScript(packageJson, "tsc")) {
         scriptName = "tsc";
       } else {
-        scriptName = findScriptByPattern(packageJson, "type") ??
+        scriptName =
+          findScriptByPattern(packageJson, "type") ??
           findScriptByPattern(packageJson, "tsc");
       }
 
@@ -275,9 +280,9 @@ export interface CommandConfig {
  * @param {string} workingDirectory - The working directory to detect the package manager for
  * @returns {Promise<'npm' | 'yarn' | 'pnpm' | 'bun'>} The detected package manager
  */
-export async function detectPackageManager(workingDirectory: string): Promise<
-  "npm" | "yarn" | "pnpm" | "bun"
-> {
+export async function detectPackageManager(
+  workingDirectory: string,
+): Promise<"npm" | "yarn" | "pnpm" | "bun"> {
   // Check for lockfiles to determine package manager
   if (
     (await exists(path.join(workingDirectory, "bun.lock"))) ||
@@ -357,7 +362,7 @@ export function hasDependency(
 
   return !!(
     (packageJson.dependencies && dependency in packageJson.dependencies) ??
-      (packageJson.devDependencies && dependency in packageJson.devDependencies)
+    (packageJson.devDependencies && dependency in packageJson.devDependencies)
   );
 }
 
@@ -391,7 +396,7 @@ export function findScriptByPattern(
   if (!packageJson?.scripts) return undefined;
 
   return Object.keys(packageJson.scripts).find((script) =>
-    script.includes(pattern)
+    script.includes(pattern),
   );
 }
 

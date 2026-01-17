@@ -15,9 +15,7 @@ import denoConfig from "./deno.json" with { type: "json" };
 /**
  * Converts ACP McpServer configurations to Zypher McpServerEndpoint format.
  */
-function convertMcpServers(
-  acpServers: acp.McpServer[],
-): McpServerEndpoint[] {
+function convertMcpServers(acpServers: acp.McpServer[]): McpServerEndpoint[] {
   return acpServers.map((server): McpServerEndpoint => {
     if ("type" in server && (server.type === "http" || server.type === "sse")) {
       return {
@@ -97,10 +95,7 @@ export class ZypherAcpAgent implements acp.Agent {
   readonly #builder: ZypherAgentBuilder;
   readonly #sessions = new Map<string, AcpSession>();
 
-  constructor(
-    conn: acp.AgentSideConnection,
-    builder: ZypherAgentBuilder,
-  ) {
+  constructor(conn: acp.AgentSideConnection, builder: ZypherAgentBuilder) {
     this.#conn = conn;
     this.#builder = builder;
   }
@@ -162,11 +157,9 @@ export class ZypherAcpAgent implements acp.Agent {
     const { text: promptText } = convertPromptContent(params.prompt);
 
     try {
-      const observable = session.agent.runTask(
-        promptText,
-        undefined,
-        { signal: session.abort.signal },
-      );
+      const observable = session.agent.runTask(promptText, undefined, {
+        signal: session.abort.signal,
+      });
 
       for await (const event of eachValueFrom(observable)) {
         this.#handleTaskEvent(params.sessionId, event);

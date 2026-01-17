@@ -65,7 +65,7 @@ export async function discoverSkills(
 ): Promise<Skill[]> {
   const dir = resolve(skillsDir);
 
-  if (!await exists(dir)) {
+  if (!(await exists(dir))) {
     return [];
   }
 

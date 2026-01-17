@@ -96,7 +96,7 @@ export async function createZypherAgent(
       options.mcpServers.map((server) =>
         typeof server === "string"
           ? agent.mcp.registerServerFromRegistry(server)
-          : agent.mcp.registerServer(server)
+          : agent.mcp.registerServer(server),
       ),
     );
   }

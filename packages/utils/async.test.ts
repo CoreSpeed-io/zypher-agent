@@ -1,41 +1,28 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { Completer } from "./mod.ts";
 
-Deno.test(
-  "completer resolves with correct value",
-  async (_t) => {
-    const completer = new Completer<boolean>();
-    setTimeout(() => completer.resolve(true), 10); // Simulate async resolve
-    const result = await completer.wait({});
-    assertEquals(result, true);
-  },
-);
+Deno.test("completer resolves with correct value", async (_t) => {
+  const completer = new Completer<boolean>();
+  setTimeout(() => completer.resolve(true), 10); // Simulate async resolve
+  const result = await completer.wait({});
+  assertEquals(result, true);
+});
 
-Deno.test(
-  "completer rejects with provided error",
-  async (_t) => {
-    const completer = new Completer<boolean>();
-    completer.reject(new Error("Test error"));
-    await assertRejects(
-      () => completer.wait({}),
-      Error,
-      "Test error",
-    );
-  },
-);
+Deno.test("completer rejects with provided error", async (_t) => {
+  const completer = new Completer<boolean>();
+  completer.reject(new Error("Test error"));
+  await assertRejects(() => completer.wait({}), Error, "Test error");
+});
 
-Deno.test(
-  "completer aborts when abort signal is triggered",
-  async (_t) => {
-    const completer = new Completer<boolean>();
-    const signal = AbortSignal.timeout(100); // Use a short timeout for the test
-    await assertRejects(
-      () => completer.wait({ signal }),
-      DOMException,
-      "Operation aborted",
-    );
-  },
-);
+Deno.test("completer aborts when abort signal is triggered", async (_t) => {
+  const completer = new Completer<boolean>();
+  const signal = AbortSignal.timeout(100); // Use a short timeout for the test
+  await assertRejects(
+    () => completer.wait({ signal }),
+    DOMException,
+    "Operation aborted",
+  );
+});
 
 Deno.test("completer only honors first resolution", async () => {
   const completer = new Completer<number>();
@@ -100,11 +87,7 @@ Deno.test("completer maintains state for late waiters after rejection", async ()
   const completer = new Completer<number>();
   completer.reject(new Error("already rejected"));
   // Call wait() after it's already been rejected
-  await assertRejects(
-    () => completer.wait({}),
-    Error,
-    "already rejected",
-  );
+  await assertRejects(() => completer.wait({}), Error, "already rejected");
 });
 
 Deno.test("completer maintains same promise identity across wait calls", () => {

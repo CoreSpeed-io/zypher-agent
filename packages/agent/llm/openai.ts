@@ -24,9 +24,9 @@ const SUPPORTED_IMAGE_TYPES = [
 
 function isSupportedImageType(
   type: string,
-): type is typeof SUPPORTED_IMAGE_TYPES[number] {
+): type is (typeof SUPPORTED_IMAGE_TYPES)[number] {
   return SUPPORTED_IMAGE_TYPES.includes(
-    type as typeof SUPPORTED_IMAGE_TYPES[number],
+    type as (typeof SUPPORTED_IMAGE_TYPES)[number],
   );
 }
 
@@ -44,10 +44,12 @@ export interface OpenAIModelProviderOptions extends ModelProviderOptions {
 }
 
 function isReasoningModel(model: string): boolean {
-  return model.startsWith("o1") ||
+  return (
+    model.startsWith("o1") ||
     model.startsWith("o3") ||
     model.startsWith("o4") ||
-    (model.startsWith("gpt-5") && !model.startsWith("gpt-5-chat"));
+    (model.startsWith("gpt-5") && !model.startsWith("gpt-5-chat"))
+  );
 }
 
 export class OpenAIModelProvider implements ModelProvider {
@@ -69,12 +71,7 @@ export class OpenAIModelProvider implements ModelProvider {
     return {
       name: "openai",
       version: "1.0.0",
-      capabilities: [
-        "caching",
-        "thinking",
-        "vision",
-        "tool_calling",
-      ],
+      capabilities: ["caching", "thinking", "vision", "tool_calling"],
     };
   }
 
@@ -86,8 +83,8 @@ export class OpenAIModelProvider implements ModelProvider {
     params: StreamChatParams,
     fileAttachmentCacheMap?: FileAttachmentCacheMap,
   ): ModelStream {
-    const openaiTools: OpenAI.Chat.ChatCompletionTool[] | undefined = params
-      .tools?.map((tool) => ({
+    const openaiTools: OpenAI.Chat.ChatCompletionTool[] | undefined =
+      params.tools?.map((tool) => ({
         type: "function" as const,
         function: {
           name: tool.name,
@@ -97,8 +94,8 @@ export class OpenAIModelProvider implements ModelProvider {
         },
       }));
 
-    const formattedMessages = params.messages.map(
-      (m) => formatInputMessage(m, fileAttachmentCacheMap),
+    const formattedMessages = params.messages.map((m) =>
+      formatInputMessage(m, fileAttachmentCacheMap),
     );
 
     const stream = this.#client.chat.completions.stream({
@@ -112,8 +109,9 @@ export class OpenAIModelProvider implements ModelProvider {
       ],
       max_completion_tokens: params.maxTokens,
       tools: openaiTools,
-      ...(isReasoningModel(this.#model) &&
-        { reasoning_effort: this.#reasoningEffort }),
+      ...(isReasoningModel(this.#model) && {
+        reasoning_effort: this.#reasoningEffort,
+      }),
       safety_identifier: params.userId,
     });
 
@@ -217,85 +215,90 @@ function formatInputMessage(
     const mainMessage = {
       role: message.role,
       content: message.content
-        .map((c):
-          | OpenAI.Chat.ChatCompletionContentPart
-          | OpenAI.Chat.ChatCompletionContentPart[]
-          | null => {
-          if (c.type === "text") {
-            return {
-              type: "text",
-              text: c.text,
-            };
-          } else if (c.type === "tool_result") {
-            // Collect images and text separately for OpenAI format
-            const toolResultParts: string[] = [];
-            const imageParts: OpenAI.Chat.ChatCompletionContentPartImage[] = [];
+        .map(
+          (
+            c,
+          ):
+            | OpenAI.Chat.ChatCompletionContentPart
+            | OpenAI.Chat.ChatCompletionContentPart[]
+            | null => {
+            if (c.type === "text") {
+              return {
+                type: "text",
+                text: c.text,
+              };
+            } else if (c.type === "tool_result") {
+              // Collect images and text separately for OpenAI format
+              const toolResultParts: string[] = [];
+              const imageParts: OpenAI.Chat.ChatCompletionContentPartImage[] =
+                [];
 
-            for (const block of c.content) {
-              if (block.type === "text") {
-                toolResultParts.push(block.text);
-              } else if (block.type === "image") {
-                const imageBlock = mapImageBlockToOpenAI(block);
-                toolResultImageIndex++;
-                if (imageBlock.type === "image_url") {
-                  toolResultParts.push(
-                    `[See image ${toolResultImageIndex} below]`,
-                  );
-                  imageParts.push(imageBlock);
-                } else {
-                  // For unsupported image types, just include the descriptive text
-                  toolResultParts.push(imageBlock.text);
+              for (const block of c.content) {
+                if (block.type === "text") {
+                  toolResultParts.push(block.text);
+                } else if (block.type === "image") {
+                  const imageBlock = mapImageBlockToOpenAI(block);
+                  toolResultImageIndex++;
+                  if (imageBlock.type === "image_url") {
+                    toolResultParts.push(
+                      `[See image ${toolResultImageIndex} below]`,
+                    );
+                    imageParts.push(imageBlock);
+                  } else {
+                    // For unsupported image types, just include the descriptive text
+                    toolResultParts.push(imageBlock.text);
+                  }
                 }
               }
-            }
 
-            // OpenAI expects tool results as separate messages with role "tool",
-            // not embedded in user message content. Extract and create separate tool message.
-            toolMessages.push({
-              role: "tool",
-              content: toolResultParts.join("\n"),
-              tool_call_id: c.toolUseId,
-            });
+              // OpenAI expects tool results as separate messages with role "tool",
+              // not embedded in user message content. Extract and create separate tool message.
+              toolMessages.push({
+                role: "tool",
+                content: toolResultParts.join("\n"),
+                tool_call_id: c.toolUseId,
+              });
 
-            // Return images to be included in main user message
-            return imageParts;
-          } else if (c.type === "image") {
-            return mapImageBlockToOpenAI(c);
-          } else if (isFileAttachment(c)) {
-            const cache = fileAttachmentCacheMap?.[c.fileId];
-            if (!cache) {
-              return null;
-            }
+              // Return images to be included in main user message
+              return imageParts;
+            } else if (c.type === "image") {
+              return mapImageBlockToOpenAI(c);
+            } else if (isFileAttachment(c)) {
+              const cache = fileAttachmentCacheMap?.[c.fileId];
+              if (!cache) {
+                return null;
+              }
 
-            // Increment the file attachment counter for each file attachment
-            attachmentIndex++;
+              // Increment the file attachment counter for each file attachment
+              attachmentIndex++;
 
-            const textBlock = {
-              type: "text" as const,
-              text: `Attachment ${attachmentIndex}:
+              const textBlock = {
+                type: "text" as const,
+                text: `Attachment ${attachmentIndex}:
 MIME type: ${c.mimeType}
 Cached at: ${cache.cachePath}`,
-            };
+              };
 
-            if (isSupportedImageType(c.mimeType)) {
-              return [
-                textBlock,
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: cache.signedUrl,
-                    detail: "high",
+              if (isSupportedImageType(c.mimeType)) {
+                return [
+                  textBlock,
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: cache.signedUrl,
+                      detail: "high",
+                    },
                   },
-                },
-              ];
+                ];
+              }
+
+              // Fall back to just the text block for unsupported types
+              return textBlock;
             }
 
-            // Fall back to just the text block for unsupported types
-            return textBlock;
-          }
-
-          return null;
-        })
+            return null;
+          },
+        )
         .filter((c) => c !== null)
         .flat(),
     };
@@ -318,32 +321,29 @@ Cached at: ${cache.cachePath}`,
     const toolCalls = message.content.filter((c) => c.type === "tool_use");
     return {
       role: message.role,
-      content: message.content.map((c):
-        | OpenAI.Chat.ChatCompletionContentPartText
-        | null => {
-        if (c.type === "text") {
-          return {
-            type: "text",
-            text: c.text,
-          };
-        }
+      content: message.content
+        .map((c): OpenAI.Chat.ChatCompletionContentPartText | null => {
+          if (c.type === "text") {
+            return {
+              type: "text",
+              text: c.text,
+            };
+          }
 
-        return null;
-      })
+          return null;
+        })
         .filter((c) => c !== null),
       ...(toolCalls.length > 0
         ? {
-          tool_calls: toolCalls.map((
-            c,
-          ) => ({
-            id: c.toolUseId,
-            type: "function",
-            function: {
-              name: c.name,
-              arguments: JSON.stringify(c.input),
-            },
-          })),
-        }
+            tool_calls: toolCalls.map((c) => ({
+              id: c.toolUseId,
+              type: "function",
+              function: {
+                name: c.name,
+                arguments: JSON.stringify(c.input),
+              },
+            })),
+          }
         : {}),
     };
   }
@@ -358,15 +358,15 @@ function mapOaiMessageToMessage(
     role: message.role,
     content: [
       { type: "text", text: message.content ?? "" },
-      ...(
-        // We currently only support `function` type tool calls; others are ignored.
-        message.tool_calls?.filter((c) => c.type === "function").map((c) => ({
+      ...// We currently only support `function` type tool calls; others are ignored.
+      (message.tool_calls
+        ?.filter((c) => c.type === "function")
+        .map((c) => ({
           type: "tool_use" as const,
           toolUseId: c.id,
           name: c.function.name,
           input: JSON.parse(c.function.arguments),
-        })) ?? []
-      ),
+        })) ?? []),
     ],
     stop_reason: message.tool_calls?.length ? "tool_use" : "end_turn",
     timestamp: new Date(),
@@ -390,7 +390,9 @@ function mapOaiUsage(usage: OpenAI.Completions.CompletionUsage): TokenUsage {
 }
 
 /** Map our internal image block to OpenAI image block */
-function mapImageBlockToOpenAI(block: ImageBlock):
+function mapImageBlockToOpenAI(
+  block: ImageBlock,
+):
   | OpenAI.Chat.ChatCompletionContentPartImage
   | OpenAI.Chat.ChatCompletionContentPartText {
   if (isSupportedImageType(block.source.mediaType)) {

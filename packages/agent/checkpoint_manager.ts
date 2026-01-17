@@ -178,7 +178,7 @@ export class CheckpointManager {
 
       // Find the checkpoint prefix
       const checkpointLine = lines.find((line) =>
-        line.startsWith("CHECKPOINT: ")
+        line.startsWith("CHECKPOINT: "),
       );
 
       if (checkpointLine) {
@@ -204,7 +204,10 @@ export class CheckpointManager {
         env: this.#gitEnv,
       });
 
-      const files = new TextDecoder().decode(filesChanged).trim().split("\n")
+      const files = new TextDecoder()
+        .decode(filesChanged)
+        .trim()
+        .split("\n")
         .filter(Boolean);
 
       return {
@@ -245,9 +248,9 @@ export class CheckpointManager {
       const checkpoints: Checkpoint[] = [];
 
       // Split by the delimiter, remove the first empty entry if it exists
-      const commitEntries = new TextDecoder().decode(stdout).split(
-        "###COMMIT###",
-      )
+      const commitEntries = new TextDecoder()
+        .decode(stdout)
+        .split("###COMMIT###")
         .filter(Boolean);
 
       for (const entry of commitEntries) {
@@ -276,8 +279,8 @@ export class CheckpointManager {
         // Extract name from commit message
         const name = subject.startsWith("CHECKPOINT:")
           ? subject
-            .substring("CHECKPOINT: ".length)
-            .replace(/ \(advice-only\)$/, "")
+              .substring("CHECKPOINT: ".length)
+              .replace(/ \(advice-only\)$/, "")
           : subject;
 
         // Get files for this checkpoint
@@ -286,7 +289,10 @@ export class CheckpointManager {
           env: this.#gitEnv,
         });
 
-        const files = new TextDecoder().decode(filesChanged).trim().split("\n")
+        const files = new TextDecoder()
+          .decode(filesChanged)
+          .trim()
+          .split("\n")
           .filter(Boolean);
 
         checkpoints.push({
@@ -327,9 +333,10 @@ export class CheckpointManager {
       }
 
       // Create a backup of the current state (optional)
-      const backupName = `backup-before-applying-${
-        checkpointId.substring(0, 8)
-      }`;
+      const backupName = `backup-before-applying-${checkpointId.substring(
+        0,
+        8,
+      )}`;
       await this.createCheckpoint(backupName);
 
       // Reset the working directory to the checkpoint state

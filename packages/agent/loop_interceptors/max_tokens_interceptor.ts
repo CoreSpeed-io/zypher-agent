@@ -25,9 +25,7 @@ export class MaxTokensInterceptor implements LoopInterceptor {
 
   #options: MaxTokensInterceptorOptions = {};
 
-  constructor(
-    options: MaxTokensInterceptorOptions = {},
-  ) {
+  constructor(options: MaxTokensInterceptorOptions = {}) {
     this.#options = options;
   }
 
@@ -44,22 +42,23 @@ export class MaxTokensInterceptor implements LoopInterceptor {
       if (continueCount >= this.#options.maxContinuations) {
         return Promise.resolve({
           decision: LoopDecision.COMPLETE,
-          reasoning:
-            `Reached maximum continuations (${this.#options.maxContinuations})`,
+          reasoning: `Reached maximum continuations (${this.#options.maxContinuations})`,
         });
       }
     }
 
-    const continueMessage = this.#options.continueMessage ??
-      this.#defaultContinueMessage;
+    const continueMessage =
+      this.#options.continueMessage ?? this.#defaultContinueMessage;
 
     // Add continue message to context
     context.messages.push({
       role: "user",
-      content: [{
-        type: "text",
-        text: continueMessage,
-      }],
+      content: [
+        {
+          type: "text",
+          text: continueMessage,
+        },
+      ],
       timestamp: new Date(),
     });
 
@@ -76,15 +75,17 @@ export class MaxTokensInterceptor implements LoopInterceptor {
   #countContinueMessages(messages: Message[]): number {
     // Look at the last 10 messages to count recent continuations
     const recentMessages = messages.slice(-10);
-    const continueMessage = this.#options.continueMessage ??
-      this.#defaultContinueMessage;
+    const continueMessage =
+      this.#options.continueMessage ?? this.#defaultContinueMessage;
 
-    return recentMessages.filter((msg) =>
-      msg.role === "user" &&
-      msg.content.some((block) =>
-        block.type === "text" &&
-        block.text.trim().toLowerCase() === continueMessage.toLowerCase()
-      )
+    return recentMessages.filter(
+      (msg) =>
+        msg.role === "user" &&
+        msg.content.some(
+          (block) =>
+            block.type === "text" &&
+            block.text.trim().toLowerCase() === continueMessage.toLowerCase(),
+        ),
     ).length;
   }
 

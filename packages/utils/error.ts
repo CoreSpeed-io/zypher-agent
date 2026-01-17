@@ -30,9 +30,11 @@ export function createAbortError(
  * @returns true if the error is an abort error
  */
 export function isAbortError(error: unknown): boolean {
-  return (error instanceof DOMException && error.name === "AbortError") ||
+  return (
+    (error instanceof DOMException && error.name === "AbortError") ||
     (error instanceof Error &&
-      (error.name === "AbortError" || error.message.includes("abort")));
+      (error.name === "AbortError" || error.message.includes("abort")))
+  );
 }
 
 /**

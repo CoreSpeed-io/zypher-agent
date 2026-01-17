@@ -49,9 +49,7 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
           name,
           input,
           success: true,
-          content: [
-            { type: "text", text: result },
-          ],
+          content: [{ type: "text", text: result }],
         };
       } else if (result.structuredContent) {
         return {
@@ -102,10 +100,12 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
         name,
         input,
         success: false,
-        content: [{
-          type: "text",
-          text: `Error executing tool ${name}: ${formatError(error)}`,
-        }],
+        content: [
+          {
+            type: "text",
+            text: `Error executing tool ${name}: ${formatError(error)}`,
+          },
+        ],
       };
     }
   }
@@ -117,9 +117,9 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       return { decision: LoopDecision.COMPLETE };
     }
 
-    const toolBlocks = lastMessage.content.filter((
-      block,
-    ): block is ToolUseBlock => block.type === "tool_use");
+    const toolBlocks = lastMessage.content.filter(
+      (block): block is ToolUseBlock => block.type === "tool_use",
+    );
     if (toolBlocks.length === 0) {
       return { decision: LoopDecision.COMPLETE };
     }
@@ -127,14 +127,9 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     const toolResults = await Promise.all(
       toolBlocks.map(async (block) => {
         const input = block.input ?? {};
-        return await this.#executeToolCall(
-          block.name,
-          block.toolUseId,
-          input,
-          {
-            signal: context.signal,
-          },
-        );
+        return await this.#executeToolCall(block.name, block.toolUseId, input, {
+          signal: context.signal,
+        });
       }),
     );
 

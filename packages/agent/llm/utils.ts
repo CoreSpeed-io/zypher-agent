@@ -17,7 +17,9 @@ export function injectOutputSchema(
     return description;
   }
   const outputJsonSchema = z.toJSONSchema(outputSchema);
-  return `${description}\n\n## Output Schema\n\`\`\`json\n${
-    JSON.stringify(outputJsonSchema, null, 2)
-  }\n\`\`\``;
+  return `${description}\n\n## Output Schema\n\`\`\`json\n${JSON.stringify(
+    outputJsonSchema,
+    null,
+    2,
+  )}\n\`\`\``;
 }

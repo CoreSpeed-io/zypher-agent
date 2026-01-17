@@ -39,10 +39,9 @@ export async function executeCode(
   const { signal } = options;
 
   const completer = new Completer<CodeExecutionResult>();
-  const worker = new Worker(
-    new URL("./worker.ts", import.meta.url),
-    { type: "module" },
-  );
+  const worker = new Worker(new URL("./worker.ts", import.meta.url), {
+    type: "module",
+  });
 
   function postMessage(message: HostToWorkerMessage) {
     worker.postMessage(message);

@@ -68,9 +68,8 @@ export async function main(): Promise<void> {
     console.log(`🧠 Using model: ${chalk.cyan(modelProvider.modelId)}`);
 
     // Build tools list - use OpenAI key for image tools
-    const openaiApiKey = modelProvider.info.name === "openai"
-      ? cli.apiKey
-      : cli.openaiApiKey;
+    const openaiApiKey =
+      modelProvider.info.name === "openai" ? cli.apiKey : cli.openaiApiKey;
 
     const tools = [
       ...createFileSystemTools(),

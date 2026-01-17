@@ -45,58 +45,58 @@ export type McpServerInfo = Omit<McpServerState, "subscription">;
  */
 export type McpServerManagerEvent =
   | {
-    type: "server_added";
-    serverId: string;
-    server: McpServerEndpoint;
-    source: McpServerSource;
-  }
+      type: "server_added";
+      serverId: string;
+      server: McpServerEndpoint;
+      source: McpServerSource;
+    }
   | {
-    type: "server_updated";
-    serverId: string;
-    updates: { server?: McpServerEndpoint; enabled?: boolean };
-  }
+      type: "server_updated";
+      serverId: string;
+      updates: { server?: McpServerEndpoint; enabled?: boolean };
+    }
   | {
-    type: "server_removed";
-    serverId: string;
-  }
+      type: "server_removed";
+      serverId: string;
+    }
   | {
-    type: "client_status_changed";
-    serverId: string;
-    status: McpClientStatus;
-    client: McpClient;
-  }
+      type: "client_status_changed";
+      serverId: string;
+      status: McpClientStatus;
+      client: McpClient;
+    }
   | {
-    type: "tool_use_pending_approval";
-    toolUseId: string;
-    toolName: string;
-    input: unknown;
-  }
+      type: "tool_use_pending_approval";
+      toolUseId: string;
+      toolName: string;
+      input: unknown;
+    }
   | {
-    type: "tool_use_approved";
-    toolUseId: string;
-    toolName: string;
-  }
+      type: "tool_use_approved";
+      toolUseId: string;
+      toolName: string;
+    }
   | {
-    type: "tool_use_rejected";
-    toolUseId: string;
-    toolName: string;
-    input: unknown;
-    reason: string;
-  }
+      type: "tool_use_rejected";
+      toolUseId: string;
+      toolName: string;
+      input: unknown;
+      reason: string;
+    }
   | {
-    type: "tool_use_result";
-    toolUseId: string;
-    toolName: string;
-    input: unknown;
-    result: ToolResult;
-  }
+      type: "tool_use_result";
+      toolUseId: string;
+      toolName: string;
+      input: unknown;
+      result: ToolResult;
+    }
   | {
-    type: "tool_use_error";
-    toolUseId: string;
-    toolName: string;
-    input: unknown;
-    error: unknown;
-  };
+      type: "tool_use_error";
+      toolUseId: string;
+      toolName: string;
+      input: unknown;
+      error: unknown;
+    };
 
 /**
  * Handler function for tool approval requests.
@@ -162,10 +162,11 @@ export class McpServerManager {
     options: McpServerManagerOptions = {},
   ) {
     // Default to CoreSpeed MCP Store if none provided
-    this.#registryClient = options.registryClient ??
+    this.#registryClient =
+      options.registryClient ??
       new McpStoreSDK({
-        baseURL: Deno.env.get("MCP_STORE_BASE_URL") ??
-          "https://api1.mcp.corespeed.io",
+        baseURL:
+          Deno.env.get("MCP_STORE_BASE_URL") ?? "https://api1.mcp.corespeed.io",
         // The api key is only for admin endpoints. It's not needed for the public endpoints.
         apiKey: "",
       });
@@ -206,9 +207,7 @@ export class McpServerManager {
       throw new Error("McpServerManager has been disposed");
     }
     if (this.#serverStateMap.has(server.id)) {
-      throw new Error(
-        `Server ${server.id} already exists`,
-      );
+      throw new Error(`Server ${server.id} already exists`);
     }
 
     // Validate server ID format for tool naming compatibility
@@ -350,9 +349,7 @@ export class McpServerManager {
     }
     const state = this.#serverStateMap.get(id);
     if (!state) {
-      throw new Error(
-        `Server with id ${id} not found`,
-      );
+      throw new Error(`Server with id ${id} not found`);
     }
 
     // Dispose the client first (emits final status events)
@@ -389,9 +386,7 @@ export class McpServerManager {
     }
     const state = this.#serverStateMap.get(serverId);
     if (!state) {
-      throw new Error(
-        `Server ${serverId} not found`,
-      );
+      throw new Error(`Server ${serverId} not found`);
     }
 
     const newEnabled = updates.enabled ?? state.client.desiredEnabled;
@@ -423,9 +418,7 @@ export class McpServerManager {
       throw new Error("McpServerManager has been disposed");
     }
     if (this.#toolbox.has(tool.name)) {
-      throw new Error(
-        `Tool ${tool.name} already registered`,
-      );
+      throw new Error(`Tool ${tool.name} already registered`);
     }
 
     this.#toolbox.set(tool.name, tool);
@@ -444,7 +437,7 @@ export class McpServerManager {
     // Dispose all server clients first (emits final status events)
     await Promise.allSettled(
       Array.from(this.#serverStateMap.values()).map((state) =>
-        state.client.dispose()
+        state.client.dispose(),
       ),
     );
 
@@ -538,11 +531,7 @@ export class McpServerManager {
         toolName: name,
         input,
       });
-      const approved = await this.#toolApprovalHandler(
-        name,
-        input,
-        options,
-      );
+      const approved = await this.#toolApprovalHandler(name, input, options);
 
       if (!approved) {
         const reason = "Rejected by user";

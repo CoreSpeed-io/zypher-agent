@@ -24,9 +24,9 @@ const SUPPORTED_IMAGE_TYPES = [
 
 function isSupportedImageType(
   type: string,
-): type is typeof SUPPORTED_IMAGE_TYPES[number] {
+): type is (typeof SUPPORTED_IMAGE_TYPES)[number] {
   return SUPPORTED_IMAGE_TYPES.includes(
-    type as typeof SUPPORTED_IMAGE_TYPES[number],
+    type as (typeof SUPPORTED_IMAGE_TYPES)[number],
   );
 }
 
@@ -60,9 +60,9 @@ export class AnthropicModelProvider implements ModelProvider {
     this.#enablePromptCaching = options.enablePromptCaching ?? true;
     this.#thinkingConfig = options.thinkingBudget
       ? {
-        type: "enabled",
-        budget_tokens: options.thinkingBudget,
-      }
+          type: "enabled",
+          budget_tokens: options.thinkingBudget,
+        }
       : { type: "disabled" };
   }
 
@@ -97,7 +97,7 @@ export class AnthropicModelProvider implements ModelProvider {
           msg,
           index === params.messages.length - 1,
           fileAttachmentCacheMap,
-        )
+        ),
       )
       .filter((msg, index, arr) => {
         const isLastMessage = index === arr.length - 1;
@@ -107,20 +107,20 @@ export class AnthropicModelProvider implements ModelProvider {
       });
 
     // Convert our internal Tool[] to Anthropic's Tool[]
-    const anthropicTools = params.tools?.map((
-      tool,
-      index,
-    ): Anthropic.ToolUnion => ({
-      name: tool.name,
-      description: injectOutputSchema(tool.description, tool.outputSchema),
-      input_schema: z.toJSONSchema(tool.schema) as Anthropic.Tool.InputSchema,
-      ...(params.tools && index === params.tools.length - 1 && {
-        // cache the last tool as it's large and reusable
-        ...(this.#enablePromptCaching && {
-          cache_control: { type: "ephemeral" },
-        }),
+    const anthropicTools = params.tools?.map(
+      (tool, index): Anthropic.ToolUnion => ({
+        name: tool.name,
+        description: injectOutputSchema(tool.description, tool.outputSchema),
+        input_schema: z.toJSONSchema(tool.schema) as Anthropic.Tool.InputSchema,
+        ...(params.tools &&
+          index === params.tools.length - 1 && {
+            // cache the last tool as it's large and reusable
+            ...(this.#enablePromptCaching && {
+              cache_control: { type: "ephemeral" },
+            }),
+          }),
       }),
-    }));
+    );
 
     const stream = this.#client.messages.stream({
       model: this.#model,
@@ -165,109 +165,115 @@ export class AnthropicModelProvider implements ModelProvider {
     let fileAttachmentCount = 0;
 
     // For string content, convert to array format
-    let contentArray = typeof content === "string"
-      ? [
-        {
-          type: "text" as const,
-          text: content,
-        } satisfies Anthropic.TextBlockParam,
-      ]
-      : content.map(
-        (
-          block,
-        ):
-          | Anthropic.ContentBlockParam
-          | Anthropic.ContentBlockParam[]
-          | null => {
-          if (block.type === "file_attachment") {
-            const cache = fileAttachmentCacheMap?.[block.fileId];
-            if (!cache) {
-              return null;
-            }
-            // Increment the file attachment counter for each file attachment
-            fileAttachmentCount++;
-
-            const attachmentIndex = fileAttachmentCount;
-
-            // Text block is always included for both image and PDF files
-            const textBlock: Anthropic.TextBlockParam = {
+    let contentArray =
+      typeof content === "string"
+        ? [
+            {
               type: "text" as const,
-              text: `Attachment ${attachmentIndex}:
+              text: content,
+            } satisfies Anthropic.TextBlockParam,
+          ]
+        : content
+            .map(
+              (
+                block,
+              ):
+                | Anthropic.ContentBlockParam
+                | Anthropic.ContentBlockParam[]
+                | null => {
+                if (block.type === "file_attachment") {
+                  const cache = fileAttachmentCacheMap?.[block.fileId];
+                  if (!cache) {
+                    return null;
+                  }
+                  // Increment the file attachment counter for each file attachment
+                  fileAttachmentCount++;
+
+                  const attachmentIndex = fileAttachmentCount;
+
+                  // Text block is always included for both image and PDF files
+                  const textBlock: Anthropic.TextBlockParam = {
+                    type: "text" as const,
+                    text: `Attachment ${attachmentIndex}:
 MIME type: ${block.mimeType}
 Cached at: ${cache.cachePath}`,
-            };
+                  };
 
-            // Handle different file types with appropriate block types
-            if (isSupportedImageType(block.mimeType)) {
-              return [
-                textBlock,
-                {
-                  type: "image" as const,
-                  source: {
-                    type: "url" as const,
-                    url: cache.signedUrl,
-                  },
-                } satisfies Anthropic.ImageBlockParam,
-              ];
-            } else if (block.mimeType === "application/pdf") {
-              return [
-                textBlock,
-                {
-                  type: "document" as const,
-                  source: {
-                    type: "url" as const,
-                    url: cache.signedUrl,
-                  },
-                } satisfies Anthropic.DocumentBlockParam,
-              ];
-            }
-
-            // Fall back to just the text block for unsupported types
-            return [textBlock];
-          } else if (block.type === "image") {
-            return mapImageBlockToA7cBlock(block);
-          } else if (block.type === "tool_use") {
-            return {
-              type: "tool_use" as const,
-              id: block.toolUseId,
-              name: block.name,
-              input: block.input,
-            } satisfies Anthropic.ToolUseBlockParam;
-          } else if (block.type === "tool_result") {
-            return {
-              type: "tool_result" as const,
-              tool_use_id: block.toolUseId,
-              content: block.content.map(
-                (c): Anthropic.TextBlockParam | Anthropic.ImageBlockParam => {
-                  if (c.type === "text") {
-                    return {
-                      type: "text" as const,
-                      text: c.text,
-                    } satisfies Anthropic.TextBlockParam;
-                  } else {
-                    return mapImageBlockToA7cBlock(c);
+                  // Handle different file types with appropriate block types
+                  if (isSupportedImageType(block.mimeType)) {
+                    return [
+                      textBlock,
+                      {
+                        type: "image" as const,
+                        source: {
+                          type: "url" as const,
+                          url: cache.signedUrl,
+                        },
+                      } satisfies Anthropic.ImageBlockParam,
+                    ];
+                  } else if (block.mimeType === "application/pdf") {
+                    return [
+                      textBlock,
+                      {
+                        type: "document" as const,
+                        source: {
+                          type: "url" as const,
+                          url: cache.signedUrl,
+                        },
+                      } satisfies Anthropic.DocumentBlockParam,
+                    ];
                   }
-                },
-              ),
-            } satisfies Anthropic.ToolResultBlockParam;
-          } else if (block.type === "thinking") {
-            return {
-              type: "thinking" as const,
-              signature: block.signature,
-              thinking: block.thinking,
-            } satisfies Anthropic.ThinkingBlockParam;
-          } else {
-            return {
-              type: "text" as const,
-              text: block.text,
-            } satisfies Anthropic.TextBlockParam;
-          }
-        },
-      )
-        .flat()
-        .filter((block): block is Anthropic.ContentBlockParam =>
-          block !== null
-        );
+
+                  // Fall back to just the text block for unsupported types
+                  return [textBlock];
+                } else if (block.type === "image") {
+                  return mapImageBlockToA7cBlock(block);
+                } else if (block.type === "tool_use") {
+                  return {
+                    type: "tool_use" as const,
+                    id: block.toolUseId,
+                    name: block.name,
+                    input: block.input,
+                  } satisfies Anthropic.ToolUseBlockParam;
+                } else if (block.type === "tool_result") {
+                  return {
+                    type: "tool_result" as const,
+                    tool_use_id: block.toolUseId,
+                    content: block.content.map(
+                      (
+                        c,
+                      ):
+                        | Anthropic.TextBlockParam
+                        | Anthropic.ImageBlockParam => {
+                        if (c.type === "text") {
+                          return {
+                            type: "text" as const,
+                            text: c.text,
+                          } satisfies Anthropic.TextBlockParam;
+                        } else {
+                          return mapImageBlockToA7cBlock(c);
+                        }
+                      },
+                    ),
+                  } satisfies Anthropic.ToolResultBlockParam;
+                } else if (block.type === "thinking") {
+                  return {
+                    type: "thinking" as const,
+                    signature: block.signature,
+                    thinking: block.thinking,
+                  } satisfies Anthropic.ThinkingBlockParam;
+                } else {
+                  return {
+                    type: "text" as const,
+                    text: block.text,
+                  } satisfies Anthropic.TextBlockParam;
+                }
+              },
+            )
+            .flat()
+            .filter(
+              (block): block is Anthropic.ContentBlockParam => block !== null,
+            );
 
     // Add cache control to the last block of the last message
     if (isLastMessage && this.#enablePromptCaching && contentArray.length > 0) {
@@ -359,9 +365,9 @@ class AnthropicModelStream implements ModelStream {
 function mapA7cMessageToMessage(message: Anthropic.Message): FinalMessage {
   return {
     role: message.role,
-    content: message.content.map(mapA7cContentBlockToContentBlock).filter((
-      block,
-    ): block is ContentBlock => block !== null),
+    content: message.content
+      .map(mapA7cContentBlockToContentBlock)
+      .filter((block): block is ContentBlock => block !== null),
     timestamp: new Date(),
     stop_reason: mapA7cStopReason(message.stop_reason),
     usage: mapA7cUsage(message.usage),
@@ -454,8 +460,7 @@ function mapImageBlockToA7cBlock(
     // Return a text block informing the model about the unsupported image type
     return {
       type: "text" as const,
-      text:
-        `You provided an unsupported image source (MIME type: ${block.source.mediaType}), this image will not be shown to the model.`,
+      text: `You provided an unsupported image source (MIME type: ${block.source.mediaType}), this image will not be shown to the model.`,
     } satisfies Anthropic.TextBlockParam;
   }
 }

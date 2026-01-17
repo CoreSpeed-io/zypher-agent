@@ -28,8 +28,7 @@ export function createEditFileTools(backupDir?: string): Tool[] {
    */
   const EditFileTool = createTool({
     name: "edit_file",
-    description:
-      `Edit a text file. The 'type' field determines which other fields are required.
+    description: `Edit a text file. The 'type' field determines which other fields are required.
 
 Action types:
 - 'overwrite': Replace entire file or create new file. Requires: content
@@ -38,32 +37,46 @@ Action types:
 - 'replace_regex': Replace regex match. Requires: oldContent (pattern), content (replacement). Optional: flags`,
     schema: z.object({
       targetFile: z.string().describe("The target file to edit"),
-      explanation: z.string().describe(
-        "One sentence explanation of the intended change",
-      ),
-      type: z.enum(["overwrite", "insert", "replace_str", "replace_regex"])
+      explanation: z
+        .string()
+        .describe("One sentence explanation of the intended change"),
+      type: z
+        .enum(["overwrite", "insert", "replace_str", "replace_regex"])
         .describe("The type of edit action"),
-      content: z.string().describe(
-        "New content: full file (overwrite), text to insert (insert), replacement text (replace_str/replace_regex)",
-      ),
-      oldContent: z.string().optional().describe(
-        "Content to find: exact string (replace_str) or regex pattern (replace_regex)",
-      ),
-      line: z.number().int().min(1).optional().describe(
-        "1-based line number where content will be inserted BEFORE this line (insert only)",
-      ),
-      replaceAll: z.boolean().optional().describe(
-        "Replace all occurrences instead of just the first (replace_str only)",
-      ),
-      flags: z.string().optional().describe(
-        "Regex flags like 'g', 'i', 'gi' (replace_regex only, defaults to 'g')",
-      ),
+      content: z
+        .string()
+        .describe(
+          "New content: full file (overwrite), text to insert (insert), replacement text (replace_str/replace_regex)",
+        ),
+      oldContent: z
+        .string()
+        .optional()
+        .describe(
+          "Content to find: exact string (replace_str) or regex pattern (replace_regex)",
+        ),
+      line: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe(
+          "1-based line number where content will be inserted BEFORE this line (insert only)",
+        ),
+      replaceAll: z
+        .boolean()
+        .optional()
+        .describe(
+          "Replace all occurrences instead of just the first (replace_str only)",
+        ),
+      flags: z
+        .string()
+        .optional()
+        .describe(
+          "Regex flags like 'g', 'i', 'gi' (replace_regex only, defaults to 'g')",
+        ),
     }),
 
-    execute: async (
-      params,
-      ctx: ToolExecutionContext,
-    ): Promise<ToolResult> => {
+    execute: async (params, ctx: ToolExecutionContext): Promise<ToolResult> => {
       const target = resolve(ctx.workingDirectory, params.targetFile);
 
       // Use provided backupDir (resolved relative to workingDirectory) or default to workspaceDataDir/backup
@@ -76,10 +89,7 @@ Action types:
       if (await exists(target)) {
         const fileName = basename(target);
         // Backup original file
-        await Deno.copyFile(
-          target,
-          join(resolvedBackupDir, `${fileName}.bak`),
-        );
+        await Deno.copyFile(target, join(resolvedBackupDir, `${fileName}.bak`));
       } else if (params.type !== "overwrite") {
         throw new Error(
           `Target file ${target} does not exist, required for action ${params.type}.`,
@@ -163,9 +173,9 @@ Action types:
     description: "Restore a file from its backup.",
     schema: z.object({
       targetFile: z.string().describe("The target file to restore from backup"),
-      explanation: z.string().describe(
-        "One sentence explanation of why you're undoing",
-      ),
+      explanation: z
+        .string()
+        .describe("One sentence explanation of why you're undoing"),
     }),
 
     execute: async (params, ctx: ToolExecutionContext): Promise<ToolResult> => {

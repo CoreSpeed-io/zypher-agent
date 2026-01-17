@@ -12,9 +12,7 @@ export const CopyFileTool: Tool<{
   name: "copy_file",
   description: "Copies a file from the source path to the destination path.",
   schema: z.object({
-    sourceFile: z
-      .string()
-      .describe("The path of the source file to copy."),
+    sourceFile: z.string().describe("The path of the source file to copy."),
     destinationFile: z
       .string()
       .describe("The path where the file should be copied to."),
