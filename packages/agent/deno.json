@@ -7,7 +7,6 @@
     "./tools": "./tools/mod.ts"
   },
   "imports": {
-    "@zypher/utils": "jsr:@zypher/utils@^0.1.0",
     "@corespeed/mcp-store-client": "jsr:@corespeed/mcp-store-client@^1.9.0",
     "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.952.0",
     "@aws-sdk/s3-request-presigner": "npm:@aws-sdk/s3-request-presigner@^3.952.0",
