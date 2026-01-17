@@ -1,9 +1,5 @@
 import { z } from "zod";
-import type {
-  Argument,
-  Package,
-  ServerDetail,
-} from "@corespeed/mcp-store-client";
+import type McpStoreSDK from "@corespeed/mcp-store-client";
 import type { McpServerEndpoint } from "./mod.ts";
 
 // =============================================================================
@@ -74,7 +70,7 @@ function convertToRecord(
  * Extract string values from an array of {value} objects, filtering out undefined values
  */
 function extractArguments(
-  args?: Array<Argument>,
+  args?: Array<McpStoreSDK.Argument>,
 ): string[] {
   if (!args) return [];
 
@@ -101,7 +97,7 @@ function extractArguments(
  * Build command arguments based on the package runtime hint
  */
 function buildCommandArgs(
-  pkg: Package,
+  pkg: McpStoreSDK.Package,
   runtimeArgs: string[],
   packageArgs: string[],
 ): string[] {
@@ -128,7 +124,7 @@ function buildCommandArgs(
  * Convert CoreSpeed ServerDetail to McpServerEndpoint
  */
 export function convertServerDetailToEndpoint(
-  serverDetail: ServerDetail,
+  serverDetail: McpStoreSDK.ServerDetail,
 ): McpServerEndpoint {
   // Prefer remote configuration if available
   if (serverDetail.remotes?.[0]) {

@@ -1,12 +1,12 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import type { ServerDetail } from "@corespeed/mcp-store-client";
+import type McpStoreSDK from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
 
 // Helper to create minimal ServerDetail
 const createServerDetail = (
-  overrides: Partial<ServerDetail>,
-): ServerDetail => ({
+  overrides: Partial<McpStoreSDK.ServerDetail>,
+): McpStoreSDK.ServerDetail => ({
   id: "test-server",
   scope: "test-scope",
   packageName: "test-package",
