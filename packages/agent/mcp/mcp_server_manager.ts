@@ -4,7 +4,6 @@ import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../zypher_agent.ts";
 import type { OAuthOptions } from "./connect.ts";
 import McpStoreSDK from "@corespeed/mcp-store-client";
-import type { Server } from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
 import { type Observable, Subject, type Subscription } from "rxjs";
 
@@ -286,7 +285,7 @@ export class McpServerManager {
   async listRegistryServers(options?: {
     cursor?: string;
     limit?: number;
-  }): Promise<Server[]> {
+  }): Promise<McpStoreSDK.Server[]> {
     const response = await this.#registryClient.servers.list({
       cursor: options?.cursor,
       limit: options?.limit ?? 20,
