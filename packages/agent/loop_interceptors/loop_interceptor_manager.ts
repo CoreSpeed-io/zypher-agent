@@ -4,7 +4,7 @@ import {
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
-import { createAbortError, formatError } from "../error.ts";
+import { createAbortError, formatError } from "@zypher/utils";
 
 /**
  * Manages and executes loop interceptors

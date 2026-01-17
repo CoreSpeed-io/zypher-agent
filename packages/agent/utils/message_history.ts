@@ -2,7 +2,7 @@ import * as path from "@std/path";
 import { exists } from "@std/fs";
 import type { Message } from "../message.ts";
 import { isMessage } from "../message.ts";
-import { formatError } from "../error.ts";
+import { formatError } from "@zypher/utils";
 import type { ZypherContext } from "../zypher_agent.ts";
 
 /**

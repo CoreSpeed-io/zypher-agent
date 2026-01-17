@@ -10,11 +10,17 @@ import {
 } from "./utils/mod.ts";
 import type { ModelProvider, TokenUsage } from "./llm/mod.ts";
 import { createModelProvider } from "./llm/mod.ts";
-import {
-  createAbortError,
-  isAbortError,
-  TaskConcurrencyError,
-} from "./error.ts";
+import { createAbortError, isAbortError } from "@zypher/utils";
+
+/**
+ * Error thrown when attempting to run a new task while another task is already running.
+ */
+export class TaskConcurrencyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TaskConcurrencyError";
+  }
+}
 import { filter, type Observable, Subject } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
 import {

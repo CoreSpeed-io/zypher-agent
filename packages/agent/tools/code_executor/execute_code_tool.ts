@@ -1,6 +1,6 @@
 import z from "zod";
 import type { McpServerManager } from "../../mcp/mod.ts";
-import { createAbortError, isAbortError } from "../../error.ts";
+import { createAbortError, isAbortError } from "@zypher/utils";
 import { createTool, type Tool, type ToolResult } from "../mod.ts";
 import { executeCode } from "./execute_code.ts";
 
