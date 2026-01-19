@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { cn } from "tailwind-variants";
 import { Button } from "@/components/button";
 import { ArrowRightIcon } from "@/components/icons/arrow-right";
-import { cn } from "@/lib/cn";
 import { Illustration } from "./illustration";
 
 export function CTASection() {

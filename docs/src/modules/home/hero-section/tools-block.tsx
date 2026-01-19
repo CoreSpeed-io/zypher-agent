@@ -1,7 +1,7 @@
 import * as motion from "motion/react-client";
 import type { ComponentProps } from "react";
+import { cn } from "tailwind-variants";
 import AnimatedText from "@/components/animated-text";
-import { cn } from "@/lib/cn";
 
 const tools = ["Cursor", "Claude Code", "Devin", "DeckSpeed", "Lovart"];
 

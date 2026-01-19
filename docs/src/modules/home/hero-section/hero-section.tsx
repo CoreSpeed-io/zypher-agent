@@ -1,9 +1,9 @@
 import Link from "next/link";
+import { cn } from "tailwind-variants";
 import { Button } from "@/components/button";
 import { ArrowRightIcon } from "@/components/icons/arrow-right";
 import { DenoIcon } from "@/components/icons/deno";
 import { GithubIcon } from "@/components/icons/github";
-import { cn } from "@/lib/cn";
 import { CodeBlock } from "./code-block";
 import { CopyButton } from "./copy-button";
 import { ToolsBlock } from "./tools-block";

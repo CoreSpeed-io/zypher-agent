@@ -1,6 +1,6 @@
 import type { BundledLanguage } from "shiki";
 import { codeToHtml } from "shiki";
-import { cn } from "@/lib/cn";
+import { cn } from "tailwind-variants";
 
 interface Props {
   children: string;

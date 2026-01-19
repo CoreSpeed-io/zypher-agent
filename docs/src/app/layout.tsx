@@ -2,8 +2,8 @@ import "@/app/global.css";
 
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { cn } from "tailwind-variants";
 import { Header } from "@/components/header/header";
-import { cn } from "@/lib/cn";
 
 const inter = Inter({
   subsets: ["latin"],

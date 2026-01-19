@@ -1,11 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
+import { cn } from "tailwind-variants";
 import { CoreSpeedIcon } from "@/components/icons/corespeed";
 import { DiscordIcon } from "@/components/icons/discord";
 import { GithubIcon } from "@/components/icons/github";
 import { LinkedinIcon } from "@/components/icons/linkedin";
 import { XIcon } from "@/components/icons/x";
-import { cn } from "@/lib/cn";
 import FooterDots from "./footer-dots.png";
 
 export function FooterSection() {

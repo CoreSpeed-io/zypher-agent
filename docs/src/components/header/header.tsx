@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { cn } from "tailwind-variants";
 import { EditorMenuIcon } from "@/components/icons/editor-menu";
 import { ZypherIcon } from "@/components/icons/zypher";
-import { cn } from "@/lib/cn";
 import { HeaderDropdown } from "./header-dropdown";
 
 export function Header() {

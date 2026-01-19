@@ -4,10 +4,10 @@ import { Popover } from "@base-ui/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { cn } from "tailwind-variants";
 import { DiscordIcon } from "@/components/icons/discord";
 import { LinkedinIcon } from "@/components/icons/linkedin";
 import { XIcon } from "@/components/icons/x";
-import { cn } from "@/lib/cn";
 
 export function HeaderDropdown({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
