@@ -20,12 +20,13 @@ export function Header() {
           </Link>
           <div className="flex h-full items-center">
             <div className="desktop:flex hidden h-full">
-              <nav className="border-outline-high-inverse flex h-full items-center gap-8 border-x px-4 font-mono text-sm">
+              <nav className="border-outline-high-inverse flex h-full items-center border-x font-mono text-sm">
                 {/* TODO load data from baseOptions */}
                 <Link
                   href="https://docs.corespeed.io"
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="hover:bg-box-b3 px-4 h-full grid place-items-center"
                 >
                   Docs
                 </Link>
@@ -33,6 +34,7 @@ export function Header() {
                   href="https://jsr.io/@zypher/agent/doc"
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="hover:bg-box-b3 px-4 h-full grid place-items-center"
                 >
                   API Reference
                 </Link>
