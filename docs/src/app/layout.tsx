@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s | Zypher",
   },
   description:
-    "Build powerful AI agents with Zypher. A modern framework for creating, deploying, and managing intelligent agents with MCP support, multi-agent orchestration, and seamless integration.",
+    "A minimal yet powerful framework for creating AI agents with full control over tools, providers, and execution flow.",
   keywords: [
     "AI agent",
     "agent framework",
@@ -54,13 +54,13 @@ export const metadata: Metadata = {
     siteName: "Zypher",
     title: "Zypher - AI Agent Framework",
     description:
-      "Build powerful AI agents with Zypher. A modern framework for creating, deploying, and managing intelligent agents.",
+      "A minimal yet powerful framework for creating AI agents with full control over tools, providers, and execution flow.",
   },
   twitter: {
     card: "summary_large_image",
     title: "Zypher - AI Agent Framework",
     description:
-      "Build powerful AI agents with Zypher. A modern framework for creating, deploying, and managing intelligent agents.",
+      "A minimal yet powerful framework for creating AI agents with full control over tools, providers, and execution flow.",
     creator: "@CoreSpeed_Inc",
   },
   category: "technology",
