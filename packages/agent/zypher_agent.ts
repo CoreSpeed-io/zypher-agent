@@ -240,6 +240,13 @@ export class ZypherAgent {
   }
 
   /**
+   * Get the underlying model provider
+   */
+  get llm(): ModelProvider {
+    return this.#modelProvider;
+  }
+
+  /**
    * Clear all messages from the agent's history
    */
   clearMessages(): void {
