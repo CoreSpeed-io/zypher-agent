@@ -1,6 +1,6 @@
 import * as motion from "motion/react-client";
 import type { ComponentProps } from "react";
-import AnimatedText from "@/components/AnimatedText";
+import AnimatedText from "@/components/animated-text";
 import { cn } from "@/lib/cn";
 
 const tools = ["Cursor", "Claude Code", "Devin", "DeckSpeed", "Lovart"];
