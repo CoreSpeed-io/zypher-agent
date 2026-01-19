@@ -1,7 +1,7 @@
 import "@/app/global.css";
-import { RootProvider } from "fumadocs-ui/provider/next";
 
 import { Inter } from "next/font/google";
+import { Header } from "@/components/header/header";
 import { cn } from "@/lib/cn";
 
 const inter = Inter({
@@ -25,7 +25,8 @@ export default function Layout({ children }: LayoutProps<"/">) {
         />
       </head>
       <body className={cn("flex flex-col min-h-screen", inter.className)}>
-        <RootProvider theme={{ enabled: false }}>{children}</RootProvider>
+        <Header />
+        {children}
       </body>
     </html>
   );

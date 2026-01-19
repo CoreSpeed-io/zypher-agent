@@ -2,7 +2,6 @@ import Link from "next/link";
 import { EditorMenuIcon } from "@/components/icons/editor-menu";
 import { ZypherIcon } from "@/components/icons/zypher";
 import { cn } from "@/lib/cn";
-import { LargeSearchToggle, SearchToggle } from "../search-toggle";
 import { HeaderDropdown } from "./header-dropdown";
 
 export function Header() {
@@ -21,9 +20,13 @@ export function Header() {
           </Link>
           <div className="flex h-full items-center">
             <div className="desktop:flex hidden h-full">
-              <nav className="border-outline-high-inverse flex h-full items-center gap-8 border-l px-4 font-mono text-sm">
+              <nav className="border-outline-high-inverse flex h-full items-center gap-8 border-x px-4 font-mono text-sm">
                 {/* TODO load data from baseOptions */}
-                <Link href="/docs" target="_blank" rel="noopener noreferrer">
+                <Link
+                  href="https://docs.corespeed.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Docs
                 </Link>
                 <Link
@@ -34,11 +37,6 @@ export function Header() {
                   API Reference
                 </Link>
               </nav>
-            </div>
-
-            <div className="h-full">
-              <SearchToggle className="p-2 text-white px-4 border-x h-full rounded-none border-outline-high-inverse tablet:hidden" />
-              <LargeSearchToggle className="text-sm h-full max-w-[240px] hidden tablet:inline-flex px-4 desktop:border-r cursor-pointer" />
             </div>
 
             <HeaderDropdown>

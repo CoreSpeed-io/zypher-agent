@@ -1,9 +1,0 @@
-{
-  "title": "Core Concepts", 
-  "pages": [
-    "llm-providers",
-    "tools-and-mcp",
-    "checkpoints",
-    "loop-interceptors"
-  ]
-}

@@ -53,7 +53,11 @@ export function HeroSection() {
             </p>
 
             <div className="mt-8 desktop:mt-[65px] flex flex-col items-center space-y-6 tablet:flex-row tablet:space-y-0 tablet:gap-8">
-              <Link href="/docs/quick-start">
+              <Link
+                href="https://docs.corespeed.io"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Button
                   variant="secondary"
                   className="uppercase w-[216px] tablet:w-auto"

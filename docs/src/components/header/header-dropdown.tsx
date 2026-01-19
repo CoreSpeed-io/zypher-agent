@@ -49,13 +49,13 @@ export function HeaderDropdown({ children }: { children: ReactNode }) {
           collisionPadding={0}
         >
           <Popover.Popup
-            className="text-static-white pt-1 text-lg leading-[140%] font-medium"
+            className="text-static-white pt-1 text-lg leading-[140%] font-medium font-mono"
             onClick={() => {
               setOpen(false);
             }}
           >
             <Link
-              href="/docs"
+              href="https://docs.corespeed.io"
               className="border-outline-base block border-b-[0.5px] p-6"
             >
               Docs
