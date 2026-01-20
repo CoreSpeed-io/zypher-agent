@@ -1,7 +1,4 @@
 @import 'tailwindcss';
-@plugin "@tailwindcss/typography";
-@import 'fumadocs-ui/css/neutral.css';
-@import 'fumadocs-ui/css/preset.css';
 
 @font-face {
   font-family: 'Berkeley Mono';

@@ -1,7 +1,7 @@
 import * as motion from "motion/react-client";
 import type { ComponentProps } from "react";
+import { cn } from "tailwind-variants";
 import { CrossIcon } from "@/components/icons/cross";
-import { cn } from "@/lib/cn";
 import { AgentIllustration } from "./agent-illustration";
 import { CoreSpeedIllustration } from "./corespeed-illustration";
 import { HoverIndicator } from "./hover-indicator";
