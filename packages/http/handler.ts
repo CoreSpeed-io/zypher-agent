@@ -1,13 +1,25 @@
 import { Hono } from "hono";
 import { upgradeWebSocket } from "hono/deno";
-import { sendServerMessage, wsClientMessageSchema } from "./schema.ts";
+import {
+  type McpWebSocketEvent,
+  sendTaskWebSocketMessage,
+  TaskWebSocketClientMessage,
+  toMcpWebSocketEvent,
+} from "./schema.ts";
 import {
   type HttpTaskEvent,
   HttpTaskEventId,
   replayHttpTaskEvents,
   withHttpTaskEventReplayAndHeartbeat,
 } from "./task_event.ts";
-import { filter, map, type Observable, type ReplaySubject } from "rxjs";
+import {
+  filter,
+  map,
+  type Observable,
+  type ReplaySubject,
+  startWith,
+  type Subscription,
+} from "rxjs";
 import type { ZypherAgent } from "@zypher/agent";
 import type { Completer } from "@zypher/utils";
 
@@ -32,184 +44,279 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
   let toolApprovalCompletor: Completer<boolean> | null = null;
   let serverLatestEventId: HttpTaskEventId | undefined;
 
-  // Health check
-  app.get("/health", (c) => c.json({ status: "ok" }));
+  app
+    // Health check
+    .get("/health", (c) => c.json({ status: "ok" }))
+    // Get agent messages
+    .get("/messages", (c) => {
+      return c.json(agent.messages);
+    })
+    // Clear agent messages
+    .delete("/messages", (c) => {
+      agent.clearMessages();
+      return c.body(null, 204);
+    })
+    /**
+     * GET /task/ws - WebSocket endpoint for agent task execution.
+     *
+     * Protocol: zypher.v1
+     *
+     * Client → Server: {@link TaskWebSocketClientMessage}
+     * - startTask: Start a new task with { task, fileAttachments? }
+     * - resumeTask: Reconnect to running task with { lastEventId? }
+     * - cancelTask: Cancel the running task
+     * - approveTool: Respond to tool approval with { approved }
+     *
+     * Server → Client: {@link HttpTaskEvent} | {@link TaskWebSocketServerMessage}
+     * - HttpTaskEvent: Streaming task events (text, tool_use, message, usage, etc.)
+     * - TaskWebSocketServerMessage: Control messages (error, completed)
+     */
+    .get(
+      "/task/ws",
+      upgradeWebSocket(
+        () => {
+          let firstMessageTimeoutId: number;
+          let firstMessageReceived = false;
 
-  // Get agent messages
-  app.get("/messages", (c) => {
-    return c.json(agent.messages);
-  });
-
-  // Clear agent messages
-  app.delete("/messages", (c) => {
-    agent.clearMessages();
-    return c.body(null, 204);
-  });
-
-  // Agent websocket
-  app.get(
-    "/task/ws",
-    upgradeWebSocket(
-      () => {
-        let firstMessageTimeoutId: number;
-        let firstMessageReceived = false;
-
-        return {
-          onOpen: (_, ws) => {
-            // Set timeout to close connection if no message is received within 6 seconds
-            firstMessageTimeoutId = setTimeout(() => {
-              if (!firstMessageReceived) {
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.close(1008, "no_message_received");
+          return {
+            onOpen: (_, ws) => {
+              // Set timeout to close connection if no message is received within 6 seconds
+              firstMessageTimeoutId = setTimeout(() => {
+                if (!firstMessageReceived) {
+                  if (ws.readyState === WebSocket.OPEN) {
+                    ws.close(1008, "no_message_received");
+                  }
                 }
+              }, 6000); // 6 seconds timeout
+            },
+            onMessage(event, ws) {
+              if (!firstMessageReceived) {
+                firstMessageReceived = true;
+                clearTimeout(firstMessageTimeoutId); // Clear timeout as the first message has been received
               }
-            }, 6000); // 6 seconds timeout
-          },
-          onMessage(event, ws) {
-            if (!firstMessageReceived) {
-              firstMessageReceived = true;
-              clearTimeout(firstMessageTimeoutId); // Clear timeout as the first message has been received
-            }
 
-            let rawMessage: unknown;
-            try {
-              rawMessage = JSON.parse(event.data.toString());
-            } catch (error) {
-              if (error instanceof SyntaxError) {
+              let rawMessage: unknown;
+              try {
+                rawMessage = JSON.parse(event.data.toString());
+              } catch (error) {
+                if (error instanceof SyntaxError) {
+                  ws.close(1003, "invalid_message");
+                  return;
+                }
+                throw error;
+              }
+
+              const { success, data: message } = TaskWebSocketClientMessage
+                .safeParse(rawMessage);
+
+              if (!success) {
                 ws.close(1003, "invalid_message");
                 return;
               }
-              throw error;
-            }
 
-            const { success, data: message } = wsClientMessageSchema.safeParse(
-              rawMessage,
-            );
+              switch (message.action) {
+                case "startTask": {
+                  // Check if a task is already running
+                  if (taskAbortController || taskEventSubject) {
+                    ws.close(1008, "task_already_in_progress");
+                    return;
+                  }
 
-            if (!success) {
-              ws.close(1003, "invalid_message");
-              return;
-            }
+                  // Create abort controller and start task
+                  const abortController = taskAbortController ??=
+                    new AbortController();
 
-            switch (message.action) {
-              case "startTask": {
-                // Check if a task is already running
-                if (taskAbortController || taskEventSubject) {
-                  ws.close(1008, "task_already_in_progress");
-                  return;
+                  const eventSubject = taskEventSubject ??= runAgentTask(
+                    agent,
+                    message.task,
+                    { signal: abortController.signal },
+                  );
+
+                  // Subscribe to events and send them over WebSocket
+                  eventSubject.subscribe({
+                    next: (taskEvent) => {
+                      serverLatestEventId = taskEvent.eventId;
+                      sendTaskWebSocketMessage(ws, taskEvent);
+                    },
+                    error: () => {
+                      ws.close(1011, "internal_error");
+
+                      // Clean up
+                      taskEventSubject = null;
+                      taskAbortController = null;
+                    },
+                    complete: () => {
+                      ws.close(1000, "task_complete");
+
+                      // Clean up
+                      taskEventSubject = null;
+                      taskAbortController = null;
+                    },
+                  });
+                  break;
                 }
 
-                // Create abort controller and start task
-                const abortController = taskAbortController ??=
-                  new AbortController();
+                case "resumeTask": {
+                  // Check if a task is running
+                  if (!taskEventSubject || !taskAbortController) {
+                    ws.close(1008, "task_not_running");
+                    return;
+                  }
 
-                const eventSubject = taskEventSubject ??= runAgentTask(
-                  agent,
-                  message.task,
-                  { signal: abortController.signal },
-                );
+                  // Replay events from the task event subject
+                  const events$ = replayHttpTaskEvents(
+                    taskEventSubject,
+                    serverLatestEventId,
+                    message.lastEventId,
+                  );
 
-                // Subscribe to events and send them over WebSocket
-                eventSubject.subscribe({
-                  next: (taskEvent) => {
-                    serverLatestEventId = taskEvent.eventId;
-                    sendServerMessage(ws, taskEvent);
-                  },
-                  error: () => {
+                  // Subscribe to replayed events and send them over WebSocket
+                  events$.subscribe({
+                    next: (taskEvent) => {
+                      sendTaskWebSocketMessage(ws, taskEvent);
+                    },
+                    error: () => {
+                      ws.close(1011, "internal_error");
+                    },
+                    complete: () => {
+                      sendTaskWebSocketMessage(ws, {
+                        type: "completed",
+                        timestamp: Date.now(),
+                      });
+                      ws.close(1000, "task_complete");
+                      // Note: Don't clean up taskEventSubject here since the original
+                      // subscription is still active. Only the startTask handler should clean up.
+                    },
+                  });
+                  break;
+                }
+
+                case "cancelTask": {
+                  // Check if a task is running
+                  if (!agent.isTaskRunning) {
+                    ws.close(1008, "task_not_running");
+                    return;
+                  }
+
+                  if (!taskAbortController || !taskEventSubject) {
                     ws.close(1011, "internal_error");
+                    return;
+                  }
 
-                    // Clean up
-                    taskEventSubject = null;
-                    taskAbortController = null;
-                  },
-                  complete: () => {
-                    ws.close(1000, "task_complete");
+                  if (!taskAbortController.signal.aborted) {
+                    taskAbortController.abort();
+                  }
 
-                    // Clean up
-                    taskEventSubject = null;
-                    taskAbortController = null;
-                  },
-                });
-                break;
-              }
-
-              case "resumeTask": {
-                // Check if a task is running
-                if (!taskEventSubject || !taskAbortController) {
-                  ws.close(1008, "task_not_running");
-                  return;
+                  break;
                 }
 
-                // Replay events from the task event subject
-                const events$ = replayHttpTaskEvents(
-                  taskEventSubject,
-                  serverLatestEventId,
-                  message.lastEventId,
-                );
+                case "approveTool": {
+                  if (!toolApprovalCompletor) {
+                    ws.close(1008, "no_tool_approval_pending");
+                    return;
+                  }
 
-                // Subscribe to replayed events and send them over WebSocket
-                events$.subscribe({
-                  next: (taskEvent) => {
-                    sendServerMessage(ws, taskEvent);
-                  },
-                  error: () => {
-                    ws.close(1011, "internal_error");
-                  },
-                  complete: () => {
-                    sendServerMessage(ws, {
-                      type: "completed",
-                      timestamp: Date.now(),
-                    });
-                    ws.close(1000, "task_complete");
-                    // Note: Don't clean up taskEventSubject here since the original
-                    // subscription is still active. Only the startTask handler should clean up.
-                  },
-                });
-                break;
-              }
-
-              case "cancelTask": {
-                // Check if a task is running
-                if (!agent.isTaskRunning) {
-                  ws.close(1008, "task_not_running");
-                  return;
+                  toolApprovalCompletor.resolve(message.approved);
+                  toolApprovalCompletor = null;
+                  break;
                 }
+              }
+            },
+            onClose: () => {
+              // Clean up timeout if the connection was closed before the first message was received
+              clearTimeout(firstMessageTimeoutId);
+            },
+          };
+        },
+        { protocol: "zypher.v1" },
+      ),
+    )
+    /**
+     * GET /mcp/ws - WebSocket endpoint for real-time MCP server state updates.
+     *
+     * Establishes a WebSocket connection that streams MCP server events.
+     * Uses the zypher.mcp.v1 protocol.
+     *
+     * Events are discriminated unions with a `type` field:
+     *
+     * 1. **initialState**: Sent immediately on connection with current server state
+     *    - servers: Array of { serverId, server, source, status, enabled, pendingOAuthUrl? }
+     *
+     * 2. **serverAdded**: Emitted when a server is registered
+     *    - serverId: unique server identifier
+     *    - server: McpServerEndpoint configuration
+     *    - source: { type: "registry" | "direct", packageIdentifier?: string }
+     *
+     * 3. **serverUpdated**: Emitted when server configuration changes
+     *    - serverId: unique server identifier
+     *    - updates: { server?: McpServerEndpoint, enabled?: boolean }
+     *
+     * 4. **serverRemoved**: Emitted when a server is deregistered
+     *    - serverId: unique server identifier
+     *
+     * 5. **clientStatusChanged**: Emitted when client connection status changes
+     *    - serverId: unique server identifier
+     *    - status: McpClientStatus ("disconnected" | "connecting" | "connected" | "error" | etc.)
+     *    - pendingOAuthUrl?: string (present when status is { connecting: "awaitingOAuth" })
+     *
+     * @returns WebSocket connection that streams MCP server events
+     */
+    .get(
+      "/mcp/ws",
+      upgradeWebSocket(
+        () => {
+          let stateSubscription: Subscription | null = null;
 
-                if (!taskAbortController || !taskEventSubject) {
+          return {
+            /**
+             * Handles WebSocket connection open event.
+             *
+             * Subscribes to the MCP server events stream and forwards events to the client.
+             * Automatically sends status updates for all registered servers.
+             */
+            onOpen: (_, ws) => {
+              // Build initial state from current servers
+              const initialState: McpWebSocketEvent = {
+                type: "initial_state",
+                servers: Array.from(agent.mcp.servers.entries()).map((
+                  [serverId, info],
+                ) => ({
+                  serverId,
+                  server: info.server,
+                  source: info.source,
+                  status: info.client.status,
+                  enabled: info.client.desiredEnabled,
+                  pendingOAuthUrl: info.client.pendingOAuthUrl,
+                })),
+              };
+
+              stateSubscription = agent.mcp.events$.pipe(
+                map(toMcpWebSocketEvent),
+                filter((event) => !!event),
+                startWith(initialState),
+              ).subscribe({
+                next: (event) => {
+                  ws.send(JSON.stringify(event));
+                },
+                error: () => {
                   ws.close(1011, "internal_error");
-                  return;
-                }
-
-                if (!taskAbortController.signal.aborted) {
-                  taskAbortController.abort();
-                }
-
-                break;
-              }
-
-              case "approveTool": {
-                if (!toolApprovalCompletor) {
-                  ws.close(1008, "no_tool_approval_pending");
-                  return;
-                }
-
-                toolApprovalCompletor.resolve(message.approved);
-                toolApprovalCompletor = null;
-                break;
-              }
-            }
-          },
-          onClose: () => {
-            // Clean up timeout if the connection was closed before the first message was received
-            clearTimeout(firstMessageTimeoutId);
-          },
-        };
-      },
-      {
-        protocol: "zypher.v1",
-      },
-    ),
-  );
+                },
+              });
+            },
+            /**
+             * Handles WebSocket connection close event.
+             *
+             * Cleans up the event stream subscription when the client disconnects.
+             * This is called after onError if an error occurs, so no separate error handler is needed.
+             */
+            onClose: () => {
+              stateSubscription?.unsubscribe();
+            },
+          };
+        },
+        { protocol: "zypher.mcp.v1" },
+      ),
+    );
 
   return app;
 }
