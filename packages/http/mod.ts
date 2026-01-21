@@ -1,5 +1,5 @@
 /**
- * @zypher/http - Framework-agnostic HTTP handler for Zypher Agent
+ * Framework-agnostic HTTP handler for Zypher Agent
  *
  * Uses Hono internally, exports a standard web fetch handler that can be used
  * with Deno.serve, Hono, or any Web-compatible framework.
