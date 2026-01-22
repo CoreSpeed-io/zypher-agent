@@ -29,7 +29,6 @@ import {
 } from "./storage/mod.ts";
 import {
   continueOnMaxTokens,
-  LoopDecision,
   LoopInterceptorManager,
   ToolExecutionInterceptor,
 } from "./loop_interceptors/mod.ts";
@@ -503,7 +502,7 @@ export class ZypherAgent {
           interceptorContext,
         );
 
-        if (interceptorResult.decision === LoopDecision.COMPLETE) {
+        if (interceptorResult.complete) {
           // All interceptors decided to complete, exit the loop
           break;
         }

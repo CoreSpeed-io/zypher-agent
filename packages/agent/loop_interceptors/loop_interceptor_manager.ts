@@ -1,8 +1,7 @@
-import {
-  type InterceptorContext,
-  type InterceptorResult,
-  LoopDecision,
-  type LoopInterceptor,
+import type {
+  InterceptorContext,
+  InterceptorResult,
+  LoopInterceptor,
 } from "./interface.ts";
 import { createAbortError } from "@zypher/utils";
 
@@ -65,7 +64,7 @@ export class LoopInterceptorManager {
   async execute(
     context: InterceptorContext,
   ): Promise<InterceptorResult> {
-    // Execute interceptors sequentially until one decides to CONTINUE
+    // Execute interceptors sequentially until one decides to continue
     for (const interceptor of this.#interceptors) {
       // Check for abort signal
       if (context.signal?.aborted) {
@@ -84,17 +83,23 @@ export class LoopInterceptorManager {
         context.eventSubject.next({
           type: "interceptor_result",
           interceptorName: interceptor.name,
-          decision: result.decision === LoopDecision.CONTINUE
-            ? "continue"
-            : "complete",
+          decision: result.complete ? "complete" : "continue",
         });
 
         // If this interceptor wants to continue, it takes control of the chain
-        if (result.decision === LoopDecision.CONTINUE) {
-          return result;
+        if (!result.complete) {
+          // Auto-inject reason as user message if provided
+          if (result.reason) {
+            context.messages.push({
+              role: "user",
+              content: [{ type: "text", text: result.reason }],
+              timestamp: new Date(),
+            });
+          }
+          return { complete: false };
         }
 
-        // If interceptor decides to COMPLETE, continue to next interceptor
+        // If interceptor decides to complete, continue to next interceptor
         // (unless it's the last one)
       } catch (error) {
         context.eventSubject.next({
@@ -107,9 +112,7 @@ export class LoopInterceptorManager {
     }
 
     // No interceptor wanted to continue the loop
-    return {
-      decision: LoopDecision.COMPLETE,
-    };
+    return { complete: true };
   }
 
   /**

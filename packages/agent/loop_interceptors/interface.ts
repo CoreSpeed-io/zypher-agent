@@ -6,16 +6,6 @@ import type { TaskEvent } from "../task_events.ts";
 import type { ZypherContext } from "../zypher_agent.ts";
 
 /**
- * Decision made by a loop interceptor
- */
-export enum LoopDecision {
-  /** Continue the agent loop with injected context */
-  CONTINUE = "continue",
-  /** Allow the agent loop to complete normally */
-  COMPLETE = "complete",
-}
-
-/**
  * Context provided to loop interceptors
  */
 export interface InterceptorContext {
@@ -48,10 +38,10 @@ export interface InterceptorContext {
  * Result returned by a loop interceptor
  */
 export interface InterceptorResult {
-  /** Decision on whether to continue or complete the loop */
-  decision: LoopDecision;
-  /** Optional reasoning for the decision (for debugging/logging) */
-  reasoning?: string;
+  /** Whether the loop should complete (true) or continue (false) */
+  complete: boolean;
+  /** Optional reason for continuing - auto-injected as user message when complete is false */
+  reason?: string;
 }
 
 /**
@@ -64,21 +54,25 @@ export interface LoopInterceptor {
   /** Unique name of the interceptor */
   readonly name: string;
 
-  /** Description of what this interceptor does */
-  readonly description: string;
-
   /**
-   * Execute the interceptor's custom logic to influence agent behavior.
+   * Intercept the agent loop to determine whether it should continue or complete.
    *
    * This method is called after the LLM generates a response. You are provided
    * an {@link InterceptorContext} containing the conversation messages, LLM response,
    * available tools, and other context. Use your custom logic to determine
    * if the agent should continue or complete the loop.
    *
-   * **Modifying Message Context**: To influence subsequent agent behavior,
-   * inject or modify messages in `context.messages`:
-   * - Add new messages: `context.messages.push(newMessage)` (auto-emits TaskMessageEvent)
-   * - Modify existing messages: Use unshift, splice, pop, shift, or direct assignment
+   * Interceptors can influence subsequent agent behavior by injecting context
+   * into the conversation—such as tool results, error messages, or continuation
+   * prompts—guiding the LLM's next response.
+   *
+   * **Returning a reason**: When returning `{ complete: false, reason: "..." }`,
+   * the manager will automatically inject the reason as a user message. For simple
+   * cases, this eliminates the need to manually push messages.
+   *
+   * **Manual message injection**: For complex cases (e.g., tool results with
+   * structured content), you can also push directly to `context.messages`.
+   * When doing so, omit the `reason` field to avoid duplicate injection.
    *
    * **Event Emission**:
    * - If you modify existing message history, you MUST emit TaskHistoryChangedEvent
@@ -87,7 +81,7 @@ export interface LoopInterceptor {
    * - You MAY also emit custom events to meet your specific needs
    *
    * @param context {@link InterceptorContext} with messages, tools, and event emission capabilities
-   * @returns {@link InterceptorResult} with {@link LoopDecision} on whether to continue or complete the loop
+   * @returns {@link InterceptorResult} indicating whether to continue or complete the loop
    */
   intercept(context: InterceptorContext): Promise<InterceptorResult>;
 }

@@ -1,8 +1,7 @@
-import {
-  type InterceptorContext,
-  type InterceptorResult,
-  LoopDecision,
-  type LoopInterceptor,
+import type {
+  InterceptorContext,
+  InterceptorResult,
+  LoopInterceptor,
 } from "./interface.ts";
 
 /**
@@ -30,30 +29,19 @@ export function continueOnMaxTokens(
 
   return {
     name: "continue-on-max-tokens",
-    description: "Auto-continue when response is truncated due to max tokens",
     intercept(ctx: InterceptorContext): Promise<InterceptorResult> {
       if (ctx.stopReason !== "max_tokens") {
         continuations = 0; // Reset on non-max_tokens
-        return Promise.resolve({ decision: LoopDecision.COMPLETE });
+        return Promise.resolve({ complete: true });
       }
 
       if (continuations >= maxContinuations) {
-        return Promise.resolve({ decision: LoopDecision.COMPLETE });
+        return Promise.resolve({ complete: true });
       }
 
       continuations++;
 
-      const reason = "Continue";
-      ctx.messages.push({
-        role: "user",
-        content: [{ type: "text", text: reason }],
-        timestamp: new Date(),
-      });
-
-      return Promise.resolve({
-        decision: LoopDecision.CONTINUE,
-        reasoning: reason,
-      });
+      return Promise.resolve({ complete: false, reason: "Continue" });
     },
   };
 }

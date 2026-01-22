@@ -4,7 +4,7 @@ import type { Message } from "../message.ts";
 import type { TaskEvent } from "../task_events.ts";
 import type { ZypherContext } from "../zypher_agent.ts";
 import { continueOnMaxTokens } from "./continue_on_max_tokens.ts";
-import { type InterceptorContext, LoopDecision } from "./interface.ts";
+import type { InterceptorContext } from "./interface.ts";
 
 // Helper to create a minimal ZypherContext for testing (no file system access)
 function createTestContext(): ZypherContext {
@@ -38,22 +38,23 @@ function createTestInterceptorContext(
   };
 }
 
-Deno.test("continueOnMaxTokens - returns COMPLETE when stop reason is not max_tokens", async () => {
+Deno.test("continueOnMaxTokens - returns complete: true when stop reason is not max_tokens", async () => {
   const interceptor = continueOnMaxTokens();
 
   const ctx = createTestInterceptorContext({ stopReason: "end_turn" });
   const result = await interceptor.intercept(ctx);
 
-  assertEquals(result.decision, LoopDecision.COMPLETE);
+  assertEquals(result.complete, true);
 });
 
-Deno.test("continueOnMaxTokens - returns CONTINUE when stop reason is max_tokens", async () => {
+Deno.test("continueOnMaxTokens - returns complete: false when stop reason is max_tokens", async () => {
   const interceptor = continueOnMaxTokens();
 
   const ctx = createTestInterceptorContext({ stopReason: "max_tokens" });
   const result = await interceptor.intercept(ctx);
 
-  assertEquals(result.decision, LoopDecision.CONTINUE);
+  assertEquals(result.complete, false);
+  assertEquals(result.reason, "Continue");
 });
 
 Deno.test("continueOnMaxTokens - respects maxContinuations parameter", async () => {
@@ -63,38 +64,19 @@ Deno.test("continueOnMaxTokens - respects maxContinuations parameter", async () 
 
   // First continuation
   let result = await interceptor.intercept(ctx);
-  assertEquals(result.decision, LoopDecision.CONTINUE);
+  assertEquals(result.complete, false);
 
   // Second continuation
   result = await interceptor.intercept(ctx);
-  assertEquals(result.decision, LoopDecision.CONTINUE);
+  assertEquals(result.complete, false);
 
   // Third should complete (max reached)
   result = await interceptor.intercept(ctx);
-  assertEquals(result.decision, LoopDecision.COMPLETE);
+  assertEquals(result.complete, true);
 });
 
-Deno.test("continueOnMaxTokens - injects continue message", async () => {
-  const interceptor = continueOnMaxTokens();
-
-  const ctx = createTestInterceptorContext({ stopReason: "max_tokens" });
-  await interceptor.intercept(ctx);
-
-  const lastMessage = ctx.messages[ctx.messages.length - 1];
-  const firstBlock = lastMessage.content[0];
-  if (firstBlock.type === "text") {
-    assertEquals(firstBlock.text, "Continue");
-  } else {
-    throw new Error("Expected text block");
-  }
-});
-
-Deno.test("continueOnMaxTokens - has correct name and description", () => {
+Deno.test("continueOnMaxTokens - has correct name", () => {
   const interceptor = continueOnMaxTokens();
 
   assertEquals(interceptor.name, "continue-on-max-tokens");
-  assertEquals(
-    interceptor.description,
-    "Auto-continue when response is truncated due to max tokens",
-  );
 });

@@ -1,8 +1,7 @@
-import {
-  type InterceptorContext,
-  type InterceptorResult,
-  LoopDecision,
-  type LoopInterceptor,
+import type {
+  InterceptorContext,
+  InterceptorResult,
+  LoopInterceptor,
 } from "./interface.ts";
 
 /**
@@ -36,7 +35,6 @@ export function errorDetector(
 
   return {
     name: `error-detector:${displayName}`,
-    description: `Run "${displayName}" and continue on errors`,
     async intercept(ctx: InterceptorContext): Promise<InterceptorResult> {
       const result = await new Deno.Command(command, {
         args,
@@ -45,22 +43,17 @@ export function errorDetector(
       }).output();
 
       if (result.success) {
-        return { decision: LoopDecision.COMPLETE };
+        return { complete: true };
       }
 
       const errors = decoder.decode(result.stderr) ||
         decoder.decode(result.stdout);
 
-      const reason =
-        `Command "${displayName}" failed:\n\n${errors}\n\nPlease fix these errors.`;
-
-      ctx.messages.push({
-        role: "user",
-        content: [{ type: "text", text: reason }],
-        timestamp: new Date(),
-      });
-
-      return { decision: LoopDecision.CONTINUE, reasoning: reason };
+      return {
+        complete: false,
+        reason:
+          `Command "${displayName}" failed:\n\n${errors}\n\nPlease fix these errors.`,
+      };
     },
   };
 }

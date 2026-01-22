@@ -5,11 +5,10 @@ import type {
   ToolUseBlock,
 } from "../message.ts";
 import type { McpServerManager } from "../mcp/mcp_server_manager.ts";
-import {
-  type InterceptorContext,
-  type InterceptorResult,
-  LoopDecision,
-  type LoopInterceptor,
+import type {
+  InterceptorContext,
+  InterceptorResult,
+  LoopInterceptor,
 } from "./interface.ts";
 import { formatError } from "@zypher/utils";
 
@@ -18,7 +17,6 @@ import { formatError } from "@zypher/utils";
  */
 export class ToolExecutionInterceptor implements LoopInterceptor {
   readonly name = "tool-execution";
-  readonly description = "Executes tool calls requested by the LLM";
 
   readonly #mcpServerManager: McpServerManager;
 
@@ -114,14 +112,14 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
     // Check if there are any tool calls in the latest assistant message
     const lastMessage = context.messages[context.messages.length - 1];
     if (!lastMessage || lastMessage.role !== "assistant") {
-      return { decision: LoopDecision.COMPLETE };
+      return { complete: true };
     }
 
     const toolBlocks = lastMessage.content.filter((
       block,
     ): block is ToolUseBlock => block.type === "tool_use");
     if (toolBlocks.length === 0) {
-      return { decision: LoopDecision.COMPLETE };
+      return { complete: true };
     }
 
     const toolResults = await Promise.all(
@@ -138,15 +136,40 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
       }),
     );
 
+    // Manually inject tool results (no reason needed - manager won't auto-inject)
     context.messages.push({
       role: "user",
       content: toolResults,
       timestamp: new Date(),
     });
 
-    return {
-      decision: LoopDecision.CONTINUE,
-      reasoning: `Executed ${toolBlocks.length} tool call(s)`,
-    };
+    return { complete: false };
   }
+}
+
+/**
+ * Creates a tool execution interceptor that handles LLM tool calls.
+ *
+ * This is the main interceptor for executing tools requested by the LLM.
+ * It extracts tool calls from the assistant's response, executes them via
+ * the MCP server manager, and injects the results back into the conversation.
+ *
+ * @example
+ * ```typescript
+ * const agent = await createZypherAgent({
+ *   model: "claude-sonnet-4-5-20250929",
+ *   loopInterceptors: [
+ *     executeTools(mcpManager),
+ *     continueOnMaxTokens(),
+ *   ],
+ * });
+ * ```
+ *
+ * @param mcpServerManager The MCP server manager for executing tools
+ * @returns A LoopInterceptor that executes tool calls
+ */
+export function executeTools(
+  mcpServerManager: McpServerManager,
+): LoopInterceptor {
+  return new ToolExecutionInterceptor(mcpServerManager);
 }
