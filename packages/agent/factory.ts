@@ -1,5 +1,12 @@
 import type { ModelProvider } from "./llm/mod.ts";
+import {
+  continueOnMaxTokens,
+  executeTools,
+  type LoopInterceptor,
+  LoopInterceptorManager,
+} from "./loop_interceptors/mod.ts";
 import type { McpServerEndpoint } from "./mcp/mod.ts";
+import { McpServerManager } from "./mcp/mcp_server_manager.ts";
 import {
   ZypherAgent,
   type ZypherAgentOptions,
@@ -40,6 +47,35 @@ export interface CreateZypherAgentOptions extends ZypherAgentOptions {
    * Override context settings (userId, custom directories).
    */
   context?: Partial<Omit<ZypherContext, "workingDirectory">>;
+
+  /**
+   * Custom loop interceptors for post-inference processing.
+   *
+   * Loop interceptors run after each LLM response and can:
+   * - Execute tool calls
+   * - Auto-continue on max tokens
+   * - Detect and report errors
+   * - Add custom verification logic
+   *
+   * When provided, this completely replaces the default interceptors.
+   * Use helper functions like `executeTools()`, `continueOnMaxTokens()`,
+   * and `errorDetector()` to build your interceptor chain.
+   *
+   * @example
+   * ```typescript
+   * const agent = await createZypherAgent({
+   *   model: "claude-sonnet-4-5-20250929",
+   *   loopInterceptors: [
+   *     executeTools(mcpManager),
+   *     continueOnMaxTokens(),
+   *     errorDetector("deno check ."),
+   *   ],
+   * });
+   * ```
+   *
+   * If not provided, defaults to `[executeTools(mcpManager), continueOnMaxTokens()]`.
+   */
+  loopInterceptors?: LoopInterceptor[];
 }
 
 /**
@@ -80,17 +116,36 @@ export async function createZypherAgent(
     options.context,
   );
 
-  // 2. Create agent with tools
+  // 2. Create MCP server manager (needed for tool execution interceptor)
+  const mcpServerManager = options.overrides?.mcpServerManager ??
+    new McpServerManager(zypherContext);
+
+  // 3. Create loop interceptor manager
+  let loopInterceptorManager = options.overrides?.loopInterceptorManager;
+  if (!loopInterceptorManager) {
+    // Use custom interceptors if provided, otherwise use defaults
+    const interceptors = options.loopInterceptors ?? [
+      executeTools(mcpServerManager),
+      continueOnMaxTokens(),
+    ];
+    loopInterceptorManager = new LoopInterceptorManager(interceptors);
+  }
+
+  // 4. Create agent with tools
   const agent = new ZypherAgent(zypherContext, options.model, {
     storageService: options.storageService,
     checkpointManager: options.checkpointManager,
     tools: options.tools,
     initialMessages: options.initialMessages,
     config: options.config,
-    overrides: options.overrides,
+    overrides: {
+      ...options.overrides,
+      mcpServerManager,
+      loopInterceptorManager,
+    },
   });
 
-  // 3. Register MCP servers in parallel
+  // 5. Register MCP servers in parallel
   if (options.mcpServers) {
     await Promise.all(
       options.mcpServers.map((server) =>

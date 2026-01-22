@@ -4,13 +4,9 @@ export * from "./interface.ts";
 // Export manager
 export { LoopInterceptorManager } from "./loop_interceptor_manager.ts";
 
-// Export built-in interceptors
-export { ErrorDetectionInterceptor } from "./error_detection_interceptor.ts";
-export {
-  MaxTokensInterceptor,
-  type MaxTokensInterceptorOptions,
-} from "./max_tokens_interceptor.ts";
+// Export class-based interceptors (for advanced use cases)
 export { ToolExecutionInterceptor } from "./tool_execution_interceptor.ts";
 
-// Export error detection
-export * from "./error_detection/mod.ts";
+// Export helper functions
+export { continueOnMaxTokens } from "./continue_on_max_tokens.ts";
+export { errorDetector } from "./error_detector.ts";

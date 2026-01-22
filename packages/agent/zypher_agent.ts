@@ -28,9 +28,9 @@ import {
   FileAttachmentManager,
 } from "./storage/mod.ts";
 import {
+  continueOnMaxTokens,
   LoopDecision,
   LoopInterceptorManager,
-  MaxTokensInterceptor,
   ToolExecutionInterceptor,
 } from "./loop_interceptors/mod.ts";
 import type { TaskEvent } from "./task_events.ts";
@@ -175,7 +175,7 @@ export class ZypherAgent {
     this.#loopInterceptorManager = options.overrides?.loopInterceptorManager ??
       new LoopInterceptorManager([
         new ToolExecutionInterceptor(this.#mcpServerManager),
-        new MaxTokensInterceptor(),
+        continueOnMaxTokens(),
       ]);
 
     this.#storageService = options.storageService;
