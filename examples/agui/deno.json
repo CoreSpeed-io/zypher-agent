@@ -4,8 +4,8 @@
   },
   "imports": {
     "@ag-ui/core": "npm:@ag-ui/core@^0.0.42",
-    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.6",
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0",
-    "zod": "npm:zod@^4.2.0"
+    "zod": "npm:zod@^4.3.6"
   }
 }

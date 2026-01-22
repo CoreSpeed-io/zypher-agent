@@ -7,7 +7,7 @@
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
-    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.6",
     "chalk": "npm:chalk@^5.6.2",
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0"
   },
