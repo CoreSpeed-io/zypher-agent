@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   createTool,
   type Tool,
+  type ToolExecuteOptions,
   type ToolExecutionContext,
   type ToolResult,
 } from "../mod.ts";
@@ -119,7 +120,11 @@ Specifically, each time you call this command you should:
       endLine,
     },
     ctx: ToolExecutionContext,
+    options?: ToolExecuteOptions,
   ): Promise<ToolResult> => {
+    // Check if already aborted before file read
+    options?.signal?.throwIfAborted();
+
     const resolvedPath = path.resolve(ctx.workingDirectory, filePath);
     const mimeType = getMimeTypeFromPath(filePath);
 

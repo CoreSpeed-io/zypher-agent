@@ -13,6 +13,7 @@ export type TaskEvent =
   | TaskToolUseApprovedEvent
   | TaskToolUseResultEvent
   | TaskToolUseErrorEvent
+  | TaskToolUseCancelledEvent
   | TaskInterceptorUseEvent
   | TaskInterceptorResultEvent
   | TaskInterceptorErrorEvent
@@ -120,6 +121,16 @@ export interface TaskToolUseErrorEvent {
   toolName: string;
   input: unknown;
   error: unknown;
+}
+
+/**
+ * Event emitted when a tool execution is cancelled via AbortSignal
+ */
+export interface TaskToolUseCancelledEvent {
+  type: "tool_use_cancelled";
+  toolUseId: string;
+  toolName: string;
+  input: unknown;
 }
 
 /**

@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createTool, type Tool, type ToolExecutionContext } from "../mod.ts";
+import {
+  createTool,
+  type Tool,
+  type ToolExecuteOptions,
+  type ToolExecutionContext,
+} from "../mod.ts";
 
 export const GrepSearchTool: Tool<{
   query: string;
@@ -37,7 +42,11 @@ export const GrepSearchTool: Tool<{
   execute: async (
     { query, caseSensitive, includePattern, excludePattern },
     ctx: ToolExecutionContext,
+    options?: ToolExecuteOptions,
   ) => {
+    // Check if already aborted before execution
+    options?.signal?.throwIfAborted();
+
     // Build the arguments array for ripgrep
     const args = ["--line-number", "--no-heading"];
 
@@ -59,10 +68,11 @@ export const GrepSearchTool: Tool<{
     // Add the search query
     args.push(query);
 
-    // Execute the command
+    // Execute the command with signal support
     const command = new Deno.Command("rg", {
       args: args,
       cwd: ctx.workingDirectory,
+      signal: options?.signal,
     });
 
     const { stdout, stderr } = await command.output();
