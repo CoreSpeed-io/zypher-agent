@@ -1,9 +1,9 @@
 {
   "imports": {
-    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
-    "@std/streams": "jsr:@std/streams@^1.0.14",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.6",
+    "@std/streams": "jsr:@std/streams@^1.0.17",
     "chalk": "npm:chalk@^5.6.2",
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0",
-    "zod": "npm:zod@^4.1.13"
+    "zod": "npm:zod@^4.3.6"
   }
 }
