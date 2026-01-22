@@ -45,7 +45,11 @@ function isSupportedImageType(
  * while binary files (executables, images, archives, etc.) often do.
  * Not 100% accurate but catches most common binary formats.
  */
-async function isLikelyBinaryFile(filePath: string): Promise<boolean> {
+async function isLikelyBinaryFile(
+  filePath: string,
+  options?: { signal?: AbortSignal },
+): Promise<boolean> {
+  options?.signal?.throwIfAborted();
   const file = await Deno.open(filePath, { read: true });
   const buffer = new Uint8Array(1024); // Sample first 1KB
 
@@ -130,7 +134,9 @@ Specifically, each time you call this command you should:
 
     // Handle images
     if (mimeType && isSupportedImageType(mimeType)) {
-      const fileBytes = await Deno.readFile(resolvedPath);
+      const fileBytes = await Deno.readFile(resolvedPath, {
+        signal: options?.signal,
+      });
       const base64Data = encodeBase64(fileBytes);
 
       return {
@@ -149,7 +155,9 @@ Specifically, each time you call this command you should:
     }
 
     // Check if file is binary before attempting to read as text
-    const isLikelyBinary = await isLikelyBinaryFile(resolvedPath);
+    const isLikelyBinary = await isLikelyBinaryFile(resolvedPath, {
+      signal: options?.signal,
+    });
     if (isLikelyBinary) {
       const fileStats = await Deno.stat(resolvedPath);
       return {
@@ -167,7 +175,9 @@ Specifically, each time you call this command you should:
       };
     }
 
-    const content = await Deno.readTextFile(resolvedPath);
+    const content = await Deno.readTextFile(resolvedPath, {
+      signal: options?.signal,
+    });
 
     // If no line range specified, return entire file
     if (startLine === undefined || endLine === undefined) {

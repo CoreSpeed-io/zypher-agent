@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
+import {
+  createTool,
+  type Tool,
+  type ToolExecuteOptions,
+  type ToolExecutionContext,
+} from "./mod.ts";
 import OpenAI, { toFile } from "@openai/openai";
 import * as path from "@std/path";
 import { ensureDir, exists } from "@std/fs";
@@ -56,16 +61,21 @@ function formatSuccessMessage(
  * @param images - The images to save. If multiple images are provided,
  * the first image will be saved to the exact destinationPath,
  * and the rest will be saved to destinationPath with suffixes.
+ * @param options - Optional options including AbortSignal for cancellation support.
  * @returns A promise that resolves to an array of the saved image paths.
  */
 async function saveImages(
   destinationPath: string,
   images: OpenAI.Image[],
+  options?: { signal?: AbortSignal },
 ): Promise<string[]> {
   // Track generated files
   const generatedFiles: string[] = [];
 
   for (let i = 0; i < images.length; i++) {
+    // Check if aborted on each iteration
+    options?.signal?.throwIfAborted();
+
     const image = images[i];
     let currentDestination = destinationPath;
 
@@ -86,7 +96,9 @@ async function saveImages(
       );
 
       // Write the data to the file
-      await Deno.writeFile(currentDestination, binaryData);
+      await Deno.writeFile(currentDestination, binaryData, {
+        signal: options?.signal,
+      });
 
       // Add to list of generated files
       generatedFiles.push(currentDestination);
@@ -150,24 +162,28 @@ export function createImageTools(openaiApiKey: string): Tool[] {
         destinationPath,
       },
       ctx: ToolExecutionContext,
+      options?: ToolExecuteOptions,
     ): Promise<string> => {
       const resolvedDestination = path.resolve(
         ctx.workingDirectory,
         destinationPath,
       );
-      // Create parent directory if it doesn't exist
+      options?.signal?.throwIfAborted();
       const parentDir = path.dirname(resolvedDestination);
       await ensureDir(parentDir);
 
       // Generate image using gpt-image-1
-      const response = await openai.images.generate({
-        model: "gpt-image-1",
-        prompt: prompt,
-        size: size,
-        quality,
-        background: background,
-        n: 1,
-      });
+      const response = await openai.images.generate(
+        {
+          model: "gpt-image-1",
+          prompt: prompt,
+          size: size,
+          quality,
+          background: background,
+          n: 1,
+        },
+        { signal: options?.signal },
+      );
 
       if (!response.data || response.data.length === 0) {
         throw new Error(
@@ -179,6 +195,7 @@ export function createImageTools(openaiApiKey: string): Tool[] {
       const generatedFiles = await saveImages(
         resolvedDestination,
         response.data,
+        { signal: options?.signal },
       );
 
       // Return success message
@@ -239,6 +256,7 @@ export function createImageTools(openaiApiKey: string): Tool[] {
         destinationPath,
       },
       ctx: ToolExecutionContext,
+      options?: ToolExecuteOptions,
     ): Promise<string> => {
       const resolvedSource = path.resolve(ctx.workingDirectory, sourcePath);
       const resolvedDestination = path.resolve(
@@ -246,16 +264,16 @@ export function createImageTools(openaiApiKey: string): Tool[] {
         destinationPath,
       );
 
-      // Validate source image exists
+      options?.signal?.throwIfAborted();
       if (!(await exists(resolvedSource))) {
         throw new Error(`Source image not found: ${resolvedSource}`);
       }
 
-      // Create parent directory for destination if it doesn't exist
+      options?.signal?.throwIfAborted();
       const parentDir = path.dirname(resolvedDestination);
       await ensureDir(parentDir);
 
-      // Create a file read stream using Deno's API
+      options?.signal?.throwIfAborted();
       const fileStream = await Deno.open(resolvedSource, { read: true });
 
       // Use OpenAI's toFile function to convert the stream to a file
@@ -268,14 +286,17 @@ export function createImageTools(openaiApiKey: string): Tool[] {
       );
 
       // Generate edited image using OpenAI's gpt-image-1 model
-      const response = await openai.images.edit({
-        model: "gpt-image-1",
-        image: imageFile,
-        prompt: prompt,
-        size: size,
-        quality: quality,
-        n: 1,
-      });
+      const response = await openai.images.edit(
+        {
+          model: "gpt-image-1",
+          image: imageFile,
+          prompt: prompt,
+          size: size,
+          quality: quality,
+          n: 1,
+        },
+        { signal: options?.signal },
+      );
 
       if (!response.data || response.data.length === 0) {
         throw new Error(
@@ -287,6 +308,7 @@ export function createImageTools(openaiApiKey: string): Tool[] {
       const generatedFiles = await saveImages(
         resolvedDestination,
         response.data,
+        { signal: options?.signal },
       );
 
       // Return success message
