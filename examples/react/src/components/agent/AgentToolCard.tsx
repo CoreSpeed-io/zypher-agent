@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import type {
-  ToolUseBlock,
-  ToolResultBlock,
-  TextBlock,
   ImageBlock,
+  TextBlock,
+  ToolResultBlock,
+  ToolUseBlock,
 } from "@zypher/ui";
 import {
   Collapsible,
@@ -12,13 +12,13 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import {
-  ChevronRightIcon,
   CheckCircle2Icon,
-  XCircleIcon,
-  WrenchIcon,
+  ChevronRightIcon,
   Loader2Icon,
+  WrenchIcon,
+  XCircleIcon,
 } from "lucide-react";
-import { MultiFileDiff, File as CodeFile } from "@pierre/diffs/react";
+import { File as CodeFile, MultiFileDiff } from "@pierre/diffs/react";
 import type { FileContents } from "@pierre/diffs";
 
 // Unified tool card that combines tool_use and tool_result
@@ -42,16 +42,16 @@ export function ToolCard({ toolUse, toolResult, streaming }: ToolCardProps) {
 
   const getStatusIcon = () => {
     if (streaming) {
-      return <Loader2Icon className="size-4 animate-spin text-muted-foreground shrink-0" />;
+      return (
+        <Loader2Icon className="size-4 animate-spin text-muted-foreground shrink-0" />
+      );
     }
     if (!isComplete) {
       return <WrenchIcon className="size-4 text-muted-foreground shrink-0" />;
     }
-    return isSuccess ? (
-      <CheckCircle2Icon className="size-4 text-muted-foreground shrink-0" />
-    ) : (
-      <XCircleIcon className="size-4 text-muted-foreground shrink-0" />
-    );
+    return isSuccess
+      ? <CheckCircle2Icon className="size-4 text-muted-foreground shrink-0" />
+      : <XCircleIcon className="size-4 text-muted-foreground shrink-0" />;
   };
 
   return (
@@ -59,7 +59,7 @@ export function ToolCard({ toolUse, toolResult, streaming }: ToolCardProps) {
       <div
         className={cn(
           "rounded-lg border overflow-hidden transition-colors",
-          getStatusStyle()
+          getStatusStyle(),
         )}
       >
         {/* Header - always visible */}
@@ -68,13 +68,13 @@ export function ToolCard({ toolUse, toolResult, streaming }: ToolCardProps) {
             className={cn(
               "flex items-center gap-2 px-3 py-2.5",
               "hover:bg-black/5 dark:hover:bg-white/5 transition-colors",
-              "cursor-pointer select-none"
+              "cursor-pointer select-none",
             )}
           >
             <ChevronRightIcon
               className={cn(
                 "size-4 text-muted-foreground transition-transform shrink-0",
-                open && "rotate-90"
+                open && "rotate-90",
               )}
             />
             {getStatusIcon()}
@@ -107,19 +107,21 @@ export function ToolCard({ toolUse, toolResult, streaming }: ToolCardProps) {
                   {toolResult.success ? "Result" : "Error"}
                 </div>
                 <div className="space-y-2">
-                  {toolResult.content.length > 0 ? (
-                    toolResult.content.map((item, i) => (
-                      <ToolResultContent
-                        key={i}
-                        content={item}
-                        toolName={toolUse.name}
-                      />
-                    ))
-                  ) : (
-                    <div className="px-3 py-2 text-xs text-muted-foreground italic">
-                      (empty result)
-                    </div>
-                  )}
+                  {toolResult.content.length > 0
+                    ? (
+                      toolResult.content.map((item, i) => (
+                        <ToolResultContent
+                          key={i}
+                          content={item}
+                          toolName={toolUse.name}
+                        />
+                      ))
+                    )
+                    : (
+                      <div className="px-3 py-2 text-xs text-muted-foreground italic">
+                        (empty result)
+                      </div>
+                    )}
                 </div>
               </div>
             )}
@@ -212,7 +214,7 @@ function TextResultContent({ text, toolName }: TextResultContentProps) {
   // Render as code if it looks like code
   const codeInfo = useMemo(
     () => parseCodeContent(text, toolName),
-    [text, toolName]
+    [text, toolName],
   );
 
   if (codeInfo) {
@@ -294,7 +296,7 @@ function parseDiffContent(text: string): DiffInfo | null {
 
   // Check for simple before/after markers
   const beforeAfterMatch = text.match(
-    /<<<\s*BEFORE\s*>>>\n([\s\S]*?)\n<<<\s*AFTER\s*>>>\n([\s\S]*?)(?:\n<<<\s*END\s*>>>|$)/i
+    /<<<\s*BEFORE\s*>>>\n([\s\S]*?)\n<<<\s*AFTER\s*>>>\n([\s\S]*?)(?:\n<<<\s*END\s*>>>|$)/i,
   );
   if (beforeAfterMatch) {
     return {
@@ -347,7 +349,7 @@ function extractDiffContents(diffText: string): {
 
 function parseCodeContent(
   text: string,
-  toolName?: string
+  toolName?: string,
 ): FileContents | null {
   // Check for code blocks with language
   const codeBlockMatch = text.match(/^```(\w+)?\n([\s\S]*?)\n```$/);

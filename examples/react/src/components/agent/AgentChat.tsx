@@ -1,4 +1,9 @@
-import { useAgentContext, type CompleteMessage, type StreamingMessage, type ContentBlock } from "@zypher/ui";
+import {
+  type CompleteMessage,
+  type ContentBlock,
+  type StreamingMessage,
+  useAgentContext,
+} from "@zypher/ui";
 import {
   Message,
   MessageContent,
@@ -6,9 +11,9 @@ import {
 } from "@/components/ai-elements/message";
 import {
   PromptInput,
-  PromptInputTextarea,
   PromptInputFooter,
   PromptInputSubmit,
+  PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
 import {
   Dialog,
@@ -58,23 +63,25 @@ export function AgentChat({ className }: AgentChatProps) {
   return (
     <main className={cn("overflow-y-auto", className)}>
       <div className="w-full max-w-3xl mx-auto px-4 min-h-full flex flex-col">
-        {empty ? (
-          <div className="flex-1 flex items-center justify-center py-20">
-            <div className="w-full max-w-2xl text-center">
-              <h2 className="font-serif text-3xl font-medium text-foreground mb-2">
-                What can I help you with?
-              </h2>
-              <p className="font-serif text-base font-medium text-muted-foreground">
-                Type a message below to begin our cowork
-              </p>
+        {empty
+          ? (
+            <div className="flex-1 flex items-center justify-center py-20">
+              <div className="w-full max-w-2xl text-center">
+                <h2 className="font-serif text-3xl font-medium text-foreground mb-2">
+                  What can I help you with?
+                </h2>
+                <p className="font-serif text-base font-medium text-muted-foreground">
+                  Type a message below to begin our cowork
+                </p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-6 py-6">
-            <MessagesRenderer messages={messages} streaming={streaming} />
-            <div ref={bottomRef} />
-          </div>
-        )}
+          )
+          : (
+            <div className="flex flex-col gap-6 py-6">
+              <MessagesRenderer messages={messages} streaming={streaming} />
+              <div ref={bottomRef} />
+            </div>
+          )}
       </div>
 
       {pendingApproval && (
@@ -90,7 +97,8 @@ export function AgentChat({ className }: AgentChatProps) {
 }
 
 export function AgentInput({ className: _className }: { className?: string }) {
-  const { running, streaming, pendingApproval, send, cancel } = useAgentContext();
+  const { running, streaming, pendingApproval, send, cancel } =
+    useAgentContext();
 
   const handleSubmit = ({ text }: { text: string }) => {
     if (running && streaming.length > 0) {
@@ -111,37 +119,37 @@ export function AgentInput({ className: _className }: { className?: string }) {
             "bg-background",
             "rounded-[26px]",
             "border border-border",
-            "[&_[data-slot=input-group]]:border-none [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:rounded-[26px] [&_[data-slot=input-group]]:bg-transparent"
+            "[&_[data-slot=input-group]]:border-none [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:rounded-[26px] [&_[data-slot=input-group]]:bg-transparent",
           )}
         >
           <PromptInputTextarea
-            placeholder={
-              pendingApproval
-                ? "Waiting for tool approval..."
-                : running
-                ? "Agent is thinking..."
-                : "Type a message..."
-            }
+            placeholder={pendingApproval
+              ? "Waiting for tool approval..."
+              : running
+              ? "Agent is thinking..."
+              : "Type a message..."}
             disabled={!!pendingApproval}
             className="min-h-6"
           />
           <PromptInputFooter className="justify-end">
-            {running ? (
-              <Button
-                type="button"
-                size="icon"
-                onClick={cancel}
-                className="rounded-full h-9 w-9 bg-foreground hover:bg-foreground/80"
-              >
-                <SquareIcon className="size-3 fill-background text-background" />
-              </Button>
-            ) : (
-              <PromptInputSubmit
-                status={status}
-                disabled={!!pendingApproval}
-                className="rounded-full h-9 w-9"
-              />
-            )}
+            {running
+              ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  onClick={cancel}
+                  className="rounded-full h-9 w-9 bg-foreground hover:bg-foreground/80"
+                >
+                  <SquareIcon className="size-3 fill-background text-background" />
+                </Button>
+              )
+              : (
+                <PromptInputSubmit
+                  status={status}
+                  disabled={!!pendingApproval}
+                  className="rounded-full h-9 w-9"
+                />
+              )}
           </PromptInputFooter>
         </PromptInput>
       </div>
@@ -194,7 +202,7 @@ function MessagesRenderer({
             key={`tool-${block.toolUseId}`}
             toolUse={block}
             toolResult={toolResult}
-          />
+          />,
         );
       } else if (block.type === "tool_result") {
         // Skip - already rendered with its tool_use
@@ -211,7 +219,7 @@ function MessagesRenderer({
                 input: resultBlock.input,
               }}
               toolResult={resultBlock}
-            />
+            />,
           );
         }
       } else {
@@ -224,7 +232,7 @@ function MessagesRenderer({
       renderedItems.push(
         <Message key={msg.id} from={msg.role}>
           <MessageContent>{contentItems}</MessageContent>
-        </Message>
+        </Message>,
       );
     }
   }

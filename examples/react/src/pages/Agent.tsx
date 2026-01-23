@@ -3,7 +3,8 @@ import { AgentChat, AgentInput } from "../components/agent";
 import { Button } from "../components/ui/button";
 import { PlusIcon } from "lucide-react";
 
-const AGENT_URL = import.meta.env.VITE_AGENT_URL || "http://localhost:8080/user-agent";
+const AGENT_URL = import.meta.env.VITE_AGENT_URL ||
+  "http://localhost:8080/user-agent";
 
 function AgentContent() {
   const { messages, streaming, running, clear } = useAgentContext();

@@ -27,7 +27,8 @@
 }
 
 @theme inline {
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   --font-serif: "Georgia", "Times New Roman", serif;
 }
