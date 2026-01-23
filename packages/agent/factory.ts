@@ -52,28 +52,23 @@ export interface CreateZypherAgentOptions extends ZypherAgentOptions {
    * Custom loop interceptors for post-inference processing.
    *
    * Loop interceptors run after each LLM response and can:
-   * - Execute tool calls
-   * - Auto-continue on max tokens
    * - Detect and report errors
    * - Add custom verification logic
    *
-   * When provided, this completely replaces the default interceptors.
-   * Use helper functions like `executeTools()`, `continueOnMaxTokens()`,
-   * and `errorDetector()` to build your interceptor chain.
+   * **Note:** `executeTools()` and `continueOnMaxTokens()` are always prepended
+   * automatically. Your interceptors run after these built-in interceptors.
+   *
+   * Use helper functions like `errorDetector()` to build your interceptor chain.
    *
    * @example
    * ```typescript
    * const agent = await createZypherAgent({
    *   model: "claude-sonnet-4-5-20250929",
    *   loopInterceptors: [
-   *     executeTools(mcpManager),
-   *     continueOnMaxTokens(),
    *     errorDetector("deno check ."),
    *   ],
    * });
    * ```
-   *
-   * If not provided, defaults to `[executeTools(mcpManager), continueOnMaxTokens()]`.
    */
   loopInterceptors?: LoopInterceptor[];
 }
@@ -123,10 +118,12 @@ export async function createZypherAgent(
   // 3. Create loop interceptor manager
   let loopInterceptorManager = options.overrides?.loopInterceptorManager;
   if (!loopInterceptorManager) {
-    // Use custom interceptors if provided, otherwise use defaults
-    const interceptors = options.loopInterceptors ?? [
+    // Always prepend executeTools and continueOnMaxTokens - user interceptors run after
+    const userInterceptors = options.loopInterceptors ?? [];
+    const interceptors = [
       executeTools(mcpServerManager),
       continueOnMaxTokens(),
+      ...userInterceptors,
     ];
     loopInterceptorManager = new LoopInterceptorManager(interceptors);
   }
