@@ -35,30 +35,22 @@ export function ToolCard({ toolUse, toolResult, streaming }: ToolCardProps) {
   const isComplete = !!toolResult;
   const isSuccess = toolResult?.success ?? true;
 
-  // Status-based styling
+  // Status-based styling - keep it simple
   const getStatusStyle = () => {
-    if (streaming) {
-      return "border-blue-500/30 bg-blue-500/5";
-    }
-    if (!isComplete) {
-      return "border-border/50 bg-muted/30";
-    }
-    return isSuccess
-      ? "border-green-500/30 bg-green-500/5"
-      : "border-red-500/30 bg-red-500/5";
+    return "border-border/50 bg-muted/20";
   };
 
   const getStatusIcon = () => {
     if (streaming) {
-      return <Loader2Icon className="size-4 animate-spin text-blue-500 shrink-0" />;
+      return <Loader2Icon className="size-4 animate-spin text-muted-foreground shrink-0" />;
     }
     if (!isComplete) {
       return <WrenchIcon className="size-4 text-muted-foreground shrink-0" />;
     }
     return isSuccess ? (
-      <CheckCircle2Icon className="size-4 text-green-600 dark:text-green-400 shrink-0" />
+      <CheckCircle2Icon className="size-4 text-muted-foreground shrink-0" />
     ) : (
-      <XCircleIcon className="size-4 text-red-600 dark:text-red-400 shrink-0" />
+      <XCircleIcon className="size-4 text-muted-foreground shrink-0" />
     );
   };
 
@@ -90,7 +82,7 @@ export function ToolCard({ toolUse, toolResult, streaming }: ToolCardProps) {
               {toolUse.name}
             </span>
             {streaming && (
-              <span className="text-xs shrink-0 text-blue-500">
+              <span className="text-xs shrink-0 text-muted-foreground">
                 Running...
               </span>
             )}
@@ -111,14 +103,7 @@ export function ToolCard({ toolUse, toolResult, streaming }: ToolCardProps) {
             {/* Result section - only if we have a result */}
             {toolResult && (
               <div className="border-t border-border/30 py-1">
-                <div
-                  className={cn(
-                    "px-3 py-1.5 text-xs font-medium border-b border-border/30 bg-muted/10",
-                    toolResult.success
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
-                  )}
-                >
+                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border-b border-border/30 bg-muted/10">
                   {toolResult.success ? "Result" : "Error"}
                 </div>
                 <div className="space-y-2">
@@ -230,15 +215,14 @@ function TextResultContent({ text, toolName }: TextResultContentProps) {
 
   // Default: render as plain text with basic styling
   return (
-    <div className="overflow-hidden">
+    <div className="max-h-[300px] overflow-auto">
       <CodeFile
         file={{ name: "output.txt", contents: text }}
         options={{
           theme: { dark: "github-dark", light: "github-light" },
-          overflow: "scroll",
           disableFileHeader: true,
         }}
-        className="text-xs max-h-[300px]"
+        className="text-xs"
       />
     </div>
   );
@@ -252,15 +236,14 @@ function JsonRenderer({ content }: { content: unknown }) {
   );
 
   return (
-    <div className="overflow-hidden">
+    <div className="max-h-[300px] overflow-auto">
       <CodeFile
         file={{ name: "data.json", contents: jsonString }}
         options={{
           theme: { dark: "github-dark", light: "github-light" },
-          overflow: "scroll",
           disableFileHeader: true,
         }}
-        className="text-xs max-h-[300px]"
+        className="text-xs"
       />
     </div>
   );
@@ -431,14 +414,13 @@ interface DiffRendererProps {
 
 function DiffRenderer({ oldFile, newFile }: DiffRendererProps) {
   return (
-    <div className="rounded-md border border-border/50 overflow-hidden [&_*]:!font-mono">
+    <div className="rounded-md border border-border/50 max-h-[400px] overflow-auto [&_*]:!font-mono">
       <MultiFileDiff
         oldFile={oldFile}
         newFile={newFile}
         options={{
           theme: { dark: "github-dark", light: "github-light" },
           diffStyle: "unified",
-          overflow: "scroll",
           disableFileHeader: false,
           hunkSeparators: "line-info",
           lineDiffType: "word-alt",
@@ -455,12 +437,11 @@ interface CodeRendererProps {
 
 function CodeRenderer({ file }: CodeRendererProps) {
   return (
-    <div className="rounded-md border border-border/50 overflow-hidden [&_*]:!font-mono">
+    <div className="rounded-md border border-border/50 max-h-[300px] overflow-auto [&_*]:!font-mono">
       <CodeFile
         file={file}
         options={{
           theme: { dark: "github-dark", light: "github-light" },
-          overflow: "scroll",
           disableFileHeader: true,
         }}
         className="text-xs"

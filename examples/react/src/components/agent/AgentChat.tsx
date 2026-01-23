@@ -108,8 +108,9 @@ export function AgentInput({ className }: { className?: string }) {
         <PromptInput
           onSubmit={handleSubmit}
           className={cn(
-            "bg-muted/50 dark:bg-[#303030]",
+            "bg-background",
             "rounded-[26px]",
+            "border border-border",
             "[&_[data-slot=input-group]]:border-none [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:rounded-[26px] [&_[data-slot=input-group]]:bg-transparent"
           )}
         >
