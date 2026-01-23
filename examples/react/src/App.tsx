@@ -10,9 +10,9 @@ function AppContent() {
   const empty = messages.length === 0 && streaming.length === 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header - sticky top */}
-      <header className="sticky top-0 z-10 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-4 py-3 flex items-center justify-between">
+    <div className="grid h-dvh grid-rows-[auto_1fr_auto] bg-background overflow-hidden">
+      {/* Header */}
+      <header className="border-b bg-background px-4 py-3 flex items-center justify-between">
         <h1 className="text-lg font-semibold">Agent Chat</h1>
         <Button
           variant="outline"
@@ -25,13 +25,10 @@ function AppContent() {
         </Button>
       </header>
 
-      {/* Messages - natural flow, body scrolls */}
+      {/* Messages - scrolls internally */}
       <AgentChat />
 
-      {/* Spacer - prevents content hidden behind input */}
-      <div className="h-28" aria-hidden="true" />
-
-      {/* Input - sticky bottom */}
+      {/* Input - fixed at bottom */}
       <AgentInput />
     </div>
   );

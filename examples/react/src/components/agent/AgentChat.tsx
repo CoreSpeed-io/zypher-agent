@@ -56,24 +56,26 @@ export function AgentChat({ className }: AgentChatProps) {
   const empty = messages.length === 0 && streaming.length === 0;
 
   return (
-    <main className={cn("w-full max-w-3xl mx-auto px-4", className)}>
-      {empty ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <div className="w-full max-w-2xl text-center">
-            <h2 className="font-serif text-3xl font-medium text-foreground mb-2">
-              What can I help you with?
-            </h2>
-            <p className="font-serif text-base font-medium text-muted-foreground">
-              Type a message below to begin our cowork
-            </p>
+    <main className={cn("overflow-y-auto", className)}>
+      <div className="w-full max-w-3xl mx-auto px-4 min-h-full flex flex-col">
+        {empty ? (
+          <div className="flex-1 flex items-center justify-center py-20">
+            <div className="w-full max-w-2xl text-center">
+              <h2 className="font-serif text-3xl font-medium text-foreground mb-2">
+                What can I help you with?
+              </h2>
+              <p className="font-serif text-base font-medium text-muted-foreground">
+                Type a message below to begin our cowork
+              </p>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-8 py-6">
-          <MessagesRenderer messages={messages} streaming={streaming} />
-          <div ref={bottomRef} />
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col gap-6 py-6">
+            <MessagesRenderer messages={messages} streaming={streaming} />
+            <div ref={bottomRef} />
+          </div>
+        )}
+      </div>
 
       {pendingApproval && (
         <ToolApprovalDialog
@@ -101,14 +103,14 @@ export function AgentInput({ className }: { className?: string }) {
   const status = running ? "streaming" : "ready";
 
   return (
-    <div className={cn("sticky bottom-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80", className)}>
-      <div className="w-full max-w-3xl mx-auto px-4 pb-6 pt-2">
+    <div className="bg-background">
+      <div className="w-full max-w-3xl mx-auto px-4 py-3">
         <PromptInput
           onSubmit={handleSubmit}
           className={cn(
             "bg-muted/50 dark:bg-[#303030]",
             "rounded-[26px]",
-            "[&_[data-slot=input-group]]:border [&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:rounded-[26px] [&_[data-slot=input-group]]:bg-transparent"
+            "[&_[data-slot=input-group]]:border-none [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:rounded-[26px] [&_[data-slot=input-group]]:bg-transparent"
           )}
         >
           <PromptInputTextarea

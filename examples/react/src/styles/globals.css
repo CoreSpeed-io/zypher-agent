@@ -37,6 +37,12 @@
     @apply border-border;
   }
 
+  html,
+  body,
+  #root {
+    @apply h-full overflow-hidden;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
