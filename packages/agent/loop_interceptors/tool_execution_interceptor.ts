@@ -11,7 +11,7 @@ import {
   LoopDecision,
   type LoopInterceptor,
 } from "./interface.ts";
-import { formatError } from "@zypher/utils";
+import { formatError, isAbortError } from "@zypher/utils";
 
 /**
  * Interceptor that handles tool execution when the LLM requests tool calls
@@ -96,6 +96,19 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
         };
       }
     } catch (error) {
+      if (isAbortError(error)) {
+        return {
+          type: "tool_result" as const,
+          toolUseId,
+          name,
+          input,
+          success: false,
+          content: [{
+            type: "text",
+            text: `Tool execution cancelled`,
+          }],
+        };
+      }
       return {
         type: "tool_result" as const,
         toolUseId,

@@ -24,7 +24,12 @@ import type {
   CompatibilityCallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assign, createActor, setup, waitFor } from "xstate";
-import { createTool, type Tool } from "../tools/mod.ts";
+import {
+  createTool,
+  type Tool,
+  type ToolExecuteOptions,
+  type ToolExecutionContext,
+} from "../tools/mod.ts";
 import { jsonToZod } from "./utils.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import { formatError, isAbortError } from "@zypher/utils";
@@ -573,11 +578,15 @@ export class McpClient {
         outputSchema: tool.outputSchema
           ? jsonToZod(tool.outputSchema)
           : undefined,
-        execute: async (params: Record<string, unknown>) => {
-          const result = await this.executeToolCall({
-            name: tool.name,
-            input: params,
-          });
+        execute: async (
+          params: Record<string, unknown>,
+          _ctx: ToolExecutionContext,
+          options?: ToolExecuteOptions,
+        ) => {
+          const result = await this.executeToolCall(
+            { name: tool.name, input: params },
+            { signal: options?.signal },
+          );
           return result;
         },
       });
@@ -596,17 +605,25 @@ export class McpClient {
   /**
    * Executes a tool call and returns the result
    * @param toolCall The tool call to execute
+   * @param options Optional execution options including AbortSignal
    * @returns The result of the tool execution
    * @throws Error if client is not connected
    */
-  async executeToolCall(toolCall: {
-    name: string;
-    input: Record<string, unknown>;
-  }): Promise<CallToolResult> {
-    const result = await this.#client.callTool({
-      name: toolCall.name,
-      arguments: toolCall.input,
-    });
+  async executeToolCall(
+    toolCall: {
+      name: string;
+      input: Record<string, unknown>;
+    },
+    options?: { signal?: AbortSignal },
+  ): Promise<CallToolResult> {
+    const result = await this.#client.callTool(
+      {
+        name: toolCall.name,
+        arguments: toolCall.input,
+      },
+      undefined,
+      { signal: options?.signal },
+    );
 
     return normalizeToCallToolResult(result);
   }

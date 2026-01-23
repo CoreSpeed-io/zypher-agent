@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createTool, type Tool, type ToolExecutionContext } from "../mod.ts";
+import {
+  createTool,
+  type Tool,
+  type ToolExecuteOptions,
+  type ToolExecutionContext,
+} from "../mod.ts";
 
 export const FileSearchTool: Tool<{
   query: string;
@@ -16,11 +21,16 @@ export const FileSearchTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ query }, ctx: ToolExecutionContext) => {
+  execute: async (
+    { query },
+    ctx: ToolExecutionContext,
+    options?: ToolExecuteOptions,
+  ) => {
     // Using fd (modern alternative to find) with fuzzy matching
     const command = new Deno.Command("fd", {
       args: ["-t", "f", "-d", "10", "-l", query],
       cwd: ctx.workingDirectory,
+      signal: options?.signal,
     });
 
     const { stdout, stderr } = await command.output();
