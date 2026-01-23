@@ -24,6 +24,8 @@
   },
   "exclude": [
     "docs/",
-    "examples/agui/ui"
+    "examples/agui/ui",
+    "examples/ui-react",
+    "packages/ui"
   ]
 }
