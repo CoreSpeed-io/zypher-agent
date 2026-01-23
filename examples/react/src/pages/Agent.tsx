@@ -1,11 +1,11 @@
 import { AgentProvider, useAgentContext } from "@zypher/ui";
-import { AgentChat, AgentInput } from "./components/agent";
-import { Button } from "./components/ui/button";
+import { AgentChat, AgentInput } from "../components/agent";
+import { Button } from "../components/ui/button";
 import { PlusIcon } from "lucide-react";
 
 const AGENT_URL = import.meta.env.VITE_AGENT_URL || "http://localhost:8080/user-agent";
 
-function AppContent() {
+function AgentContent() {
   const { messages, streaming, running, clear } = useAgentContext();
   const empty = messages.length === 0 && streaming.length === 0;
 
@@ -34,10 +34,10 @@ function AppContent() {
   );
 }
 
-export default function App() {
+export default function Agent() {
   return (
     <AgentProvider config={{ url: AGENT_URL }}>
-      <AppContent />
+      <AgentContent />
     </AgentProvider>
   );
 }
