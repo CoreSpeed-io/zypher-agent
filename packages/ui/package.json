@@ -24,7 +24,6 @@
     "swr": "^2.0.0"
   },
   "dependencies": {
-    "@logtape/logtape": "^2.0.1",
     "rxjs": "^7.8.2",
     "rxjs-for-await": "^1.0.0"
   },

@@ -1,9 +1,6 @@
-import { getLogger } from "@logtape/logtape";
 import { Observable } from "rxjs";
 import type { Message, TaskEvent, ClientMessage, AgentInfo } from "../types";
 import { AgentWebSocketConnection } from "./websocket-connection";
-
-const logger = getLogger(["zypher", "ui", "client"]);
 
 export interface AgentClientOptions {
   baseUrl: string;
@@ -39,7 +36,6 @@ export class AgentClient {
   async messages(): Promise<Message[]> {
     const res = await this.fetch("/messages");
     if (!res.ok) {
-      logger.error`Failed to get messages: ${res.status} ${res.statusText}`;
       throw new Error(`Failed to get messages: ${res.statusText}`);
     }
     return res.json();
@@ -48,7 +44,6 @@ export class AgentClient {
   async clear(): Promise<void> {
     const res = await this.fetch("/messages", { method: "DELETE" });
     if (!res.ok) {
-      logger.error`Failed to clear messages: ${res.status} ${res.statusText}`;
       throw new Error(`Failed to clear messages: ${res.statusText}`);
     }
   }
@@ -56,7 +51,6 @@ export class AgentClient {
   async info(): Promise<AgentInfo> {
     const res = await this.fetch("/info");
     if (!res.ok) {
-      logger.error`Failed to get agent info: ${res.status} ${res.statusText}`;
       throw new Error(`Failed to get agent info: ${res.statusText}`);
     }
     return res.json();
@@ -65,11 +59,9 @@ export class AgentClient {
   private async connect(message: ClientMessage): Promise<TaskSession> {
     const ws = await this.ws();
     const connection = new AgentWebSocketConnection(ws);
-    logger.debug`WebSocket connecting to ${ws.url}`;
 
     const events$ = new Observable<TaskEvent>((sub) => {
       ws.onopen = () => {
-        logger.info`WebSocket connected`;
         ws.send(JSON.stringify(message));
       };
       ws.onmessage = (e) => {
@@ -78,24 +70,19 @@ export class AgentClient {
           sub.next(event);
           if (event.type === "completed" || event.type === "cancelled") sub.complete();
           else if (event.type === "error") {
-            logger.error`Task error: ${event.error}`;
             sub.error(new Error(event.error));
           }
         } catch (err) {
-          logger.error`Failed to parse message: ${err}`;
           sub.error(err);
         }
       };
-      ws.onerror = (e) => {
-        logger.error`WebSocket error: ${e}`;
+      ws.onerror = () => {
         sub.error(new Error("WebSocket error"));
       };
       ws.onclose = (e) => {
         if (e.code === 1000) {
-          logger.debug`WebSocket closed normally`;
           sub.complete();
         } else {
-          logger.warn`WebSocket closed unexpectedly: code=${e.code} reason=${e.reason}`;
           sub.error(new Error(`WebSocket closed: ${e.code}`));
         }
       };
