@@ -29,19 +29,19 @@ export function continueOnMaxTokens(
 
   return {
     name: "continue-on-max-tokens",
-    intercept(ctx: InterceptorContext): Promise<InterceptorResult> {
+    intercept(ctx: InterceptorContext): InterceptorResult {
       if (ctx.stopReason !== "max_tokens") {
         continuations = 0; // Reset on non-max_tokens
-        return Promise.resolve({ complete: true });
+        return { complete: true };
       }
 
       if (continuations >= maxContinuations) {
-        return Promise.resolve({ complete: true });
+        return { complete: true };
       }
 
       continuations++;
 
-      return Promise.resolve({ complete: false, reason: "Continue" });
+      return { complete: false, reason: "Continue" };
     },
   };
 }

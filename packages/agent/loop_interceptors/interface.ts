@@ -86,5 +86,7 @@ export interface LoopInterceptor {
    * @param context {@link InterceptorContext} with messages, tools, and event emission capabilities
    * @returns {@link InterceptorResult} indicating whether to continue or complete the loop
    */
-  intercept(context: InterceptorContext): Promise<InterceptorResult>;
+  intercept(
+    context: InterceptorContext,
+  ): InterceptorResult | Promise<InterceptorResult>;
 }
