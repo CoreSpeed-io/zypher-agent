@@ -1,12 +1,6 @@
 import type { ModelProvider } from "./llm/mod.ts";
-import {
-  continueOnMaxTokens,
-  executeTools,
-  type LoopInterceptor,
-  LoopInterceptorManager,
-} from "./loop_interceptors/mod.ts";
+import type { LoopInterceptor } from "./loop_interceptors/mod.ts";
 import type { McpServerEndpoint } from "./mcp/mod.ts";
-import { McpServerManager } from "./mcp/mcp_server_manager.ts";
 import {
   ZypherAgent,
   type ZypherAgentOptions,
@@ -64,13 +58,13 @@ export interface CreateZypherAgentOptions extends ZypherAgentOptions {
    * ```typescript
    * const agent = await createZypherAgent({
    *   model: "claude-sonnet-4-5-20250929",
-   *   loopInterceptors: [
+   *   interceptors: [
    *     errorDetector("deno check ."),
    *   ],
    * });
    * ```
    */
-  loopInterceptors?: LoopInterceptor[];
+  interceptors?: LoopInterceptor[];
 }
 
 /**
@@ -111,38 +105,18 @@ export async function createZypherAgent(
     options.context,
   );
 
-  // 2. Create MCP server manager (needed for tool execution interceptor)
-  const mcpServerManager = options.overrides?.mcpServerManager ??
-    new McpServerManager(zypherContext);
-
-  // 3. Create loop interceptor manager
-  let loopInterceptorManager = options.overrides?.loopInterceptorManager;
-  if (!loopInterceptorManager) {
-    // Always prepend executeTools and continueOnMaxTokens - user interceptors run after
-    const userInterceptors = options.loopInterceptors ?? [];
-    const interceptors = [
-      executeTools(mcpServerManager),
-      continueOnMaxTokens(),
-      ...userInterceptors,
-    ];
-    loopInterceptorManager = new LoopInterceptorManager(interceptors);
-  }
-
-  // 4. Create agent with tools
+  // 2. Create agent
   const agent = new ZypherAgent(zypherContext, options.model, {
     storageService: options.storageService,
     checkpointManager: options.checkpointManager,
     tools: options.tools,
     initialMessages: options.initialMessages,
+    interceptors: options.interceptors,
     config: options.config,
-    overrides: {
-      ...options.overrides,
-      mcpServerManager,
-      loopInterceptorManager,
-    },
+    overrides: options.overrides,
   });
 
-  // 5. Register MCP servers in parallel
+  // 3. Register MCP servers in parallel
   if (options.mcpServers) {
     await Promise.all(
       options.mcpServers.map((server) =>

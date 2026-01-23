@@ -29,8 +29,9 @@ import {
 } from "./storage/mod.ts";
 import {
   continueOnMaxTokens,
+  executeTools,
+  type LoopInterceptor,
   LoopInterceptorManager,
-  ToolExecutionInterceptor,
 } from "./loop_interceptors/mod.ts";
 import type { TaskEvent } from "./task_events.ts";
 import { SkillManager, type SkillManagerOptions } from "./skill_manager.ts";
@@ -91,6 +92,12 @@ export interface ZypherAgentOptions {
    * when creating a new agent with a different model.
    */
   initialMessages?: Message[];
+  /**
+   * Custom loop interceptors for post-inference processing.
+   * `executeTools()` and `continueOnMaxTokens()` are always prepended automatically.
+   * Your interceptors run after these built-in interceptors.
+   */
+  interceptors?: LoopInterceptor[];
   /** Override default implementations of core components */
   overrides?: {
     /** Function that loads the system prompt for the agent. Defaults to {@link getSystemPrompt}. */
@@ -173,8 +180,9 @@ export class ZypherAgent {
       new McpServerManager(context);
     this.#loopInterceptorManager = options.overrides?.loopInterceptorManager ??
       new LoopInterceptorManager([
-        new ToolExecutionInterceptor(this.#mcpServerManager),
+        executeTools(this.#mcpServerManager),
         continueOnMaxTokens(),
+        ...(options.interceptors ?? []),
       ]);
 
     this.#storageService = options.storageService;
