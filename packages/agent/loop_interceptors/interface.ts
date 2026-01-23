@@ -54,6 +54,9 @@ export interface LoopInterceptor {
   /** Unique name of the interceptor */
   readonly name: string;
 
+  /** Optional description of what this interceptor does */
+  readonly description?: string;
+
   /**
    * Intercept the agent loop to determine whether it should continue or complete.
    *
