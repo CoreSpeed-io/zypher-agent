@@ -1,6 +1,5 @@
 import { Observable } from "rxjs";
 import type { Message, TaskEvent, ClientMessage, AgentInfo } from "../types";
-import { AgentWebSocketConnection } from "./websocket-connection";
 
 export interface AgentClientOptions {
   baseUrl: string;
@@ -11,8 +10,14 @@ export interface StartTaskOptions {
   fileAttachments?: string[];
 }
 
+export interface TaskConnection {
+  cancel: () => void;
+  approve: (yes: boolean) => void;
+  close: () => void;
+}
+
 export interface TaskSession {
-  connection: AgentWebSocketConnection;
+  connection: TaskConnection;
   events$: Observable<TaskEvent>;
 }
 
@@ -58,7 +63,14 @@ export class AgentClient {
 
   private async connect(message: ClientMessage): Promise<TaskSession> {
     const ws = await this.ws();
-    const connection = new AgentWebSocketConnection(ws);
+    const send = (msg: ClientMessage) => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    };
+    const connection: TaskConnection = {
+      cancel: () => send({ action: "cancelTask" }),
+      approve: (yes) => send({ action: "approveTool", approved: yes }),
+      close: () => ws.close(1000, "client_close"),
+    };
 
     const events$ = new Observable<TaskEvent>((sub) => {
       ws.onopen = () => {

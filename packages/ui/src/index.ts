@@ -1,6 +1,6 @@
 // Client
-export { AgentClient, AgentWebSocketConnection, TaskEventId } from "./client";
-export type { AgentClientOptions, StartTaskOptions, TaskSession } from "./client";
+export { AgentClient, TaskEventId } from "./client";
+export type { AgentClientOptions, StartTaskOptions, TaskConnection, TaskSession } from "./client";
 
 // Hooks
 export { useAgent } from "./hooks";

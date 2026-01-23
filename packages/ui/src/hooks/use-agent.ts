@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import useSWR from "swr";
 import type { Observable } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
-import type { AgentClient, AgentWebSocketConnection, StartTaskOptions } from "../client";
+import type { AgentClient, TaskConnection, StartTaskOptions } from "../client";
 import type { Message, TaskEvent, ContentBlock, AgentInfo } from "../types";
 
 export interface UseAgentOptions {
@@ -73,7 +73,7 @@ export function useAgent({ client, messageKey = "agent-messages" }: UseAgentOpti
   const [running, setRunning] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
 
-  const connRef = useRef<AgentWebSocketConnection | null>(null);
+  const connRef = useRef<TaskConnection | null>(null);
   const lastEventIdRef = useRef<string | undefined>(undefined);
 
   const { data: agentInfo } = useSWR<AgentInfo>(
