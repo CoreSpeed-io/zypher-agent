@@ -7,6 +7,7 @@ import { GithubIcon } from "@/components/icons/github";
 import { LinkedinIcon } from "@/components/icons/linkedin";
 import { XIcon } from "@/components/icons/x";
 import FooterDots from "./footer-dots.png";
+import { DISCORD_INVITE_LINK } from "@/constants";
 
 export function FooterSection() {
   return (
@@ -81,7 +82,7 @@ export function FooterSection() {
               >
                 <LinkedinIcon className="size-5" />
               </Link>
-              <Link href="https://discord.gg/9CVxeWvsp9" target="_blank">
+              <Link href={DISCORD_INVITE_LINK} target="_blank">
                 <DiscordIcon className="size-5" />
               </Link>
               <Link href="https://x.com/CoreSpeed_Inc" target="_blank">
