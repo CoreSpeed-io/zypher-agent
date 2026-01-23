@@ -107,13 +107,19 @@ export function ToolCard({ toolUse, toolResult, streaming }: ToolCardProps) {
                   {toolResult.success ? "Result" : "Error"}
                 </div>
                 <div className="space-y-2">
-                  {toolResult.content.map((item, i) => (
-                    <ToolResultContent
-                      key={i}
-                      content={item}
-                      toolName={toolUse.name}
-                    />
-                  ))}
+                  {toolResult.content.length > 0 ? (
+                    toolResult.content.map((item, i) => (
+                      <ToolResultContent
+                        key={i}
+                        content={item}
+                        toolName={toolUse.name}
+                      />
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-xs text-muted-foreground italic">
+                      (empty result)
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -230,10 +236,16 @@ function TextResultContent({ text, toolName }: TextResultContentProps) {
 
 // JSON renderer with syntax highlighting
 function JsonRenderer({ content }: { content: unknown }) {
-  const jsonString = useMemo(
-    () => JSON.stringify(content, null, 2),
-    [content]
-  );
+  const jsonString = useMemo(() => {
+    // Handle undefined/null explicitly to ensure we always have a valid string
+    if (content === undefined) {
+      return "undefined";
+    }
+    if (content === null) {
+      return "null";
+    }
+    return JSON.stringify(content, null, 2);
+  }, [content]);
 
   return (
     <div className="max-h-[300px] overflow-auto">

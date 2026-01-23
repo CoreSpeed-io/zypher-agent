@@ -89,10 +89,10 @@ export function AgentChat({ className }: AgentChatProps) {
   );
 }
 
-export function AgentInput({ className }: { className?: string }) {
+export function AgentInput({ className: _className }: { className?: string }) {
   const { running, streaming, pendingApproval, send, cancel } = useAgentContext();
 
-  const handleSubmit = async ({ text }: { text: string }) => {
+  const handleSubmit = ({ text }: { text: string }) => {
     if (running && streaming.length > 0) {
       cancel();
     } else {
