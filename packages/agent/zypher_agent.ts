@@ -28,7 +28,6 @@ import {
   FileAttachmentManager,
 } from "./storage/mod.ts";
 import {
-  continueOnMaxTokens,
   executeTools,
   type LoopInterceptor,
   LoopInterceptorManager,
@@ -94,8 +93,8 @@ export interface ZypherAgentOptions {
   initialMessages?: Message[];
   /**
    * Custom loop interceptors for post-inference processing.
-   * `executeTools()` and `continueOnMaxTokens()` are always prepended automatically.
-   * Your interceptors run after these built-in interceptors.
+   * `executeTools()` is always prepended automatically.
+   * Your interceptors run after this built-in interceptor.
    */
   interceptors?: LoopInterceptor[];
   /** Override default implementations of core components */
@@ -181,7 +180,6 @@ export class ZypherAgent {
     this.#loopInterceptorManager = options.overrides?.loopInterceptorManager ??
       new LoopInterceptorManager([
         executeTools(this.#mcpServerManager),
-        continueOnMaxTokens(),
         ...(options.interceptors ?? []),
       ]);
 

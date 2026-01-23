@@ -154,16 +154,8 @@ export class ToolExecutionInterceptor implements LoopInterceptor {
  * It extracts tool calls from the assistant's response, executes them via
  * the MCP server manager, and injects the results back into the conversation.
  *
- * @example
- * ```typescript
- * const agent = await createZypherAgent({
- *   model: "claude-sonnet-4-5-20250929",
- *   loopInterceptors: [
- *     executeTools(mcpManager),
- *     continueOnMaxTokens(),
- *   ],
- * });
- * ```
+ * Note: This interceptor is automatically prepended by `createZypherAgent()`.
+ * You typically don't need to add it manually.
  *
  * @param mcpServerManager The MCP server manager for executing tools
  * @returns A LoopInterceptor that executes tool calls

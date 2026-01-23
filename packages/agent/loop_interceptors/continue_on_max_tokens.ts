@@ -8,14 +8,20 @@ import type {
  * Creates an interceptor that automatically continues when the LLM response
  * is truncated due to max tokens.
  *
+ * Add this to your interceptors if you want the agent to automatically continue
+ * when a response is truncated.
+ *
  * @example
  * ```typescript
  * const agent = await createZypherAgent({
  *   model: "claude-sonnet-4-5-20250929",
- *   loopInterceptors: [
- *     new ToolExecutionInterceptor(mcpManager),
- *     continueOnMaxTokens(5),
- *   ],
+ *   interceptors: [continueOnMaxTokens()],
+ * });
+ *
+ * // Or limit to 5 continuations
+ * const agent = await createZypherAgent({
+ *   model: "claude-sonnet-4-5-20250929",
+ *   interceptors: [continueOnMaxTokens(5)],
  * });
  * ```
  *

@@ -49,8 +49,8 @@ export interface CreateZypherAgentOptions extends ZypherAgentOptions {
    * - Detect and report errors
    * - Add custom verification logic
    *
-   * **Note:** `executeTools()` and `continueOnMaxTokens()` are always prepended
-   * automatically. Your interceptors run after these built-in interceptors.
+   * **Note:** `executeTools()` is always prepended automatically.
+   * Your interceptors run after this built-in interceptor.
    *
    * Use helper functions like `errorDetector()` to build your interceptor chain.
    *
