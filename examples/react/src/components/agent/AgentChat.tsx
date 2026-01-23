@@ -1,4 +1,4 @@
-import { useAgentContext, type CompleteMessage, type StreamingMessage, type ContentBlock, type AgentInfo } from "@zypher/ui";
+import { useAgentContext, type CompleteMessage, type StreamingMessage, type ContentBlock } from "@zypher/ui";
 import {
   Message,
   MessageContent,
@@ -30,7 +30,6 @@ interface AgentChatProps {
 
 export function AgentChat({ className }: AgentChatProps) {
   const {
-    agentInfo,
     messages,
     streaming,
     loading,
@@ -68,7 +67,6 @@ export function AgentChat({ className }: AgentChatProps) {
               Type a message below to begin our cowork
             </p>
           </div>
-          {agentInfo && <AgentInfoCards agentInfo={agentInfo} />}
         </div>
       ) : (
         <div className="flex flex-col gap-8 py-6">
@@ -331,78 +329,5 @@ function ToolApprovalDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function AgentInfoCards({ agentInfo }: { agentInfo: AgentInfo }) {
-  const allTools = [
-    ...agentInfo.tools,
-    ...agentInfo.mcpServers.flatMap((s) => s.tools),
-  ];
-
-  const modelName = agentInfo.model.split("/").pop() || agentInfo.model;
-
-  return (
-    <div className="mt-8 w-full max-w-sm">
-      <div
-        className="rounded-[24px] p-6"
-        style={{
-          background: "#F7F9FC",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)",
-        }}
-      >
-        {/* Header */}
-        <div className="mb-5 pb-4 border-b border-black/[0.06]">
-          <h3
-            className="text-lg font-semibold tracking-tight"
-            style={{ color: "#1a1a1a" }}
-          >
-            {agentInfo.name}
-          </h3>
-          <p className="text-sm mt-1" style={{ color: "#1a1a1a", opacity: 0.5 }}>
-            {modelName}
-          </p>
-        </div>
-
-        {/* Description */}
-        {agentInfo.description && (
-          <p
-            className="text-sm mb-5 leading-relaxed"
-            style={{ color: "#1a1a1a", opacity: 0.7 }}
-          >
-            {agentInfo.description}
-          </p>
-        )}
-
-        {/* Tools */}
-        {allTools.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {allTools.slice(0, 5).map((tool) => {
-              const displayName = tool.name
-                .replace(/^mcp__[^_]+__/, "")
-                .replace(/_/g, " ");
-              return (
-                <span
-                  key={tool.name}
-                  className="inline-flex items-center px-3 py-1.5 rounded-[20px] text-[11px] font-medium tracking-wide"
-                  style={{ background: "#EBEEF3", color: "#1a1a1a" }}
-                  title={tool.description}
-                >
-                  {displayName}
-                </span>
-              );
-            })}
-            {allTools.length > 5 && (
-              <span
-                className="inline-flex items-center px-3 py-1.5 rounded-[20px] text-[11px] font-medium"
-                style={{ background: "#EBEEF3", color: "#1a1a1a", opacity: 0.6 }}
-              >
-                +{allTools.length - 5}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
