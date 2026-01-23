@@ -570,7 +570,7 @@ export class McpServerManager {
       toolName: name,
     });
 
-    // Check if already aborted before executing (useful for MCP tools that don't support signals)
+    // Early exit if already aborted before starting execution
     options?.signal?.throwIfAborted();
 
     try {

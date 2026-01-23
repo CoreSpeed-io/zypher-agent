@@ -44,10 +44,8 @@ export const GrepSearchTool: Tool<{
     ctx: ToolExecutionContext,
     options?: ToolExecuteOptions,
   ) => {
-    // Check if already aborted before execution
     options?.signal?.throwIfAborted();
 
-    // Build the arguments array for ripgrep
     const args = ["--line-number", "--no-heading"];
 
     if (!caseSensitive) {
@@ -65,10 +63,8 @@ export const GrepSearchTool: Tool<{
     // Add max count to avoid overwhelming output
     args.push("-m", "50");
 
-    // Add the search query
     args.push(query);
 
-    // Execute the command with signal support
     const command = new Deno.Command("rg", {
       args: args,
       cwd: ctx.workingDirectory,

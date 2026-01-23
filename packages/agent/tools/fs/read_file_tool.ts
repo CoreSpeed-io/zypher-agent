@@ -126,7 +126,6 @@ Specifically, each time you call this command you should:
     ctx: ToolExecutionContext,
     options?: ToolExecuteOptions,
   ): Promise<ToolResult> => {
-    // Check if already aborted before file read
     options?.signal?.throwIfAborted();
 
     const resolvedPath = path.resolve(ctx.workingDirectory, filePath);
