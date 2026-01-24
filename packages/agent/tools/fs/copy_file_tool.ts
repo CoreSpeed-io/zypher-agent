@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createTool, type Tool, type ToolExecutionContext } from "../mod.ts";
+import {
+  createTool,
+  type Tool,
+  type ToolExecuteOptions,
+  type ToolExecutionContext,
+} from "../mod.ts";
 import * as path from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 
@@ -35,16 +40,17 @@ export const CopyFileTool: Tool<{
   execute: async (
     { sourceFile, destinationFile, overwrite },
     ctx: ToolExecutionContext,
+    options?: ToolExecuteOptions,
   ) => {
     const srcResolved = path.resolve(ctx.workingDirectory, sourceFile);
     const dstResolved = path.resolve(ctx.workingDirectory, destinationFile);
 
-    // Check if source file exists
+    options?.signal?.throwIfAborted();
     if (!(await exists(srcResolved))) {
       throw new Error(`Source file not found: ${srcResolved}`);
     }
 
-    // Check if destination file already exists
+    options?.signal?.throwIfAborted();
     const destinationExists = await exists(dstResolved);
     if (destinationExists && !overwrite) {
       throw new Error(
@@ -52,10 +58,10 @@ export const CopyFileTool: Tool<{
       );
     }
 
-    // Create destination directory if needed
+    options?.signal?.throwIfAborted();
     await ensureDir(path.dirname(dstResolved));
 
-    // Copy the file
+    options?.signal?.throwIfAborted();
     await Deno.copyFile(srcResolved, dstResolved);
     return `Successfully copied file from ${srcResolved} to ${dstResolved}${
       destinationExists ? " (overwritten)" : ""

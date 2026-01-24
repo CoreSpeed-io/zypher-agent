@@ -18,6 +18,14 @@ export type ToolExecutionContext = ZypherContext;
 export type ToolResult = CallToolResult | string;
 
 /**
+ * Options for tool execution
+ */
+export interface ToolExecuteOptions {
+  /** AbortSignal for cancellation support */
+  signal?: AbortSignal;
+}
+
+/**
  * Base interface for all tools
  */
 export interface Tool<T extends BaseParams = BaseParams> {
@@ -28,6 +36,7 @@ export interface Tool<T extends BaseParams = BaseParams> {
   execute(
     input: T,
     ctx: ToolExecutionContext,
+    options?: ToolExecuteOptions,
   ): Promise<ToolResult>;
 }
 
@@ -55,6 +64,7 @@ export function createTool<T extends BaseParams>(options: {
   execute: (
     params: T,
     ctx: ToolExecutionContext,
+    options?: ToolExecuteOptions,
   ) => Promise<ToolResult>;
 }): Tool<T> {
   return {
@@ -62,10 +72,14 @@ export function createTool<T extends BaseParams>(options: {
     description: options.description,
     schema: options.schema,
     outputSchema: options.outputSchema,
-    execute: async (input: T, ctx: ToolExecutionContext) => {
+    execute: async (
+      input: T,
+      ctx: ToolExecutionContext,
+      execOptions?: ToolExecuteOptions,
+    ) => {
       // Validate input using Zod schema
       const validatedInput = await options.schema.parseAsync(input);
-      return options.execute(validatedInput, ctx);
+      return options.execute(validatedInput, ctx, execOptions);
     },
   };
 }

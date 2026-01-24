@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createTool, type Tool, type ToolExecutionContext } from "../mod.ts";
+import {
+  createTool,
+  type Tool,
+  type ToolExecuteOptions,
+  type ToolExecutionContext,
+} from "../mod.ts";
 import * as path from "@std/path";
 
 export const ListDirTool: Tool<{
@@ -20,10 +25,15 @@ export const ListDirTool: Tool<{
         "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
       ),
   }),
-  execute: async ({ targetPath }, ctx: ToolExecutionContext) => {
+  execute: async (
+    { targetPath },
+    ctx: ToolExecutionContext,
+    options?: ToolExecuteOptions,
+  ) => {
     const entries: string[] = [];
     const basePath = path.resolve(ctx.workingDirectory, targetPath);
     for await (const entry of Deno.readDir(basePath)) {
+      options?.signal?.throwIfAborted();
       const fullPath = path.join(basePath, entry.name);
       const fileInfo = await Deno.stat(fullPath);
       const type = entry.isDirectory ? "directory" : "file";

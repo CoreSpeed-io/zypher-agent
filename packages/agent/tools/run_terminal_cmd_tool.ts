@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createTool, type Tool, type ToolExecutionContext } from "./mod.ts";
+import {
+  createTool,
+  type Tool,
+  type ToolExecuteOptions,
+  type ToolExecutionContext,
+} from "./mod.ts";
 import { exec, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -30,9 +35,10 @@ export const RunTerminalCmdTool: Tool<{
   execute: async (
     { command, isBackground },
     ctx: ToolExecutionContext,
+    options?: ToolExecuteOptions,
   ) => {
     if (isBackground) {
-      // For background processes, use spawn
+      // For background processes, use spawn (cannot be cancelled once started)
       const child = spawn(command, [], {
         shell: true,
         detached: true,
@@ -45,6 +51,7 @@ export const RunTerminalCmdTool: Tool<{
 
     const { stdout, stderr } = await execAsync(command, {
       cwd: ctx.workingDirectory,
+      signal: options?.signal,
     });
     if (stderr) {
       return `Command executed with warnings:\n${stderr}\nOutput:\n${stdout}`;

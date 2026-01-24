@@ -8,6 +8,7 @@ import { cn } from "tailwind-variants";
 import { DiscordIcon } from "@/components/icons/discord";
 import { LinkedinIcon } from "@/components/icons/linkedin";
 import { XIcon } from "@/components/icons/x";
+import { DISCORD_INVITE_LINK } from "@/constants";
 
 export function HeaderDropdown({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -70,7 +71,7 @@ export function HeaderDropdown({ children }: { children: ReactNode }) {
             <div className="border-outline-base tablet:border-b-0 flex items-center border-b-[0.5px] px-6 py-4 text-base">
               <Link
                 className="flex flex-1 items-center justify-center gap-2 py-4"
-                href="https://discord.gg/9CVxeWvsp9"
+                href={DISCORD_INVITE_LINK}
                 target="_blank"
               >
                 <DiscordIcon className="size-4" />
