@@ -1,5 +1,7 @@
 {
   "imports": {
+    "chalk": "npm:chalk@^5.6.2",
+    "rxjs-for-await": "npm:rxjs-for-await@^1.0.0",
     "zod": "npm:zod@^4.3.6"
   }
 }

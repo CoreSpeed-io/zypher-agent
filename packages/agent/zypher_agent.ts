@@ -28,10 +28,9 @@ import {
   FileAttachmentManager,
 } from "./storage/mod.ts";
 import {
-  LoopDecision,
+  executeTools,
+  type LoopInterceptor,
   LoopInterceptorManager,
-  MaxTokensInterceptor,
-  ToolExecutionInterceptor,
 } from "./loop_interceptors/mod.ts";
 import type { TaskEvent } from "./task_events.ts";
 import { SkillManager, type SkillManagerOptions } from "./skill_manager.ts";
@@ -92,6 +91,12 @@ export interface ZypherAgentOptions {
    * when creating a new agent with a different model.
    */
   initialMessages?: Message[];
+  /**
+   * Custom loop interceptors for post-inference processing.
+   * `executeTools()` is always prepended automatically.
+   * Your interceptors run after this built-in interceptor.
+   */
+  interceptors?: LoopInterceptor[];
   /** Override default implementations of core components */
   overrides?: {
     /** Function that loads the system prompt for the agent. Defaults to {@link getSystemPrompt}. */
@@ -174,8 +179,8 @@ export class ZypherAgent {
       new McpServerManager(context);
     this.#loopInterceptorManager = options.overrides?.loopInterceptorManager ??
       new LoopInterceptorManager([
-        new ToolExecutionInterceptor(this.#mcpServerManager),
-        new MaxTokensInterceptor(),
+        executeTools(this.#mcpServerManager),
+        ...(options.interceptors ?? []),
       ]);
 
     this.#storageService = options.storageService;
@@ -503,7 +508,7 @@ export class ZypherAgent {
           interceptorContext,
         );
 
-        if (interceptorResult.decision === LoopDecision.COMPLETE) {
+        if (interceptorResult.complete) {
           // All interceptors decided to complete, exit the loop
           break;
         }

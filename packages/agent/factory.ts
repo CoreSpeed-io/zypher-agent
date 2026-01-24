@@ -1,4 +1,5 @@
 import type { ModelProvider } from "./llm/mod.ts";
+import type { LoopInterceptor } from "./loop_interceptors/mod.ts";
 import type { McpServerEndpoint } from "./mcp/mod.ts";
 import {
   ZypherAgent,
@@ -40,6 +41,30 @@ export interface CreateZypherAgentOptions extends ZypherAgentOptions {
    * Override context settings (userId, custom directories).
    */
   context?: Partial<Omit<ZypherContext, "workingDirectory">>;
+
+  /**
+   * Custom loop interceptors for post-inference processing.
+   *
+   * Loop interceptors run after each LLM response and can:
+   * - Detect and report errors
+   * - Add custom verification logic
+   *
+   * **Note:** `executeTools()` is always prepended automatically.
+   * Your interceptors run after this built-in interceptor.
+   *
+   * Use helper functions like `errorDetector()` to build your interceptor chain.
+   *
+   * @example
+   * ```typescript
+   * const agent = await createZypherAgent({
+   *   model: "claude-sonnet-4-5-20250929",
+   *   interceptors: [
+   *     errorDetector("deno", ["check", "."]),
+   *   ],
+   * });
+   * ```
+   */
+  interceptors?: LoopInterceptor[];
 }
 
 /**
@@ -80,12 +105,13 @@ export async function createZypherAgent(
     options.context,
   );
 
-  // 2. Create agent with tools
+  // 2. Create agent
   const agent = new ZypherAgent(zypherContext, options.model, {
     storageService: options.storageService,
     checkpointManager: options.checkpointManager,
     tools: options.tools,
     initialMessages: options.initialMessages,
+    interceptors: options.interceptors,
     config: options.config,
     overrides: options.overrides,
   });
