@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   createTool,
   type Tool,
+  type ToolExecuteOptions,
   type ToolExecutionContext,
   type ToolResult,
 } from "../mod.ts";
@@ -63,6 +64,7 @@ Action types:
     execute: async (
       params,
       ctx: ToolExecutionContext,
+      options?: ToolExecuteOptions,
     ): Promise<ToolResult> => {
       const target = resolve(ctx.workingDirectory, params.targetFile);
 
@@ -70,12 +72,14 @@ Action types:
       const resolvedBackupDir = backupDir
         ? resolve(ctx.workingDirectory, backupDir)
         : join(ctx.workspaceDataDir, "backup");
+
+      options?.signal?.throwIfAborted();
       await ensureDir(resolvedBackupDir);
 
-      // Check if file exists and create backup if needed
+      options?.signal?.throwIfAborted();
       if (await exists(target)) {
         const fileName = basename(target);
-        // Backup original file
+        options?.signal?.throwIfAborted();
         await Deno.copyFile(
           target,
           join(resolvedBackupDir, `${fileName}.bak`),
@@ -89,9 +93,14 @@ Action types:
       switch (params.type) {
         case "overwrite": {
           const parent = dirname(target);
-          if (parent) await ensureDir(parent);
+          if (parent) {
+            options?.signal?.throwIfAborted();
+            await ensureDir(parent);
+          }
 
-          await Deno.writeTextFile(target, params.content);
+          await Deno.writeTextFile(target, params.content, {
+            signal: options?.signal,
+          });
           return "File overwritten successfully";
         }
 
@@ -100,7 +109,9 @@ Action types:
             throw new Error("'line' is required for insert action");
           }
 
-          const original = await Deno.readTextFile(target);
+          const original = await Deno.readTextFile(target, {
+            signal: options?.signal,
+          });
           const originalLines = original.split("\n");
           const insertedLines = params.content.split("\n");
 
@@ -109,7 +120,7 @@ Action types:
           originalLines.splice(insertAt, 0, ...insertedLines);
           const output = originalLines.join("\n");
 
-          await Deno.writeTextFile(target, output);
+          await Deno.writeTextFile(target, output, { signal: options?.signal });
           return `Inserted ${insertedLines.length} lines.`;
         }
 
@@ -120,7 +131,9 @@ Action types:
             );
           }
 
-          const original = await Deno.readTextFile(target);
+          const original = await Deno.readTextFile(target, {
+            signal: options?.signal,
+          });
           const output = params.replaceAll
             ? original.replaceAll(params.oldContent, params.content)
             : original.replace(params.oldContent, params.content);
@@ -128,7 +141,9 @@ Action types:
           const occurrences = original.split(params.oldContent).length - 1;
 
           if (occurrences > 0) {
-            await Deno.writeTextFile(target, output);
+            await Deno.writeTextFile(target, output, {
+              signal: options?.signal,
+            });
             return `Replaced ${occurrences} occurrences`;
           } else {
             return "No occurrences found to replace";
@@ -142,13 +157,17 @@ Action types:
             );
           }
 
-          const original = await Deno.readTextFile(target);
+          const original = await Deno.readTextFile(target, {
+            signal: options?.signal,
+          });
           const regex = new RegExp(params.oldContent, params.flags ?? "g");
           const matches = original.match(regex);
 
           if (matches) {
             const output = original.replace(regex, params.content);
-            await Deno.writeTextFile(target, output);
+            await Deno.writeTextFile(target, output, {
+              signal: options?.signal,
+            });
             return `Replaced ${matches.length} regex matches`;
           } else {
             return "No matches found for the regex pattern";
@@ -168,7 +187,11 @@ Action types:
       ),
     }),
 
-    execute: async (params, ctx: ToolExecutionContext): Promise<ToolResult> => {
+    execute: async (
+      params,
+      ctx: ToolExecutionContext,
+      options?: ToolExecuteOptions,
+    ): Promise<ToolResult> => {
       const targetResolved = resolve(ctx.workingDirectory, params.targetFile);
       // Use provided backupDir (resolved relative to workingDirectory) or default to workspaceDataDir/backup
       const backupResolvedDir = backupDir
@@ -177,10 +200,11 @@ Action types:
 
       const fileName = basename(targetResolved);
 
-      // const backupFile = `${backupDir}/${fileName}.bak`;
       const backupFile = join(backupResolvedDir, `${fileName}.bak`);
+      options?.signal?.throwIfAborted();
       const backupExists = await exists(backupFile);
       if (backupExists) {
+        options?.signal?.throwIfAborted();
         await Deno.copyFile(backupFile, targetResolved);
       } else {
         throw new Error("No backup file exists");

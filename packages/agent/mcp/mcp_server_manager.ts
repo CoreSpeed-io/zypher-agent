@@ -6,6 +6,7 @@ import type { OAuthOptions } from "./connect.ts";
 import McpStoreSDK from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
 import { type Observable, Subject, type Subscription } from "rxjs";
+import { isAbortError } from "@zypher/utils";
 
 /**
  * Metadata about where an MCP server came from
@@ -95,6 +96,12 @@ export type McpServerManagerEvent =
     toolName: string;
     input: unknown;
     error: unknown;
+  }
+  | {
+    type: "tool_use_cancelled";
+    toolUseId: string;
+    toolName: string;
+    input: unknown;
   };
 
 /**
@@ -563,10 +570,14 @@ export class McpServerManager {
       toolName: name,
     });
 
+    // Early exit if already aborted before starting execution
+    options?.signal?.throwIfAborted();
+
     try {
       const result = await tool.execute(
         input as Record<string, unknown>,
         this.context,
+        { signal: options?.signal },
       );
 
       this.#eventsSubject.next({
@@ -579,13 +590,22 @@ export class McpServerManager {
 
       return result;
     } catch (error) {
-      this.#eventsSubject.next({
-        type: "tool_use_error",
-        toolUseId,
-        toolName: name,
-        input,
-        error,
-      });
+      if (isAbortError(error)) {
+        this.#eventsSubject.next({
+          type: "tool_use_cancelled",
+          toolUseId,
+          toolName: name,
+          input,
+        });
+      } else {
+        this.#eventsSubject.next({
+          type: "tool_use_error",
+          toolUseId,
+          toolName: name,
+          input,
+          error,
+        });
+      }
 
       throw error;
     }

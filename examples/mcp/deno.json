@@ -1,8 +1,8 @@
 {
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
-    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.25.2",
-    "@types/react": "npm:@types/react@^19.2.8",
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.25.3",
+    "@types/react": "npm:@types/react@^19.2.9",
     "ink": "npm:ink@^6.6.0",
     "ink-select-input": "npm:ink-select-input@^6.2.0",
     "ink-text-input": "npm:ink-text-input@^6.0.0",
