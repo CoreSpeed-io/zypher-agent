@@ -7,6 +7,7 @@
     "packages/http",
     "packages/skills",
     "packages/utils",
+    "examples",
     "examples/mcp",
     "examples/agui",
     "examples/ptc"
