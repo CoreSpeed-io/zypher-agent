@@ -59,17 +59,17 @@ const calculator = createTool({
 });
 
 // Get configuration from environment
-const gatewayUrl = getRequiredEnv("CF_AIG_BASE_URL");
+const gatewayBaseUrl = getRequiredEnv("CF_AIG_BASE_URL");
 const apiToken = getRequiredEnv("CF_AIG_API_TOKEN");
 
 const model = Deno.env.get("ZYPHER_MODEL") ?? "anthropic/claude-sonnet-4-5";
 
-console.log(`Using Cloudflare AI Gateway: ${gatewayUrl}`);
+console.log(`Using Cloudflare AI Gateway: ${gatewayBaseUrl}`);
 console.log(`Model: ${model}\n`);
 
 // Create the model provider using Cloudflare AI Gateway
 const modelProvider = cloudflareGateway(model, {
-  gatewayUrl,
+  gatewayBaseUrl,
   apiToken,
 });
 

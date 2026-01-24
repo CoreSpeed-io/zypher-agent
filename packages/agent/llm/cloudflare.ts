@@ -12,7 +12,7 @@ export interface CloudflareGatewayOptions {
    *
    * Find this in your Cloudflare dashboard under AI > AI Gateway.
    */
-  gatewayUrl: string;
+  gatewayBaseUrl: string;
 
   /**
    * Your Cloudflare API token with AI Gateway permissions.
@@ -79,7 +79,7 @@ function resolveModelRouting(model: string): ModelRouting {
  * @example Basic usage with Anthropic
  * ```ts
  * const provider = cloudflareGateway("anthropic/claude-sonnet-4-5", {
- *   gatewayUrl: "https://gateway.ai.cloudflare.com/v1/{account}/{gateway}",
+ *   gatewayBaseUrl: "https://gateway.ai.cloudflare.com/v1/{account}/{gateway}",
  *   apiToken: "your-cf-api-token",
  * });
  * ```
@@ -87,7 +87,7 @@ function resolveModelRouting(model: string): ModelRouting {
  * @example Using OpenAI models
  * ```ts
  * const provider = cloudflareGateway("openai/gpt-4o", {
- *   gatewayUrl: process.env.CF_AIG_BASE_URL,
+ *   gatewayBaseUrl: process.env.CF_AIG_BASE_URL,
  *   apiToken: process.env.CF_AIG_API_TOKEN,
  * });
  * ```
@@ -95,7 +95,7 @@ function resolveModelRouting(model: string): ModelRouting {
  * @example Using other providers via compat endpoint
  * ```ts
  * // Providers like grok, deepseek, google-ai-studio route to /compat
- * const provider = cloudflareGateway("grok/grok-3", { gatewayUrl, apiToken });
+ * const provider = cloudflareGateway("grok/grok-3", { gatewayBaseUrl, apiToken });
  * ```
  *
  * ## Model Routing
@@ -116,7 +116,7 @@ export function cloudflareGateway(
   options: CloudflareGatewayOptions,
 ): ModelProvider {
   const { endpoint, modelName } = resolveModelRouting(model);
-  const baseUrl = `${options.gatewayUrl}/${endpoint}`;
+  const baseUrl = `${options.gatewayBaseUrl}/${endpoint}`;
 
   if (endpoint === "anthropic") {
     return new AnthropicModelProvider({
