@@ -2033,6 +2033,11 @@
   },
   "workspace": {
     "members": {
+      "examples": {
+        "dependencies": [
+          "npm:zod@^4.1.13"
+        ]
+      },
       "examples/agui": {
         "dependencies": [
           "jsr:@std/dotenv@~0.225.5",
