@@ -32,25 +32,26 @@
     "jsr:@std/toml@^1.0.3": "1.0.11",
     "jsr:@std/yaml@^1.0.5": "1.0.10",
     "npm:@ag-ui/core@^0.0.42": "0.0.42",
-    "npm:@agentclientprotocol/sdk@0.12": "0.12.0_zod@4.3.5",
-    "npm:@anthropic-ai/sdk@~0.71.2": "0.71.2_zod@4.3.5",
+    "npm:@agentclientprotocol/sdk@0.12": "0.12.0_zod@4.3.6",
+    "npm:@anthropic-ai/sdk@~0.71.2": "0.71.2_zod@4.3.6",
     "npm:@aws-sdk/client-s3@^3.971.0": "3.971.0",
     "npm:@aws-sdk/s3-request-presigner@^3.971.0": "3.971.0",
-    "npm:@modelcontextprotocol/sdk@^1.25.2": "1.25.2_zod@4.3.5_ajv@8.17.1_express@5.2.1",
+    "npm:@modelcontextprotocol/sdk@^1.25.2": "1.25.2_zod@4.3.6_ajv@8.17.1_express@5.2.1",
     "npm:@types/react@^19.2.8": "19.2.8",
     "npm:chalk@^5.6.2": "5.6.2",
     "npm:ink-select-input@^6.2.0": "6.2.0_ink@6.6.0__@types+react@19.2.8__react@19.2.3_react@19.2.3_@types+react@19.2.8",
     "npm:ink-text-input@6": "6.0.0_ink@6.6.0__@types+react@19.2.8__react@19.2.3_react@19.2.3_@types+react@19.2.8",
     "npm:ink@^6.6.0": "6.6.0_@types+react@19.2.8_react@19.2.3",
-    "npm:openai@6.9.1": "6.9.1_zod@4.3.5",
+    "npm:openai@6.9.1": "6.9.1_zod@4.3.6",
     "npm:react-dom@^19.2.3": "19.2.3_react@19.2.3",
     "npm:react@^19.2.3": "19.2.3",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
     "npm:xstate@^5.25.1": "5.25.1",
-    "npm:zod@^4.1.13": "4.3.5",
-    "npm:zod@^4.2.0": "4.3.5",
-    "npm:zod@^4.3.5": "4.3.5"
+    "npm:zod@^4.1.13": "4.3.6",
+    "npm:zod@^4.2.0": "4.3.6",
+    "npm:zod@^4.3.5": "4.3.6",
+    "npm:zod@^4.3.6": "4.3.6"
   },
   "jsr": {
     "@cliffy/command@1.0.0-rc.8": {
@@ -179,10 +180,10 @@
         "zod@3.25.76"
       ]
     },
-    "@agentclientprotocol/sdk@0.12.0_zod@4.3.5": {
+    "@agentclientprotocol/sdk@0.12.0_zod@4.3.6": {
       "integrity": "sha512-V8uH/KK1t7utqyJmTA7y7DzKu6+jKFIXM+ZVouz8E55j8Ej2RV42rEvPKn3/PpBJlliI5crcGk1qQhZ7VwaepA==",
       "dependencies": [
-        "zod@4.3.5"
+        "zod@4.3.6"
       ]
     },
     "@alcalzone/ansi-tokenize@0.2.3": {
@@ -192,14 +193,14 @@
         "is-fullwidth-code-point"
       ]
     },
-    "@anthropic-ai/sdk@0.71.2_zod@4.3.5": {
+    "@anthropic-ai/sdk@0.71.2_zod@4.3.6": {
       "integrity": "sha512-TGNDEUuEstk/DKu0/TflXAEt+p+p/WhTlFzEnoosvbaDU2LTjm42igSdlL0VijrKpWejtOKxX0b8A7uc+XiSAQ==",
       "dependencies": [
         "json-schema-to-ts",
-        "zod@4.3.5"
+        "zod@4.3.6"
       ],
       "optionalPeers": [
-        "zod@4.3.5"
+        "zod@4.3.6"
       ],
       "bin": true
     },
@@ -782,7 +783,7 @@
         "hono"
       ]
     },
-    "@modelcontextprotocol/sdk@1.25.2_zod@4.3.5_ajv@8.17.1_express@5.2.1": {
+    "@modelcontextprotocol/sdk@1.25.2_zod@4.3.6_ajv@8.17.1_express@5.2.1": {
       "integrity": "sha512-LZFeo4F9M5qOhC/Uc1aQSrBHxMrvxett+9KLHt7OhcExtoiRN9DKgbZffMP/nxjutWDQpfMDfP3nkHI4X9ijww==",
       "dependencies": [
         "@hono/node-server",
@@ -799,7 +800,7 @@
         "json-schema-typed",
         "pkce-challenge",
         "raw-body",
-        "zod@4.3.5",
+        "zod@4.3.6",
         "zod-to-json-schema"
       ]
     },
@@ -1729,13 +1730,13 @@
         "mimic-fn"
       ]
     },
-    "openai@6.9.1_zod@4.3.5": {
+    "openai@6.9.1_zod@4.3.6": {
       "integrity": "sha512-vQ5Rlt0ZgB3/BNmTa7bIijYFhz3YBceAA3Z4JuoMSBftBF9YqFHIEhZakSs+O/Ad7EaoEimZvHxD5ylRjN11Lg==",
       "dependencies": [
-        "zod@4.3.5"
+        "zod@4.3.6"
       ],
       "optionalPeers": [
-        "zod@4.3.5"
+        "zod@4.3.6"
       ],
       "bin": true
     },
@@ -2018,24 +2019,24 @@
     "yoga-layout@3.2.1": {
       "integrity": "sha512-0LPOt3AxKqMdFBZA3HBAt/t/8vIKq7VaQYbuA8WxCgung+p9TVyKRYdpvCb80HcdTN2NkbIKbhNwKUfm3tQywQ=="
     },
-    "zod-to-json-schema@3.25.1_zod@4.3.5": {
+    "zod-to-json-schema@3.25.1_zod@4.3.6": {
       "integrity": "sha512-pM/SU9d3YAggzi6MtR4h7ruuQlqKtad8e9S0fmxcMi+ueAK5Korys/aWcV9LIIHTVbj01NdzxcnXSN+O74ZIVA==",
       "dependencies": [
-        "zod@4.3.5"
+        "zod@4.3.6"
       ]
     },
     "zod@3.25.76": {
       "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="
     },
-    "zod@4.3.5": {
-      "integrity": "sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g=="
+    "zod@4.3.6": {
+      "integrity": "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="
     }
   },
   "workspace": {
     "members": {
       "examples": {
         "dependencies": [
-          "npm:zod@^4.1.13"
+          "npm:zod@^4.3.6"
         ]
       },
       "examples/agui": {

@@ -1,5 +1,5 @@
 {
   "imports": {
-    "zod": "npm:zod@^4.1.13"
+    "zod": "npm:zod@^4.3.6"
   }
 }
