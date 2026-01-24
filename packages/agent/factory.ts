@@ -59,7 +59,7 @@ export interface CreateZypherAgentOptions extends ZypherAgentOptions {
    * const agent = await createZypherAgent({
    *   model: "claude-sonnet-4-5-20250929",
    *   interceptors: [
-   *     errorDetector("deno check ."),
+   *     errorDetector("deno", ["check", "."]),
    *   ],
    * });
    * ```
