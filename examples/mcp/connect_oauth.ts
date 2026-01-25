@@ -18,11 +18,11 @@
  * 5. Displays server capabilities (tools, resources, prompts)
  *
  * Usage:
- *   deno run --allow-all connectToRemoteServer.example.ts <server-url>
+ *   deno run --allow-all examples/mcp/connect_oauth.ts <server-url>
  *
  * Examples:
- *   deno run --allow-all connectToRemoteServer.example.ts https://your-mcp-server.com/mcp
- *   deno run --allow-all connectToRemoteServer.example.ts http://localhost:8080/mcp
+ *   deno run --allow-all examples/mcp/connect_oauth.ts https://your-mcp-server.com/mcp
+ *   deno run --allow-all examples/mcp/connect_oauth.ts http://localhost:8080/mcp
  */
 
 import { Command } from "@cliffy/command";
@@ -171,7 +171,7 @@ async function run(serverUrl: string) {
 
 if (import.meta.main) {
   await new Command()
-    .name("connectToRemoteServer")
+    .name("connect_oauth")
     .version("1.0.0")
     .description(
       "Connect to an OAuth-enabled MCP server using the low-level connectToRemoteServer API",
@@ -179,7 +179,7 @@ if (import.meta.main) {
     .arguments("<server-url:string>")
     .example(
       "Remote server",
-      "deno run --allow-all connectToRemoteServer.example.ts https://mcp-server.com/mcp",
+      "deno run --allow-all examples/mcp/connect_oauth.ts https://mcp-server.com/mcp",
     )
     .action((_options, serverUrl) => run(serverUrl))
     .parse(Deno.args);
