@@ -9,8 +9,7 @@
     "packages/utils",
     "examples",
     "examples/mcp",
-    "examples/agui",
-    "examples/ptc"
+    "examples/agui"
   ],
   "tasks": {
     "cli": "deno run -A packages/cli/src/mod.ts",
