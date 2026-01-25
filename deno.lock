@@ -2087,6 +2087,8 @@
     "members": {
       "examples": {
         "dependencies": [
+          "jsr:@std/dotenv@~0.225.6",
+          "jsr:@std/streams@^1.0.17",
           "npm:chalk@^5.6.2",
           "npm:rxjs-for-await@1",
           "npm:zod@^4.3.6"
@@ -2111,15 +2113,6 @@
           "npm:react-dom@^19.2.3",
           "npm:react@^19.2.3",
           "npm:xstate@^5.25.1"
-        ]
-      },
-      "examples/ptc": {
-        "dependencies": [
-          "jsr:@std/dotenv@~0.225.6",
-          "jsr:@std/streams@^1.0.17",
-          "npm:chalk@^5.6.2",
-          "npm:rxjs-for-await@1",
-          "npm:zod@^4.3.6"
         ]
       },
       "packages/acp": {
