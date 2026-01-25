@@ -1,16 +1,16 @@
 {
   "name": "@zypher/http",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "Apache-2.0",
   "exports": {
     ".": "./mod.ts"
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
-    "@std/assert": "jsr:@std/assert@^1.0.16",
-    "hono": "jsr:@hono/hono@^4",
+    "@std/assert": "jsr:@std/assert@^1.0.17",
+    "hono": "jsr:@hono/hono@^4.11.5",
     "rxjs": "npm:rxjs@^7.8.2",
     "rxjs-for-await": "npm:rxjs-for-await@^1.0.0",
-    "zod": "npm:zod@^4.2.0"
+    "zod": "npm:zod@^4.3.6"
   }
 }

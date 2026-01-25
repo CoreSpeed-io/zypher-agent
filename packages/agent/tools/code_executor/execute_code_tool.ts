@@ -1,7 +1,12 @@
 import z from "zod";
 import type { McpServerManager } from "../../mcp/mod.ts";
 import { createAbortError, isAbortError } from "@zypher/utils";
-import { createTool, type Tool, type ToolResult } from "../mod.ts";
+import {
+  createTool,
+  type Tool,
+  type ToolExecuteOptions,
+  type ToolResult,
+} from "../mod.ts";
 import { executeCode } from "./execute_code.ts";
 
 /**
@@ -98,10 +103,20 @@ return largest;
     schema: z.object({
       code: z.string().describe("The code to execute"),
     }),
-    execute: async ({ code }): Promise<ToolResult> => {
+    execute: async (
+      { code },
+      _ctx,
+      options?: ToolExecuteOptions,
+    ): Promise<ToolResult> => {
       try {
+        // Merge timeout signal with optional cancellation signal
+        const timeoutSignal = AbortSignal.timeout(timeout);
+        const signal = options?.signal
+          ? AbortSignal.any([timeoutSignal, options.signal])
+          : timeoutSignal;
+
         const result = await executeCode(code, mcpServerManager, {
-          signal: AbortSignal.timeout(timeout),
+          signal,
         });
 
         const structuredContent = {
