@@ -12,7 +12,6 @@
  *   deno run --env --allow-read --allow-net --allow-env --allow-sys ./ptc.ts
  */
 
-import "@std/dotenv/load";
 import {
   createZypherContext,
   McpServerManager,
