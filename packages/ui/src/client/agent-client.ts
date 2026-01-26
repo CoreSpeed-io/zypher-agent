@@ -66,7 +66,8 @@ export class AgentClient {
     const wsUrl = this.baseUrl.replace(/^http/, "ws") + "/task/ws";
     const protocols = ["zypher.v1"];
     if (this.getAccessToken) {
-      protocols.push(`ws-bearer-${await this.getAccessToken()}`);
+      const token = await this.getAccessToken();
+      protocols.push(`ws-bearer-${token}`);
     }
 
     let lastEvent: TaskEvent | null = null;
@@ -123,7 +124,10 @@ export class AgentClient {
 
   private async fetch(path: string, init?: RequestInit): Promise<Response> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (this.getAccessToken) headers["Authorization"] = `Bearer ${await this.getAccessToken()}`;
+    if (this.getAccessToken) {
+      const token = await this.getAccessToken();
+      headers["Authorization"] = `Bearer ${token}`;
+    }
     return fetch(this.baseUrl + path, { ...init, headers });
   }
 }
