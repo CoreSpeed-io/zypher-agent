@@ -72,32 +72,47 @@ export class AgentClient {
       close: () => ws.close(1000, "client_close"),
     };
 
-    const events$ = new Observable<TaskEvent>((sub) => {
+    const events$ = new Observable<TaskEvent>((observer) => {
+      let lastEvent: TaskEvent | null = null;
+
       ws.onopen = () => {
         ws.send(JSON.stringify(message));
       };
+
       ws.onmessage = (e) => {
         try {
           const event = JSON.parse(e.data) as TaskEvent;
-          sub.next(event);
-          if (event.type === "completed" || event.type === "cancelled") sub.complete();
-          else if (event.type === "error") {
-            sub.error(new Error(event.error));
+          lastEvent = event;
+          observer.next(event);
+
+          if (event.type === "completed" || event.type === "cancelled") {
+            observer.complete();
+          } else if (event.type === "error") {
+            observer.error(new Error(event.error));
           }
         } catch (err) {
-          sub.error(err);
+          observer.error(
+            new Error("Failed to parse task event message", { cause: err }),
+          );
         }
       };
+
       ws.onerror = () => {
-        sub.error(new Error("WebSocket error"));
+        observer.error(new Error("WebSocket connection error"));
       };
+
       ws.onclose = (e) => {
-        if (e.code === 1000) {
-          sub.complete();
+        const isFinalEvent =
+          lastEvent?.type === "completed" || lastEvent?.type === "cancelled";
+        if (e.code === 1000 || (e.code === 1006 && isFinalEvent)) {
+          observer.complete();
         } else {
-          sub.error(new Error(`WebSocket closed: ${e.code}`));
+          observer.error(
+            new Error(`Connection closed: ${e.reason || "Unknown reason"}`),
+          );
         }
       };
+
       return () => connection.close();
     });
 
