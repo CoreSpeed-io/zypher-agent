@@ -1,4 +1,5 @@
 import { Observable } from "rxjs";
+import { webSocket, WebSocketSubject } from "rxjs/webSocket";
 import type { Message, TaskEvent, ClientMessage, AgentInfo } from "../types";
 
 export interface AgentClientOptions {
@@ -61,54 +62,63 @@ export class AgentClient {
     return res.json();
   }
 
-  private async connect(message: ClientMessage): Promise<TaskSession> {
-    const ws = await this.ws();
-    const send = (msg: ClientMessage) => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
-    };
+  private async connect(initialMessage: ClientMessage): Promise<TaskSession> {
+    const wsUrl = this.baseUrl.replace(/^http/, "ws") + "/task/ws";
+    const protocols = ["zypher.v1"];
+    if (this.getAccessToken) {
+      protocols.push(`ws-bearer-${await this.getAccessToken()}`);
+    }
+
+    let lastEvent: TaskEvent | null = null;
+
+    const socket$: WebSocketSubject<ClientMessage | TaskEvent> = webSocket({
+      url: wsUrl,
+      protocol: protocols,
+      serializer: (msg) => JSON.stringify(msg),
+      deserializer: (e) => JSON.parse(e.data) as TaskEvent,
+      openObserver: {
+        next: () => {
+          socket$.next(initialMessage);
+        },
+      },
+    });
+
     const connection: TaskConnection = {
-      cancel: () => send({ action: "cancelTask" }),
-      approve: (yes) => send({ action: "approveTool", approved: yes }),
-      close: () => ws.close(1000, "client_close"),
+      cancel: () => socket$.next({ action: "cancelTask" }),
+      approve: (yes) => socket$.next({ action: "approveTool", approved: yes }),
+      close: () => socket$.complete(),
     };
 
-    const events$ = new Observable<TaskEvent>((sub) => {
-      ws.onopen = () => {
-        ws.send(JSON.stringify(message));
-      };
-      ws.onmessage = (e) => {
-        try {
-          const event = JSON.parse(e.data) as TaskEvent;
-          sub.next(event);
-          if (event.type === "completed" || event.type === "cancelled") sub.complete();
-          else if (event.type === "error") {
-            sub.error(new Error(event.error));
+    const events$ = new Observable<TaskEvent>((observer) => {
+      const subscription = (socket$ as unknown as Observable<TaskEvent>).subscribe({
+        next: (event) => {
+          lastEvent = event;
+          observer.next(event);
+
+          if (event.type === "completed" || event.type === "cancelled") {
+            observer.complete();
+          } else if (event.type === "error") {
+            observer.error(new Error(event.error));
           }
-        } catch (err) {
-          sub.error(err);
-        }
+        },
+        error: (err) => {
+          observer.error(err instanceof Error ? err : new Error(String(err)));
+        },
+        complete: () => {
+          const isFinalEvent = lastEvent?.type === "completed" || lastEvent?.type === "cancelled";
+          if (!isFinalEvent) {
+            observer.error(new Error("Connection closed unexpectedly"));
+          }
+        },
+      });
+
+      return () => {
+        subscription.unsubscribe();
+        socket$.complete();
       };
-      ws.onerror = () => {
-        sub.error(new Error("WebSocket error"));
-      };
-      ws.onclose = (e) => {
-        if (e.code === 1000) {
-          sub.complete();
-        } else {
-          sub.error(new Error(`WebSocket closed: ${e.code}`));
-        }
-      };
-      return () => connection.close();
     });
 
     return { connection, events$ };
-  }
-
-  private async ws(): Promise<WebSocket> {
-    const url = this.baseUrl.replace(/^http/, "ws") + "/task/ws";
-    const protocols = ["zypher.v1"];
-    if (this.getAccessToken) protocols.push(`ws-bearer-${await this.getAccessToken()}`);
-    return new WebSocket(url, protocols);
   }
 
   private async fetch(path: string, init?: RequestInit): Promise<Response> {
