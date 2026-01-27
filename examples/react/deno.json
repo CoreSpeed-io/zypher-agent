@@ -1,0 +1,33 @@
+{
+  "publish": false,
+  "tasks": {
+    "dev": "vite",
+    "build": "deno check . && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "imports": {
+    "@eslint/js": "npm:@eslint/js@^9.39.2",
+    "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^5.1.2",
+    "eslint": "npm:eslint@^9.39.2",
+    "eslint-plugin-react-hooks": "npm:eslint-plugin-react-hooks@^7.0.1",
+    "eslint-plugin-react-refresh": "npm:eslint-plugin-react-refresh@^0.4.26",
+    "globals": "npm:globals@^17.2.0",
+    "react": "npm:react@^19.2.4",
+    "react-dom": "npm:react-dom@^19.2.4",
+    "typescript-eslint": "npm:typescript-eslint@^8.54.0",
+    "vite": "npm:vite@^7.3.1"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "strict": true,
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "dom.asynciterable",
+      "deno.ns",
+      "deno.unstable"
+    ]
+  }
+}
