@@ -1,0 +1,17 @@
+{
+  "name": "@zypher/ui",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "imports": {
+    "react": "npm:react@^19.2.4",
+    "rxjs": "npm:rxjs@^7.8.2"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["react"]
+    }
+  }
+}

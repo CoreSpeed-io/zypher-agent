@@ -6,6 +6,7 @@
     "packages/acp",
     "packages/http",
     "packages/skills",
+    "packages/ui",
     "packages/utils",
     "examples",
     "examples/mcp",
