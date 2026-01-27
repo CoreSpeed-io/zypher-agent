@@ -32,6 +32,7 @@
     "npm:@anthropic-ai/sdk@~0.71.2": "0.71.2_zod@4.3.6",
     "npm:@aws-sdk/client-s3@^3.974.0": "3.975.0",
     "npm:@aws-sdk/s3-request-presigner@^3.974.0": "3.975.0",
+    "npm:@deno/vite-plugin@^1.0.6": "1.0.6_vite@7.3.1__picomatch@4.0.3",
     "npm:@eslint/js@^9.39.2": "9.39.2",
     "npm:@modelcontextprotocol/sdk@^1.25.3": "1.25.3_zod@4.3.6_ajv@8.17.1_express@5.2.1",
     "npm:@types/react@^19.2.9": "19.2.9",
@@ -49,6 +50,7 @@
     "npm:react@^19.2.4": "19.2.4",
     "npm:rxjs-for-await@1": "1.0.0_rxjs@7.8.2",
     "npm:rxjs@^7.8.2": "7.8.2",
+    "npm:swr@^2.3.3": "2.3.8_react@19.2.4",
     "npm:typescript-eslint@^8.54.0": "8.54.0_eslint@9.39.2_typescript@5.9.3_@typescript-eslint+parser@8.54.0__eslint@9.39.2__typescript@5.9.3",
     "npm:vite@^7.3.1": "7.3.1_picomatch@4.0.3",
     "npm:xstate@^5.25.1": "5.26.0",
@@ -971,6 +973,12 @@
       "dependencies": [
         "@babel/helper-string-parser",
         "@babel/helper-validator-identifier"
+      ]
+    },
+    "@deno/vite-plugin@1.0.6_vite@7.3.1__picomatch@4.0.3": {
+      "integrity": "sha512-Sh5XqvFuKAwjARTesi0n6xRpEXm1V0UeqKh+SxIrexCofxOaieNDMqXZD02RiZCg0mrJ43V8eCMuVrDfq6mLmg==",
+      "dependencies": [
+        "vite"
       ]
     },
     "@esbuild/aix-ppc64@0.27.2": {
@@ -2186,6 +2194,9 @@
     "depd@2.0.0": {
       "integrity": "sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw=="
     },
+    "dequal@2.0.3": {
+      "integrity": "sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA=="
+    },
     "dunder-proto@1.0.1": {
       "integrity": "sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==",
       "dependencies": [
@@ -3169,6 +3180,14 @@
         "has-flag"
       ]
     },
+    "swr@2.3.8_react@19.2.4": {
+      "integrity": "sha512-gaCPRVoMq8WGDcWj9p4YWzCMPHzE0WNl6W8ADIx9c3JBEIdMkJGMzW+uzXvxHMltwcYACr9jP+32H8/hgwMR7w==",
+      "dependencies": [
+        "dequal",
+        "react",
+        "use-sync-external-store"
+      ]
+    },
     "tinyglobby@0.2.15_picomatch@4.0.3": {
       "integrity": "sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==",
       "dependencies": [
@@ -3242,6 +3261,12 @@
       "integrity": "sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==",
       "dependencies": [
         "punycode"
+      ]
+    },
+    "use-sync-external-store@1.6.0_react@19.2.4": {
+      "integrity": "sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==",
+      "dependencies": [
+        "react"
       ]
     },
     "vary@1.1.2": {
@@ -3356,6 +3381,7 @@
       },
       "examples/react": {
         "dependencies": [
+          "npm:@deno/vite-plugin@^1.0.6",
           "npm:@eslint/js@^9.39.2",
           "npm:@vitejs/plugin-react@^5.1.2",
           "npm:eslint-plugin-react-hooks@^7.0.1",
@@ -3431,7 +3457,9 @@
       "packages/ui": {
         "dependencies": [
           "npm:react@^19.2.4",
-          "npm:rxjs@^7.8.2"
+          "npm:rxjs-for-await@1",
+          "npm:rxjs@^7.8.2",
+          "npm:swr@^2.3.3"
         ]
       },
       "packages/utils": {

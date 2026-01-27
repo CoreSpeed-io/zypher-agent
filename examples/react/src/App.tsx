@@ -1,23 +1,25 @@
-import { useState } from "react";
-import "./App.css";
+import { AgentProvider, TaskApiClient, useAgentContext } from "@zypher/ui";
+
+const client = new TaskApiClient({
+  baseUrl: "http://localhost:3000",
+});
 
 function App() {
-  const [count, setCount] = useState(0);
+  return (
+    <AgentProvider client={client} messageQueryKey="messages">
+      <ChatUI />
+    </AgentProvider>
+  );
+}
+
+function ChatUI() {
+  const { messages, isTaskRunning, runTask } = useAgentContext();
 
   return (
     <>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <h1>Messages Length: {messages.length}</h1>
+      <h1>Is Task Running: {isTaskRunning ? "Yes" : "No"}</h1>
+      <button onClick={() => runTask("Hello, how are you?")}>Run Task</button>
     </>
   );
 }

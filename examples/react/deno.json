@@ -7,6 +7,7 @@
     "preview": "vite preview"
   },
   "imports": {
+    "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.6",
     "@eslint/js": "npm:@eslint/js@^9.39.2",
     "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^5.1.2",
     "eslint": "npm:eslint@^9.39.2",
@@ -29,5 +30,8 @@
       "deno.ns",
       "deno.unstable"
     ]
-  }
+  },
+  "exclude": [
+    ".vite/"
+  ]
 }

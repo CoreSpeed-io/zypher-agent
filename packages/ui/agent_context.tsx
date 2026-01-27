@@ -1,0 +1,39 @@
+import { createContext, type ReactNode, useContext } from "react";
+import type { Key } from "swr";
+import type { TaskApiClient } from "./task_api_client.ts";
+import { useAgent, type UseAgentReturn } from "./use_agent.ts";
+
+// Create the context with a default undefined value
+const AgentContext = createContext<UseAgentReturn | undefined>(undefined);
+
+export interface AgentProviderOptions {
+  children: ReactNode;
+  client: TaskApiClient;
+  messageQueryKey: Key;
+  agentId?: string;
+}
+
+// Provider component that wraps parts of the app that need agent state
+export function AgentProvider({
+  children,
+  client,
+  messageQueryKey,
+  agentId,
+}: AgentProviderOptions) {
+  const agentState = useAgent({ client, messageQueryKey, agentId });
+
+  return (
+    <AgentContext.Provider value={agentState}>{children}</AgentContext.Provider>
+  );
+}
+
+// Custom hook to use the agent context
+export function useAgentContext(): UseAgentReturn {
+  const context = useContext(AgentContext);
+
+  if (context === undefined) {
+    throw new Error("useAgentContext must be used within a AgentProvider");
+  }
+
+  return context;
+}

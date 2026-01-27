@@ -7,11 +7,17 @@
   },
   "imports": {
     "react": "npm:react@^19.2.4",
-    "rxjs": "npm:rxjs@^7.8.2"
+    "rxjs": "npm:rxjs@^7.8.2",
+    "rxjs-for-await": "npm:rxjs-for-await@1",
+    "swr": "npm:swr@^2.3.3"
   },
   "lint": {
     "rules": {
       "tags": ["react"]
     }
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   }
 }

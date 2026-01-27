@@ -30,8 +30,8 @@
  * @module
  */
 
+// MCP server hooks and types
 export { matchStatus, useMcpServers } from "./use_mcp_servers.ts";
-
 export type {
   McpServerState,
   StatusPattern,
@@ -39,9 +39,34 @@ export type {
   UseMcpServersReturn,
 } from "./use_mcp_servers.ts";
 
-// Re-export types from @zypher/agent used in McpServerState
+// Agent context provider and hook
+export { AgentProvider, useAgentContext } from "./agent_context.tsx";
+export type { AgentProviderOptions } from "./agent_context.tsx";
+
+// Agent hook and types
+export { getFormattedToolName, useAgent } from "./use_agent.ts";
+export type {
+  CompleteMessage,
+  StreamingMessage,
+  StreamingTextMessage,
+  StreamingToolUseMessage,
+  UseAgentOptions,
+  UseAgentReturn,
+} from "./use_agent.ts";
+
+// Task API client
+export { AgentWebSocketConnection, TaskApiClient } from "./task_api_client.ts";
+export type {
+  StartTaskOptions,
+  TaskApiClientOptions,
+} from "./task_api_client.ts";
+
+// Re-exported types from @zypher/agent
 export type {
   McpClientStatus,
   McpServerEndpoint,
   McpServerSource,
 } from "@zypher/agent";
+
+// Re-exported types from @zypher/http
+export type { HttpTaskEvent, HttpTaskEventId } from "@zypher/http";
