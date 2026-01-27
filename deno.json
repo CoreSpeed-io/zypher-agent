@@ -9,8 +9,9 @@
     "packages/ui",
     "packages/utils",
     "examples",
+    "examples/agui",
     "examples/mcp",
-    "examples/agui"
+    "examples/react"
   ],
   "tasks": {
     "cli": "deno run -A packages/cli/src/mod.ts",
@@ -25,5 +26,6 @@
   },
   "exclude": [
     "examples/agui/ui"
-  ]
+  ],
+  "nodeModulesDir": "auto"
 }

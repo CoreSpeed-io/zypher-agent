@@ -59,6 +59,7 @@ export { createZypherHandler, type ZypherHandlerOptions } from "./handler.ts";
 
 // Re-export types for library usage
 export { type HttpTaskEvent, HttpTaskEventId } from "./task_event.ts";
+export type { McpWebSocketEvent, TaskWebSocketClientMessage } from "./schema.ts";
 
 if (import.meta.main) {
   const { main } = await import("./main.ts");
