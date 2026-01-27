@@ -147,3 +147,5 @@ dist
 npm/
 
 .claude/
+
+tmp

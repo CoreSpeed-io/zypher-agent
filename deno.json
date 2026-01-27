@@ -23,6 +23,9 @@
     }
   },
   "exclude": [
-    "examples/agui/ui"
+    "docs/",
+    "examples/agui/ui",
+    "examples/react",
+    "packages/ui"
   ]
 }
