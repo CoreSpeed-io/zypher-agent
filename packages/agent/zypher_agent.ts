@@ -252,6 +252,13 @@ export class ZypherAgent {
   }
 
   /**
+   * Get the system prompt loader function
+   */
+  get systemPromptLoader(): SystemPromptLoader {
+    return this.#systemPromptLoader;
+  }
+
+  /**
    * Clear all messages from the agent's history
    */
   clearMessages(): void {
