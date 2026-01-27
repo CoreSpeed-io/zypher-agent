@@ -1,4 +1,4 @@
-# Publish packages to JSR
+# Publish packages to JSR and npm
 #
 # Triggers:
 # - release: [published] - For manually created GitHub releases
@@ -8,7 +8,7 @@
 #
 # See: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
 
-name: Publish to JSR
+name: Publish to JSR and npm
 
 on:
   release:
@@ -17,7 +17,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish:
+  publish-jsr:
+    name: Publish to JSR
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -48,3 +49,35 @@ jobs:
 
       - name: Publish to JSR
         run: deno publish
+
+  publish-npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Setup Node.js for npm publish
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        working-directory: packages/ui
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        working-directory: packages/ui
+        run: bun run build
+
+      - name: Publish to npm
+        working-directory: packages/ui
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
