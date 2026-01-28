@@ -7081,10 +7081,14 @@
       },
       "packages/ui": {
         "dependencies": [
+          "npm:eslint-plugin-react-hooks@^7.0.1",
+          "npm:eslint@^9.39.2",
+          "npm:globals@^17.2.0",
           "npm:react@^19.2.4",
           "npm:rxjs-for-await@1",
           "npm:rxjs@^7.8.2",
-          "npm:swr@^2.3.3"
+          "npm:swr@^2.3.3",
+          "npm:typescript-eslint@^8.54.0"
         ]
       },
       "packages/utils": {

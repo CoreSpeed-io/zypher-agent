@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext } from "react";
+import { createContext, type JSX, type ReactNode, useContext } from "react";
 import type { Key } from "swr";
 import type { TaskApiClient } from "./task_api_client.ts";
 import { useAgent, type UseAgentReturn } from "./use_agent.ts";
@@ -19,7 +19,7 @@ export function AgentProvider({
   client,
   messageQueryKey,
   agentId,
-}: AgentProviderOptions) {
+}: AgentProviderOptions): JSX.Element {
   const agentState = useAgent({ client, messageQueryKey, agentId });
 
   return (

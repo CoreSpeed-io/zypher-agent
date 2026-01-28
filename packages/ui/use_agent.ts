@@ -63,7 +63,7 @@ export interface UseAgentReturn {
   isClearingMessages: boolean;
   runTask: (input: string, model?: string) => void;
   clearMessageHistory: () => Promise<void>;
-  cancelCurrentTask: () => Promise<void>;
+  cancelCurrentTask: () => void;
 }
 
 export function useAgent(options: UseAgentOptions): UseAgentReturn {
@@ -301,7 +301,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
   }, [isTaskRunning, client, mutateMessages]);
 
   // Function to cancel the current task
-  const cancelCurrentTask = useCallback(async () => {
+  const cancelCurrentTask = useCallback(() => {
     if (!isTaskRunning) return;
 
     try {
