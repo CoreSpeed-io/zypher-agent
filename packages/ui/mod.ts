@@ -55,10 +55,11 @@ export type {
 } from "./use_agent.ts";
 
 // Task API client
-export { AgentWebSocketConnection, TaskApiClient } from "./task_api_client.ts";
+export { TaskApiClient } from "./task_api_client.ts";
 export type {
   StartTaskOptions,
   TaskApiClientOptions,
+  TaskConnection,
 } from "./task_api_client.ts";
 
 // Re-exported types from @zypher/agent

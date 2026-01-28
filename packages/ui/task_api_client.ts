@@ -4,62 +4,43 @@ import type {
   HttpTaskEventId,
   TaskWebSocketClientMessage,
 } from "@zypher/http";
-import { Observable } from "rxjs";
+import { catchError, EMPTY, type Observable } from "rxjs";
+import { webSocket, type WebSocketSubject } from "rxjs/webSocket";
 
-// =========================== WEBSOCKET CONNECTION ===========================
+const DEFAULT_WS_PROTOCOL = "zypher.v1";
+
+// =========================== TASK CONNECTION ===========================
 
 /**
- * WebSocket connection manager for agent tasks
+ * A connection to an active agent task over WebSocket.
+ *
+ * Provides an observable of task events and typed methods
+ * for sending client messages (cancel, approve tool, close).
  */
-export class AgentWebSocketConnection {
-  private readonly ws: WebSocket;
-  constructor(ws: WebSocket) {
-    this.ws = ws;
-  }
-
-  /**
-   * Send message to WebSocket
-   */
-  private sendMessage(message: TaskWebSocketClientMessage): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error("WebSocket is not connected");
-    }
-    this.ws.send(JSON.stringify(message));
-  }
-
-  /**
-   * Cancel the current task
-   */
-  cancelTask(): void {
-    this.sendMessage({
-      action: "cancelTask",
-    });
-  }
-
-  /**
-   * Send tool approval response
-   */
-  approveTool(approved: boolean): void {
-    this.sendMessage({
-      action: "approveTool",
-      approved,
-    });
-  }
-
-  /**
-   * Close the WebSocket connection
-   */
-  close(): void {
-    this.ws.close();
-  }
+export interface TaskConnection {
+  /** Observable stream of task events from the server. */
+  events$: Observable<TaskEvent>;
+  /** Cancel the currently running task. */
+  cancelTask(): void;
+  /** Send a tool approval response. */
+  approveTool(approved: boolean): void;
+  /** Close the underlying WebSocket connection. */
+  close(): void;
 }
 
 /**
  * Options for creating a ZypherApiClient
  */
 export interface TaskApiClientOptions {
+  /** Base URL of the Zypher HTTP server (e.g. "http://localhost:8080"). */
   baseUrl: string;
-  getAccessToken?: () => Promise<string>;
+  /** HTTP headers for REST endpoints. Static or async. */
+  headers?:
+    | Record<string, string>
+    | (() => Record<string, string> | Promise<Record<string, string>>);
+  /** WebSocket sub-protocols. Static or async. Defaults to [DEFAULT_WS_PROTOCOL].
+   *  If omitted and `headers` contains Authorization: Bearer, auto-derives ws-bearer-TOKEN. */
+  protocols?: string[] | (() => string[] | Promise<string[]>);
 }
 
 /**
@@ -70,144 +51,150 @@ export interface StartTaskOptions {
 }
 
 export class TaskApiClient {
-  private readonly options: TaskApiClientOptions;
+  readonly #options: TaskApiClientOptions;
+
   constructor(options: TaskApiClientOptions) {
-    this.options = options;
+    this.#options = options;
   }
 
-  /**
-   * Get authorization headers if access token provider is configured
-   */
-  private async getAuthHeaders(): Promise<Record<string, string>> {
-    if (!this.options.getAccessToken) {
-      return {};
+  async #resolveHeaders(): Promise<Record<string, string>> {
+    const { headers } = this.#options;
+    if (!headers) return {};
+    return typeof headers === "function" ? await headers() : headers;
+  }
+
+  async #resolveProtocols(): Promise<string[]> {
+    const { protocols } = this.#options;
+    if (protocols) {
+      return typeof protocols === "function" ? await protocols() : protocols;
     }
-    const accessToken = await this.options.getAccessToken();
-    return { Authorization: `Bearer ${accessToken}` };
-  }
-
-  /**
-   * Create WebSocket connection to the agent
-   */
-  private async createWebSocket(): Promise<WebSocket> {
-    const wsUrl = this.options.baseUrl.replace(/^http/, "ws");
-    const protocols = ["zypher.v1"];
-
-    if (this.options.getAccessToken) {
-      const accessToken = await this.options.getAccessToken();
-      protocols.push(`ws-bearer-${accessToken}`);
+    // Auto-derive from Authorization: Bearer header
+    const headers = await this.#resolveHeaders();
+    const auth = headers["Authorization"] ?? headers["authorization"];
+    if (auth) {
+      const match = auth.match(/^Bearer\s+(.+)$/);
+      if (match) {
+        return [DEFAULT_WS_PROTOCOL, `ws-bearer-${match[1]}`];
+      }
     }
-
-    return new WebSocket(`${wsUrl}/task/ws`, protocols);
+    return [DEFAULT_WS_PROTOCOL];
   }
 
   /**
-   * Setup common WebSocket event handlers
+   * Wrap a WebSocketSubject into a TaskConnection.
+   *
+   * Sends `initialMessage` on creation (queued until socket opens).
+   * Close code 1000 from the server is treated as normal completion;
+   * any other server-initiated close surfaces as an error on `events$`.
    */
-  private setupWebSocketHandlers(
-    ws: WebSocket,
-    observer: {
-      next: (value: TaskEvent) => void;
-      error: (err: Error) => void;
-      complete: () => void;
-    },
-  ): void {
-    ws.onmessage = (event) => {
-      try {
-        const taskEvent: TaskEvent = JSON.parse(event.data);
-        observer.next(taskEvent);
-      } catch (error) {
-        observer.error(
-          new Error("Failed to parse task event message", { cause: error }),
-        );
-      }
+  #createTaskConnection(
+    subject: WebSocketSubject<TaskWebSocketClientMessage | TaskEvent>,
+    initialMessage: TaskWebSocketClientMessage,
+  ): TaskConnection {
+    const events$ = (
+      subject as unknown as Observable<TaskEvent>
+    ).pipe(
+      catchError((err: unknown) => {
+        // RxJS webSocket emits the CloseEvent as the error when the server closes.
+        if (err instanceof CloseEvent && err.code === 1000) {
+          return EMPTY;
+        }
+        throw err;
+      }),
+    );
+
+    // subject.next() queues messages until the socket opens, then flushes.
+    subject.next(initialMessage);
+
+    const sendMessage = (message: TaskWebSocketClientMessage): void => {
+      subject.next(message);
     };
 
-    ws.onerror = (error) => {
-      observer.error(new Error("WebSocket connection error", { cause: error }));
-    };
-
-    ws.onclose = (event) => {
-      console.log(
-        `WebSocket connection closed: ${event.code} ${event.reason ?? ""}`,
-      );
-      if (event.code === 1000) {
-        observer.complete();
-      } else {
-        observer.error(
-          new Error(
-            `Connection closed: ${event.code} ${
-              event.reason ?? "Unknown reason"
-            }`,
-          ),
-        );
-      }
+    return {
+      events$,
+      cancelTask() {
+        sendMessage({ action: "cancelTask" });
+      },
+      approveTool(approved: boolean) {
+        sendMessage({ action: "approveTool", approved });
+      },
+      close() {
+        subject.complete();
+      },
     };
   }
 
   /**
-   * Start a task and return a connection with Observable of task events
+   * Start a task and return a TaskConnection for event streaming and control.
    */
   async startTask(
     taskPrompt: string,
     options?: StartTaskOptions,
-  ): Promise<{
-    connection: AgentWebSocketConnection;
-    events$: Observable<TaskEvent>;
-  }> {
-    const ws = await this.createWebSocket();
-    const connection = new AgentWebSocketConnection(ws);
+  ): Promise<TaskConnection> {
+    const protocols = await this.#resolveProtocols();
+    const wsUrl = this.#options.baseUrl.replace(/^http/, "ws");
 
-    const events$ = new Observable<TaskEvent>((observer) => {
-      ws.onopen = () => {
-        console.log("WebSocket connection opened");
-        const message: TaskWebSocketClientMessage = {
-          action: "startTask",
-          task: taskPrompt,
-          fileAttachments: options?.fileAttachments,
-        };
-        ws.send(JSON.stringify(message));
-      };
-
-      this.setupWebSocketHandlers(ws, observer);
+    const subject = webSocket<TaskWebSocketClientMessage | TaskEvent>({
+      url: `${wsUrl}/task/ws`,
+      protocol: protocols,
+      openObserver: {
+        next: () => console.log("WebSocket connection opened"),
+      },
+      closeObserver: {
+        next: (event: CloseEvent) => {
+          console.log(
+            `WebSocket connection closed: ${event.code} ${event.reason ?? ""}`,
+          );
+        },
+      },
+      serializer: (msg) => JSON.stringify(msg),
+      deserializer: (msg) => JSON.parse(msg.data),
     });
 
-    return { connection, events$ };
+    return this.#createTaskConnection(subject, {
+      action: "startTask",
+      task: taskPrompt,
+      fileAttachments: options?.fileAttachments,
+    });
   }
 
   /**
-   * Resume a task and return a connection with Observable of task events
+   * Resume a task and return a TaskConnection for event streaming and control.
    */
-  async resumeTask(lastEventId?: string): Promise<{
-    connection: AgentWebSocketConnection;
-    events$: Observable<TaskEvent>;
-  }> {
-    const ws = await this.createWebSocket();
-    const connection = new AgentWebSocketConnection(ws);
+  async resumeTask(lastEventId?: string): Promise<TaskConnection> {
+    const protocols = await this.#resolveProtocols();
+    const wsUrl = this.#options.baseUrl.replace(/^http/, "ws");
 
-    const events$ = new Observable<TaskEvent>((observer) => {
-      ws.onopen = () => {
-        console.log("WebSocket connection opened for resume");
-        const message: TaskWebSocketClientMessage = {
-          action: "resumeTask",
-          lastEventId: lastEventId as unknown as HttpTaskEventId,
-        };
-        ws.send(JSON.stringify(message));
-      };
-
-      this.setupWebSocketHandlers(ws, observer);
+    const subject = webSocket<TaskWebSocketClientMessage | TaskEvent>({
+      url: `${wsUrl}/task/ws`,
+      protocol: protocols,
+      openObserver: {
+        next: () => console.log("WebSocket connection opened for resume"),
+      },
+      closeObserver: {
+        next: (event: CloseEvent) => {
+          console.log(
+            `WebSocket connection closed: ${event.code} ${event.reason ?? ""}`,
+          );
+        },
+      },
+      serializer: (msg) => JSON.stringify(msg),
+      deserializer: (msg) => JSON.parse(msg.data),
     });
 
-    return { connection, events$ };
+    return this.#createTaskConnection(subject, {
+      action: "resumeTask",
+      lastEventId: lastEventId as unknown as HttpTaskEventId,
+    });
   }
 
   /**
    * Fetch all messages from the agent
    */
   async getMessages(): Promise<Message[]> {
-    const authHeaders = await this.getAuthHeaders();
-    const response = await fetch(`${this.options.baseUrl}/messages`, {
-      headers: authHeaders,
+    const headers = await this.#resolveHeaders();
+    const response = await fetch(`${this.#options.baseUrl}/messages`, {
+      headers,
     });
 
     if (!response.ok) {
@@ -221,10 +208,10 @@ export class TaskApiClient {
    * Clear all message history
    */
   async clearMessages(): Promise<void> {
-    const authHeaders = await this.getAuthHeaders();
-    const response = await fetch(`${this.options.baseUrl}/messages`, {
+    const headers = await this.#resolveHeaders();
+    const response = await fetch(`${this.#options.baseUrl}/messages`, {
       method: "DELETE",
-      headers: authHeaders,
+      headers,
     });
 
     if (!response.ok) {
@@ -236,12 +223,12 @@ export class TaskApiClient {
    * Apply a checkpoint to restore previous state
    */
   async applyCheckpoint(checkpointId: string): Promise<void> {
-    const authHeaders = await this.getAuthHeaders();
+    const headers = await this.#resolveHeaders();
     const response = await fetch(
-      `${this.options.baseUrl}/checkpoints/${checkpointId}/apply`,
+      `${this.#options.baseUrl}/checkpoints/${checkpointId}/apply`,
       {
         method: "POST",
-        headers: authHeaders,
+        headers,
       },
     );
 

@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  AgentWebSocketConnection,
-  TaskApiClient,
-} from "./task_api_client.ts";
+import type { TaskApiClient, TaskConnection } from "./task_api_client.ts";
 import type { ContentBlock } from "@zypher/agent";
 import type { HttpTaskEvent as TaskEvent } from "@zypher/http";
 import type { Observable } from "rxjs";
@@ -82,7 +79,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
   // Track mutation states manually since we removed useMutation
   const [isClearingMessages, setIsClearingMessages] = useState(false);
 
-  const agentSocketRef = useRef<AgentWebSocketConnection | null>(null);
+  const agentSocketRef = useRef<TaskConnection | null>(null);
   const hasAttemptedResumeRef = useRef(false);
 
   // Helper function to create a greeting message
@@ -355,11 +352,11 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       setIsTaskRunning(true);
 
       try {
-        const { connection, events$ } = await client.startTask(input, {
+        const taskConnection = await client.startTask(input, {
           fileAttachments: [],
         });
-        agentSocketRef.current = connection;
-        handleTaskEvents(events$);
+        agentSocketRef.current = taskConnection;
+        handleTaskEvents(taskConnection.events$);
       } catch (error) {
         console.error("Failed to start task:", error);
         setIsTaskRunning(false);
@@ -371,9 +368,9 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
   // Resume a running task from agent (if exists)
   const resumeTask = useCallback(async () => {
     try {
-      const { connection, events$ } = await client.resumeTask();
-      agentSocketRef.current = connection;
-      handleTaskEvents(events$);
+      const taskConnection = await client.resumeTask();
+      agentSocketRef.current = taskConnection;
+      handleTaskEvents(taskConnection.events$);
     } catch (error) {
       console.error("Failed to resume task:", error);
       // If resume fails, we assume no task is running
