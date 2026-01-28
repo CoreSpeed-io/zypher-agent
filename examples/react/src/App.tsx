@@ -39,7 +39,7 @@ import {
 import { Trash2Icon } from "lucide-react";
 
 const client = new TaskApiClient({
-  baseUrl: "http://localhost:8080",
+  baseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:8080",
 });
 
 function App() {

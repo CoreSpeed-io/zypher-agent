@@ -47,7 +47,8 @@
       "dom.asynciterable",
       "deno.ns",
       "deno.unstable"
-    ]
+    ],
+    "types": ["vite/client"]
   },
   "exclude": [
     ".vite/"

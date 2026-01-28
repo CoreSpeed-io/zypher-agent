@@ -1,83 +1,96 @@
-# React + TypeScript + Vite
+# React Chat Example
 
-This template provides a minimal setup to get React working in Vite with HMR and
-some ESLint rules.
+A React chat interface for interacting with a Zypher Agent server. Built with
+Deno, Vite, and Tailwind CSS.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react)
-  uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in
-  [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc)
-  uses [SWC](https://swc.rs/) for Fast Refresh
+- [Deno](https://deno.land/) v2.0+
+- A running Zypher Agent HTTP server (default: `http://localhost:8080`)
 
-## React Compiler
+## Quick Start
 
-The React Compiler is not enabled on this template because of its impact on dev
-& build performances. To add it, see
-[this documentation](https://react.dev/learn/react-compiler/installation).
+1. Start a Zypher Agent server:
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the
-configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+```bash
+deno run -A jsr:@zypher/http
 ```
 
-You can also install
-[eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x)
-and
-[eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom)
-for React-specific lint rules:
+Or from the repo root:
 
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x";
-import reactDom from "eslint-plugin-react-dom";
-
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs["recommended-typescript"],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+```bash
+deno run -A packages/http/mod.ts
 ```
+
+2. In a separate terminal, start the dev server:
+
+```bash
+cd examples/react
+deno task dev
+```
+
+3. Open http://localhost:5173 in your browser.
+
+## Configuration
+
+### Server URL
+
+Set the `VITE_API_URL` environment variable to point to your Zypher Agent
+server:
+
+```bash
+VITE_API_URL=http://localhost:8080 deno task dev
+```
+
+Or create a `.env` file:
+
+```env
+VITE_API_URL=http://localhost:8080
+```
+
+Default: `http://localhost:8080`
+
+### Authentication
+
+To add authentication headers, edit `src/App.tsx`:
+
+```tsx
+const client = new TaskApiClient({
+  baseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:8080",
+  headers: () => ({
+    Authorization: `Bearer ${getToken()}`,
+  }),
+});
+```
+
+## Available Scripts
+
+| Command             | Description                         |
+| ------------------- | ----------------------------------- |
+| `deno task dev`     | Start development server with HMR   |
+| `deno task build`   | Type-check and build for production |
+| `deno task preview` | Preview production build locally    |
+| `deno task lint`    | Run ESLint                          |
+
+## Project Structure
+
+```
+src/
+├── App.tsx                 # Main app with chat UI
+├── main.tsx                # Entry point
+├── index.css               # Tailwind CSS imports
+├── components/
+│   ├── ai-elements/        # Vercel's ai-elements chat components
+│   └── ui/                 # Base UI components (shadcn/ui)
+└── lib/
+    └── utils.ts            # Utility functions
+```
+
+## Tech Stack
+
+- **Runtime**: Deno 2.0
+- **Framework**: React 19
+- **Build**: Vite 7
+- **Styling**: Tailwind CSS 4
+- **UI Components**: shadcn/ui + Radix UI
+- **Agent Client**: `@zypher/ui`
