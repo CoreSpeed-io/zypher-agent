@@ -48,7 +48,6 @@
  * Server messages:
  * - HttpTaskEvent objects with `eventId` for tracking
  * - `{ type: "heartbeat", timestamp: number }` - Keep-alive (every 30s)
- * - `{ type: "completed", timestamp: number }` - Task completed
  * - `{ type: "error", error: string }` - Error occurred
  *
  * @module

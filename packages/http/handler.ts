@@ -106,14 +106,16 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                 throw error;
               }
 
-              const { success, data: message } = TaskWebSocketClientMessage
-                .safeParse(rawMessage);
+              const parseResult = TaskWebSocketClientMessage.safeParse(
+                rawMessage,
+              );
 
-              if (!success) {
+              if (!parseResult.success) {
                 ws.close(1003, "invalid_message");
                 return;
               }
 
+              const message = parseResult.data;
               switch (message.action) {
                 case "startTask": {
                   // Check if a task is already running
@@ -179,10 +181,6 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                       ws.close(1011, "internal_error");
                     },
                     complete: () => {
-                      sendTaskWebSocketMessage(ws, {
-                        type: "completed",
-                        timestamp: Date.now(),
-                      });
                       ws.close(1000, "task_complete");
                       // Note: Don't clean up taskEventSubject here since the original
                       // subscription is still active. Only the startTask handler should clean up.
