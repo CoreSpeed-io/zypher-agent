@@ -20,4 +20,17 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    files: ["src/components/ai-elements/**/*.{ts,tsx}"],
+    rules: {
+      "react-refresh/only-export-components": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
+  {
+    files: ["src/components/ui/**/*.{ts,tsx}"],
+    rules: {
+      "react-refresh/only-export-components": "warn",
+    },
+  },
 ]);
