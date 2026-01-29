@@ -1,5 +1,5 @@
 import z from "zod";
-import { type HttpTaskEvent, HttpTaskEventId } from "./task_event.ts";
+import type { HttpTaskEvent } from "./task_event.ts";
 import type {
   McpClientStatus,
   McpServerEndpoint,
@@ -17,21 +17,10 @@ export const FileId: z.ZodSchema<FileId> = z
   .string()
   .min(1, "File ID cannot be empty");
 
-/** Task event ID parsed from string format "task_<timestamp>_<sequence>" */
-export type TaskEventId = HttpTaskEventId;
-export const TaskEventId: z.ZodSchema<TaskEventId> = z
+/** Task event ID in string format "task_<timestamp>_<sequence>" */
+export const TaskEventId = z
   .string()
-  .transform((id, ctx) => {
-    const parsed = HttpTaskEventId.safeParse(id);
-    if (parsed === null) {
-      ctx.addIssue({
-        code: "invalid_format",
-        format: "task_<timestamp>_<sequence>",
-      });
-      return z.NEVER;
-    }
-    return parsed;
-  });
+  .regex(/^task_\d+_\d+$/, "Expected format: task_<timestamp>_<sequence>");
 
 // =============================================================================
 // Task WebSocket schemas (/task/ws)
@@ -43,7 +32,7 @@ export const TaskEventId: z.ZodSchema<TaskEventId> = z
  */
 export type TaskWebSocketClientMessage =
   | { action: "startTask"; task: string; fileAttachments?: string[] }
-  | { action: "resumeTask"; lastEventId?: TaskEventId }
+  | { action: "resumeTask"; lastEventId?: string }
   | { action: "cancelTask" }
   | { action: "approveTool"; approved: boolean };
 export const TaskWebSocketClientMessage: z.ZodSchema<
@@ -69,20 +58,16 @@ export const TaskWebSocketClientMessage: z.ZodSchema<
 
 /**
  * Messages sent from the server to the client over the task WebSocket.
- * Includes both task events and control messages (e.g., errors).
+ * Errors are communicated via WebSocket close codes, not as messages.
  */
-export type TaskWebSocketServerMessage =
-  | HttpTaskEvent
-  | {
-    type: "error";
-    error:
-      | "no_message_received"
-      | "invalid_message"
-      | "task_already_in_progress"
-      | "task_not_running"
-      | "internal_error"
-      | "no_tool_approval_pending";
-  };
+export type TaskWebSocketServerMessage = HttpTaskEvent;
+
+/**
+ * All messages that can be sent over the task WebSocket (both directions).
+ */
+export type TaskWebSocketMessage =
+  | TaskWebSocketClientMessage
+  | TaskWebSocketServerMessage;
 
 /**
  * Sends a typed message over the task WebSocket connection.

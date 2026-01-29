@@ -2,7 +2,7 @@ import { hexoid } from "hexoid";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { TaskApiClient, TaskConnection } from "./task_api_client.ts";
 import type { ContentBlock } from "@zypher/agent";
-import type { HttpTaskEvent as TaskEvent } from "@zypher/http";
+import type { TaskWebSocketServerMessage } from "@zypher/http";
 import type { Observable } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
 import useSWR from "swr";
@@ -179,7 +179,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
   );
 
   const handleTaskEvents = useCallback(
-    async (events$: Observable<TaskEvent>) => {
+    async (events$: Observable<TaskWebSocketServerMessage>) => {
       try {
         for await (const e of eachValueFrom(events$)) {
           switch (e.type) {

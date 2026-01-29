@@ -1,10 +1,10 @@
 import type { Message } from "@zypher/agent";
 import type {
-  HttpTaskEvent as TaskEvent,
-  HttpTaskEventId,
   TaskWebSocketClientMessage,
+  TaskWebSocketMessage,
+  TaskWebSocketServerMessage,
 } from "@zypher/http";
-import { catchError, EMPTY, type Observable } from "rxjs";
+import type { Observable } from "rxjs";
 import { webSocket, type WebSocketSubject } from "rxjs/webSocket";
 import { toWebSocketUrl } from "./utils.ts";
 
@@ -20,7 +20,7 @@ const DEFAULT_WS_PROTOCOL = "zypher.v1";
  */
 export interface TaskConnection {
   /** Observable stream of task events from the server. */
-  events$: Observable<TaskEvent>;
+  events$: Observable<TaskWebSocketServerMessage>;
   /** Cancel the currently running task. */
   cancelTask(): void;
   /** Send a tool approval response. */
@@ -94,21 +94,9 @@ export class TaskApiClient {
    * any other server-initiated close surfaces as an error on `events$`.
    */
   #createTaskConnection(
-    subject: WebSocketSubject<TaskWebSocketClientMessage | TaskEvent>,
+    subject: WebSocketSubject<TaskWebSocketMessage>,
     initialMessage: TaskWebSocketClientMessage,
   ): TaskConnection {
-    const events$ = (
-      subject as unknown as Observable<TaskEvent>
-    ).pipe(
-      catchError((err: unknown) => {
-        // RxJS webSocket emits the CloseEvent as the error when the server closes.
-        if (err instanceof CloseEvent && err.code === 1000) {
-          return EMPTY;
-        }
-        throw err;
-      }),
-    );
-
     // subject.next() queues messages until the socket opens, then flushes.
     subject.next(initialMessage);
 
@@ -117,16 +105,11 @@ export class TaskApiClient {
     };
 
     return {
-      events$,
-      cancelTask() {
-        sendMessage({ action: "cancelTask" });
-      },
-      approveTool(approved: boolean) {
-        sendMessage({ action: "approveTool", approved });
-      },
-      close() {
-        subject.complete();
-      },
+      events$: subject as Observable<TaskWebSocketServerMessage>,
+      cancelTask: () => sendMessage({ action: "cancelTask" }),
+      approveTool: (approved: boolean) =>
+        sendMessage({ action: "approveTool", approved }),
+      close: () => subject.complete(),
     };
   }
 
@@ -140,7 +123,7 @@ export class TaskApiClient {
     const protocols = await this.#resolveProtocols();
     const wsUrl = toWebSocketUrl(`${this.#options.baseUrl}/task/ws`);
 
-    const subject = webSocket<TaskWebSocketClientMessage | TaskEvent>({
+    const subject = webSocket<TaskWebSocketMessage>({
       url: wsUrl,
       protocol: protocols,
       openObserver: {
@@ -171,7 +154,7 @@ export class TaskApiClient {
     const protocols = await this.#resolveProtocols();
     const wsUrl = toWebSocketUrl(`${this.#options.baseUrl}/task/ws`);
 
-    const subject = webSocket<TaskWebSocketClientMessage | TaskEvent>({
+    const subject = webSocket<TaskWebSocketMessage>({
       url: wsUrl,
       protocol: protocols,
       openObserver: {
@@ -190,7 +173,7 @@ export class TaskApiClient {
 
     return this.#createTaskConnection(subject, {
       action: "resumeTask",
-      lastEventId: lastEventId as unknown as HttpTaskEventId,
+      lastEventId,
     });
   }
 

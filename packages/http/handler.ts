@@ -162,11 +162,16 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                     return;
                   }
 
+                  // Parse client's lastEventId if provided
+                  const clientLastEventId = message.lastEventId
+                    ? HttpTaskEventId.safeParse(message.lastEventId)
+                    : undefined;
+
                   // Replay events from the task event subject
                   const events$ = replayHttpTaskEvents(
                     taskEventSubject,
                     serverLatestEventId,
-                    message.lastEventId,
+                    clientLastEventId ?? undefined,
                   );
 
                   // Subscribe to replayed events and send them over WebSocket

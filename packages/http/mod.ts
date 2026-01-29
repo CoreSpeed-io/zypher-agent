@@ -61,6 +61,8 @@ export { type HttpTaskEvent, HttpTaskEventId } from "./task_event.ts";
 export type {
   McpWebSocketEvent,
   TaskWebSocketClientMessage,
+  TaskWebSocketMessage,
+  TaskWebSocketServerMessage,
 } from "./schema.ts";
 
 if (import.meta.main) {
