@@ -68,8 +68,7 @@ export async function main(): Promise<void> {
 
   const handler = createZypherHandler({ agent });
 
-  const app = new Hono();
-  app.use("*", cors());
+  const app = new Hono().use(cors());
   app.route("/", handler);
 
   Deno.serve({
