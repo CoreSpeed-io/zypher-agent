@@ -31,9 +31,9 @@
 // MCP server hooks and types
 export { matchStatus, useMcpServers } from "./use_mcp_servers.ts";
 export type {
+  McpClientStatusPattern,
   McpConnectionStatus,
   McpServerState,
-  McpClientStatusPattern,
   UseMcpServersOptions,
   UseMcpServersReturn,
 } from "./use_mcp_servers.ts";
