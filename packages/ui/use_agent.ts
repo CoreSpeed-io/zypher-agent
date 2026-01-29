@@ -1,5 +1,5 @@
 import { hexoid } from "hexoid";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { TaskApiClient, TaskConnection } from "./task_api_client.ts";
 import type { ContentBlock } from "@zypher/agent";
 import type { HttpTaskEvent as TaskEvent } from "@zypher/http";
@@ -61,7 +61,7 @@ export interface UseAgentReturn {
   isTaskRunning: boolean;
   isClearingMessages: boolean;
   runTask: (input: string, model?: string) => void;
-  clearMessageHistory: () => Promise<void>;
+  clearMessageHistory: () => void;
   cancelCurrentTask: () => void;
 }
 
@@ -74,9 +74,6 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     StreamingMessage[]
   >([]);
   const [isTaskRunning, setIsTaskRunning] = useState(false);
-
-  // Track mutation states manually since we removed useMutation
-  const [isClearingMessages, setIsClearingMessages] = useState(false);
 
   const agentSocketRef = useRef<TaskConnection | null>(null);
   const hasAttemptedResumeRef = useRef(false);
@@ -282,21 +279,21 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
   );
 
   // Function to clear message history
-  const clearMessageHistory = useCallback(async () => {
+  const [isClearingMessages, startClearingMessagesTransition] = useTransition();
+  const clearMessageHistory = useCallback(() => {
     if (isTaskRunning) {
       return;
     }
 
-    setIsClearingMessages(true);
-    try {
-      await client.clearMessages();
-      // Invalidate/Revalidate
-      await mutateMessages();
-    } catch (error) {
-      console.error("Failed to clear message history:", error);
-    } finally {
-      setIsClearingMessages(false);
-    }
+    startClearingMessagesTransition(async () => {
+      try {
+        await client.clearMessages();
+        // Invalidate/Revalidate
+        await mutateMessages();
+      } catch (error) {
+        console.error("Failed to clear message history:", error);
+      }
+    });
   }, [isTaskRunning, client, mutateMessages]);
 
   // Function to cancel the current task
@@ -366,6 +363,10 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
 
   // Resume a running task from agent (if exists)
   const resumeTask = useCallback(async () => {
+    if (agentSocketRef.current !== null) {
+      // Already have a connection
+      return;
+    }
     try {
       const taskConnection = await client.resumeTask();
       agentSocketRef.current = taskConnection;
