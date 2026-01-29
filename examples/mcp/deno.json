@@ -6,8 +6,8 @@
     "ink": "npm:ink@^6.6.0",
     "ink-select-input": "npm:ink-select-input@^6.2.0",
     "ink-text-input": "npm:ink-text-input@^6.0.0",
-    "react": "npm:react@^19.2.3",
-    "react-dom/server": "npm:react-dom@^19.2.3/server",
+    "react": "npm:react@^19.2.4",
+    "react-dom/server": "npm:react-dom@^19.2.4/server",
     "xstate": "npm:xstate@^5.25.1"
   },
   "lint": {

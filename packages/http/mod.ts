@@ -48,7 +48,6 @@
  * Server messages:
  * - HttpTaskEvent objects with `eventId` for tracking
  * - `{ type: "heartbeat", timestamp: number }` - Keep-alive (every 30s)
- * - `{ type: "completed", timestamp: number }` - Task completed
  * - `{ type: "error", error: string }` - Error occurred
  *
  * @module
@@ -59,6 +58,12 @@ export { createZypherHandler, type ZypherHandlerOptions } from "./handler.ts";
 
 // Re-export types for library usage
 export { type HttpTaskEvent, HttpTaskEventId } from "./task_event.ts";
+export type {
+  McpWebSocketEvent,
+  TaskWebSocketClientMessage,
+  TaskWebSocketMessage,
+  TaskWebSocketServerMessage,
+} from "./schema.ts";
 
 if (import.meta.main) {
   const { main } = await import("./main.ts");

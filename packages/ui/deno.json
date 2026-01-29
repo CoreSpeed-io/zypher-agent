@@ -1,0 +1,32 @@
+{
+  "name": "@zypher/ui",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "tasks": {
+    "lint": "eslint ."
+  },
+  "imports": {
+    "@eslint-react/eslint-plugin": "npm:@eslint-react/eslint-plugin@^2.8.0",
+    "hexoid": "npm:hexoid@^2.0.0",
+    "react": "npm:react@^19.2.4",
+    "rxjs": "npm:rxjs@^7.8.2",
+    "rxjs-for-await": "npm:rxjs-for-await@1",
+    "swr": "npm:swr@^2.3.3",
+    "eslint": "npm:eslint@^9.39.2",
+    "eslint-plugin-react-hooks": "npm:eslint-plugin-react-hooks@^7.0.1",
+    "globals": "npm:globals@^17.2.0",
+    "typescript-eslint": "npm:typescript-eslint@^8.54.0"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["react"]
+    }
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  }
+}

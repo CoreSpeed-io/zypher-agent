@@ -9,6 +9,8 @@ import {
   RunTerminalCmdTool,
 } from "@zypher/agent/tools";
 import { Command } from "@cliffy/command";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { createZypherHandler } from "./handler.ts";
 
 export async function main(): Promise<void> {
@@ -64,7 +66,9 @@ export async function main(): Promise<void> {
     context: { userId: cli.userId },
   });
 
-  const app = createZypherHandler({ agent });
+  const app = new Hono()
+    .use(cors())
+    .route("/", createZypherHandler({ agent }));
 
   Deno.serve({
     port: cli.port,

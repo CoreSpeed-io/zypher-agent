@@ -1,5 +1,5 @@
 import z from "zod";
-import { type HttpTaskEvent, HttpTaskEventId } from "./task_event.ts";
+import type { HttpTaskEvent } from "./task_event.ts";
 import type {
   McpClientStatus,
   McpServerEndpoint,
@@ -11,26 +11,16 @@ import type {
 // Common schemas
 // =============================================================================
 
-/** Schema for validating file attachment IDs */
-export const FileId = z.string().min(1, "File ID cannot be empty");
-export type FileId = z.infer<typeof FileId>;
+/** File attachment ID */
+export type FileId = string;
+export const FileId: z.ZodSchema<FileId> = z
+  .string()
+  .min(1, "File ID cannot be empty");
 
-/**
- * Schema for validating and transforming task event IDs.
- * Parses the string format "task_<timestamp>_<sequence>" into HttpTaskEventId.
- */
-export const TaskEventId = z.string().transform((id, ctx) => {
-  const parsed = HttpTaskEventId.safeParse(id);
-  if (parsed === null) {
-    ctx.addIssue({
-      code: "invalid_format",
-      format: "task_<timestamp>_<sequence>",
-    });
-    return z.NEVER;
-  }
-  return parsed;
-});
-export type TaskEventId = z.infer<typeof TaskEventId>;
+/** Task event ID in string format "task_<timestamp>_<sequence>" */
+export const TaskEventId = z
+  .string()
+  .regex(/^task_\d+_\d+$/, "Expected format: task_<timestamp>_<sequence>");
 
 // =============================================================================
 // Task WebSocket schemas (/task/ws)
@@ -40,58 +30,44 @@ export type TaskEventId = z.infer<typeof TaskEventId>;
  * Messages sent from the client to the server over the task WebSocket.
  * Uses a discriminated union on the "action" field.
  */
-export const TaskWebSocketClientMessage = z.discriminatedUnion("action", [
-  /** Start a new agent task with the given prompt */
+export type TaskWebSocketClientMessage =
+  | { action: "startTask"; task: string; fileAttachments?: string[] }
+  | { action: "resumeTask"; lastEventId?: string }
+  | { action: "cancelTask" }
+  | { action: "approveTool"; approved: boolean };
+export const TaskWebSocketClientMessage: z.ZodSchema<
+  TaskWebSocketClientMessage
+> = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("startTask"),
     task: z.string(),
     fileAttachments: z.array(FileId).optional(),
   }),
-  /** Resume receiving events from an in-progress task, optionally from a specific event ID */
   z.object({
     action: z.literal("resumeTask"),
     lastEventId: TaskEventId.optional(),
   }),
-  /** Cancel the currently running task */
   z.object({
     action: z.literal("cancelTask"),
   }),
-  /** Respond to a pending tool approval request */
   z.object({
     action: z.literal("approveTool"),
     approved: z.boolean(),
   }),
 ]);
-export type TaskWebSocketClientMessage = z.infer<
-  typeof TaskWebSocketClientMessage
->;
 
 /**
- * Control messages sent from the server to the client over the task WebSocket.
- * Note: Task events (HttpTaskEvent) are also sent but validated separately.
+ * Messages sent from the server to the client over the task WebSocket.
+ * Errors are communicated via WebSocket close codes, not as messages.
  */
-export const TaskWebSocketServerMessage = z.discriminatedUnion("type", [
-  /** Error response for invalid client actions */
-  z.object({
-    type: z.literal("error"),
-    error: z.enum([
-      "no_message_received",
-      "invalid_message",
-      "task_already_in_progress",
-      "task_not_running",
-      "internal_error",
-      "no_tool_approval_pending",
-    ]),
-  }),
-  /** Sent when the task stream has completed */
-  z.object({
-    type: z.literal("completed"),
-    timestamp: z.number(),
-  }),
-]);
-export type TaskWebSocketServerMessage = z.infer<
-  typeof TaskWebSocketServerMessage
->;
+export type TaskWebSocketServerMessage = HttpTaskEvent;
+
+/**
+ * All messages that can be sent over the task WebSocket (both directions).
+ */
+export type TaskWebSocketMessage =
+  | TaskWebSocketClientMessage
+  | TaskWebSocketServerMessage;
 
 /**
  * Sends a typed message over the task WebSocket connection.
@@ -99,7 +75,7 @@ export type TaskWebSocketServerMessage = z.infer<
  */
 export function sendTaskWebSocketMessage(
   ws: { send: (data: string | ArrayBuffer) => void },
-  message: HttpTaskEvent | TaskWebSocketServerMessage,
+  message: TaskWebSocketServerMessage,
 ): void {
   ws.send(JSON.stringify(message));
 }
