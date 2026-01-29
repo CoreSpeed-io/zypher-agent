@@ -6,6 +6,7 @@ import type {
 } from "@zypher/http";
 import { catchError, EMPTY, type Observable } from "rxjs";
 import { webSocket, type WebSocketSubject } from "rxjs/webSocket";
+import { toWebSocketUrl } from "./utils.ts";
 
 const DEFAULT_WS_PROTOCOL = "zypher.v1";
 
@@ -132,7 +133,7 @@ export class TaskApiClient {
     options?: StartTaskOptions,
   ): Promise<TaskConnection> {
     const protocols = await this.#resolveProtocols();
-    const wsUrl = this.#options.baseUrl.replace(/^http/, "ws");
+    const wsUrl = toWebSocketUrl(this.#options.baseUrl);
 
     const subject = webSocket<TaskWebSocketClientMessage | TaskEvent>({
       url: `${wsUrl}/task/ws`,
@@ -163,7 +164,7 @@ export class TaskApiClient {
    */
   async resumeTask(lastEventId?: string): Promise<TaskConnection> {
     const protocols = await this.#resolveProtocols();
-    const wsUrl = this.#options.baseUrl.replace(/^http/, "ws");
+    const wsUrl = toWebSocketUrl(this.#options.baseUrl);
 
     const subject = webSocket<TaskWebSocketClientMessage | TaskEvent>({
       url: `${wsUrl}/task/ws`,

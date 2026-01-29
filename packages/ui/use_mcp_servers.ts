@@ -7,6 +7,7 @@ import type { McpWebSocketEvent } from "@zypher/http";
 import { useCallback, useEffect, useState } from "react";
 import { retry, timer } from "rxjs";
 import { webSocket } from "rxjs/webSocket";
+import { toWebSocketUrl } from "./utils.ts";
 
 // WebSocket protocol version
 const MCP_WEBSOCKET_PROTOCOL = "zypher.mcp.v1";
@@ -187,7 +188,7 @@ export function useMcpServers(
   }, []);
 
   const connect = useCallback(() => {
-    const wsUrl = `${apiBaseUrl.replace(/^http/, "ws")}/mcp/servers/ws`;
+    const wsUrl = `${toWebSocketUrl(apiBaseUrl)}/mcp/ws`;
 
     const ws$ = webSocket<McpWebSocketEvent>({
       url: wsUrl,

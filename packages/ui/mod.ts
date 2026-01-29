@@ -62,6 +62,9 @@ export type {
   TaskConnection,
 } from "./task_api_client.ts";
 
+// Utilities
+export { toWebSocketUrl } from "./utils.ts";
+
 // Re-exported types from @zypher/agent
 export type {
   McpClientStatus,
