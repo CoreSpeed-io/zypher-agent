@@ -147,3 +147,6 @@ dist
 npm/
 
 .claude/
+
+# Vite
+.vite/
