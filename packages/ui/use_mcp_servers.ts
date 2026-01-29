@@ -112,6 +112,11 @@ export interface UseMcpServersOptions {
   apiBaseUrl: string;
   /** Whether to connect to the WebSocket. @default true */
   enabled?: boolean;
+  /**
+   * WebSocket sub-protocols. Static array or function (sync or async).
+   * @default ["zypher.mcp.v1"]
+   */
+  protocols?: string[] | (() => string[] | Promise<string[]>);
 }
 
 /** Reducer to accumulate MCP server state from WebSocket events. */
@@ -187,45 +192,57 @@ function reduceEvent(
   }
 }
 
+/** Resolve protocols option to a string array. */
+async function resolveProtocols(
+  protocols: UseMcpServersOptions["protocols"],
+): Promise<string[]> {
+  if (!protocols) return [MCP_WEBSOCKET_PROTOCOL];
+  return typeof protocols === "function" ? await protocols() : protocols;
+}
+
 /**
  * Hook that maintains a WebSocket connection to the MCP server state stream.
  * Automatically reconnects on disconnect and keeps server state in sync.
  * Uses SWR subscription to deduplicate connections across components.
  */
 export function useMcpServers(
-  { apiBaseUrl, enabled = true }: UseMcpServersOptions,
+  { apiBaseUrl, enabled = true, protocols }: UseMcpServersOptions,
 ): UseMcpServersReturn {
   const { data, error } = useSWRSubscription(
     enabled ? ["mcp-servers", apiBaseUrl] : null,
     ([, url], { next }) => {
       const wsUrl = toWebSocketUrl(`${url}/mcp/ws`);
+      let subscription: { unsubscribe(): void } | undefined;
 
-      const ws$ = webSocket<McpWebSocketEvent>({
-        url: wsUrl,
-        protocol: MCP_WEBSOCKET_PROTOCOL,
-      });
-
-      const subscription = ws$
-        .pipe(
-          retry({
-            count: 10,
-            delay: (_err, retryCount) => {
-              const backoff = Math.min(1000 * 2 ** retryCount, 30000);
-              console.log(
-                `[MCP WebSocket] Connection failed, retrying in ${backoff}ms... (attempt ${retryCount}/10)`,
-              );
-              return timer(backoff);
-            },
-            resetOnSuccess: true,
-          }),
-          scan(reduceEvent, {}),
-        )
-        .subscribe({
-          next: (state) => next(null, state),
-          error: (err) => next(err),
+      // Resolve protocols (may be async) then connect
+      resolveProtocols(protocols).then((resolvedProtocols) => {
+        const ws$ = webSocket<McpWebSocketEvent>({
+          url: wsUrl,
+          protocol: resolvedProtocols,
         });
 
-      return () => subscription.unsubscribe();
+        subscription = ws$
+          .pipe(
+            retry({
+              count: 10,
+              delay: (_err, retryCount) => {
+                const backoff = Math.min(1000 * 2 ** retryCount, 30000);
+                console.log(
+                  `[MCP WebSocket] Connection failed, retrying in ${backoff}ms... (attempt ${retryCount}/10)`,
+                );
+                return timer(backoff);
+              },
+              resetOnSuccess: true,
+            }),
+            scan(reduceEvent, {}),
+          )
+          .subscribe({
+            next: (state) => next(null, state),
+            error: (err) => next(err),
+          });
+      }).catch((err) => next(err));
+
+      return () => subscription?.unsubscribe();
     },
   );
 
