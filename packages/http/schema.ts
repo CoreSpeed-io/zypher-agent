@@ -68,33 +68,21 @@ export const TaskWebSocketClientMessage: z.ZodSchema<
 ]);
 
 /**
- * Control messages sent from the server to the client over the task WebSocket.
- * Note: Task events (HttpTaskEvent) are also sent but validated separately.
- * Task completion is signaled via TaskCompletedEvent in the event stream.
+ * Messages sent from the server to the client over the task WebSocket.
+ * Includes both task events and control messages (e.g., errors).
  */
-export type TaskWebSocketServerMessage = {
-  type: "error";
-  error:
-    | "no_message_received"
-    | "invalid_message"
-    | "task_already_in_progress"
-    | "task_not_running"
-    | "internal_error"
-    | "no_tool_approval_pending";
-};
-export const TaskWebSocketServerMessage: z.ZodSchema<
-  TaskWebSocketServerMessage
-> = z.object({
-  type: z.literal("error"),
-  error: z.enum([
-    "no_message_received",
-    "invalid_message",
-    "task_already_in_progress",
-    "task_not_running",
-    "internal_error",
-    "no_tool_approval_pending",
-  ]),
-});
+export type TaskWebSocketServerMessage =
+  | HttpTaskEvent
+  | {
+    type: "error";
+    error:
+      | "no_message_received"
+      | "invalid_message"
+      | "task_already_in_progress"
+      | "task_not_running"
+      | "internal_error"
+      | "no_tool_approval_pending";
+  };
 
 /**
  * Sends a typed message over the task WebSocket connection.
@@ -102,7 +90,7 @@ export const TaskWebSocketServerMessage: z.ZodSchema<
  */
 export function sendTaskWebSocketMessage(
   ws: { send: (data: string | ArrayBuffer) => void },
-  message: HttpTaskEvent | TaskWebSocketServerMessage,
+  message: TaskWebSocketServerMessage,
 ): void {
   ws.send(JSON.stringify(message));
 }
