@@ -7,5 +7,5 @@
 export function toWebSocketUrl(httpUrl: string): string {
   const url = new URL(httpUrl);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  return url.toString();
+  return url.href;
 }
