@@ -212,37 +212,48 @@ export function useMcpServers(
     enabled ? ["mcp-servers", apiBaseUrl] : null,
     ([, url], { next }) => {
       const wsUrl = toWebSocketUrl(`${url}/mcp/ws`);
+      const abortController = new AbortController();
       let subscription: { unsubscribe(): void } | undefined;
 
       // Resolve protocols (may be async) then connect
-      resolveProtocols(protocols).then((resolvedProtocols) => {
-        const ws$ = webSocket<McpWebSocketEvent>({
-          url: wsUrl,
-          protocol: resolvedProtocols,
+      resolveProtocols(protocols)
+        .then((resolvedProtocols) => {
+          // Don't start subscription if already cleaned up
+          if (abortController.signal.aborted) return;
+
+          const ws$ = webSocket<McpWebSocketEvent>({
+            url: wsUrl,
+            protocol: resolvedProtocols,
+          });
+
+          subscription = ws$
+            .pipe(
+              retry({
+                count: 10,
+                delay: (_err, retryCount) => {
+                  const backoff = Math.min(1000 * 2 ** retryCount, 30000);
+                  console.log(
+                    `[MCP WebSocket] Connection failed, retrying in ${backoff}ms... (attempt ${retryCount}/10)`,
+                  );
+                  return timer(backoff);
+                },
+                resetOnSuccess: true,
+              }),
+              scan(reduceEvent, {}),
+            )
+            .subscribe({
+              next: (state) => next(null, state),
+              error: (err) => next(err),
+            });
+        })
+        .catch((err) => {
+          if (!abortController.signal.aborted) next(err);
         });
 
-        subscription = ws$
-          .pipe(
-            retry({
-              count: 10,
-              delay: (_err, retryCount) => {
-                const backoff = Math.min(1000 * 2 ** retryCount, 30000);
-                console.log(
-                  `[MCP WebSocket] Connection failed, retrying in ${backoff}ms... (attempt ${retryCount}/10)`,
-                );
-                return timer(backoff);
-              },
-              resetOnSuccess: true,
-            }),
-            scan(reduceEvent, {}),
-          )
-          .subscribe({
-            next: (state) => next(null, state),
-            error: (err) => next(err),
-          });
-      }).catch((err) => next(err));
-
-      return () => subscription?.unsubscribe();
+      return () => {
+        abortController.abort();
+        subscription?.unsubscribe();
+      };
     },
   );
 
