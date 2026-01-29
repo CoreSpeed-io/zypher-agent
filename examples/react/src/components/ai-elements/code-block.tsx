@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
+import { useClipboard } from "foxact/use-clipboard";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import type { HTMLAttributes } from "react";
-import { useRef, useState } from "react";
 
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string;
@@ -34,25 +34,8 @@ export const CodeBlock = (
 function CodeBlockCopyButton(
   { code, className }: { code: string; className?: string },
 ) {
-  const [isCopied, setIsCopied] = useState(false);
-  const timeoutRef = useRef<number>(0);
-
-  const copyToClipboard = async () => {
-    if (!navigator?.clipboard?.writeText) return;
-    try {
-      await navigator.clipboard.writeText(code);
-      setIsCopied(true);
-      globalThis.clearTimeout(timeoutRef.current);
-      timeoutRef.current = globalThis.setTimeout(
-        () => setIsCopied(false),
-        2000,
-      );
-    } catch {
-      // ignore
-    }
-  };
-
-  const Icon = isCopied ? CheckIcon : CopyIcon;
+  const { copied, copy } = useClipboard({ timeout: 2000 });
+  const Icon = copied ? CheckIcon : CopyIcon;
 
   return (
     <Button
@@ -60,7 +43,7 @@ function CodeBlockCopyButton(
         "absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100",
         className,
       )}
-      onClick={copyToClipboard}
+      onClick={() => copy(code)}
       size="icon-xs"
       type="button"
       variant="ghost"
