@@ -52,6 +52,7 @@
     "types": ["vite/client"]
   },
   "exclude": [
-    ".vite/"
+    ".vite/",
+    "dist/"
   ]
 }
