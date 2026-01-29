@@ -1,28 +1,26 @@
 /**
  * React hooks and utilities for Zypher Agent UI integration.
  *
- * Provides reactive state management for MCP servers via WebSocket,
- * along with helpers for matching MCP client status patterns.
+ * - **TaskApiClient**: WebSocket and REST client for agent task execution
+ * - **useAgent / AgentProvider**: React hooks for managing agent state and messages
+ * - **useMcpServers**: Real-time MCP server status via WebSocket
  *
  * @example
  * ```tsx
- * import { useMcpServers, matchStatus } from "@zypher/ui";
+ * import { TaskApiClient, useAgent } from "@zypher/ui";
  *
- * function McpPanel() {
- *   const { servers, isLoading } = useMcpServers({
- *     apiBaseUrl: "ws://localhost:3000",
- *   });
+ * const client = new TaskApiClient({
+ *   baseUrl: "http://localhost:8080",
+ * });
  *
- *   if (isLoading) return <p>Loading...</p>;
+ * function Chat() {
+ *   const { messages, runTask, isRunning } = useAgent({ client });
  *
  *   return (
- *     <ul>
- *       {Object.values(servers).map((s) => (
- *         <li key={s.serverId}>
- *           {s.serverId} — {matchStatus(s.status, "connected") ? "online" : "offline"}
- *         </li>
- *       ))}
- *     </ul>
+ *     <div>
+ *       {messages.map((m) => <Message key={m.id} message={m} />)}
+ *       <button onClick={() => runTask("Hello!")}>Send</button>
+ *     </div>
  *   );
  * }
  * ```
