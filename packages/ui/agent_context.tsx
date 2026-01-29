@@ -22,9 +22,7 @@ export function AgentProvider({
 }: AgentProviderOptions): JSX.Element {
   const agentState = useAgent({ client, messageQueryKey, agentId });
 
-  return (
-    <AgentContext value={agentState}>{children}</AgentContext>
-  );
+  return <AgentContext value={agentState}>{children}</AgentContext>;
 }
 
 /** Hook to access agent state from within an AgentProvider. */
