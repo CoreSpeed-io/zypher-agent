@@ -58,6 +58,11 @@ export class TaskApiClient {
     this.#options = options;
   }
 
+  /** The base URL of the Zypher HTTP server. */
+  get baseUrl(): string {
+    return this.#options.baseUrl;
+  }
+
   async #resolveHeaders(): Promise<Record<string, string>> {
     const { headers } = this.#options;
     if (!headers) return {};

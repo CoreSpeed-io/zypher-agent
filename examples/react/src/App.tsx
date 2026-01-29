@@ -44,7 +44,7 @@ const client = new TaskApiClient({
 
 function App() {
   return (
-    <AgentProvider client={client} messageQueryKey="messages">
+    <AgentProvider client={client}>
       <ChatUI />
     </AgentProvider>
   );

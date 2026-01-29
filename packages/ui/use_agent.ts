@@ -5,7 +5,7 @@ import type { ContentBlock } from "@zypher/agent";
 import type { HttpTaskEvent as TaskEvent } from "@zypher/http";
 import type { Observable } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
-import useSWR, { type Key } from "swr";
+import useSWR from "swr";
 
 export interface CompleteMessage {
   type: "complete";
@@ -49,9 +49,7 @@ export function getFormattedToolName(toolName: string): string {
 }
 
 export interface UseAgentOptions {
-  messageQueryKey: Key;
   client: TaskApiClient;
-  agentId?: string;
 }
 
 export interface UseAgentReturn {
@@ -66,7 +64,7 @@ export interface UseAgentReturn {
 }
 
 export function useAgent(options: UseAgentOptions): UseAgentReturn {
-  const { client, agentId } = options;
+  const { client } = options;
   // We use the bound mutate from useSWR for simpler access, but we can also use global mutate if needed.
   // actually, we need global mutate if we want to mutate other keys, but here we only mutate messageQueryKey.
 
@@ -96,12 +94,15 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
 
   // === MESSAGE, TASK AND CHECKPOINT OPERATIONS ===
 
+  // Derive SWR cache key from client baseUrl
+  const messageQueryKey = ["messages", client.baseUrl] as const;
+
   const {
     data: messages = [],
     isLoading: isLoadingMessages,
     mutate: mutateMessages,
   } = useSWR(
-    options.messageQueryKey,
+    messageQueryKey,
     async () => {
       const messages = await client.getMessages();
 
@@ -266,7 +267,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
           }
         }
         // Normal completion - task finished successfully
-        console.log("[useAgent] Task completed, agentId:", agentId);
+        console.log("[useAgent] Task completed");
       } catch (error) {
         // Handle WebSocket errors (including "task_not_running")
         console.error("Task error:", error);
@@ -275,7 +276,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
         setStreamingMessages([]);
       }
     },
-    [agentId, mutateMessages],
+    [mutateMessages],
   );
 
   // Function to clear message history
