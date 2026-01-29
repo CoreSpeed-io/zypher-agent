@@ -10,6 +10,7 @@
   },
   "imports": {
     "@eslint-react/eslint-plugin": "npm:@eslint-react/eslint-plugin@^2.8.0",
+    "hexoid": "npm:hexoid@^2.0.0",
     "react": "npm:react@^19.2.4",
     "rxjs": "npm:rxjs@^7.8.2",
     "rxjs-for-await": "npm:rxjs-for-await@1",

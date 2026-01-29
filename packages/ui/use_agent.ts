@@ -1,3 +1,4 @@
+import { hexoid } from "hexoid";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TaskApiClient, TaskConnection } from "./task_api_client.ts";
 import type { ContentBlock } from "@zypher/agent";
@@ -32,14 +33,12 @@ export interface StreamingToolUseMessage {
   timestamp: Date;
 }
 
+const generateId = hexoid();
+
 function generateMessageId(
   prefix: "message" | "delta" | "optimistic" | "greeting",
 ): string {
-  return `${prefix}-${Date.now().toString()}${
-    Math.random()
-      .toString(36)
-      .substring(2, 9)
-  }`;
+  return `${prefix}-${generateId()}`;
 }
 
 export function getFormattedToolName(toolName: string): string {

@@ -54,6 +54,7 @@
     "npm:eslint-plugin-react-refresh@~0.4.26": "0.4.26_eslint@9.39.2",
     "npm:eslint@^9.39.2": "9.39.2",
     "npm:globals@^17.2.0": "17.2.0",
+    "npm:hexoid@2": "2.0.0",
     "npm:ink-select-input@^6.2.0": "6.2.0_ink@6.6.0__@types+react@19.2.9__react@19.2.4_react@19.2.4_@types+react@19.2.9",
     "npm:ink-text-input@6": "6.0.0_ink@6.6.0__@types+react@19.2.9__react@19.2.4_react@19.2.4_@types+react@19.2.9",
     "npm:ink@^6.6.0": "6.6.0_@types+react@19.2.9_react@19.2.4",
@@ -5163,6 +5164,9 @@
         "hermes-estree"
       ]
     },
+    "hexoid@2.0.0": {
+      "integrity": "sha512-qlspKUK7IlSQv2o+5I7yhUd7TxlOG2Vr5LTa3ve2XSNVKAL/n/u/7KLvKmFNimomDIKvZFXWHv0T12mv7rT8Aw=="
+    },
     "hono@4.11.6": {
       "integrity": "sha512-ofIiiHyl34SV6AuhE3YT2mhO5HRWokce+eUYE82TsP6z0/H3JeJcjVWEMSIAiw2QkjDOEpES/lYsg8eEbsLtdw=="
     },
@@ -7283,6 +7287,7 @@
           "npm:eslint-plugin-react-hooks@^7.0.1",
           "npm:eslint@^9.39.2",
           "npm:globals@^17.2.0",
+          "npm:hexoid@2",
           "npm:react@^19.2.4",
           "npm:rxjs-for-await@1",
           "npm:rxjs@^7.8.2",
