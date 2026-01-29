@@ -14,7 +14,7 @@
  * });
  *
  * function Chat() {
- *   const { messages, runTask, isRunning } = useAgent({ client });
+ *   const { messages, runTask, isTaskRunning } = useAgent({ client });
  *
  *   return (
  *     <div>
