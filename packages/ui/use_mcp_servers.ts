@@ -82,12 +82,25 @@ export function matchStatus(
   return false;
 }
 
+/**
+ * WebSocket connection status for MCP servers.
+ * - `idle`: Connection is disabled (enabled=false)
+ * - `connecting`: Attempting to establish WebSocket connection
+ * - `connected`: Successfully connected and received initial state
+ * - `error`: Connection failed after all retry attempts
+ */
+export type McpConnectionStatus = "idle" | "connecting" | "connected" | "error";
+
 /** Return value of the {@link useMcpServers} hook. */
 export interface UseMcpServersReturn {
   /** Map of server ID to its current state. */
   servers: Record<string, McpServerState>;
   /** Whether the initial state has been received from the WebSocket. */
   isLoading: boolean;
+  /** WebSocket connection status. */
+  status: McpConnectionStatus;
+  /** WebSocket connection error, if any. */
+  error: unknown;
 }
 
 /** Options for the {@link useMcpServers} hook. */
@@ -216,12 +229,19 @@ export function useMcpServers(
     },
   );
 
-  if (error) {
-    console.error("[MCP WebSocket] Subscription error:", error);
-  }
+  // Derive connection status from state
+  const status: McpConnectionStatus = !enabled
+    ? "idle"
+    : error
+    ? "error"
+    : data === undefined
+    ? "connecting"
+    : "connected";
 
   return {
     servers: data ?? {},
     isLoading: data === undefined,
+    status,
+    error,
   };
 }
