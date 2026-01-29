@@ -7,29 +7,45 @@ import type { Observable } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
 import useSWR from "swr";
 
+/** A fully received message from either the user or the assistant. */
 export interface CompleteMessage {
   type: "complete";
+  /** Unique identifier for this message. */
   id: string;
+  /** Whether this message is from the user or the assistant. */
   role: "user" | "assistant";
+  /** The content blocks of the message (text, tool use, tool result, etc.). */
   content: ContentBlock[];
+  /** When this message was created. */
   timestamp: Date;
+  /** Checkpoint ID if this message has an associated checkpoint. */
   checkpointId?: string;
 }
 
+/** A message that is currently being streamed from the assistant. */
 export type StreamingMessage = StreamingTextMessage | StreamingToolUseMessage;
 
+/** A text message that is currently being streamed. */
 export interface StreamingTextMessage {
   type: "streaming_text";
+  /** Unique identifier for this streaming message. */
   id: string;
+  /** The text content received so far. */
   text: string;
+  /** When this streaming message started. */
   timestamp: Date;
 }
 
+/** A tool use message that is currently being streamed. */
 export interface StreamingToolUseMessage {
   type: "streaming_tool_use";
+  /** Unique identifier for this streaming message. */
   id: string;
+  /** The name of the tool being invoked. */
   toolUseName: string;
+  /** The partial JSON input received so far. */
   partialInput: string;
+  /** When this streaming message started. */
   timestamp: Date;
 }
 
@@ -41,6 +57,11 @@ function generateMessageId(
   return `${prefix}-${generateId()}`;
 }
 
+/**
+ * Formats a tool name for display by removing the "mcp_" prefix if present.
+ * @param toolName The raw tool name from the agent.
+ * @returns The formatted tool name.
+ */
 export function getFormattedToolName(toolName: string): string {
   if (toolName.startsWith("mcp_")) {
     return toolName.replace("mcp_", "");
@@ -48,21 +69,50 @@ export function getFormattedToolName(toolName: string): string {
   return toolName;
 }
 
+/** Options for the {@link useAgent} hook. */
 export interface UseAgentOptions {
+  /** The TaskApiClient instance to use for communication with the agent server. */
   client: TaskApiClient;
 }
 
+/** Return value of the {@link useAgent} hook. */
 export interface UseAgentReturn {
+  /** List of complete messages in the conversation. */
   messages: CompleteMessage[];
+  /** List of messages currently being streamed. */
   streamingMessages: StreamingMessage[];
+  /** Whether messages are being loaded from the server. */
   isLoadingMessages: boolean;
+  /** Whether a task is currently running. */
   isTaskRunning: boolean;
+  /** Whether messages are being cleared. */
   isClearingMessages: boolean;
+  /** Start a new task with the given input. */
   runTask: (input: string, model?: string) => void;
+  /** Clear all message history. */
   clearMessageHistory: () => void;
+  /** Cancel the currently running task. */
   cancelCurrentTask: () => void;
 }
 
+/**
+ * React hook for managing agent conversation state.
+ *
+ * Handles message fetching, task execution via WebSocket, and streaming updates.
+ * Uses SWR for message caching with automatic deduplication.
+ *
+ * @example
+ * ```tsx
+ * const { messages, runTask, isTaskRunning } = useAgent({ client });
+ *
+ * return (
+ *   <div>
+ *     {messages.map(m => <Message key={m.id} message={m} />)}
+ *     <button onClick={() => runTask("Hello!")}>Send</button>
+ *   </div>
+ * );
+ * ```
+ */
 export function useAgent(options: UseAgentOptions): UseAgentReturn {
   const { client } = options;
   // We use the bound mutate from useSWR for simpler access, but we can also use global mutate if needed.
