@@ -106,16 +106,13 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                 throw error;
               }
 
-              const parseResult = TaskWebSocketClientMessage.safeParse(
-                rawMessage,
-              );
+              const { success, data: message } = TaskWebSocketClientMessage
+                .safeParse(rawMessage);
 
-              if (!parseResult.success) {
+              if (!success) {
                 ws.close(1003, "invalid_message");
                 return;
               }
-
-              const message = parseResult.data;
               switch (message.action) {
                 case "startTask": {
                   // Check if a task is already running
