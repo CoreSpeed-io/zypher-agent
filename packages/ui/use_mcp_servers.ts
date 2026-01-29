@@ -4,9 +4,9 @@ import type {
   McpServerSource,
 } from "@zypher/agent";
 import type { McpWebSocketEvent } from "@zypher/http";
-import { useCallback, useEffect, useState } from "react";
-import { retry, timer } from "rxjs";
+import { retry, scan, timer } from "rxjs";
 import { webSocket } from "rxjs/webSocket";
+import useSWRSubscription from "swr/subscription";
 import { toWebSocketUrl } from "./utils.ts";
 
 // WebSocket protocol version
@@ -101,133 +101,127 @@ export interface UseMcpServersOptions {
   enabled?: boolean;
 }
 
+/** Reducer to accumulate MCP server state from WebSocket events. */
+function reduceEvent(
+  state: Record<string, McpServerState>,
+  event: McpWebSocketEvent,
+): Record<string, McpServerState> {
+  switch (event.type) {
+    case "initial_state": {
+      const serverRecord: Record<string, McpServerState> = {};
+      for (const server of event.servers) {
+        serverRecord[server.serverId] = server;
+      }
+      return serverRecord;
+    }
+
+    case "server_added":
+      return {
+        ...state,
+        [event.serverId]: {
+          serverId: event.serverId,
+          server: event.server,
+          source: event.source,
+          status: "disconnected",
+          enabled: false,
+        },
+      };
+
+    case "server_updated": {
+      const existing = state[event.serverId];
+      if (!existing) return state;
+
+      return {
+        ...state,
+        [event.serverId]: {
+          ...existing,
+          ...(event.updates.server && { server: event.updates.server }),
+          ...(event.updates.enabled !== undefined && {
+            enabled: event.updates.enabled,
+          }),
+        },
+      };
+    }
+
+    case "server_removed": {
+      const { [event.serverId]: _, ...rest } = state;
+      return rest;
+    }
+
+    case "client_status_changed": {
+      const existing = state[event.serverId];
+      if (!existing) return state;
+
+      // Only keep pendingOAuthUrl if status is awaitingOAuth
+      const isAwaitingOAuth = matchStatus(
+        event.status,
+        "connecting.awaitingOAuth",
+      );
+
+      return {
+        ...state,
+        [event.serverId]: {
+          ...existing,
+          status: event.status,
+          pendingOAuthUrl: isAwaitingOAuth ? event.pendingOAuthUrl : undefined,
+        },
+      };
+    }
+
+    case "error":
+      // Error events don't change state
+      return state;
+  }
+}
+
 /**
  * Hook that maintains a WebSocket connection to the MCP server state stream.
  * Automatically reconnects on disconnect and keeps server state in sync.
+ * Uses SWR subscription to deduplicate connections across components.
  */
 export function useMcpServers(
   { apiBaseUrl, enabled = true }: UseMcpServersOptions,
 ): UseMcpServersReturn {
-  const [servers, setServers] = useState<Record<string, McpServerState>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, error } = useSWRSubscription(
+    enabled ? ["mcp-servers", apiBaseUrl] : null,
+    ([, url], { next }) => {
+      const wsUrl = `${toWebSocketUrl(url)}/mcp/ws`;
 
-  const handleMessage = useCallback((data: McpWebSocketEvent) => {
-    switch (data.type) {
-      case "initial_state": {
-        setIsLoading(false);
-        const serverRecord: Record<string, McpServerState> = {};
-        for (const server of data.servers) {
-          serverRecord[server.serverId] = server;
-        }
-        setServers(serverRecord);
-        break;
-      }
-
-      case "server_added":
-        setServers((prev) => ({
-          ...prev,
-          [data.serverId]: {
-            serverId: data.serverId,
-            server: data.server,
-            source: data.source,
-            status: "disconnected",
-            enabled: false,
-          },
-        }));
-        break;
-
-      case "server_updated":
-        setServers((prev) => {
-          const existing = prev[data.serverId];
-          if (!existing) return prev;
-
-          return {
-            ...prev,
-            [data.serverId]: {
-              ...existing,
-              ...(data.updates.server && { server: data.updates.server }),
-              ...(data.updates.enabled !== undefined && {
-                enabled: data.updates.enabled,
-              }),
-            },
-          };
-        });
-        break;
-
-      case "server_removed":
-        setServers((prev) => {
-          const { [data.serverId]: _, ...rest } = prev;
-          return rest;
-        });
-        break;
-
-      case "client_status_changed":
-        setServers((prev) => {
-          const existing = prev[data.serverId];
-          if (!existing) return prev;
-
-          // Only keep pendingOAuthUrl if status is awaitingOAuth
-          const isAwaitingOAuth = matchStatus(
-            data.status,
-            "connecting.awaitingOAuth",
-          );
-
-          return {
-            ...prev,
-            [data.serverId]: {
-              ...existing,
-              status: data.status,
-              pendingOAuthUrl: isAwaitingOAuth
-                ? data.pendingOAuthUrl
-                : undefined,
-            },
-          };
-        });
-        break;
-    }
-  }, []);
-
-  const connect = useCallback(() => {
-    const wsUrl = `${toWebSocketUrl(apiBaseUrl)}/mcp/ws`;
-
-    const ws$ = webSocket<McpWebSocketEvent>({
-      url: wsUrl,
-      protocol: MCP_WEBSOCKET_PROTOCOL,
-    });
-
-    const subscription = ws$
-      .pipe(
-        retry({
-          count: 10,
-          delay: (_error, retryCount) => {
-            // Exponential backoff with a maximum of 30 seconds
-            const backoff = Math.min(1000 * 2 ** retryCount, 30000);
-            console.log(
-              `[MCP WebSocket] Connection failed, retrying in ${backoff}ms... (attempt ${retryCount}/10)`,
-            );
-            return timer(backoff);
-          },
-          resetOnSuccess: true,
-        }),
-      )
-      .subscribe({
-        next: handleMessage,
+      const ws$ = webSocket<McpWebSocketEvent>({
+        url: wsUrl,
+        protocol: MCP_WEBSOCKET_PROTOCOL,
       });
 
-    return subscription;
-  }, [apiBaseUrl, handleMessage]);
+      const subscription = ws$
+        .pipe(
+          retry({
+            count: 10,
+            delay: (_err, retryCount) => {
+              const backoff = Math.min(1000 * 2 ** retryCount, 30000);
+              console.log(
+                `[MCP WebSocket] Connection failed, retrying in ${backoff}ms... (attempt ${retryCount}/10)`,
+              );
+              return timer(backoff);
+            },
+            resetOnSuccess: true,
+          }),
+          scan(reduceEvent, {}),
+        )
+        .subscribe({
+          next: (state) => next(null, state),
+          error: (err) => next(err),
+        });
 
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
+      return () => subscription.unsubscribe();
+    },
+  );
 
-    const subscription = connect();
-    return () => subscription.unsubscribe();
-  }, [connect, enabled]);
+  if (error) {
+    console.error("[MCP WebSocket] Subscription error:", error);
+  }
 
   return {
-    servers,
-    isLoading,
+    servers: data ?? {},
+    isLoading: data === undefined,
   };
 }
