@@ -33,7 +33,7 @@ export { matchStatus, useMcpServers } from "./use_mcp_servers.ts";
 export type {
   McpConnectionStatus,
   McpServerState,
-  StatusPattern,
+  McpClientStatusPattern,
   UseMcpServersOptions,
   UseMcpServersReturn,
 } from "./use_mcp_servers.ts";

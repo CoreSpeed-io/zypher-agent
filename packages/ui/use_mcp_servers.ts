@@ -29,7 +29,7 @@ export interface McpServerState {
 }
 
 /** Dot-notation patterns for matching MCP client status states and sub-states. */
-export type StatusPattern =
+export type McpClientStatusPattern =
   | "disconnected"
   | "connecting"
   | "connecting.initializing"
@@ -58,7 +58,7 @@ export type StatusPattern =
  */
 export function matchStatus(
   status: McpClientStatus,
-  pattern: StatusPattern,
+  pattern: McpClientStatusPattern,
 ): boolean {
   // Handle dot notation for nested states
   if (pattern.includes(".")) {
