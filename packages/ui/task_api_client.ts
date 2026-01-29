@@ -138,10 +138,10 @@ export class TaskApiClient {
     options?: StartTaskOptions,
   ): Promise<TaskConnection> {
     const protocols = await this.#resolveProtocols();
-    const wsUrl = toWebSocketUrl(this.#options.baseUrl);
+    const wsUrl = toWebSocketUrl(`${this.#options.baseUrl}/task/ws`);
 
     const subject = webSocket<TaskWebSocketClientMessage | TaskEvent>({
-      url: `${wsUrl}/task/ws`,
+      url: wsUrl,
       protocol: protocols,
       openObserver: {
         next: () => console.log("WebSocket connection opened"),
@@ -169,10 +169,10 @@ export class TaskApiClient {
    */
   async resumeTask(lastEventId?: string): Promise<TaskConnection> {
     const protocols = await this.#resolveProtocols();
-    const wsUrl = toWebSocketUrl(this.#options.baseUrl);
+    const wsUrl = toWebSocketUrl(`${this.#options.baseUrl}/task/ws`);
 
     const subject = webSocket<TaskWebSocketClientMessage | TaskEvent>({
-      url: `${wsUrl}/task/ws`,
+      url: wsUrl,
       protocol: protocols,
       openObserver: {
         next: () => console.log("WebSocket connection opened for resume"),

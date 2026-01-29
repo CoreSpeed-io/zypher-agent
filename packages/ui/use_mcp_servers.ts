@@ -185,7 +185,7 @@ export function useMcpServers(
   const { data, error } = useSWRSubscription(
     enabled ? ["mcp-servers", apiBaseUrl] : null,
     ([, url], { next }) => {
-      const wsUrl = `${toWebSocketUrl(url)}/mcp/ws`;
+      const wsUrl = toWebSocketUrl(`${url}/mcp/ws`);
 
       const ws$ = webSocket<McpWebSocketEvent>({
         url: wsUrl,
