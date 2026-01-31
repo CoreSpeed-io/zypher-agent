@@ -5,7 +5,7 @@ import { filter, Observable, ReplaySubject } from "rxjs";
  * Event types for task execution events using discriminated union types
  */
 export type HttpTaskEvent =
-  & (AgentTaskEvent | HeartbeatEvent)
+  & (AgentTaskEvent | HeartbeatEvent | ErrorEvent)
   & {
     eventId: HttpTaskEventId;
   };
@@ -16,6 +16,20 @@ export type HttpTaskEvent =
 export interface HeartbeatEvent {
   type: "heartbeat";
   timestamp: number;
+}
+
+/**
+ * Error event sent to the client before closing the WebSocket on error.
+ * Only sent when `exposeErrors` is enabled in handler options.
+ */
+export interface ErrorEvent {
+  type: "error";
+  /** Error name/type (e.g., "Error", "TypeError", "APIError") */
+  name: string;
+  /** Error message */
+  message: string;
+  /** Stack trace (if available) */
+  stack?: string;
 }
 
 /**

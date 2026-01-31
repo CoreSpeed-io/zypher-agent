@@ -58,7 +58,6 @@ export const TaskWebSocketClientMessage: z.ZodSchema<
 
 /**
  * Messages sent from the server to the client over the task WebSocket.
- * Errors are communicated via WebSocket close codes, not as messages.
  */
 export type TaskWebSocketServerMessage = HttpTaskEvent;
 
