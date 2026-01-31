@@ -38,6 +38,10 @@ export async function main(): Promise<void> {
     .option("--host <host:string>", "Host to bind to", {
       default: "0.0.0.0",
     })
+    .option(
+      "--expose-errors",
+      "Send error details to clients (WARNING: may leak sensitive info)",
+    )
     .parse(Deno.args);
 
   // Model string with auto-inferred provider
@@ -68,7 +72,16 @@ export async function main(): Promise<void> {
 
   const app = new Hono()
     .use(cors())
-    .route("/", createZypherHandler({ agent }));
+    .route(
+      "/",
+      createZypherHandler({
+        agent,
+        exposeErrors: cli.exposeErrors,
+        onError: (error, { endpoint }) => {
+          console.error(`[${endpoint}]`, error);
+        },
+      }),
+    );
 
   Deno.serve({
     port: cli.port,
@@ -80,6 +93,7 @@ export async function main(): Promise<void> {
       if (cli.baseUrl) console.log(`Base URL: ${cli.baseUrl}`);
       if (cli.workDir) console.log(`Working directory: ${cli.workDir}`);
       if (cli.userId) console.log(`User ID: ${cli.userId}`);
+      if (cli.exposeErrors) console.log(`Expose errors: enabled`);
       console.log(`Tools: ${Array.from(agent.mcp.tools.keys()).join(", ")}`);
     },
   }, app.fetch);
