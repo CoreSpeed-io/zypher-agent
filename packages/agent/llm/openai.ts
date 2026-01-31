@@ -117,8 +117,7 @@ export class OpenAIModelProvider implements ModelProvider {
           { reasoning_effort: this.#reasoningEffort }),
         safety_identifier: params.userId,
       },
-      // Pass abort signal to allow cancellation of the stream
-      params.signal ? { signal: params.signal } : undefined,
+      { signal: params.signal },
     );
 
     const observable = new Observable<ModelEvent>((subscriber) => {

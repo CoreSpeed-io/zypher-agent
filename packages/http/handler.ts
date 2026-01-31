@@ -284,10 +284,7 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
             onClose: () => {
               // Clean up timeout if the connection was closed before the first message was received
               clearTimeout(firstMessageTimeoutId);
-              // Abort the running task if connection closes (client disconnect or intentional close)
-              if (taskAbortController && !taskAbortController.signal.aborted) {
-                taskAbortController.abort();
-              }
+              // Task continues running - abort only via explicit cancelTask or timeout
             },
           };
         },

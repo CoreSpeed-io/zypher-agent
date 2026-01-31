@@ -143,8 +143,7 @@ export class AnthropicModelProvider implements ModelProvider {
           user_id: params.userId,
         },
       },
-      // Pass abort signal to allow cancellation of the stream
-      params.signal ? { signal: params.signal } : undefined,
+      { signal: params.signal },
     );
 
     return new AnthropicModelStream(stream);
