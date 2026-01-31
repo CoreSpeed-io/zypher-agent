@@ -101,21 +101,24 @@ export class OpenAIModelProvider implements ModelProvider {
       (m) => formatInputMessage(m, fileAttachmentCacheMap),
     );
 
-    const stream = this.#client.chat.completions.stream({
-      model: this.#model,
-      messages: [
-        {
-          role: "system",
-          content: params.system,
-        },
-        ...formattedMessages.flat(),
-      ],
-      max_completion_tokens: params.maxTokens,
-      tools: openaiTools,
-      ...(isReasoningModel(this.#model) &&
-        { reasoning_effort: this.#reasoningEffort }),
-      safety_identifier: params.userId,
-    });
+    const stream = this.#client.chat.completions.stream(
+      {
+        model: this.#model,
+        messages: [
+          {
+            role: "system",
+            content: params.system,
+          },
+          ...formattedMessages.flat(),
+        ],
+        max_completion_tokens: params.maxTokens,
+        tools: openaiTools,
+        ...(isReasoningModel(this.#model) &&
+          { reasoning_effort: this.#reasoningEffort }),
+        safety_identifier: params.userId,
+      },
+      { signal: params.signal },
+    );
 
     const observable = new Observable<ModelEvent>((subscriber) => {
       // Track which tool calls we've already emitted events for

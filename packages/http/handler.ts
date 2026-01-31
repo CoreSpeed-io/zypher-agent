@@ -284,6 +284,7 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
             onClose: () => {
               // Clean up timeout if the connection was closed before the first message was received
               clearTimeout(firstMessageTimeoutId);
+              // Task continues running - abort only via explicit cancelTask or timeout
             },
           };
         },
