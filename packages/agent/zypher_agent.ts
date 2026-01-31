@@ -454,6 +454,7 @@ export class ZypherAgent {
             messages: this.#messages,
             tools: toolCalls,
             userId: this.#context.userId,
+            signal: mergedSignal,
           },
           cacheMap,
         );

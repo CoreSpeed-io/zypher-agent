@@ -122,26 +122,30 @@ export class AnthropicModelProvider implements ModelProvider {
       }),
     }));
 
-    const stream = this.#client.messages.stream({
-      model: this.#model,
-      max_tokens: params.maxTokens,
-      system: [
-        {
-          type: "text",
-          text: params.system,
-          // cache the main system prompt (if enabled) as it's large and reusable
-          ...(this.#enablePromptCaching && {
-            cache_control: { type: "ephemeral" },
-          }),
+    const stream = this.#client.messages.stream(
+      {
+        model: this.#model,
+        max_tokens: params.maxTokens,
+        system: [
+          {
+            type: "text",
+            text: params.system,
+            // cache the main system prompt (if enabled) as it's large and reusable
+            ...(this.#enablePromptCaching && {
+              cache_control: { type: "ephemeral" },
+            }),
+          },
+        ],
+        messages: anthropicMessages,
+        tools: anthropicTools,
+        thinking: this.#thinkingConfig,
+        metadata: {
+          user_id: params.userId,
         },
-      ],
-      messages: anthropicMessages,
-      tools: anthropicTools,
-      thinking: this.#thinkingConfig,
-      metadata: {
-        user_id: params.userId,
       },
-    });
+      // Pass abort signal to allow cancellation of the stream
+      params.signal ? { signal: params.signal } : undefined,
+    );
 
     return new AnthropicModelStream(stream);
   }
