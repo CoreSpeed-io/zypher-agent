@@ -49,7 +49,8 @@ export interface ZypherHandlerOptions {
   exposeErrors?: boolean;
   /**
    * Optional callback for server-side error logging.
-   * If not provided, errors are only sent to client (when exposeErrors is true).
+   * If not provided, no server-side logging occurs. Errors may still be sent
+   * to clients when `exposeErrors` is true.
    */
   onError?: (error: unknown, context: ErrorContext) => void;
 }
