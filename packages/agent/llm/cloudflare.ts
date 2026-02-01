@@ -19,6 +19,12 @@ export interface CloudflareGatewayOptions {
    * Create one at: https://dash.cloudflare.com/profile/api-tokens
    */
   apiToken: string;
+
+  /**
+   * Optional custom headers to include in all requests.
+   * Useful for bypassing bot protection (e.g., User-Agent).
+   */
+  headers?: Record<string, string>;
 }
 
 type Endpoint = "anthropic" | "openai" | "compat";
@@ -123,6 +129,9 @@ export function cloudflareGateway(
       model: modelName,
       apiKey: options.apiToken,
       baseUrl,
+      anthropicClientOptions: options.headers
+        ? { defaultHeaders: options.headers }
+        : undefined,
     });
   }
 
@@ -130,5 +139,8 @@ export function cloudflareGateway(
     model: modelName,
     apiKey: options.apiToken,
     baseUrl,
+    openaiClientOptions: options.headers
+      ? { defaultHeaders: options.headers }
+      : undefined,
   });
 }
