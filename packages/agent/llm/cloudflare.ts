@@ -129,9 +129,9 @@ export function cloudflareGateway(
       model: modelName,
       apiKey: options.apiToken,
       baseUrl,
-      anthropicClientOptions: options.headers
-        ? { defaultHeaders: options.headers }
-        : undefined,
+      ...(options.headers && {
+        anthropicClientOptions: { defaultHeaders: options.headers },
+      }),
     });
   }
 
@@ -139,8 +139,8 @@ export function cloudflareGateway(
     model: modelName,
     apiKey: options.apiToken,
     baseUrl,
-    openaiClientOptions: options.headers
-      ? { defaultHeaders: options.headers }
-      : undefined,
+    ...(options.headers && {
+      openaiClientOptions: { defaultHeaders: options.headers },
+    }),
   });
 }
