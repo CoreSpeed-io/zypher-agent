@@ -1,0 +1,47 @@
+/**
+ * Test: OpenAIModelProvider directly
+ */
+
+import { createZypherAgent, OpenAIModelProvider } from "@zypher/agent";
+
+const GATEWAY_BASE_URL = "https://gateway.ai.c7d.dev/openai/v1";
+const USER_ID = "test-user-123";
+
+const provider = new OpenAIModelProvider({
+  model: "gpt-4o-mini",
+  apiKey: USER_ID,
+  baseUrl: GATEWAY_BASE_URL,
+  openaiClientOptions: {
+    defaultHeaders: {
+      "User-Agent": "ZypherAgent/1.0",
+      "X-Api-Key": USER_ID,
+    },
+  },
+});
+
+const agent = await createZypherAgent({
+  model: provider,
+  config: { maxTokens: 1024 },
+});
+
+console.log("Testing OpenAIModelProvider directly...\n");
+
+const task = agent.runTask("Say hello and tell me a short joke");
+
+task.subscribe({
+  next: (event) => {
+    if (event.type === "text") {
+      Deno.stdout.writeSync(new TextEncoder().encode(event.content));
+    } else if (event.type === "completed") {
+      console.log("\n\n✓ Test passed!");
+      if (event.totalUsage) {
+        console.log(
+          `Tokens: ${event.totalUsage.inputTokens} in / ${event.totalUsage.outputTokens} out`,
+        );
+      }
+    }
+  },
+  error: (err) => {
+    console.error("\n✗ Test failed:", err.message);
+  },
+});

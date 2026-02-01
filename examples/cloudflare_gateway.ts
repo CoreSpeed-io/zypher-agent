@@ -71,6 +71,9 @@ console.log(`Model: ${model}\n`);
 const modelProvider = cloudflareGateway(model, {
   gatewayBaseUrl,
   apiToken,
+  headers: {
+    "User-Agent": "ZypherAgent/1.0",
+  },
 });
 
 // Create the agent with the Cloudflare AI Gateway provider

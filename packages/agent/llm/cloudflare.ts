@@ -10,15 +10,26 @@ export interface CloudflareGatewayOptions {
    * The base URL of your Cloudflare AI Gateway.
    * Format: `https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_name}`
    *
-   * Find this in your Cloudflare dashboard under AI > AI Gateway.
+   * For CoreSpeed Gateway: `https://gateway.ai.c7d.dev`
    */
   gatewayBaseUrl: string;
 
   /**
-   * Your Cloudflare API token with AI Gateway permissions.
-   * Create one at: https://dash.cloudflare.com/profile/api-tokens
+   * API token for authentication.
+   *
+   * - For Cloudflare AI Gateway: Your CF API token
+   * - For CoreSpeed Gateway: Your CoreSpeed user ID (e.g., "user-123")
+   *
+   * This is passed as `x-api-key` header for Anthropic or
+   * `Authorization: Bearer` for OpenAI (SDK defaults).
    */
   apiToken: string;
+
+  /**
+   * Optional custom headers to include in all requests.
+   * Useful for bypassing bot protection (e.g., User-Agent).
+   */
+  headers?: Record<string, string>;
 }
 
 type Endpoint = "anthropic" | "openai" | "compat";
@@ -123,6 +134,9 @@ export function cloudflareGateway(
       model: modelName,
       apiKey: options.apiToken,
       baseUrl,
+      anthropicClientOptions: options.headers
+        ? { defaultHeaders: options.headers }
+        : undefined,
     });
   }
 
@@ -130,5 +144,8 @@ export function cloudflareGateway(
     model: modelName,
     apiKey: options.apiToken,
     baseUrl,
+    openaiClientOptions: options.headers
+      ? { defaultHeaders: options.headers }
+      : undefined,
   });
 }
