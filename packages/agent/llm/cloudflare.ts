@@ -10,18 +10,13 @@ export interface CloudflareGatewayOptions {
    * The base URL of your Cloudflare AI Gateway.
    * Format: `https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_name}`
    *
-   * For CoreSpeed Gateway: `https://gateway.ai.c7d.dev`
+   * Find this in your Cloudflare dashboard under AI > AI Gateway.
    */
   gatewayBaseUrl: string;
 
   /**
-   * API token for authentication.
-   *
-   * - For Cloudflare AI Gateway: Your CF API token
-   * - For CoreSpeed Gateway: Your CoreSpeed user ID (e.g., "user-123")
-   *
-   * This is passed as `x-api-key` header for Anthropic or
-   * `Authorization: Bearer` for OpenAI (SDK defaults).
+   * Your Cloudflare API token with AI Gateway permissions.
+   * Create one at: https://dash.cloudflare.com/profile/api-tokens
    */
   apiToken: string;
 
