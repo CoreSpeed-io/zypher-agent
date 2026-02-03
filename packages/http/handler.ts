@@ -133,27 +133,6 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
   const { agent, websocket } = options;
   const { exposeErrors = false, onError } = websocket ?? {};
 
-  /**
-   * Creates a catchError operator that handles the onError callback.
-   * - If onError returns an object, emits it as error event
-   * - If onError returns void, completes silently
-   * - If onError throws or not provided, rethrows for subscribe error handler
-   */
-  function catchOnError<T>(
-    endpoint: string,
-    createErrorEvent: (customData: Record<string, unknown>) => T,
-  ) {
-    return catchError<T, Observable<T | never>>((error) => {
-      if (!onError) throw error;
-
-      const result = onError(error, { endpoint });
-      if (result !== undefined) {
-        return of(createErrorEvent(result));
-      }
-      return EMPTY;
-    });
-  }
-
   let taskAbortController: AbortController | null = null;
   let taskEventSubject: ReplaySubject<HttpTaskEvent> | null = null;
   let toolApprovalCompletor: Completer<boolean> | null = null;
@@ -249,14 +228,16 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   // Subscribe to events and send them over WebSocket
                   eventSubject
                     .pipe(
-                      catchOnError<HttpTaskEvent>(
-                        "/task/ws",
-                        (customData) => ({
+                      catchError((err) => {
+                        if (!onError) throw err;
+                        const result = onError(err, { endpoint: "/task/ws" });
+                        if (result === undefined) return EMPTY;
+                        return of<HttpTaskEvent>({
                           type: "error",
-                          ...customData,
+                          ...result,
                           eventId: HttpTaskEventId.generate(),
-                        }),
-                      ),
+                        });
+                      }),
                     )
                     .subscribe({
                       next: (taskEvent) => {
@@ -302,14 +283,16 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   // Subscribe to replayed events and send them over WebSocket
                   events$
                     .pipe(
-                      catchOnError<HttpTaskEvent>(
-                        "/task/ws",
-                        (customData) => ({
+                      catchError((err) => {
+                        if (!onError) throw err;
+                        const result = onError(err, { endpoint: "/task/ws" });
+                        if (result === undefined) return EMPTY;
+                        return of<HttpTaskEvent>({
                           type: "error",
-                          ...customData,
+                          ...result,
                           eventId: HttpTaskEventId.generate(),
-                        }),
-                      ),
+                        });
+                      }),
                     )
                     .subscribe({
                       next: (taskEvent) => {
@@ -441,13 +424,15 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   map(toMcpWebSocketEvent),
                   filter((event) => !!event),
                   startWith(initialState),
-                  catchOnError<McpWebSocketEvent>(
-                    "/mcp/ws",
-                    (customData) => ({
+                  catchError((err) => {
+                    if (!onError) throw err;
+                    const result = onError(err, { endpoint: "/mcp/ws" });
+                    if (result === undefined) return EMPTY;
+                    return of<McpWebSocketEvent>({
                       type: "error",
-                      error: formatError(customData),
-                    }),
-                  ),
+                      error: formatError(result),
+                    });
+                  }),
                 )
                 .subscribe({
                   next: (event) => {
