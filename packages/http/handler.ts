@@ -32,13 +32,15 @@ export interface ErrorContext {
 }
 
 /**
- * Error callback return type. Return an object to send custom error data to
- * the client, or `undefined` to suppress the error from being sent.
+ * Error callback return type.
+ * - Return an object to send custom error data to the client
+ * - Return void to suppress the error (don't send anything to client)
+ * - Rethrow to fall back to `exposeErrors` behavior
  */
 export type ErrorResponse =
   | Record<string, unknown>
-  | undefined
-  | Promise<Record<string, unknown> | undefined>;
+  | void
+  | Promise<Record<string, unknown> | void>;
 
 /**
  * Options for creating a Zypher HTTP handler.
@@ -62,26 +64,31 @@ export interface ZypherHandlerOptions {
    * Error callback for handling errors that occur during WebSocket operations.
    *
    * Use this for server-side logging and to control what error information is
-   * sent to clients. When provided, takes precedence over `exposeErrors`.
+   * sent to clients.
    *
    * @param error - The error that occurred
    * @param context - Context about where the error occurred
-   * @returns An object to send to the client, or `undefined` to suppress.
-   *          If void/no return, falls back to `exposeErrors` behavior.
+   * @returns
+   *   - Return an object to send custom error data to the client
+   *   - Return void to suppress the error (don't send anything)
+   *   - Rethrow to fall back to `exposeErrors` behavior
    *
    * @example
    * ```ts
    * onError: (error, ctx) => {
-   *   console.error(`[${ctx.endpoint}]`, error);  // Server-side logging
+   *   console.error(`[${ctx.endpoint}]`, error);  // Always log
    *
    *   if ((error as any)?.status === 402) {
-   *     return { status: 402, code: "payment_required" };
+   *     return { status: 402, code: "payment_required" };  // Custom response
    *   }
-   *   return undefined; // Suppress error from client
+   *   if (isExpectedError(error)) {
+   *     return;  // Suppress, don't send to client
+   *   }
+   *   throw error;  // Rethrow → use exposeErrors fallback
    * }
    * ```
    */
-  onError?: (error: unknown, context: ErrorContext) => ErrorResponse | void;
+  onError?: (error: unknown, context: ErrorContext) => ErrorResponse;
 }
 
 /**
@@ -116,6 +123,9 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
 
   /**
    * Handles an error by calling onError and optionally sending error info to the client.
+   * - If onError returns an object, send it to client
+   * - If onError returns void, suppress (don't send anything)
+   * - If onError rethrows, fall back to exposeErrors
    */
   async function handleError(
     error: unknown,
@@ -126,13 +136,17 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
     const context: ErrorContext = { endpoint };
 
     if (onError) {
-      const result = await onError(error, context);
-      if (result !== undefined) {
-        const event: HttpTaskEvent = { type: "error", ...result, eventId };
-        sendFn(event);
+      try {
+        const result = await onError(error, context);
+        if (result !== undefined) {
+          const event: HttpTaskEvent = { type: "error", ...result, eventId };
+          sendFn(event);
+        }
+        // If onError returned void, suppress - don't send anything
         return;
+      } catch {
+        // onError rethrew, fall back to exposeErrors
       }
-      // If onError returned void/undefined, fall back to exposeErrors
     }
 
     if (exposeErrors) {
@@ -418,21 +432,28 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   ws.send(JSON.stringify(event));
                 },
                 error: async (err) => {
-                  let shouldSendError = false;
+                  let useExposeErrors = !onError;
 
                   if (onError) {
-                    const result = await onError(err, { endpoint: "/mcp/ws" });
-                    if (result !== undefined) {
-                      const mcpError: McpWebSocketEvent = {
-                        type: "error",
-                        error: formatError(result),
-                      };
-                      ws.send(JSON.stringify(mcpError));
-                      shouldSendError = true;
+                    try {
+                      const result = await onError(err, {
+                        endpoint: "/mcp/ws",
+                      });
+                      if (result !== undefined) {
+                        const mcpError: McpWebSocketEvent = {
+                          type: "error",
+                          error: formatError(result),
+                        };
+                        ws.send(JSON.stringify(mcpError));
+                      }
+                      // If onError returned void, suppress
+                    } catch {
+                      // onError rethrew, fall back to exposeErrors
+                      useExposeErrors = true;
                     }
                   }
 
-                  if (!shouldSendError && exposeErrors) {
+                  if (useExposeErrors && exposeErrors) {
                     const mcpError: McpWebSocketEvent = {
                       type: "error",
                       error: formatError(err),
