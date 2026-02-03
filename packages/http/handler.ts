@@ -37,10 +37,7 @@ export interface ErrorContext {
  * - Return void to handle the error silently
  * - Throw to propagate the error
  */
-export type ErrorResponse =
-  | Record<string, unknown>
-  | void
-  | Promise<Record<string, unknown> | void>;
+export type ErrorResponse = Record<string, unknown> | void;
 
 /**
  * WebSocket-specific options.
@@ -139,22 +136,22 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
    * - If onError returns void, error is handled silently
    * - If onError throws, error propagates (uses exposeErrors if enabled)
    */
-  async function handleError(
+  function handleError(
     error: unknown,
     endpoint: string,
     sendFn: (event: HttpTaskEvent) => void,
-  ): Promise<void> {
+  ): void {
     const eventId = HttpTaskEventId.generate();
     const context: ErrorContext = { endpoint };
 
     if (onError) {
       try {
-        const result = await onError(error, context);
+        const result = onError(error, context);
         if (result !== undefined) {
           const event: HttpTaskEvent = { type: "error", ...result, eventId };
           sendFn(event);
         }
-        // If onError returned void, suppress - don't send anything
+        // If onError returned void, error is handled silently
         return;
       } catch {
         // onError rethrew, fall back to exposeErrors
@@ -264,8 +261,8 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                       serverLatestEventId = taskEvent.eventId;
                       sendTaskWebSocketMessage(ws, taskEvent);
                     },
-                    error: async (err) => {
-                      await handleError(
+                    error: (err) => {
+                      handleError(
                         err,
                         "/task/ws",
                         (event) => sendTaskWebSocketMessage(ws, event),
@@ -311,8 +308,8 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                     next: (taskEvent) => {
                       sendTaskWebSocketMessage(ws, taskEvent);
                     },
-                    error: async (err) => {
-                      await handleError(
+                    error: (err) => {
+                      handleError(
                         err,
                         "/task/ws",
                         (event) => sendTaskWebSocketMessage(ws, event),
@@ -341,9 +338,8 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                       err,
                       "/task/ws",
                       (event) => sendTaskWebSocketMessage(ws, event),
-                    ).then(() => {
-                      ws.close(1011, "internal_error");
-                    });
+                    );
+                    ws.close(1011, "internal_error");
                     return;
                   }
 
@@ -443,14 +439,12 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                 next: (event) => {
                   ws.send(JSON.stringify(event));
                 },
-                error: async (err) => {
+                error: (err) => {
                   let useExposeErrors = !onError;
 
                   if (onError) {
                     try {
-                      const result = await onError(err, {
-                        endpoint: "/mcp/ws",
-                      });
+                      const result = onError(err, { endpoint: "/mcp/ws" });
                       if (result !== undefined) {
                         const mcpError: McpWebSocketEvent = {
                           type: "error",
@@ -458,7 +452,7 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                         };
                         ws.send(JSON.stringify(mcpError));
                       }
-                      // If onError returned void, suppress
+                      // If onError returned void, error is handled silently
                     } catch {
                       // onError rethrew, fall back to exposeErrors
                       useExposeErrors = true;
