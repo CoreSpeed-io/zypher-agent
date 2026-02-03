@@ -76,9 +76,12 @@ export async function main(): Promise<void> {
       "/",
       createZypherHandler({
         agent,
-        exposeErrors: cli.exposeErrors,
-        onError: (error, { endpoint }) => {
-          console.error(`[${endpoint}]`, error);
+        websocket: {
+          exposeErrors: cli.exposeErrors,
+          onError: (error, { endpoint }) => {
+            console.error(`[${endpoint}]`, error);
+            throw error;
+          },
         },
       }),
     );

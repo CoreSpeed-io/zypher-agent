@@ -43,11 +43,12 @@ export type ErrorResponse =
   | Promise<Record<string, unknown> | void>;
 
 /**
- * Options for creating a Zypher HTTP handler.
+ * WebSocket-specific options.
+ *
+ * WebSocket connections don't support middleware, so these options provide
+ * error handling capabilities for WebSocket endpoints.
  */
-export interface ZypherHandlerOptions {
-  /** The Zypher agent instance to expose via HTTP/WebSocket. */
-  agent: ZypherAgent;
+export interface WebSocketOptions {
   /**
    * Send unhandled error details to clients before closing WebSocket.
    *
@@ -61,7 +62,7 @@ export interface ZypherHandlerOptions {
    */
   exposeErrors?: boolean;
   /**
-   * Error callback for graceful error handling during WebSocket operations.
+   * Error callback for graceful error handling.
    *
    * Allows server-side logging and control over what error information is
    * sent to clients.
@@ -92,6 +93,16 @@ export interface ZypherHandlerOptions {
 }
 
 /**
+ * Options for creating a Zypher HTTP handler.
+ */
+export interface ZypherHandlerOptions {
+  /** The Zypher agent instance to expose via HTTP/WebSocket. */
+  agent: ZypherAgent;
+  /** Options for WebSocket endpoints. */
+  websocket?: WebSocketOptions;
+}
+
+/**
  * Converts an unknown error to an HttpTaskEvent for client transmission.
  */
 function toErrorEvent(error: unknown): HttpTaskEvent {
@@ -119,7 +130,8 @@ function toErrorEvent(error: unknown): HttpTaskEvent {
  */
 export function createZypherHandler(options: ZypherHandlerOptions): Hono {
   const app = new Hono();
-  const { agent, exposeErrors = false, onError } = options;
+  const { agent, websocket } = options;
+  const { exposeErrors = false, onError } = websocket ?? {};
 
   /**
    * Handles an error by calling onError and optionally sending error info to the client.

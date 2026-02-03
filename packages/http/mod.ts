@@ -58,6 +58,7 @@ export {
   createZypherHandler,
   type ErrorContext,
   type ErrorResponse,
+  type WebSocketOptions,
   type ZypherHandlerOptions,
 } from "./handler.ts";
 
