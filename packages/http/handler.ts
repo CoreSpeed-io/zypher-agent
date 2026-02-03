@@ -434,8 +434,8 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                     const result = onError(err, { endpoint: "/mcp/ws" });
                     if (result == undefined) return EMPTY;
                     return of<McpWebSocketEvent>({
+                      ...result,
                       type: "error",
-                      error: formatError(result),
                     });
                   }),
                 )
