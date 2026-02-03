@@ -24,7 +24,7 @@ import type { ZypherAgent } from "@zypher/agent";
 import { type Completer, formatError } from "@zypher/utils";
 
 /**
- * Context provided to the error callback and error handler.
+ * Context provided to the error callback.
  */
 export interface ErrorContext {
   /** The endpoint where the error occurred (e.g., "/task/ws", "/mcp/ws") */
@@ -32,31 +32,10 @@ export interface ErrorContext {
 }
 
 /**
- * Error handler callback that receives errors and returns custom data to send to the client.
- *
- * @param error - The error that occurred
- * @param context - Context about where the error occurred
- * @returns An object to send to the client (merged with `type: "error"`),
- *          or `undefined` to suppress the error from being sent to the client.
- *
- * @example
- * ```ts
- * const app = createZypherHandler({
- *   agent,
- *   errorHandler: (error, ctx) => {
- *     const status = (error as any)?.status;
- *     if (status === 402) {
- *       return { status: 402, code: "payment_required", upgradeUrl: "/billing" };
- *     }
- *     return undefined; // Suppress other errors
- *   },
- * });
- * ```
+ * Error callback return type. Return an object to send custom error data to
+ * the client, or `undefined` to suppress the error from being sent.
  */
-export type ErrorHandler = (
-  error: unknown,
-  context: ErrorContext,
-) =>
+export type ErrorResponse =
   | Record<string, unknown>
   | undefined
   | Promise<Record<string, unknown> | undefined>;
@@ -74,34 +53,35 @@ export interface ZypherHandlerOptions {
    * that could be present in error messages or stack traces. Only enable in
    * development or trusted environments.
    *
-   * When `errorHandler` is provided, it takes precedence over `exposeErrors`.
+   * When `onError` is provided and returns a value, that takes precedence.
    *
    * @default false
    */
   exposeErrors?: boolean;
   /**
-   * Custom error handler that controls what error information is sent to clients.
+   * Error callback for handling errors that occur during WebSocket operations.
    *
-   * Takes precedence over `exposeErrors` when provided. Return an object to send
-   * custom error data to the client, or `undefined` to suppress the error.
+   * Use this for server-side logging and to control what error information is
+   * sent to clients. When provided, takes precedence over `exposeErrors`.
+   *
+   * @param error - The error that occurred
+   * @param context - Context about where the error occurred
+   * @returns An object to send to the client, or `undefined` to suppress.
+   *          If void/no return, falls back to `exposeErrors` behavior.
    *
    * @example
    * ```ts
-   * errorHandler: (error, ctx) => {
+   * onError: (error, ctx) => {
+   *   console.error(`[${ctx.endpoint}]`, error);  // Server-side logging
+   *
    *   if ((error as any)?.status === 402) {
    *     return { status: 402, code: "payment_required" };
    *   }
-   *   return undefined; // Suppress other errors
+   *   return undefined; // Suppress error from client
    * }
    * ```
    */
-  errorHandler?: ErrorHandler;
-  /**
-   * Optional callback for server-side error logging.
-   * If not provided, no server-side logging occurs. Errors may still be sent
-   * to clients when `exposeErrors` is true or `errorHandler` returns data.
-   */
-  onError?: (error: unknown, context: ErrorContext) => void;
+  onError?: (error: unknown, context: ErrorContext) => ErrorResponse | void;
 }
 
 /**
@@ -132,11 +112,10 @@ function toErrorEvent(error: unknown): HttpTaskEvent {
  */
 export function createZypherHandler(options: ZypherHandlerOptions): Hono {
   const app = new Hono();
-  const { agent, exposeErrors = false, errorHandler, onError } = options;
+  const { agent, exposeErrors = false, onError } = options;
 
   /**
-   * Handles an error by optionally sending error info to the client.
-   * Returns true if an error event was sent, false otherwise.
+   * Handles an error by calling onError and optionally sending error info to the client.
    */
   async function handleError(
     error: unknown,
@@ -146,13 +125,17 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
     const eventId = HttpTaskEventId.generate();
     const context: ErrorContext = { endpoint };
 
-    if (errorHandler) {
-      const result = await errorHandler(error, context);
+    if (onError) {
+      const result = await onError(error, context);
       if (result !== undefined) {
         const event: HttpTaskEvent = { type: "error", ...result, eventId };
         sendFn(event);
+        return;
       }
-    } else if (exposeErrors) {
+      // If onError returned void/undefined, fall back to exposeErrors
+    }
+
+    if (exposeErrors) {
       sendFn(toErrorEvent(error));
     }
   }
@@ -256,7 +239,6 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                       sendTaskWebSocketMessage(ws, taskEvent);
                     },
                     error: async (err) => {
-                      onError?.(err, { endpoint: "/task/ws" });
                       await handleError(
                         err,
                         "/task/ws",
@@ -304,7 +286,6 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                       sendTaskWebSocketMessage(ws, taskEvent);
                     },
                     error: async (err) => {
-                      onError?.(err, { endpoint: "/task/ws" });
                       await handleError(
                         err,
                         "/task/ws",
@@ -330,7 +311,6 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
 
                   if (!taskAbortController || !taskEventSubject) {
                     const err = new Error("Invalid task state");
-                    onError?.(err, { endpoint: "/task/ws" });
                     handleError(
                       err,
                       "/task/ws",
@@ -438,25 +418,28 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   ws.send(JSON.stringify(event));
                 },
                 error: async (err) => {
-                  onError?.(err, { endpoint: "/mcp/ws" });
-                  if (errorHandler) {
-                    const result = await errorHandler(err, {
-                      endpoint: "/mcp/ws",
-                    });
+                  let shouldSendError = false;
+
+                  if (onError) {
+                    const result = await onError(err, { endpoint: "/mcp/ws" });
                     if (result !== undefined) {
                       const mcpError: McpWebSocketEvent = {
                         type: "error",
                         error: formatError(result),
                       };
                       ws.send(JSON.stringify(mcpError));
+                      shouldSendError = true;
                     }
-                  } else if (exposeErrors) {
+                  }
+
+                  if (!shouldSendError && exposeErrors) {
                     const mcpError: McpWebSocketEvent = {
                       type: "error",
                       error: formatError(err),
                     };
                     ws.send(JSON.stringify(mcpError));
                   }
+
                   ws.close(1011, "internal_error");
                 },
               });

@@ -57,7 +57,7 @@
 export {
   createZypherHandler,
   type ErrorContext,
-  type ErrorHandler,
+  type ErrorResponse,
   type ZypherHandlerOptions,
 } from "./handler.ts";
 
