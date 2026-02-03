@@ -232,7 +232,7 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                       catchError((err) => {
                         if (!onError) throw err;
                         const result = onError(err, { endpoint: "/task/ws" });
-                        if (result === undefined) return EMPTY;
+                        if (result == undefined) return EMPTY;
                         return of<HttpTaskEvent>(
                           {
                             ...result,
@@ -289,7 +289,7 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                       catchError((err) => {
                         if (!onError) throw err;
                         const result = onError(err, { endpoint: "/task/ws" });
-                        if (result === undefined) return EMPTY;
+                        if (result == undefined) return EMPTY;
                         return of<HttpTaskEvent>(
                           {
                             ...result,
@@ -432,7 +432,7 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   catchError((err) => {
                     if (!onError) throw err;
                     const result = onError(err, { endpoint: "/mcp/ws" });
-                    if (result === undefined) return EMPTY;
+                    if (result == undefined) return EMPTY;
                     return of<McpWebSocketEvent>({
                       type: "error",
                       error: formatError(result),
