@@ -34,8 +34,8 @@ export interface ErrorContext {
 /**
  * Error callback return type.
  * - Return an object to send custom error data to the client
- * - Return void to suppress the error (don't send anything to client)
- * - Rethrow to fall back to `exposeErrors` behavior
+ * - Return void to suppress the error
+ * - Throw to use default error handling
  */
 export type ErrorResponse =
   | Record<string, unknown>
@@ -70,21 +70,21 @@ export interface ZypherHandlerOptions {
    * @param context - Context about where the error occurred
    * @returns
    *   - Return an object to send custom error data to the client
-   *   - Return void to suppress the error (don't send anything)
-   *   - Rethrow to fall back to `exposeErrors` behavior
+   *   - Return void to suppress the error
+   *   - Throw to use default error handling
    *
    * @example
    * ```ts
    * onError: (error, ctx) => {
-   *   console.error(`[${ctx.endpoint}]`, error);  // Always log
+   *   console.error(`[${ctx.endpoint}]`, error);
    *
    *   if ((error as any)?.status === 402) {
-   *     return { status: 402, code: "payment_required" };  // Custom response
+   *     return { status: 402, code: "payment_required" };
    *   }
    *   if (isExpectedError(error)) {
-   *     return;  // Suppress, don't send to client
+   *     return;
    *   }
-   *   throw error;  // Rethrow → use exposeErrors fallback
+   *   throw error;
    * }
    * ```
    */
