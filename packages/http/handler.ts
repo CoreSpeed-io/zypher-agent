@@ -50,18 +50,6 @@ export type ErrorResponse =
  */
 export interface WebSocketOptions {
   /**
-   * Send unhandled error details to clients before closing WebSocket.
-   *
-   * When enabled, errors that propagate (not handled by `onError`) will send
-   * name, message, and stack trace to the client.
-   *
-   * WARNING: May leak sensitive information (API keys, internal paths, etc.).
-   * Only enable in development or trusted environments.
-   *
-   * @default false
-   */
-  exposeErrors?: boolean;
-  /**
    * Error callback for graceful error handling.
    *
    * Allows server-side logging and control over what error information is
@@ -90,6 +78,18 @@ export interface WebSocketOptions {
    * ```
    */
   onError?: (error: unknown, context: ErrorContext) => ErrorResponse;
+  /**
+   * Send unhandled error details to clients before closing WebSocket.
+   *
+   * When enabled, errors that propagate (not handled by `onError`) will send
+   * name, message, and stack trace to the client.
+   *
+   * WARNING: May leak sensitive information (API keys, internal paths, etc.).
+   * Only enable in development or trusted environments.
+   *
+   * @default false
+   */
+  exposeErrors?: boolean;
 }
 
 /**
