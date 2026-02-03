@@ -24,12 +24,42 @@ import type { ZypherAgent } from "@zypher/agent";
 import { type Completer, formatError } from "@zypher/utils";
 
 /**
- * Context provided to the error callback.
+ * Context provided to the error callback and error handler.
  */
 export interface ErrorContext {
   /** The endpoint where the error occurred (e.g., "/task/ws", "/mcp/ws") */
   endpoint: string;
 }
+
+/**
+ * Error handler callback that receives errors and returns custom data to send to the client.
+ *
+ * @param error - The error that occurred
+ * @param context - Context about where the error occurred
+ * @returns An object to send to the client (merged with `type: "error"`),
+ *          or `undefined` to suppress the error from being sent to the client.
+ *
+ * @example
+ * ```ts
+ * const app = createZypherHandler({
+ *   agent,
+ *   errorHandler: (error, ctx) => {
+ *     const status = (error as any)?.status;
+ *     if (status === 402) {
+ *       return { status: 402, code: "payment_required", upgradeUrl: "/billing" };
+ *     }
+ *     return undefined; // Suppress other errors
+ *   },
+ * });
+ * ```
+ */
+export type ErrorHandler = (
+  error: unknown,
+  context: ErrorContext,
+) =>
+  | Record<string, unknown>
+  | undefined
+  | Promise<Record<string, unknown> | undefined>;
 
 /**
  * Options for creating a Zypher HTTP handler.
@@ -44,13 +74,32 @@ export interface ZypherHandlerOptions {
    * that could be present in error messages or stack traces. Only enable in
    * development or trusted environments.
    *
+   * When `errorHandler` is provided, it takes precedence over `exposeErrors`.
+   *
    * @default false
    */
   exposeErrors?: boolean;
   /**
+   * Custom error handler that controls what error information is sent to clients.
+   *
+   * Takes precedence over `exposeErrors` when provided. Return an object to send
+   * custom error data to the client, or `undefined` to suppress the error.
+   *
+   * @example
+   * ```ts
+   * errorHandler: (error, ctx) => {
+   *   if ((error as any)?.status === 402) {
+   *     return { status: 402, code: "payment_required" };
+   *   }
+   *   return undefined; // Suppress other errors
+   * }
+   * ```
+   */
+  errorHandler?: ErrorHandler;
+  /**
    * Optional callback for server-side error logging.
    * If not provided, no server-side logging occurs. Errors may still be sent
-   * to clients when `exposeErrors` is true.
+   * to clients when `exposeErrors` is true or `errorHandler` returns data.
    */
   onError?: (error: unknown, context: ErrorContext) => void;
 }
@@ -83,7 +132,30 @@ function toErrorEvent(error: unknown): HttpTaskEvent {
  */
 export function createZypherHandler(options: ZypherHandlerOptions): Hono {
   const app = new Hono();
-  const { agent, exposeErrors = false, onError } = options;
+  const { agent, exposeErrors = false, errorHandler, onError } = options;
+
+  /**
+   * Handles an error by optionally sending error info to the client.
+   * Returns true if an error event was sent, false otherwise.
+   */
+  async function handleError(
+    error: unknown,
+    endpoint: string,
+    sendFn: (event: HttpTaskEvent) => void,
+  ): Promise<void> {
+    const eventId = HttpTaskEventId.generate();
+    const context: ErrorContext = { endpoint };
+
+    if (errorHandler) {
+      const result = await errorHandler(error, context);
+      if (result !== undefined) {
+        const event: HttpTaskEvent = { type: "error", ...result, eventId };
+        sendFn(event);
+      }
+    } else if (exposeErrors) {
+      sendFn(toErrorEvent(error));
+    }
+  }
 
   let taskAbortController: AbortController | null = null;
   let taskEventSubject: ReplaySubject<HttpTaskEvent> | null = null;
@@ -183,11 +255,13 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                       serverLatestEventId = taskEvent.eventId;
                       sendTaskWebSocketMessage(ws, taskEvent);
                     },
-                    error: (err) => {
+                    error: async (err) => {
                       onError?.(err, { endpoint: "/task/ws" });
-                      if (exposeErrors) {
-                        sendTaskWebSocketMessage(ws, toErrorEvent(err));
-                      }
+                      await handleError(
+                        err,
+                        "/task/ws",
+                        (event) => sendTaskWebSocketMessage(ws, event),
+                      );
                       ws.close(1011, "internal_error");
 
                       // Clean up
@@ -229,11 +303,13 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                     next: (taskEvent) => {
                       sendTaskWebSocketMessage(ws, taskEvent);
                     },
-                    error: (err) => {
+                    error: async (err) => {
                       onError?.(err, { endpoint: "/task/ws" });
-                      if (exposeErrors) {
-                        sendTaskWebSocketMessage(ws, toErrorEvent(err));
-                      }
+                      await handleError(
+                        err,
+                        "/task/ws",
+                        (event) => sendTaskWebSocketMessage(ws, event),
+                      );
                       ws.close(1011, "internal_error");
                     },
                     complete: () => {
@@ -255,10 +331,13 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   if (!taskAbortController || !taskEventSubject) {
                     const err = new Error("Invalid task state");
                     onError?.(err, { endpoint: "/task/ws" });
-                    if (exposeErrors) {
-                      sendTaskWebSocketMessage(ws, toErrorEvent(err));
-                    }
-                    ws.close(1011, "internal_error");
+                    handleError(
+                      err,
+                      "/task/ws",
+                      (event) => sendTaskWebSocketMessage(ws, event),
+                    ).then(() => {
+                      ws.close(1011, "internal_error");
+                    });
                     return;
                   }
 
@@ -358,9 +437,20 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                 next: (event) => {
                   ws.send(JSON.stringify(event));
                 },
-                error: (err) => {
+                error: async (err) => {
                   onError?.(err, { endpoint: "/mcp/ws" });
-                  if (exposeErrors) {
+                  if (errorHandler) {
+                    const result = await errorHandler(err, {
+                      endpoint: "/mcp/ws",
+                    });
+                    if (result !== undefined) {
+                      const mcpError: McpWebSocketEvent = {
+                        type: "error",
+                        error: formatError(result),
+                      };
+                      ws.send(JSON.stringify(mcpError));
+                    }
+                  } else if (exposeErrors) {
                     const mcpError: McpWebSocketEvent = {
                       type: "error",
                       error: formatError(err),

@@ -54,10 +54,20 @@
  */
 
 // Re-export handler
-export { createZypherHandler, type ZypherHandlerOptions } from "./handler.ts";
+export {
+  createZypherHandler,
+  type ErrorContext,
+  type ErrorHandler,
+  type ZypherHandlerOptions,
+} from "./handler.ts";
 
 // Re-export types for library usage
-export { type HttpTaskEvent, HttpTaskEventId } from "./task_event.ts";
+export {
+  type CustomErrorEvent,
+  type HttpTaskEvent,
+  HttpTaskEventId,
+  type StandardErrorEvent,
+} from "./task_event.ts";
 export type {
   McpWebSocketEvent,
   TaskWebSocketClientMessage,

@@ -19,10 +19,10 @@ export interface HeartbeatEvent {
 }
 
 /**
- * Error event sent to the client before closing the WebSocket on error.
- * Only sent when `exposeErrors` is enabled in handler options.
+ * Standard error event sent when `exposeErrors` is enabled.
+ * Contains structured error information from unhandled errors.
  */
-export interface ErrorEvent {
+export interface StandardErrorEvent {
   type: "error";
   /** Error name/type (e.g., "Error", "TypeError", "APIError") */
   name: string;
@@ -31,6 +31,24 @@ export interface ErrorEvent {
   /** Stack trace (if available) */
   stack?: string;
 }
+
+/**
+ * Custom error event sent when using `errorHandler`.
+ * Contains whatever fields the handler returns.
+ */
+export interface CustomErrorEvent {
+  type: "error";
+  /** Custom fields from errorHandler */
+  [key: string]: unknown;
+}
+
+/**
+ * Error event sent to the client before closing the WebSocket on error.
+ *
+ * - When using `exposeErrors`: {@link StandardErrorEvent} with `name`, `message`, `stack`
+ * - When using `errorHandler`: {@link CustomErrorEvent} with custom fields
+ */
+export type ErrorEvent = StandardErrorEvent | CustomErrorEvent;
 
 /**
  * Represents a unique identifier for task events with timestamp and sequence components.
