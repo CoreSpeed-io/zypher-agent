@@ -261,7 +261,10 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                       },
                       complete: () => {
                         const isComplete = lastEvent?.type === "completed";
-                        ws.close(isComplete ? 1000 : 4000, isComplete ? "task_completed" : "task_failed");
+                        ws.close(
+                          isComplete ? 1000 : 4000,
+                          isComplete ? "task_completed" : "task_failed",
+                        );
                         taskEventSubject = null;
                         taskAbortController = null;
                       },
@@ -322,7 +325,10 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                       },
                       complete: () => {
                         const isComplete = lastEvent?.type === "completed";
-                        ws.close(isComplete ? 1000 : 4000, isComplete ? "task_completed" : "task_failed");
+                        ws.close(
+                          isComplete ? 1000 : 4000,
+                          isComplete ? "task_completed" : "task_failed",
+                        );
                       },
                     });
                   break;
