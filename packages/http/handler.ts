@@ -18,6 +18,7 @@ import {
   filter,
   map,
   type Observable,
+  of,
   type ReplaySubject,
   startWith,
   type Subscription,
@@ -134,20 +135,20 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
 
   /**
    * Creates a catchError operator that handles the onError callback.
-   * - If onError returns an object, sends it and completes
+   * - If onError returns an object, emits it as error event
    * - If onError returns void, completes silently
    * - If onError throws or not provided, rethrows for subscribe error handler
    */
   function catchOnError<T>(
     endpoint: string,
-    sendError: (customData: Record<string, unknown>) => void,
+    createErrorEvent: (customData: Record<string, unknown>) => T,
   ) {
-    return catchError<T, Observable<never>>((error) => {
+    return catchError<T, Observable<T | never>>((error) => {
       if (!onError) throw error;
 
       const result = onError(error, { endpoint });
       if (result !== undefined) {
-        sendError(result);
+        return of(createErrorEvent(result));
       }
       return EMPTY;
     });
@@ -248,15 +249,14 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   // Subscribe to events and send them over WebSocket
                   eventSubject
                     .pipe(
-                      catchOnError<HttpTaskEvent>("/task/ws", (customData) => {
-                        const eventId = HttpTaskEventId.generate();
-                        const event: HttpTaskEvent = {
+                      catchOnError<HttpTaskEvent>(
+                        "/task/ws",
+                        (customData) => ({
                           type: "error",
                           ...customData,
-                          eventId,
-                        };
-                        sendTaskWebSocketMessage(ws, event);
-                      }),
+                          eventId: HttpTaskEventId.generate(),
+                        }),
+                      ),
                     )
                     .subscribe({
                       next: (taskEvent) => {
@@ -302,15 +302,14 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   // Subscribe to replayed events and send them over WebSocket
                   events$
                     .pipe(
-                      catchOnError<HttpTaskEvent>("/task/ws", (customData) => {
-                        const eventId = HttpTaskEventId.generate();
-                        const event: HttpTaskEvent = {
+                      catchOnError<HttpTaskEvent>(
+                        "/task/ws",
+                        (customData) => ({
                           type: "error",
                           ...customData,
-                          eventId,
-                        };
-                        sendTaskWebSocketMessage(ws, event);
-                      }),
+                          eventId: HttpTaskEventId.generate(),
+                        }),
+                      ),
                     )
                     .subscribe({
                       next: (taskEvent) => {
@@ -442,13 +441,13 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   map(toMcpWebSocketEvent),
                   filter((event) => !!event),
                   startWith(initialState),
-                  catchOnError<McpWebSocketEvent>("/mcp/ws", (customData) => {
-                    const mcpError: McpWebSocketEvent = {
+                  catchOnError<McpWebSocketEvent>(
+                    "/mcp/ws",
+                    (customData) => ({
                       type: "error",
                       error: formatError(customData),
-                    };
-                    ws.send(JSON.stringify(mcpError));
-                  }),
+                    }),
+                  ),
                 )
                 .subscribe({
                   next: (event) => {
