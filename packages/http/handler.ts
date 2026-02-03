@@ -226,6 +226,9 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                     { signal: abortController.signal },
                   );
 
+                  // Track last event to determine close code
+                  let lastEvent: HttpTaskEvent | undefined;
+
                   // Subscribe to events and send them over WebSocket
                   eventSubject
                     .pipe(
@@ -244,6 +247,7 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                     )
                     .subscribe({
                       next: (taskEvent) => {
+                        lastEvent = taskEvent;
                         serverLatestEventId = taskEvent.eventId;
                         sendTaskWebSocketMessage(ws, taskEvent);
                       },
@@ -256,7 +260,8 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                         taskAbortController = null;
                       },
                       complete: () => {
-                        ws.close(1000, "task_complete");
+                        const isComplete = lastEvent?.type === "completed";
+                        ws.close(isComplete ? 1000 : 4000, isComplete ? "task_completed" : "task_failed");
                         taskEventSubject = null;
                         taskAbortController = null;
                       },
@@ -283,6 +288,9 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                     clientLastEventId ?? undefined,
                   );
 
+                  // Track last event to determine close code
+                  let lastEvent: HttpTaskEvent | undefined;
+
                   // Subscribe to replayed events and send them over WebSocket
                   events$
                     .pipe(
@@ -301,6 +309,7 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                     )
                     .subscribe({
                       next: (taskEvent) => {
+                        lastEvent = taskEvent;
                         sendTaskWebSocketMessage(ws, taskEvent);
                       },
                       error: (err) => {
@@ -312,7 +321,8 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                         // subscription is still active. Only the startTask handler should clean up.
                       },
                       complete: () => {
-                        ws.close(1000, "task_complete");
+                        const isComplete = lastEvent?.type === "completed";
+                        ws.close(isComplete ? 1000 : 4000, isComplete ? "task_completed" : "task_failed");
                       },
                     });
                   break;
