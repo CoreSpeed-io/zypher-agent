@@ -34,8 +34,8 @@ export interface ErrorContext {
 /**
  * Error callback return type.
  * - Return an object to send custom error data to the client
- * - Return void to suppress the error
- * - Throw to use default error handling
+ * - Return void to handle the error silently
+ * - Throw to propagate the error
  */
 export type ErrorResponse =
   | Record<string, unknown>
@@ -70,8 +70,8 @@ export interface ZypherHandlerOptions {
    * @param context - Context about where the error occurred
    * @returns
    *   - Return an object to send custom error data to the client
-   *   - Return void to suppress the error
-   *   - Throw to use default error handling
+   *   - Return void to handle the error silently
+   *   - Throw to propagate the error
    *
    * @example
    * ```ts
@@ -124,8 +124,8 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
   /**
    * Handles an error by calling onError and optionally sending error info to the client.
    * - If onError returns an object, send it to client
-   * - If onError returns void, suppress (don't send anything)
-   * - If onError rethrows, fall back to exposeErrors
+   * - If onError returns void, error is handled silently
+   * - If onError throws, error propagates (uses exposeErrors if enabled)
    */
   async function handleError(
     error: unknown,
