@@ -7,6 +7,7 @@ import {
   toMcpWebSocketEvent,
 } from "./schema.ts";
 import {
+  type ErrorEvent,
   type HttpTaskEvent,
   HttpTaskEventId,
   replayHttpTaskEvents,
@@ -232,11 +233,13 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                         if (!onError) throw err;
                         const result = onError(err, { endpoint: "/task/ws" });
                         if (result === undefined) return EMPTY;
-                        return of<HttpTaskEvent>({
-                          type: "error",
-                          ...result,
-                          eventId: HttpTaskEventId.generate(),
-                        });
+                        return of<HttpTaskEvent>(
+                          {
+                            ...result,
+                            type: "error",
+                            eventId: HttpTaskEventId.generate(),
+                          } satisfies ErrorEvent,
+                        );
                       }),
                     )
                     .subscribe({
@@ -287,11 +290,13 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                         if (!onError) throw err;
                         const result = onError(err, { endpoint: "/task/ws" });
                         if (result === undefined) return EMPTY;
-                        return of<HttpTaskEvent>({
-                          type: "error",
-                          ...result,
-                          eventId: HttpTaskEventId.generate(),
-                        });
+                        return of<HttpTaskEvent>(
+                          {
+                            ...result,
+                            type: "error",
+                            eventId: HttpTaskEventId.generate(),
+                          } satisfies ErrorEvent,
+                        );
                       }),
                     )
                     .subscribe({
