@@ -49,21 +49,21 @@ export interface ZypherHandlerOptions {
   /** The Zypher agent instance to expose via HTTP/WebSocket. */
   agent: ZypherAgent;
   /**
-   * Send error details to clients before closing WebSocket on error.
+   * Send unhandled error details to clients before closing WebSocket.
    *
-   * WARNING: This may leak sensitive information (API keys, internal paths, etc.)
-   * that could be present in error messages or stack traces. Only enable in
-   * development or trusted environments.
+   * When enabled, errors that propagate (not handled by `onError`) will send
+   * name, message, and stack trace to the client.
    *
-   * When `onError` is provided and returns a value, that takes precedence.
+   * WARNING: May leak sensitive information (API keys, internal paths, etc.).
+   * Only enable in development or trusted environments.
    *
    * @default false
    */
   exposeErrors?: boolean;
   /**
-   * Error callback for handling errors that occur during WebSocket operations.
+   * Error callback for graceful error handling during WebSocket operations.
    *
-   * Use this for server-side logging and to control what error information is
+   * Allows server-side logging and control over what error information is
    * sent to clients.
    *
    * @param error - The error that occurred
