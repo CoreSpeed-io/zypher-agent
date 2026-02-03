@@ -7,15 +7,19 @@ import {
   toMcpWebSocketEvent,
 } from "./schema.ts";
 import {
+  type ErrorEvent,
   type HttpTaskEvent,
   HttpTaskEventId,
   replayHttpTaskEvents,
   withHttpTaskEventReplayAndHeartbeat,
 } from "./task_event.ts";
 import {
+  catchError,
+  EMPTY,
   filter,
   map,
   type Observable,
+  of,
   type ReplaySubject,
   startWith,
   type Subscription,
@@ -32,27 +36,71 @@ export interface ErrorContext {
 }
 
 /**
+ * Error callback return type.
+ * - Return an object to send custom error data to the client
+ * - Return void to handle the error silently
+ * - Throw to propagate the error
+ */
+export type ErrorResponse = Record<string, unknown> | void;
+
+/**
+ * WebSocket-specific options.
+ *
+ * WebSocket connections don't support middleware, so these options provide
+ * error handling capabilities for WebSocket endpoints.
+ */
+export interface WebSocketOptions {
+  /**
+   * Error callback for graceful error handling.
+   *
+   * Allows server-side logging and control over what error information is
+   * sent to clients.
+   *
+   * @param error - The error that occurred
+   * @param context - Context about where the error occurred
+   * @returns
+   *   - Return an object to send custom error data to the client
+   *   - Return void to handle the error silently
+   *   - Throw to propagate the error
+   *
+   * @example
+   * ```ts
+   * onError: (error, ctx) => {
+   *   console.error(`[${ctx.endpoint}]`, error);
+   *
+   *   if ((error as any)?.status === 402) {
+   *     return { status: 402, code: "payment_required" };
+   *   }
+   *   if (isExpectedError(error)) {
+   *     return;
+   *   }
+   *   throw error;
+   * }
+   * ```
+   */
+  onError?: (error: unknown, context: ErrorContext) => ErrorResponse;
+  /**
+   * Send unhandled error details to clients before closing WebSocket.
+   *
+   * When enabled, errors that propagate (not handled by `onError`) will send
+   * name, message, and stack trace to the client.
+   *
+   * WARNING: May leak sensitive information (API keys, internal paths, etc.).
+   * Only enable in development or trusted environments.
+   *
+   * @default false
+   */
+  exposeErrors?: boolean;
+}
+
+/**
  * Options for creating a Zypher HTTP handler.
  */
 export interface ZypherHandlerOptions {
   /** The Zypher agent instance to expose via HTTP/WebSocket. */
   agent: ZypherAgent;
-  /**
-   * Send error details to clients before closing WebSocket on error.
-   *
-   * WARNING: This may leak sensitive information (API keys, internal paths, etc.)
-   * that could be present in error messages or stack traces. Only enable in
-   * development or trusted environments.
-   *
-   * @default false
-   */
-  exposeErrors?: boolean;
-  /**
-   * Optional callback for server-side error logging.
-   * If not provided, no server-side logging occurs. Errors may still be sent
-   * to clients when `exposeErrors` is true.
-   */
-  onError?: (error: unknown, context: ErrorContext) => void;
+  /** Options for WebSocket endpoints. */
+  websocket?: WebSocketOptions;
 }
 
 /**
@@ -83,7 +131,8 @@ function toErrorEvent(error: unknown): HttpTaskEvent {
  */
 export function createZypherHandler(options: ZypherHandlerOptions): Hono {
   const app = new Hono();
-  const { agent, exposeErrors = false, onError } = options;
+  const { agent, websocket } = options;
+  const { exposeErrors = false, onError } = websocket ?? {};
 
   let taskAbortController: AbortController | null = null;
   let taskEventSubject: ReplaySubject<HttpTaskEvent> | null = null;
@@ -177,31 +226,49 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                     { signal: abortController.signal },
                   );
 
+                  // Track last event to determine close code
+                  let lastEvent: HttpTaskEvent | undefined;
+
                   // Subscribe to events and send them over WebSocket
-                  eventSubject.subscribe({
-                    next: (taskEvent) => {
-                      serverLatestEventId = taskEvent.eventId;
-                      sendTaskWebSocketMessage(ws, taskEvent);
-                    },
-                    error: (err) => {
-                      onError?.(err, { endpoint: "/task/ws" });
-                      if (exposeErrors) {
-                        sendTaskWebSocketMessage(ws, toErrorEvent(err));
-                      }
-                      ws.close(1011, "internal_error");
-
-                      // Clean up
-                      taskEventSubject = null;
-                      taskAbortController = null;
-                    },
-                    complete: () => {
-                      ws.close(1000, "task_complete");
-
-                      // Clean up
-                      taskEventSubject = null;
-                      taskAbortController = null;
-                    },
-                  });
+                  eventSubject
+                    .pipe(
+                      catchError((err) => {
+                        if (!onError) throw err;
+                        const result = onError(err, { endpoint: "/task/ws" });
+                        if (result == undefined) return EMPTY;
+                        return of<HttpTaskEvent>(
+                          {
+                            ...result,
+                            type: "error",
+                            eventId: HttpTaskEventId.generate(),
+                          } satisfies ErrorEvent,
+                        );
+                      }),
+                    )
+                    .subscribe({
+                      next: (taskEvent) => {
+                        lastEvent = taskEvent;
+                        serverLatestEventId = taskEvent.eventId;
+                        sendTaskWebSocketMessage(ws, taskEvent);
+                      },
+                      error: (err) => {
+                        if (exposeErrors) {
+                          sendTaskWebSocketMessage(ws, toErrorEvent(err));
+                        }
+                        ws.close(1011, "internal_error");
+                        taskEventSubject = null;
+                        taskAbortController = null;
+                      },
+                      complete: () => {
+                        const isComplete = lastEvent?.type === "completed";
+                        ws.close(
+                          isComplete ? 1000 : 4000,
+                          isComplete ? "task_completed" : "task_failed",
+                        );
+                        taskEventSubject = null;
+                        taskAbortController = null;
+                      },
+                    });
                   break;
                 }
 
@@ -224,24 +291,46 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                     clientLastEventId ?? undefined,
                   );
 
+                  // Track last event to determine close code
+                  let lastEvent: HttpTaskEvent | undefined;
+
                   // Subscribe to replayed events and send them over WebSocket
-                  events$.subscribe({
-                    next: (taskEvent) => {
-                      sendTaskWebSocketMessage(ws, taskEvent);
-                    },
-                    error: (err) => {
-                      onError?.(err, { endpoint: "/task/ws" });
-                      if (exposeErrors) {
-                        sendTaskWebSocketMessage(ws, toErrorEvent(err));
-                      }
-                      ws.close(1011, "internal_error");
-                    },
-                    complete: () => {
-                      ws.close(1000, "task_complete");
-                      // Note: Don't clean up taskEventSubject here since the original
-                      // subscription is still active. Only the startTask handler should clean up.
-                    },
-                  });
+                  events$
+                    .pipe(
+                      catchError((err) => {
+                        if (!onError) throw err;
+                        const result = onError(err, { endpoint: "/task/ws" });
+                        if (result == undefined) return EMPTY;
+                        return of<HttpTaskEvent>(
+                          {
+                            ...result,
+                            type: "error",
+                            eventId: HttpTaskEventId.generate(),
+                          } satisfies ErrorEvent,
+                        );
+                      }),
+                    )
+                    .subscribe({
+                      next: (taskEvent) => {
+                        lastEvent = taskEvent;
+                        sendTaskWebSocketMessage(ws, taskEvent);
+                      },
+                      error: (err) => {
+                        if (exposeErrors) {
+                          sendTaskWebSocketMessage(ws, toErrorEvent(err));
+                        }
+                        ws.close(1011, "internal_error");
+                        // Note: Don't clean up taskEventSubject here since the original
+                        // subscription is still active. Only the startTask handler should clean up.
+                      },
+                      complete: () => {
+                        const isComplete = lastEvent?.type === "completed";
+                        ws.close(
+                          isComplete ? 1000 : 4000,
+                          isComplete ? "task_completed" : "task_failed",
+                        );
+                      },
+                    });
                   break;
                 }
 
@@ -253,10 +342,11 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   }
 
                   if (!taskAbortController || !taskEventSubject) {
-                    const err = new Error("Invalid task state");
-                    onError?.(err, { endpoint: "/task/ws" });
                     if (exposeErrors) {
-                      sendTaskWebSocketMessage(ws, toErrorEvent(err));
+                      sendTaskWebSocketMessage(
+                        ws,
+                        toErrorEvent(new Error("Invalid task state")),
+                      );
                     }
                     ws.close(1011, "internal_error");
                     return;
@@ -350,26 +440,38 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                 })),
               };
 
-              stateSubscription = agent.mcp.events$.pipe(
-                map(toMcpWebSocketEvent),
-                filter((event) => !!event),
-                startWith(initialState),
-              ).subscribe({
-                next: (event) => {
-                  ws.send(JSON.stringify(event));
-                },
-                error: (err) => {
-                  onError?.(err, { endpoint: "/mcp/ws" });
-                  if (exposeErrors) {
-                    const mcpError: McpWebSocketEvent = {
-                      type: "error",
-                      error: formatError(err),
-                    };
-                    ws.send(JSON.stringify(mcpError));
-                  }
-                  ws.close(1011, "internal_error");
-                },
-              });
+              stateSubscription = agent.mcp.events$
+                .pipe(
+                  map(toMcpWebSocketEvent),
+                  filter((event) => !!event),
+                  startWith(initialState),
+                  catchError((err) => {
+                    if (!onError) throw err;
+                    const result = onError(err, { endpoint: "/mcp/ws" });
+                    if (result == undefined) return EMPTY;
+                    return of(
+                      {
+                        ...result,
+                        type: "error",
+                      } satisfies McpWebSocketEvent,
+                    );
+                  }),
+                )
+                .subscribe({
+                  next: (event) => {
+                    ws.send(JSON.stringify(event));
+                  },
+                  error: (err) => {
+                    if (exposeErrors) {
+                      const mcpError: McpWebSocketEvent = {
+                        type: "error",
+                        error: formatError(err),
+                      };
+                      ws.send(JSON.stringify(mcpError));
+                    }
+                    ws.close(1011, "internal_error");
+                  },
+                });
             },
             /**
              * Handles WebSocket connection close event.

@@ -130,7 +130,8 @@ export type McpWebSocketEvent =
   | {
     /** Emitted on subscription errors */
     type: "error";
-    error: string;
+    /** Custom fields from onError callback */
+    [key: string]: unknown;
   };
 
 /**
