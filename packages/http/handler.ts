@@ -133,39 +133,22 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
   const { exposeErrors = false, onError } = websocket ?? {};
 
   /**
-   * Creates a catchError operator for WebSocket error handling.
-   * - If onError returns an object, sends custom error to client
-   * - If onError returns void, error is handled silently
-   * - If onError throws, error propagates (uses exposeErrors if enabled)
+   * Creates a catchError operator that handles the onError callback.
+   * - If onError returns an object, sends it and completes
+   * - If onError returns void, completes silently
+   * - If onError throws or not provided, rethrows for subscribe error handler
    */
-  function catchWebSocketError<T>(
+  function catchOnError<T>(
     endpoint: string,
-    ws: { close: (code: number, reason: string) => void },
-    sendError: (error: unknown, customData?: Record<string, unknown>) => void,
-    cleanup?: () => void,
+    sendError: (customData: Record<string, unknown>) => void,
   ) {
     return catchError<T, Observable<never>>((error) => {
-      let propagate = !onError;
+      if (!onError) throw error;
 
-      if (onError) {
-        try {
-          const result = onError(error, { endpoint });
-          if (result !== undefined) {
-            sendError(error, result);
-          }
-          // If onError returned void, error is handled silently
-        } catch {
-          // onError rethrew, error propagates
-          propagate = true;
-        }
+      const result = onError(error, { endpoint });
+      if (result !== undefined) {
+        sendError(result);
       }
-
-      if (propagate && exposeErrors) {
-        sendError(error);
-      }
-
-      ws.close(1011, "internal_error");
-      cleanup?.();
       return EMPTY;
     });
   }
@@ -265,26 +248,28 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   // Subscribe to events and send them over WebSocket
                   eventSubject
                     .pipe(
-                      catchWebSocketError<HttpTaskEvent>(
-                        "/task/ws",
-                        ws,
-                        (err, customData) => {
-                          const eventId = HttpTaskEventId.generate();
-                          const event: HttpTaskEvent = customData
-                            ? { type: "error", ...customData, eventId }
-                            : toErrorEvent(err);
-                          sendTaskWebSocketMessage(ws, event);
-                        },
-                        () => {
-                          taskEventSubject = null;
-                          taskAbortController = null;
-                        },
-                      ),
+                      catchOnError<HttpTaskEvent>("/task/ws", (customData) => {
+                        const eventId = HttpTaskEventId.generate();
+                        const event: HttpTaskEvent = {
+                          type: "error",
+                          ...customData,
+                          eventId,
+                        };
+                        sendTaskWebSocketMessage(ws, event);
+                      }),
                     )
                     .subscribe({
                       next: (taskEvent) => {
                         serverLatestEventId = taskEvent.eventId;
                         sendTaskWebSocketMessage(ws, taskEvent);
+                      },
+                      error: (err) => {
+                        if (exposeErrors) {
+                          sendTaskWebSocketMessage(ws, toErrorEvent(err));
+                        }
+                        ws.close(1011, "internal_error");
+                        taskEventSubject = null;
+                        taskAbortController = null;
                       },
                       complete: () => {
                         ws.close(1000, "task_complete");
@@ -317,23 +302,27 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   // Subscribe to replayed events and send them over WebSocket
                   events$
                     .pipe(
-                      catchWebSocketError<HttpTaskEvent>(
-                        "/task/ws",
-                        ws,
-                        (err, customData) => {
-                          const eventId = HttpTaskEventId.generate();
-                          const event: HttpTaskEvent = customData
-                            ? { type: "error", ...customData, eventId }
-                            : toErrorEvent(err);
-                          sendTaskWebSocketMessage(ws, event);
-                        },
-                        // Note: Don't clean up taskEventSubject here since the original
-                        // subscription is still active. Only the startTask handler should clean up.
-                      ),
+                      catchOnError<HttpTaskEvent>("/task/ws", (customData) => {
+                        const eventId = HttpTaskEventId.generate();
+                        const event: HttpTaskEvent = {
+                          type: "error",
+                          ...customData,
+                          eventId,
+                        };
+                        sendTaskWebSocketMessage(ws, event);
+                      }),
                     )
                     .subscribe({
                       next: (taskEvent) => {
                         sendTaskWebSocketMessage(ws, taskEvent);
+                      },
+                      error: (err) => {
+                        if (exposeErrors) {
+                          sendTaskWebSocketMessage(ws, toErrorEvent(err));
+                        }
+                        ws.close(1011, "internal_error");
+                        // Note: Don't clean up taskEventSubject here since the original
+                        // subscription is still active. Only the startTask handler should clean up.
                       },
                       complete: () => {
                         ws.close(1000, "task_complete");
@@ -453,21 +442,27 @@ export function createZypherHandler(options: ZypherHandlerOptions): Hono {
                   map(toMcpWebSocketEvent),
                   filter((event) => !!event),
                   startWith(initialState),
-                  catchWebSocketError<McpWebSocketEvent>(
-                    "/mcp/ws",
-                    ws,
-                    (err, customData) => {
-                      const mcpError: McpWebSocketEvent = {
-                        type: "error",
-                        error: formatError(customData ?? err),
-                      };
-                      ws.send(JSON.stringify(mcpError));
-                    },
-                  ),
+                  catchOnError<McpWebSocketEvent>("/mcp/ws", (customData) => {
+                    const mcpError: McpWebSocketEvent = {
+                      type: "error",
+                      error: formatError(customData),
+                    };
+                    ws.send(JSON.stringify(mcpError));
+                  }),
                 )
                 .subscribe({
                   next: (event) => {
                     ws.send(JSON.stringify(event));
+                  },
+                  error: (err) => {
+                    if (exposeErrors) {
+                      const mcpError: McpWebSocketEvent = {
+                        type: "error",
+                        error: formatError(err),
+                      };
+                      ws.send(JSON.stringify(mcpError));
+                    }
+                    ws.close(1011, "internal_error");
                   },
                 });
             },
