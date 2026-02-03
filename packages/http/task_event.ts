@@ -33,12 +33,12 @@ export interface StandardErrorEvent {
 }
 
 /**
- * Custom error event sent when using `errorHandler`.
+ * Custom error event sent when using `onError`.
  * Contains whatever fields the handler returns.
  */
 export interface CustomErrorEvent {
   type: "error";
-  /** Custom fields from errorHandler */
+  /** Custom fields from onError */
   [key: string]: unknown;
 }
 
@@ -46,7 +46,7 @@ export interface CustomErrorEvent {
  * Error event sent to the client before closing the WebSocket on error.
  *
  * - When using `exposeErrors`: {@link StandardErrorEvent} with `name`, `message`, `stack`
- * - When using `errorHandler`: {@link CustomErrorEvent} with custom fields
+ * - When using `onError`: {@link CustomErrorEvent} with custom fields
  */
 export type ErrorEvent = StandardErrorEvent | CustomErrorEvent;
 
