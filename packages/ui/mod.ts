@@ -66,14 +66,12 @@ export { toWebSocketUrl } from "./utils.ts";
 
 // Re-exported types from @zypher/agent
 export type {
-  // MCP types
-  McpClientStatus,
-  McpServerEndpoint,
-  McpServerSource,
-  // Message content types
   ContentBlock,
   FileAttachment,
   ImageBlock,
+  McpClientStatus,
+  McpServerEndpoint,
+  McpServerSource,
   TextBlock,
   ThinkingBlock,
   ToolResultBlock,
