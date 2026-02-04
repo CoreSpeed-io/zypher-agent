@@ -66,9 +66,16 @@ export { toWebSocketUrl } from "./utils.ts";
 
 // Re-exported types from @zypher/agent
 export type {
+  ContentBlock,
+  FileAttachment,
+  ImageBlock,
   McpClientStatus,
   McpServerEndpoint,
   McpServerSource,
+  TextBlock,
+  ThinkingBlock,
+  ToolResultBlock,
+  ToolUseBlock,
 } from "@zypher/agent";
 
 // Re-exported types from @zypher/http
