@@ -1,6 +1,6 @@
 {
   "name": "@zypher/ui",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "Apache-2.0",
   "exports": {
     ".": "./mod.ts"
@@ -26,7 +26,6 @@
     }
   },
   "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "react"
+    "jsx": "react"
   }
 }
