@@ -1,4 +1,4 @@
-import { createContext, type JSX, type ReactNode, use } from "react";
+import React, { createContext, type JSX, type ReactNode, use } from "react";
 import type { TaskApiClient } from "./task_api_client.ts";
 import { useAgent, type UseAgentReturn } from "./use_agent.ts";
 
