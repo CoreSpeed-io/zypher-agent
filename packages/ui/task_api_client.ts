@@ -117,7 +117,8 @@ export class TaskApiClient {
   }
 
   /**
-   * Start a task and return a TaskConnection for event streaming and control.
+   * Get or create the singleton WebSocketSubject used for task WebSocket
+   * communication (e.g. starting and resuming tasks).
    */
   #getTaskWebSocketSubject(): Promise<
     WebSocketSubject<TaskWebSocketMessage>
