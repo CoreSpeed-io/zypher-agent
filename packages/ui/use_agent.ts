@@ -8,6 +8,12 @@ import type { Observable } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
 import useSWR, { type KeyedMutator } from "swr";
 
+/** Custom content block with a type discriminator. */
+export interface CustomContentBlock {
+  type: string;
+  [key: string]: unknown;
+}
+
 /** A fully received message from either the user or the assistant. */
 export interface CompleteMessage {
   type: "complete";
@@ -15,8 +21,8 @@ export interface CompleteMessage {
   id: string;
   /** Whether this message is from the user or the assistant. */
   role: "user" | "assistant";
-  /** The content blocks of the message (text, tool use, tool result, etc.). */
-  content: ContentBlock[];
+  /** The content blocks of the message (text, tool use, tool result, or custom). */
+  content: (ContentBlock | CustomContentBlock)[];
   /** When this message was created. */
   timestamp: Date;
   /** Checkpoint ID if this message has an associated checkpoint. */
