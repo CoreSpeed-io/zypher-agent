@@ -1,6 +1,7 @@
 import {
   AgentProvider,
   type CompleteMessage,
+  type CustomContentBlock,
   type StreamingMessage,
   TaskApiClient,
   useAgentContext,
@@ -149,25 +150,27 @@ function MessageBlock({ message }: { message: CompleteMessage }) {
   );
 }
 
-function ContentBlockRenderer({ block }: { block: ContentBlock }) {
-  switch (block.type) {
+function ContentBlockRenderer(
+  { block }: { block: ContentBlock | CustomContentBlock },
+) {
+  // Cast to ContentBlock for type narrowing in switch - unknown types fall through to default
+  const b = block as ContentBlock;
+  switch (b.type) {
     case "text":
-      return block.text
-        ? <MessageResponse>{block.text}</MessageResponse>
-        : null;
+      return b.text ? <MessageResponse>{b.text}</MessageResponse> : null;
 
     case "tool_use":
       return (
         <Tool>
-          <ToolHeader title={block.name} state="input-available" />
+          <ToolHeader title={b.name} state="input-available" />
           <ToolContent>
-            <ToolInput input={block.input} />
+            <ToolInput input={b.input} />
           </ToolContent>
         </Tool>
       );
 
     case "tool_result": {
-      const outputText = block.content
+      const outputText = b.content
         .filter((c): c is Extract<typeof c, { type: "text" }> =>
           c.type === "text"
         )
@@ -176,14 +179,14 @@ function ContentBlockRenderer({ block }: { block: ContentBlock }) {
       return (
         <Tool>
           <ToolHeader
-            title={block.name}
-            state={block.success ? "output-available" : "output-error"}
+            title={b.name}
+            state={b.success ? "output-available" : "output-error"}
           />
           <ToolContent>
-            <ToolInput input={block.input} />
+            <ToolInput input={b.input} />
             <ToolOutput
-              output={block.success ? outputText : undefined}
-              errorText={!block.success ? outputText : undefined}
+              output={b.success ? outputText : undefined}
+              errorText={!b.success ? outputText : undefined}
             />
           </ToolContent>
         </Tool>
@@ -194,14 +197,14 @@ function ContentBlockRenderer({ block }: { block: ContentBlock }) {
       return (
         <Reasoning>
           <ReasoningTrigger />
-          <ReasoningContent>{block.thinking}</ReasoningContent>
+          <ReasoningContent>{b.thinking}</ReasoningContent>
         </Reasoning>
       );
 
     case "image": {
-      const src = block.source.type === "url"
-        ? block.source.url
-        : `data:${block.source.mediaType};base64,${block.source.data}`;
+      const src = b.source.type === "url"
+        ? b.source.url
+        : `data:${b.source.mediaType};base64,${b.source.data}`;
       return <img src={src} alt="" className="max-w-full rounded-md" />;
     }
 

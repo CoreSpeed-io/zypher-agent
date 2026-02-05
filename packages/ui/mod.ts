@@ -50,6 +50,7 @@ export {
 } from "./use_agent.ts";
 export type {
   CompleteMessage,
+  CustomContentBlock,
   EventState,
   StreamingMessage,
   StreamingTextMessage,
