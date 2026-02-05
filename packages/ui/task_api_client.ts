@@ -53,6 +53,9 @@ export interface StartTaskOptions {
 
 export class TaskApiClient {
   readonly #options: TaskApiClientOptions;
+  #taskWebSocketSubjectPromise:
+    | Promise<WebSocketSubject<TaskWebSocketMessage>>
+    | null = null;
 
   constructor(options: TaskApiClientOptions) {
     this.#options = options;
@@ -116,29 +119,50 @@ export class TaskApiClient {
   /**
    * Start a task and return a TaskConnection for event streaming and control.
    */
+  #getTaskWebSocketSubject(): Promise<
+    WebSocketSubject<TaskWebSocketMessage>
+  > {
+    if (this.#taskWebSocketSubjectPromise) {
+      return this.#taskWebSocketSubjectPromise;
+    }
+
+    this.#taskWebSocketSubjectPromise = this.#resolveProtocols().then(
+      (protocols) => {
+        const wsUrl = toWebSocketUrl(`${this.#options.baseUrl}/task/ws`);
+
+        return webSocket<TaskWebSocketMessage>({
+          url: wsUrl,
+          protocol: protocols,
+          openObserver: {
+            next: () => console.log("WebSocket connection opened"),
+          },
+          closeObserver: {
+            next: (event: CloseEvent) => {
+              console.log(
+                `WebSocket connection closed: ${event.code} ${
+                  event.reason ?? ""
+                }`,
+              );
+              this.#taskWebSocketSubjectPromise = null;
+            },
+          },
+          serializer: (msg) => JSON.stringify(msg),
+          deserializer: (msg) => JSON.parse(msg.data),
+        });
+      },
+    );
+
+    return this.#taskWebSocketSubjectPromise;
+  }
+
+  /**
+   * Start a task and return a TaskConnection for event streaming and control.
+   */
   async startTask(
     taskPrompt: string,
     options?: StartTaskOptions,
   ): Promise<TaskConnection> {
-    const protocols = await this.#resolveProtocols();
-    const wsUrl = toWebSocketUrl(`${this.#options.baseUrl}/task/ws`);
-
-    const subject = webSocket<TaskWebSocketMessage>({
-      url: wsUrl,
-      protocol: protocols,
-      openObserver: {
-        next: () => console.log("WebSocket connection opened"),
-      },
-      closeObserver: {
-        next: (event: CloseEvent) => {
-          console.log(
-            `WebSocket connection closed: ${event.code} ${event.reason ?? ""}`,
-          );
-        },
-      },
-      serializer: (msg) => JSON.stringify(msg),
-      deserializer: (msg) => JSON.parse(msg.data),
-    });
+    const subject = await this.#getTaskWebSocketSubject();
 
     return this.#createTaskConnection(subject, {
       action: "startTask",
@@ -151,25 +175,7 @@ export class TaskApiClient {
    * Resume a task and return a TaskConnection for event streaming and control.
    */
   async resumeTask(lastEventId?: string): Promise<TaskConnection> {
-    const protocols = await this.#resolveProtocols();
-    const wsUrl = toWebSocketUrl(`${this.#options.baseUrl}/task/ws`);
-
-    const subject = webSocket<TaskWebSocketMessage>({
-      url: wsUrl,
-      protocol: protocols,
-      openObserver: {
-        next: () => console.log("WebSocket connection opened for resume"),
-      },
-      closeObserver: {
-        next: (event: CloseEvent) => {
-          console.log(
-            `WebSocket connection closed: ${event.code} ${event.reason ?? ""}`,
-          );
-        },
-      },
-      serializer: (msg) => JSON.stringify(msg),
-      deserializer: (msg) => JSON.parse(msg.data),
-    });
+    const subject = await this.#getTaskWebSocketSubject();
 
     return this.#createTaskConnection(subject, {
       action: "resumeTask",
