@@ -43,9 +43,14 @@ export { AgentProvider, useAgentContext } from "./agent_context.tsx";
 export type { AgentProviderOptions } from "./agent_context.tsx";
 
 // Agent hook and types
-export { getFormattedToolName, useAgent } from "./use_agent.ts";
+export {
+  generateMessageId,
+  getFormattedToolName,
+  useAgent,
+} from "./use_agent.ts";
 export type {
   CompleteMessage,
+  EventState,
   StreamingMessage,
   StreamingTextMessage,
   StreamingToolUseMessage,
