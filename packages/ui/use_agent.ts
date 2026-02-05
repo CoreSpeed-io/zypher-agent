@@ -1,11 +1,12 @@
 import { hexoid } from "hexoid";
+import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { TaskApiClient, TaskConnection } from "./task_api_client.ts";
 import type { ContentBlock } from "@zypher/agent";
 import type { TaskWebSocketServerMessage } from "@zypher/http";
 import type { Observable } from "rxjs";
 import { eachValueFrom } from "rxjs-for-await";
-import useSWR from "swr";
+import useSWR, { type KeyedMutator } from "swr";
 
 /** A fully received message from either the user or the assistant. */
 export interface CompleteMessage {
@@ -51,8 +52,18 @@ export interface StreamingToolUseMessage {
 
 const generateId = hexoid();
 
-function generateMessageId(
-  prefix: "message" | "delta" | "optimistic" | "greeting",
+/**
+ * Generates a unique message ID with the given prefix.
+ *
+ * @param prefix - The prefix indicating the message origin:
+ *   - `"message"` - Complete messages received from the server
+ *   - `"delta"` - Streaming message chunks (text or tool use in progress)
+ *   - `"optimistic"` - User messages added before server confirmation
+ *   - `"greeting"` - Initial greeting message shown to users
+ * @returns A unique ID string in the format `{prefix}-{uniqueId}`
+ */
+export function generateMessageId(
+  prefix: "message" | "delta" | "optimistic" | "greeting" = "message",
 ): string {
   return `${prefix}-${generateId()}`;
 }
@@ -69,10 +80,27 @@ export function getFormattedToolName(toolName: string): string {
   return toolName;
 }
 
+/** State passed to the onEvent callback for custom event handling. */
+export interface EventState {
+  /** Mutate the messages array (SWR KeyedMutator). */
+  mutateMessages: KeyedMutator<CompleteMessage[]>;
+  /** Set streaming messages state. */
+  setStreamingMessages: Dispatch<SetStateAction<StreamingMessage[]>>;
+}
+
 /** Options for the {@link useAgent} hook. */
 export interface UseAgentOptions {
   /** The TaskApiClient instance to use for communication with the agent server. */
   client: TaskApiClient;
+  /**
+   * Custom event handler for WebSocket events.
+   * Return `true` to prevent default handling of the event.
+   * Useful for handling custom events like "error" or extending built-in events.
+   */
+  onEvent?: (
+    event: TaskWebSocketServerMessage,
+    state: EventState,
+  ) => boolean | void;
 }
 
 /** Return value of the {@link useAgent} hook. */
@@ -93,6 +121,8 @@ export interface UseAgentReturn {
   clearMessageHistory: () => void;
   /** Cancel the currently running task. */
   cancelCurrentTask: () => void;
+  /** Mutate the messages array directly (SWR KeyedMutator). */
+  mutateMessages: KeyedMutator<CompleteMessage[]>;
 }
 
 /**
@@ -114,7 +144,7 @@ export interface UseAgentReturn {
  * ```
  */
 export function useAgent(options: UseAgentOptions): UseAgentReturn {
-  const { client } = options;
+  const { client, onEvent } = options;
   // We use the bound mutate from useSWR for simpler access, but we can also use global mutate if needed.
   // actually, we need global mutate if we want to mutate other keys, but here we only mutate messageQueryKey.
 
@@ -182,6 +212,11 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     async (events$: Observable<TaskWebSocketServerMessage>) => {
       try {
         for await (const e of eachValueFrom(events$)) {
+          // Call custom event handler first
+          if (onEvent?.(e, { mutateMessages, setStreamingMessages })) {
+            continue; // Skip default handling if handler returned true
+          }
+
           switch (e.type) {
             case "text": {
               // ... same logic for streaming messages ...
@@ -326,7 +361,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
         setStreamingMessages([]);
       }
     },
-    [mutateMessages],
+    [mutateMessages, onEvent],
   );
 
   // Function to clear message history
@@ -449,5 +484,6 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     runTask,
     clearMessageHistory,
     cancelCurrentTask,
+    mutateMessages,
   };
 }
