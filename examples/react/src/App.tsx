@@ -1,6 +1,7 @@
 import {
   AgentProvider,
   type CompleteMessage,
+  type CustomContentBlock,
   type StreamingMessage,
   TaskApiClient,
   useAgentContext,
@@ -149,7 +150,19 @@ function MessageBlock({ message }: { message: CompleteMessage }) {
   );
 }
 
-function ContentBlockRenderer({ block }: { block: ContentBlock }) {
+/** Known ContentBlock types that we handle */
+const KNOWN_BLOCK_TYPES = ["text", "tool_use", "tool_result", "thinking", "image"] as const;
+
+function isContentBlock(block: ContentBlock | CustomContentBlock): block is ContentBlock {
+  return KNOWN_BLOCK_TYPES.includes(block.type as typeof KNOWN_BLOCK_TYPES[number]);
+}
+
+function ContentBlockRenderer({ block }: { block: ContentBlock | CustomContentBlock }) {
+  // Skip custom content blocks - this example only renders standard ContentBlock types
+  if (!isContentBlock(block)) {
+    return null;
+  }
+
   switch (block.type) {
     case "text":
       return block.text
