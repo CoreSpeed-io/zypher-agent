@@ -462,7 +462,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
         setIsTaskRunning(false);
       }
     },
-    [client, mutateMessages, handleTaskEvents],
+    [isTaskRunning, mutateMessages, client, handleTaskEvents],
   );
 
   // Resume a running task from agent (if exists)
