@@ -417,7 +417,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     async (input: string) => {
       if (!input.trim()) return;
 
-      if (agentSocketRef.current) {
+      if (isTaskRunning) {
         throw new Error(
           "A task is already running. This may be caused by useAgent's automatic task resume is enabled by default.",
         );
@@ -471,6 +471,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       // Already have a connection
       return;
     }
+    setIsTaskRunning(true);
     try {
       const taskConnection = await client.resumeTask();
       agentSocketRef.current = taskConnection;
