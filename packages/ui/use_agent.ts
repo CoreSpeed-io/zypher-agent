@@ -418,7 +418,9 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
       if (!input.trim()) return;
 
       if (agentSocketRef.current) {
-        throw new Error("A task is already running. This may be caused by useAgent's automatic task resume is enabled by default.");
+        throw new Error(
+          "A task is already running. This may be caused by useAgent's automatic task resume is enabled by default.",
+        );
       }
 
       // Create the user message object immediately after user input is sent
@@ -485,7 +487,10 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     // Note: checking messages.length > 0 might be better than just messages truthy?
     // But since we initialize with [] fallback, we check if we have data loaded.
     // If isLoadingMessages is false and we have data.
-    if (!isLoadingMessages && messages && !hasAttemptedResumeRef.current && autoResume) {
+    if (
+      !isLoadingMessages && messages && !hasAttemptedResumeRef.current &&
+      autoResume
+    ) {
       hasAttemptedResumeRef.current = true;
       resumeTask();
     }
