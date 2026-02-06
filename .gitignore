@@ -150,3 +150,6 @@ npm/
 
 # Vite
 .vite/
+
+# misc
+.DS_Store
