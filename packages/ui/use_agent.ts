@@ -129,6 +129,8 @@ export interface UseAgentReturn {
   isClearingMessages: boolean;
   /** Start a new task with the given input. */
   runTask: (input: string, model?: string) => void;
+  /** Resume a previously paused or interrupted task. */
+  resumeTask: () => void;
   /** Clear all message history. */
   clearMessageHistory: () => void;
   /** Cancel the currently running task. */
@@ -504,6 +506,7 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     isTaskRunning,
     isClearingMessages,
     runTask,
+    resumeTask,
     clearMessageHistory,
     cancelCurrentTask,
     mutateMessages,
