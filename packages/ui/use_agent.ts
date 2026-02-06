@@ -96,6 +96,12 @@ export interface EventState {
 
 /** Options for the {@link useAgent} hook. */
 export interface UseAgentOptions {
+  /**
+   * Should auto resume task on mount.
+   *
+   * @default true
+   */
+  autoResume?: boolean;
   /** The TaskApiClient instance to use for communication with the agent server. */
   client: TaskApiClient;
   /**
@@ -150,7 +156,7 @@ export interface UseAgentReturn {
  * ```
  */
 export function useAgent(options: UseAgentOptions): UseAgentReturn {
-  const { client, onEvent } = options;
+  const { client, onEvent, autoResume = true } = options;
   // We use the bound mutate from useSWR for simpler access, but we can also use global mutate if needed.
   // actually, we need global mutate if we want to mutate other keys, but here we only mutate messageQueryKey.
 
@@ -411,6 +417,10 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     async (input: string) => {
       if (!input.trim()) return;
 
+      if (agentSocketRef.current) {
+        throw new Error("A task is already running. This may be caused by useAgent's automatic task resume is enabled by default.");
+      }
+
       // Create the user message object immediately after user input is sent
       const optimisticUserMessage: CompleteMessage = {
         type: "complete",
@@ -475,11 +485,11 @@ export function useAgent(options: UseAgentOptions): UseAgentReturn {
     // Note: checking messages.length > 0 might be better than just messages truthy?
     // But since we initialize with [] fallback, we check if we have data loaded.
     // If isLoadingMessages is false and we have data.
-    if (!isLoadingMessages && messages && !hasAttemptedResumeRef.current) {
+    if (!isLoadingMessages && messages && !hasAttemptedResumeRef.current && autoResume) {
       hasAttemptedResumeRef.current = true;
       resumeTask();
     }
-  }, [messages, isLoadingMessages, resumeTask]);
+  }, [messages, isLoadingMessages, resumeTask, autoResume]);
 
   return {
     messages,
