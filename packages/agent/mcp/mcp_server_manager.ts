@@ -167,9 +167,10 @@ export class McpServerManager {
     readonly context: ZypherContext,
     options: McpServerManagerOptions = {},
   ) {
-    // Default to CoreSpeed MCP Store if none provided
+    // Default to CoreSpeed MCP Store if none provided.
+    // Pass empty apiKey since public endpoints don't require authentication.
     this.#registryClient = options.registryClient ??
-      new McpStoreClient();
+      new McpStoreClient({ apiKey: "" });
     this.#toolApprovalHandler = options.toolApprovalHandler;
   }
 
