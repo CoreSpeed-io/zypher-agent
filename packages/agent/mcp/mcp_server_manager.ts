@@ -170,7 +170,10 @@ export class McpServerManager {
     // Default to CoreSpeed MCP Store if none provided.
     // Pass empty apiKey since public endpoints don't require authentication.
     this.#registryClient = options.registryClient ??
-      new McpStoreClient({ apiKey: "" });
+      new McpStoreClient({
+        apiKey: "",
+        baseURL: Deno.env.get("MCP_STORE_BASE_URL"),
+      });
     this.#toolApprovalHandler = options.toolApprovalHandler;
   }
 
