@@ -5,7 +5,7 @@
     "jsr:@cliffy/flags@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/internal@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/table@1.0.0-rc.8": "1.0.0-rc.8",
-    "jsr:@corespeed/mcp-store-client@^1.16.0": "1.16.0",
+    "jsr:@corespeed/mcp-store-client@^1.18.0": "1.18.0",
     "jsr:@hono/hono@^4.11.5": "4.11.7",
     "jsr:@hono/hono@^4.11.7": "4.11.7",
     "jsr:@std/assert@^1.0.14": "1.0.17",
@@ -103,8 +103,8 @@
         "jsr:@std/fmt"
       ]
     },
-    "@corespeed/mcp-store-client@1.16.0": {
-      "integrity": "16ecdecb2f5a351e3871d67765f419bd35e06be061b2ed80b75a1f99645d7e54"
+    "@corespeed/mcp-store-client@1.18.0": {
+      "integrity": "8968ecdc6b94fbac1a06f43d962595ba4eea71945bab06f19359d955124bc218"
     },
     "@hono/hono@4.11.7": {
       "integrity": "2a0dc00088fbef98b76f575e3c4ab3d2c770d5e6095be215ae05c2aef25b363a"
@@ -7253,7 +7253,7 @@
       },
       "packages/agent": {
         "dependencies": [
-          "jsr:@corespeed/mcp-store-client@^1.16.0",
+          "jsr:@corespeed/mcp-store-client@^1.18.0",
           "jsr:@std/assert@^1.0.17",
           "jsr:@std/dotenv@~0.225.6",
           "jsr:@std/encoding@^1.0.10",
