@@ -3,7 +3,7 @@ import type { Tool, ToolResult } from "../tools/mod.ts";
 import type { McpServerEndpoint } from "./mod.ts";
 import type { ZypherContext } from "../zypher_agent.ts";
 import type { OAuthOptions } from "./connect.ts";
-import McpStoreSDK from "@corespeed/mcp-store-client";
+import McpStoreClient from "@corespeed/mcp-store-client";
 import { convertServerDetailToEndpoint } from "./utils.ts";
 import { type Observable, Subject, type Subscription } from "rxjs";
 import { isAbortError } from "@zypher/utils";
@@ -141,7 +141,7 @@ export interface McpServerManagerOptions {
    * Optional MCP Store registry client for discovering and registering servers.
    * Defaults to the CoreSpeed MCP Store.
    */
-  registryClient?: McpStoreSDK;
+  registryClient?: McpStoreClient;
 }
 
 /**
@@ -156,7 +156,7 @@ export class McpServerManager {
   // toolbox for directly registered tools (non-MCP tools)
   readonly #toolbox: Map<string, Tool> = new Map();
   // MCP Store client for discovering servers (defaults to CoreSpeed MCP Store)
-  readonly #registryClient: McpStoreSDK;
+  readonly #registryClient: McpStoreClient;
   // Event subject for observable event streaming
   readonly #eventsSubject = new Subject<McpServerManagerEvent>();
   readonly #toolApprovalHandler?: ToolApprovalHandler;
@@ -169,12 +169,7 @@ export class McpServerManager {
   ) {
     // Default to CoreSpeed MCP Store if none provided
     this.#registryClient = options.registryClient ??
-      new McpStoreSDK({
-        baseURL: Deno.env.get("MCP_STORE_BASE_URL") ??
-          "https://api1.mcp.corespeed.io",
-        // The api key is only for admin endpoints. It's not needed for the public endpoints.
-        apiKey: "",
-      });
+      new McpStoreClient();
     this.#toolApprovalHandler = options.toolApprovalHandler;
   }
 
@@ -292,7 +287,7 @@ export class McpServerManager {
   async listRegistryServers(options?: {
     cursor?: string;
     limit?: number;
-  }): Promise<McpStoreSDK.Server[]> {
+  }): Promise<McpStoreClient.Server[]> {
     const response = await this.#registryClient.servers.list({
       cursor: options?.cursor,
       limit: options?.limit ?? 20,
