@@ -39,8 +39,8 @@ export type {
 } from "./use_mcp_servers.ts";
 
 // Agent context provider and hook
-export { AgentProvider, useAgentContext } from "./agent_context.tsx";
-export type { AgentProviderOptions } from "./agent_context.tsx";
+export { AgentProvider, useAgentContext } from "./agent_context.ts";
+export type { AgentProviderOptions } from "./agent_context.ts";
 
 // Agent hook and types
 export {
