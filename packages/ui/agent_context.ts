@@ -1,4 +1,4 @@
-import { createContext, type JSX, type ReactNode, use } from "react";
+import { createContext, createElement, type ReactNode, use } from "react";
 import type { TaskApiClient } from "./task_api_client.ts";
 import { useAgent, type UseAgentReturn } from "./use_agent.ts";
 
@@ -14,10 +14,10 @@ export interface AgentProviderOptions {
 export function AgentProvider({
   children,
   client,
-}: AgentProviderOptions): JSX.Element {
+}: AgentProviderOptions): ReactNode {
   const agentState = useAgent({ client });
 
-  return <AgentContext value={agentState}>{children}</AgentContext>;
+  return createElement(AgentContext, { value: agentState }, children);
 }
 
 /** Hook to access agent state from within an AgentProvider. */

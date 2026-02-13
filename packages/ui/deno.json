@@ -24,9 +24,5 @@
     "rules": {
       "tags": ["react"]
     }
-  },
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "react"
   }
 }
