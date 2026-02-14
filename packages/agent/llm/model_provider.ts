@@ -5,7 +5,6 @@ import type {
   TaskTextEvent,
   TaskToolUseEvent,
   TaskToolUseInputEvent,
-  TokenUsage,
 } from "@zypher/types";
 import type { Tool } from "../tools/mod.ts";
 import type { FileAttachmentCacheMap } from "../storage/mod.ts";
