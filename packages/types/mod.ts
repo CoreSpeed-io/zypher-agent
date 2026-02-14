@@ -3,11 +3,12 @@
  *
  * This package is the single source of truth for types shared across
  * `@zypher/agent`, `@zypher/http`, and `@zypher/ui`. It contains no
- * runtime code and no Deno-specific APIs, so it can be consumed by
- * dnt without pulling in heavy transitive dependencies.
+ * runtime code and no Deno-specific APIs.
  *
  * @module
  */
+
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 // =============================================================================
 // Message content blocks
@@ -279,13 +280,18 @@ export interface TaskToolUseApprovedEvent {
   toolName: string;
 }
 
+/**
+ * The result of a tool execution.
+ */
+export type ToolResult = CallToolResult | string;
+
 /** Event emitted when a tool execution completes successfully */
 export interface TaskToolUseResultEvent {
   type: "tool_use_result";
   toolUseId: string;
   toolName: string;
   input: unknown;
-  result: unknown;
+  result: ToolResult;
 }
 
 /** Event emitted when a tool execution fails with an error */
