@@ -7311,6 +7311,11 @@
           "jsr:@std/path@^1.1.4"
         ]
       },
+      "packages/types": {
+        "dependencies": [
+          "npm:@modelcontextprotocol/sdk@^1.25.3"
+        ]
+      },
       "packages/ui": {
         "dependencies": [
           "npm:@eslint-react/eslint-plugin@^2.8.0",
